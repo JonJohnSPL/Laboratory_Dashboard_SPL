@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Import SureChem Data</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0d0f14; --surface:#13161e; --surface2:#1a1e28; --border:#2a2f3f;
+  --accent:#00d4ff; --ok:#06d6a0; --danger:#ff3860; --muted:#64748b; --text:#e2e8f0;
+  --mono:'Share Tech Mono',monospace; --sans:'Barlow Condensed',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;padding:24px;}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border);}
+h1{font-size:28px;letter-spacing:3px;text-transform:uppercase;color:var(--accent);}
+.sub{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px;letter-spacing:1px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.btn{background:transparent;color:var(--muted);border:1px solid var(--border);padding:8px 16px;font-family:var(--sans);
+  font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;border-radius:4px;cursor:pointer;transition:all .2s;}
+.btn:hover{border-color:var(--accent);color:var(--accent);}
+.btn.primary{background:var(--accent);color:#000;border:none;font-weight:700;}
+.btn.ok{border-color:rgba(6,214,160,.3);color:var(--ok);}
+.meta{font-family:var(--mono);font-size:12px;color:var(--muted);}
+.status{margin-top:14px;font-family:var(--mono);font-size:12px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;}
+.status.ok{color:var(--ok);border-color:rgba(6,214,160,.35);background:rgba(6,214,160,.08);}
+.status.err{color:var(--danger);border-color:rgba(255,56,96,.35);background:rgba(255,56,96,.08);}
+.summary{margin-top:14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;}
+.summary h2{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+.summary pre{font-family:var(--mono);font-size:11px;color:var(--text);white-space:pre-wrap;}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Import SureChem Data</h1>
+    <div class="sub">Upload CSV from SureChem and either replace or append dashboard WIP data</div>
+  </div>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+    <div data-session-slot></div>
+    <button class="btn" onclick="window.location.href='lab-dashboard.html'">Back To Dashboard</button>
+  </div>
+</header>
+
+<div class="card">
+  <div class="row">
+    <input id="csv-file" type="file" accept=".csv,text/csv" style="display:none" onchange="onCSVSelected(event)">
+    <button class="btn primary" onclick="startImport('replace')">Import &amp; Replace</button>
+    <button class="btn ok" onclick="startImport('append')">Add Data (No Wipe)</button>
+    <span id="file-name" class="meta">No file selected</span>
+  </div>
+  <div id="status" class="status" style="display:none"></div>
+  <div id="summary" class="summary" style="display:none">
+    <h2>Import Summary</h2>
+    <pre id="summary-text"></pre>
+    <div class="row" style="margin-top:10px;">
+      <button class="btn ok" onclick="window.location.href='lab-dashboard.html'">Open Dashboard</button>
+    </div>
+  </div>
+</div>
+
+<script src="app-config.js"></script>
+<script src="cloud-auth.js"></script>
+<script>
+const STORAGE_KEY = 'lab-wip-workorders';
+const PRI = {CRITICAL:0,HIGH:1,MEDIUM:2,LOW:3,NONE:4};
+const storageAdapter = (
+  window.storage &&
+  typeof window.storage.get === 'function' &&
+  typeof window.storage.set === 'function'
+) ? window.storage : {
+  get: async (key) => ({ value: localStorage.getItem(key) }),
+  set: async (key, value) => { localStorage.setItem(key, value); }
+};
+
+const uid = () => 'w'+Date.now()+Math.random().toString(36).slice(2,5);
+const parseDate = s => { if(!s) return null; const d = new Date(s); d.setHours(0,0,0,0); return isNaN(d) ? null : d; };
+const toInputDate = s => { const d=parseDate(s); if(!d) return null; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+let importMode = 'replace';
+const woKey = n => (n || '').toString().trim().toUpperCase();
+
+function showStatus(msg, ok){
+  const el = document.getElementById('status');
+  el.style.display = 'block';
+  el.className = `status ${ok ? 'ok' : 'err'}`;
+  el.textContent = msg;
+}
+
+function csvSplitLine(line){
+  const out=[]; let cur=''; let q=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(ch==='"'){
+      if(q && line[i+1]==='"'){cur+='"';i++;}
+      else q=!q;
+    } else if(ch===',' && !q){
+      out.push(cur); cur='';
+    } else cur+=ch;
+  }
+  out.push(cur);
+  return out.map(v=>v.trim());
+}
+
+function parseCSV(text){
+  const lines=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').filter(l=>l.trim());
+  if(!lines.length) return {headers:[],rows:[]};
+  const headers=csvSplitLine(lines[0]);
+  const rows=lines.slice(1).map(line=>{
+    const vals=csvSplitLine(line);
+    const obj={};
+    headers.forEach((h,idx)=>{
+      if(obj[h]===undefined) obj[h]=vals[idx]??'';
+      else obj[`${h}__${idx}`]=vals[idx]??'';
+    });
+    return obj;
+  });
+  return {headers,rows};
+}
+
+function mapPriority(raw){
+  const p=(raw??'').toString().trim();
+  if(p==='1') return 'CRITICAL';
+  if(p==='2') return 'HIGH';
+  if(p==='3') return 'MEDIUM';
+  if(p==='4') return 'LOW';
+  return 'NONE';
+}
+
+function mapTestCode(code){
+  const c=(code||'').toUpperCase();
+  if(c.includes('C6GAS') || c.includes('C6-GAS')) return 'gas';
+  if(c.includes('C6LIQ') || c.includes('C6-LIQ')) return 'liq';
+  return 'gc';
+}
+
+function parseBool(v){
+  const s=(v||'').toString().trim().toLowerCase();
+  return s==='true' || s==='1' || s==='yes' || s==='y';
+}
+
+function buildWOsFromSureChemCSV(text){
+  const parsed = parseCSV(text);
+  if(!parsed.rows.length) throw new Error('CSV file appears empty.');
+  const required = ['Work Order','Test Code','Sample'];
+  const missing = required.filter(h=>!parsed.headers.includes(h));
+  if(missing.length) throw new Error(`Missing required CSV columns: ${missing.join(', ')}`);
+
+  const woMap = new Map();
+  const sampleMapByWO = new Map();
+
+  for(const row of parsed.rows){
+    const woNum = (row['Work Order'] || '').trim();
+    if(!woNum) continue;
+    const testCode = (row['Test Code'] || '').trim();
+    const sampleId = (row['Sample'] || '').trim();
+    const dueDate = toInputDate(row['Due Date']);
+    const clientCode = (row['Client Code'] || '').trim();
+    const pri = mapPriority(row['Priority']);
+
+    if(!woMap.has(woNum)){
+      woMap.set(woNum,{
+        id:uid(),
+        location:'Pittsburgh',
+        number:woNum,
+        client:clientCode,
+        gas:0,liq:0,gc:0,
+        dueDate,
+        priority:pri,
+        complete:true,
+        notes:'',
+        samples:[],
+        testRows:[]
+      });
+      sampleMapByWO.set(woNum,new Map());
+    }
+
+    const wo = woMap.get(woNum);
+    if(!wo.client && clientCode) wo.client = clientCode;
+    if(!wo.dueDate && dueDate) wo.dueDate = dueDate;
+    if((PRI[pri] ?? 99) < (PRI[wo.priority] ?? 99)) wo.priority = pri;
+
+    const bucket = mapTestCode(testCode);
+    wo[bucket] += 1;
+    wo.complete = wo.complete && parseBool(row['Column 1']);
+    wo.testRows.push({
+      id:uid(),
+      type:bucket,
+      testCode:testCode || '',
+      sampleId:sampleId || '',
+      cylinderNumber:(row['Cylinder #'] || '').trim(),
+      matrix:(row['Matrix'] || '').trim(),
+      containerType:(row['Container Type'] || '').trim(),
+      received:(row['Received'] || '').trim(),
+      logDate:(row['Log Date'] || '').trim(),
+      dueDate:(row['Due Date'] || '').trim(),
+    });
+
+    if(sampleId){
+      const sampleMap = sampleMapByWO.get(woNum);
+      if(!sampleMap.has(sampleId)){
+        sampleMap.set(sampleId,{
+          sampleId,
+          testCodes:[],
+          matrix:(row['Matrix'] || '').trim(),
+          containerType:(row['Container Type'] || '').trim(),
+          cylinderNumber:(row['Cylinder #'] || '').trim(),
+          received:(row['Received'] || '').trim(),
+          logDate:(row['Log Date'] || '').trim(),
+          dueDate:(row['Due Date'] || '').trim(),
+        });
+      }
+      const s = sampleMap.get(sampleId);
+      if(testCode && !s.testCodes.includes(testCode)) s.testCodes.push(testCode);
+    }
+  }
+
+  const imported = [];
+  for(const [woNum, wo] of woMap.entries()){
+    const sm = sampleMapByWO.get(woNum);
+    wo.samples = [...sm.values()].sort((a,b)=>a.sampleId.localeCompare(b.sampleId));
+    imported.push(wo);
+  }
+  return imported;
+}
+
+function appendWithoutDuplicates(existingWOs, importedWOs){
+  const seen = new Set(existingWOs.map(w => woKey(w && w.number)).filter(Boolean));
+  const added = [];
+  let skippedCount = 0;
+  for(const wo of importedWOs){
+    const key = woKey(wo && wo.number);
+    if(!key || seen.has(key)){
+      skippedCount += 1;
+      continue;
+    }
+    seen.add(key);
+    added.push(wo);
+  }
+  return {
+    finalWOs: [...existingWOs, ...added],
+    addedCount: added.length,
+    skippedCount
+  };
+}
+
+async function onCSVSelected(event){
+  await (window.authReadyPromise || Promise.resolve());
+  const file = event.target.files && event.target.files[0];
+  if(!file) return;
+  document.getElementById('file-name').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try {
+      const importedWOs = buildWOsFromSureChemCSV(String(reader.result || ''));
+      if(!importedWOs.length) throw new Error('No valid work orders found in CSV.');
+
+      const existingRaw = await storageAdapter.get(STORAGE_KEY);
+      let existingWOs = [];
+      if(existingRaw && typeof existingRaw.value === 'string' && existingRaw.value.trim()){
+        try {
+          const parsed = JSON.parse(existingRaw.value);
+          existingWOs = Array.isArray(parsed) ? parsed : [];
+        }
+        catch { existingWOs = []; }
+      }
+
+      let finalWOs = importedWOs;
+      let modeLabel = 'Imported';
+      let addedCount = importedWOs.length;
+      let skippedCount = 0;
+      if(importMode === 'append'){
+        const appendResult = appendWithoutDuplicates(existingWOs, importedWOs);
+        finalWOs = appendResult.finalWOs;
+        addedCount = appendResult.addedCount;
+        skippedCount = appendResult.skippedCount;
+        modeLabel = 'Added';
+      }
+
+      await storageAdapter.set(STORAGE_KEY, JSON.stringify(finalWOs));
+      const statusTail = importMode === 'append'
+        ? ` Added: ${addedCount}. Skipped duplicates: ${skippedCount}.`
+        : '';
+      showStatus(`${modeLabel} ${importedWOs.length} work orders from ${file.name}. Total in dashboard: ${finalWOs.length}.${statusTail}`, true);
+      const sampleCount = importedWOs.reduce((n,w)=>n + (Array.isArray(w.samples) ? w.samples.length : 0), 0);
+      const testCount = importedWOs.reduce((n,w)=>n + (w.gas||0) + (w.liq||0) + (w.gc||0), 0);
+      document.getElementById('summary').style.display = 'block';
+      document.getElementById('summary-text').textContent =
+`Mode: ${importMode === 'append' ? 'Add Data (No Wipe)' : 'Import & Replace (Wipes Existing)'}
+Imported Work Orders: ${importedWOs.length}
+Added Work Orders: ${addedCount}
+Skipped Duplicates: ${skippedCount}
+Dashboard Total Work Orders: ${finalWOs.length}
+Samples: ${sampleCount}
+Test Rows: ${testCount}
+
+Top Imported WOs:
+${importedWOs.slice(0,10).map(w=>`${w.number} | ${w.client || 'Unassigned'} | gas:${w.gas} liq:${w.liq} gc:${w.gc}`).join('\n')}`;
+    } catch (e) {
+      showStatus(e.message || 'Import failed.', false);
+      document.getElementById('summary').style.display = 'none';
+    } finally {
+      importMode = 'replace';
+      event.target.value = '';
+    }
+  };
+  reader.onerror = () => showStatus('Failed to read CSV file.', false);
+  reader.readAsText(file);
+}
+
+function startImport(mode){
+  importMode = mode === 'append' ? 'append' : 'replace';
+  if(importMode === 'replace'){
+    const ok = window.confirm('This will wipe existing data! Proceed?');
+    if(!ok) return;
+  }
+  if(window.appAuth && window.appAuth.getMode && window.appAuth.getMode() === 'remote' && !window.appAuth.getUser()){
+    showStatus('Sign in before importing shared data.', false);
+    return;
+  }
+  document.getElementById('csv-file').click();
+}
+</script>
+</body>
+</html>
