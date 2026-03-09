@@ -1,0 +1,646 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab WIP Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lab-dashboard.css">
+</head>
+<body>
+<header>
+<div class="header-left">
+<h1> Lab WIP Dashboard</h1>
+<p>WORK IN PROGRESS OPEN WORK ORDERS REAL-TIME STATUS</p>
+</div>
+<div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+<div class="live-clock">
+<span>CURRENT TIME</span>
+<div id="clock">--:--:--</div>
+<div id="datedisp" style="font-size:12px;color:var(--muted);margin-top:2px;">
+</div>
+</div>
+<div data-session-slot></div>
+<button class="sec-btn" onclick="window.location.href='import.html'">Import Data</button>
+<div id="save-indicator" class="save-indicator" style="visibility:hidden"> SAVED</div>
+</div>
+</header>
+<div class="view-tabs">
+<button id="view-queue-btn" class="view-btn active" onclick="switchView('queue')">Queue</button>
+<button id="view-pending-btn" class="view-btn" onclick="switchView('pending')">Results Pending</button>
+<button id="view-schedule-btn" class="view-btn" onclick="switchView('schedule')">Daily Scheduling</button>
+</div>
+<div id="queue-screen" class="screen active">
+<!-- STATS -->
+<div class="stats-bar">
+<div class="stat-card">
+<div class="stat-label">Open WOs</div>
+<div class="stat-value" id="s-wo">
+</div>
+</div>
+<div class="stat-card warn">
+<div class="stat-label">Pending Tests</div>
+<div class="stat-value warn" id="s-tests">
+</div>
+</div>
+<div class="stat-card danger">
+<div class="stat-label">Overdue</div>
+<div class="stat-value danger" id="s-overdue">
+</div>
+</div>
+<div class="stat-card ok">
+<div class="stat-label">Est. Lab Time</div>
+<div class="stat-value ok" id="s-time">
+</div>
+</div>
+<div class="stat-card priority">
+<div class="stat-label">High Priority</div>
+<div class="stat-value priority" id="s-pri">
+</div>
+</div>
+</div>
+<!-- TOOLBAR -->
+<div class="toolbar">
+<span class="tb-label">Group</span>
+<select id="grp-by" onchange="render()">
+<option value="client">By Client</option>
+<option value="priority">By Priority</option>
+<option value="matrix">By Matrix</option>
+<option value="none">No Grouping</option>
+</select>
+<div class="tb-sep">
+</div>
+<span class="tb-label">Sort</span>
+<select id="sort-field" onchange="render()">
+<option value="priority">Priority</option>
+<option value="dueDate">Due Date</option>
+<option value="number">WO Number</option>
+<option value="client">Client</option>
+<option value="AS-BFV_DENSITY">AS-BFV_DENSITY</option>
+<option value="AS-BFV_MW">AS-BFV_MW</option>
+<option value="C6GAS">C6GAS</option>
+<option value="GC-BFVC6MZ">GC-BFVC6MZ</option>
+<option value="GC-BFVC7MZ">GC-BFVC7MZ</option>
+<option value="GC-BFVC10MZ">GC-BFVC10MZ</option>
+<option value="GC-2103-C10MZ">GC-2103-C10MZ</option>
+<option value="C6LIQ">C6LIQ</option>
+<option value="C10LIQ">C10LIQ</option>
+<option value="estTime">Est. Time</option>
+<option value="status">Status</option>
+</select>
+<select id="sort-dir" onchange="render()">
+<option value="asc">Asc </option>
+<option value="desc">Desc </option>
+</select>
+<div class="tb-sep">
+</div>
+<label class="show-done">
+<input type="checkbox" id="show-done" onchange="render()"> Show Completed </label>
+<div class="tb-sep">
+</div>
+<input type="text" id="search" placeholder="Search WO / client..." oninput="render()" style="width:170px">
+<button class="sort-priority-btn" onclick="sortByPriority()">Priority First</button>
+<div class="column-wrap">
+<button class="column-btn" onclick="toggleColumnSelector()">Columns</button>
+<div id="column-panel" class="column-panel">
+<div class="tb-label" style="margin-bottom:8px;display:block;">Hide / Show Columns</div>
+<div id="column-grid" class="column-grid">
+</div>
+<div class="column-actions">
+<button type="button" class="act-btn" style="padding:3px 8px;" onclick="showAllColumns()">Show All</button>
+</div>
+</div>
+</div>
+<div style="margin-left:auto">
+<button class="add-wo-btn" onclick="openModal(null)">+ Add Work Order</button>
+</div>
+</div>
+<!-- TABLE -->
+<div class="table-container">
+<div class="table-header">
+<h2>Work Order Queue</h2>
+<div class="refresh-time" id="last-update">No data loaded</div>
+</div>
+<table id="wo-table">
+<thead>
+<tr>
+<th class="sortable col-number" onclick="clickSort('number')">Work Order</th>
+<th class="sortable col-priority" onclick="clickSort('priority')">Priority</th>
+<th class="sortable col-client" onclick="clickSort('client')">Client</th>
+<th class="num sortable col-AS-BFV_DENSITY" onclick="clickSort('AS-BFV_DENSITY')">AS-BFV_DENSITY<br>
+<span style="font-size:9px;font-weight:400;color:#4a5568">15 min</span>
+</th>
+<th class="num sortable col-AS-BFV_MW" onclick="clickSort('AS-BFV_MW')">AS-BFV_MW<br>
+<span style="font-size:9px;font-weight:400;color:#4a5568">15 min</span>
+</th>
+<th class="num sortable col-C6GAS" onclick="clickSort('C6GAS')">C6GAS<br>
+<span style="font-size:9px;font-weight:400;color:#4a5568">15 min</span>
+</th>
+<th class="num sortable col-GC-BFVC6MZ" onclick="clickSort('GC-BFVC6MZ')">GC-BFVC6MZ<br>
+<span style="font-size:9px;font-weight:400;color:#4a5568">40 min grouped</span>
+</th>
+<th class="num sortable col-GC-BFVC7MZ" onclick="clickSort('GC-BFVC7MZ')">GC-BFVC7MZ<br>
+<span style="font-size:9px;font-weight:400;color:#4a5568">40 min grouped</span>
+</th>
+<th class="num sortable col-GC-BFVC10MZ" onclick="clickSort('GC-BFVC10MZ')">GC-BFVC10MZ<br>
+<span style="font-size:9px;font-weight:400;color:#4a5568">40 min grouped</span>
+</th>
+<th class="num sortable col-GC-2103-C10MZ" onclick="clickSort('GC-2103-C10MZ')">GC-2103-C10MZ<br>
+<span style="font-size:9px;font-weight:400;color:#4a5568">90 min</span>
+</th>
+<th class="num sortable col-C6LIQ" onclick="clickSort('C6LIQ')">C6LIQ<br>
+<span style="font-size:9px;font-weight:400;color:#4a5568">40 min</span>
+</th>
+<th class="num sortable col-C10LIQ" onclick="clickSort('C10LIQ')">C10LIQ<br>
+<span style="font-size:9px;font-weight:400;color:#4a5568">40 min</span>
+</th>
+<th class="sortable col-estTime" onclick="clickSort('estTime')">Est. Time</th>
+<th class="sortable col-dueDate" onclick="clickSort('dueDate')">Due Date</th>
+<th class="sortable col-status" onclick="clickSort('status')">Status</th>
+</tr>
+</thead>
+<tbody id="wo-tbody">
+<tr>
+<td colspan="15">
+<div class="empty-state">
+<div class="big">
+</div>No work orders loaded. Click <strong>Import Data</strong> at the top right.</div>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="legend">
+<div class="li">
+<div class="ld" style="background:var(--pri-crit)">
+</div>Critical</div>
+<div class="li">
+<div class="ld" style="background:var(--pri-high)">
+</div>High</div>
+<div class="li">
+<div class="ld" style="background:var(--pri-med)">
+</div>Medium</div>
+<div class="tb-sep" style="margin:0 4px">
+</div>
+<div class="li">
+<div class="ld" style="background:var(--accent)">
+</div>AS-BFV_DENSITY (15m)</div>
+<div class="li">
+<div class="ld" style="background:var(--accent2)">
+</div>AS-BFV_MW (15m)</div>
+<div class="li">
+<div class="ld" style="background:#7dd3fc">
+</div>C6GAS (15m)</div>
+<div class="li">
+<div class="ld" style="background:var(--warn)">
+</div>GC BFVC6/7/10 grouped by highest C# (40m)</div>
+<div class="li">
+<div class="ld" style="background:#f59e0b">
+</div>GC-2103-C10MZ (90m)</div>
+<div class="li">
+<div class="ld" style="background:#9be564">
+</div>C6LIQ / C10LIQ (40m)</div>
+<div style="margin-left:auto;display:flex;gap:14px">
+<div class="li">
+<div class="ld" style="background:var(--ok)">
+</div>On Time</div>
+<div class="li">
+<div class="ld" style="background:var(--warn)">
+</div>Due Today</div>
+<div class="li">
+<div class="ld" style="background:var(--danger)">
+</div>Overdue</div>
+</div>
+</div>
+</div>
+</div>
+<div id="pending-screen" class="screen">
+<div class="stats-bar">
+<div class="stat-card warn">
+<div class="stat-label">Results Pending</div>
+<div class="stat-value warn" id="p-wo">
+</div>
+</div>
+<div class="stat-card">
+<div class="stat-label">Pending Tests</div>
+<div class="stat-value" id="p-tests">
+</div>
+</div>
+<div class="stat-card ok">
+<div class="stat-label">Est. Report Time</div>
+<div class="stat-value ok" id="p-time">
+</div>
+</div>
+<div class="stat-card danger">
+<div class="stat-label">Overdue</div>
+<div class="stat-value danger" id="p-overdue">
+</div>
+</div>
+<div class="stat-card priority">
+<div class="stat-label">High Priority</div>
+<div class="stat-value priority" id="p-pri">
+</div>
+</div>
+</div>
+<div class="table-container">
+<div class="table-header">
+<h2>Results Pending - Waiting to Report</h2>
+<div class="refresh-time" id="pending-last-update">No data loaded</div>
+</div>
+<table id="pending-wo-table">
+<thead>
+<tr>
+<th class="sortable col-number" onclick="clickSort('number')">Work Order</th>
+<th class="sortable col-priority" onclick="clickSort('priority')">Priority</th>
+<th class="sortable col-client" onclick="clickSort('client')">Client</th>
+<th class="num sortable col-AS-BFV_DENSITY" onclick="clickSort('AS-BFV_DENSITY')">AS-BFV_DENSITY<br>
+<span style="font-size:9px;font-weight:400;color:#4a5568">15 min</span>
+</th>
+<th class="num sortable col-AS-BFV_MW" onclick="clickSort('AS-BFV_MW')">AS-BFV_MW<br>
+<span style="font-size:9px;font-weight:400;color:#4a5568">15 min</span>
+</th>
+<th class="num sortable col-C6GAS" onclick="clickSort('C6GAS')">C6GAS<br>
+<span style="font-size:9px;font-weight:400;color:#4a5568">15 min</span>
+</th>
+<th class="num sortable col-GC-BFVC6MZ" onclick="clickSort('GC-BFVC6MZ')">GC-BFVC6MZ<br>
+<span style="font-size:9px;font-weight:400;color:#4a5568">40 min grouped</span>
+</th>
+<th class="num sortable col-GC-BFVC7MZ" onclick="clickSort('GC-BFVC7MZ')">GC-BFVC7MZ<br>
+<span style="font-size:9px;font-weight:400;color:#4a5568">40 min grouped</span>
+</th>
+<th class="num sortable col-GC-BFVC10MZ" onclick="clickSort('GC-BFVC10MZ')">GC-BFVC10MZ<br>
+<span style="font-size:9px;font-weight:400;color:#4a5568">40 min grouped</span>
+</th>
+<th class="num sortable col-GC-2103-C10MZ" onclick="clickSort('GC-2103-C10MZ')">GC-2103-C10MZ<br>
+<span style="font-size:9px;font-weight:400;color:#4a5568">90 min</span>
+</th>
+<th class="num sortable col-C6LIQ" onclick="clickSort('C6LIQ')">C6LIQ<br>
+<span style="font-size:9px;font-weight:400;color:#4a5568">40 min</span>
+</th>
+<th class="num sortable col-C10LIQ" onclick="clickSort('C10LIQ')">C10LIQ<br>
+<span style="font-size:9px;font-weight:400;color:#4a5568">40 min</span>
+</th>
+<th class="sortable col-estTime" onclick="clickSort('estTime')">Est. Time</th>
+<th class="sortable col-dueDate" onclick="clickSort('dueDate')">Due Date</th>
+<th class="sortable col-status" onclick="clickSort('status')">Status</th>
+</tr>
+</thead>
+<tbody id="pending-wo-tbody">
+<tr>
+<td colspan="15">
+<div class="empty-state">
+<div class="big">
+</div>No work orders are waiting to report.</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div id="schedule-screen" class="screen">
+<div class="schedule-toolbar">
+<div class="schedule-row">
+<label class="schedule-date">Schedule Date <input id="sched-date" type="date" onchange="changeScheduleDate(this.value)">
+</label>
+<button class="sec-btn" onclick="autofillScheduleFromQueue()">Auto Build from Queue</button>
+<button class="sec-btn" onclick="clearSchedule()">Clear Day</button>
+<div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;">
+<button class="sec-btn" onclick="exportRunOrderCsv()">Export CSV</button>
+<select id="print-report-target" class="form-input schedule-print-select" title="Choose report scope">
+<option value="__master__">Master Report</option>
+</select>
+<button class="sec-btn" onclick="printRunOrder()">Print Report</button>
+</div>
+</div>
+<div class="schedule-row">
+<input type="text" id="employee-input" class="form-input" placeholder="Add employee..." style="width:220px">
+<button class="add-wo-btn" onclick="addEmployee()">+ Add Employee</button>
+<span class="split-hint">Assign one or more employees per WO. Time split is even.</span>
+</div>
+<div id="employee-list" class="employee-list">
+</div>
+</div>
+<div class="schedule-stats">
+<div class="stat-card">
+<div class="stat-label">Scheduled WOs</div>
+<div class="stat-value" id="sch-wo">0</div>
+</div>
+<div class="stat-card warn">
+<div class="stat-label">Unscheduled WOs</div>
+<div class="stat-value warn" id="sch-unscheduled">0</div>
+</div>
+<div class="stat-card ok">
+<div class="stat-label">Scheduled Time</div>
+<div class="stat-value ok" id="sch-time">0m</div>
+</div>
+<div class="stat-card priority">
+<div class="stat-label">Employees</div>
+<div class="stat-value priority" id="sch-employees">0</div>
+</div>
+</div>
+<div class="schedule-panel" style="margin-bottom:12px;">
+<div class="table-header">
+<h2>Test Summary</h2>
+<div class="refresh-time">Scheduled vs remaining</div>
+</div>
+<div id="schedule-test-summary" class="test-summary">
+</div>
+</div>
+<div class="schedule-grid">
+<div class="schedule-panel">
+<div class="table-header">
+<h2>Available Work Orders</h2>
+<div class="refresh-time">Open and not yet scheduled</div>
+</div>
+<div id="unscheduled-list" class="schedule-list">
+</div>
+</div>
+<div class="schedule-panel">
+<div class="table-header">
+<h2>Run Order</h2>
+<div class="refresh-time">Drag rows to reorder</div>
+</div>
+<div id="scheduled-list" class="schedule-list">
+</div>
+</div>
+</div>
+<div class="schedule-panel" style="margin-top:12px;">
+<div class="table-header">
+<h2>Employee Workload</h2>
+<div class="refresh-time" id="employee-plan-summary">
+</div>
+</div>
+<div id="employee-plan" class="employee-plan">
+</div>
+</div>
+<div class="schedule-panel" style="margin-top:12px;">
+<div class="table-header">
+<h2>Additional Tasks</h2>
+<div class="refresh-time">Basic employee task assignments</div>
+</div>
+<div class="task-toolbar">
+<select id="task-employee-select" class="form-input schedule-print-select">
+<option value="">Select employee...</option>
+</select>
+<input type="text" id="task-name-input" class="form-input" placeholder="Task name">
+<input type="number" id="task-time-input" class="form-input task-time-input" min="0" step="5" placeholder="Minutes (optional)">
+<button class="add-wo-btn" onclick="addEmployeeTask()">+ Add Task</button>
+</div>
+<div id="task-list" class="task-list"></div>
+</div>
+</div>
+<!-- SAMPLE MODAL -->
+<div class="modal-overlay" id="samples-overlay">
+<div class="modal" style="width:900px;max-width:96vw;">
+<div class="modal-header">
+<h3 id="samples-title">Sample Details</h3>
+<button class="modal-close" onclick="closeSamplesModal()">X</button>
+</div>
+<div class="modal-body">
+<div id="samples-summary" class="form-label" style="font-size:11px;">
+</div>
+<div class="sample-table-wrap">
+<table class="sample-table">
+<thead>
+<tr>
+<th>Sample</th>
+<th>Tests</th>
+<th>Matrix</th>
+<th>Container</th>
+<th>Cylinder #</th>
+<th>Received</th>
+<th>Log Date</th>
+<th>Due Date</th>
+</tr>
+</thead>
+<tbody id="samples-tbody">
+</tbody>
+</table>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn-cancel" onclick="closeSamplesModal()">Close</button>
+</div>
+</div>
+</div>
+<!-- ACTIONS MODAL -->
+<div class="modal-overlay" id="actions-overlay">
+<div class="modal" style="width:420px;max-width:95vw;">
+<div class="modal-header">
+<h3 id="actions-title">Work Order Actions</h3>
+<button class="modal-close" onclick="closeActionsModal()">X</button>
+</div>
+<div class="modal-body">
+<div id="actions-summary" class="form-label" style="font-size:11px;">
+</div>
+<div class="action-btns" style="margin-top:12px;flex-wrap:wrap;">
+<button class="act-btn done-btn" id="actions-done-btn" onclick="toggleDoneFromActions()">Done</button>
+<button class="act-btn" onclick="openSamplesFromActions()">Samples</button>
+<button class="act-btn" id="actions-pdf-btn" onclick="openPdfFromActions()">Open PDF</button>
+<button class="act-btn" onclick="openEditFromActions()">Edit</button>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn-cancel" onclick="closeActionsModal()">Close</button>
+</div>
+</div>
+</div>
+<footer>TIME ESTIMATES: AS-BFV_DENSITY = 15 min AS-BFV_MW = 15 min C6GAS = 15 min GC-BFVC6/7/10 = 40 min grouped by highest C# per sample GC-2103-C10MZ = 90 min C6LIQ = 40 min C10LIQ = 40 min</footer>
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+<div class="modal">
+<div class="modal-header">
+<h3 id="modal-title">Edit Work Order</h3>
+<button class="modal-close" onclick="closeModal()">X</button>
+</div>
+<div class="modal-body">
+<div class="form-grid">
+<div class="form-group">
+<label class="form-label">Work Order #</label>
+<input class="form-input" id="f-num" type="text" placeholder="e.g. 26021234">
+</div>
+<div class="form-group">
+<label class="form-label">Client Name</label>
+<input class="form-input" id="f-client" type="text" placeholder="e.g. Vistra Energy" list="client-dl">
+<datalist id="client-dl">
+</datalist>
+</div>
+<div class="form-group">
+<label class="form-label">Location</label>
+<input class="form-input" id="f-loc" type="text" placeholder="e.g. Pittsburgh">
+</div>
+<div class="form-group">
+<label class="form-label">Due Date</label>
+<input class="form-input" id="f-due" type="date">
+</div>
+<div class="form-group">
+<label class="form-label">Notes</label>
+<input class="form-input" id="f-notes" type="text" placeholder="Optional notes...">
+</div>
+<div class="form-group">
+<label class="form-label">PDF Attachment</label>
+<input class="form-input" id="f-pdf" type="file" accept="application/pdf" onchange="onPdfSelected(event)">
+<div id="f-pdf-meta" class="form-label" style="margin-top:6px;letter-spacing:1px;text-transform:none;">
+</div>
+</div>
+<div class="form-group full">
+<label class="form-label">Test Rows</label>
+<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;">
+<select class="form-input" id="f-test-type">
+<option value="AS-BFV_DENSITY">AS-BFV_DENSITY</option>
+<option value="AS-BFV_MW">AS-BFV_MW</option>
+<option value="C6GAS">C6GAS</option>
+<option value="GC-BFVC6MZ">GC-BFVC6MZ</option>
+<option value="GC-BFVC7MZ">GC-BFVC7MZ</option>
+<option value="GC-BFVC10MZ">GC-BFVC10MZ</option>
+<option value="GC-2103-C10MZ">GC-2103-C10MZ</option>
+<option value="C6LIQ">C6LIQ</option>
+<option value="C10LIQ">C10LIQ</option>
+</select>
+<input class="form-input" id="f-test-code" type="text" placeholder="Test Code (e.g. GC-BFVC10MZ)">
+<input class="form-input" id="f-test-sample" type="text" placeholder="Sample # (e.g. 006A)">
+<input class="form-input" id="f-test-cylinder" type="text" placeholder="Cylinder #">
+<input class="form-input" id="f-test-matrix" type="text" placeholder="Matrix">
+<input class="form-input" id="f-test-container" type="text" placeholder="Container Type">
+<input class="form-input" id="f-test-received" type="text" placeholder="Received (optional)">
+<input class="form-input" id="f-test-log-date" type="text" placeholder="Log Date (optional)">
+</div>
+<div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+<button type="button" class="btn-save" id="test-add-btn" onclick="upsertDraftTestRow()" style="padding:8px 14px;">Add Test</button>
+<button type="button" class="sec-btn" onclick="openTestSelectorModal()" style="padding:8px 14px;">Edit Test(s)</button>
+</div>
+<div id="test-draft-list" style="margin-top:10px;font-family:var(--mono);font-size:12px;color:var(--muted);">
+</div>
+</div>
+<div class="form-group full">
+<label class="form-label">Priority</label>
+<div class="pri-grid" id="pri-grid">
+<div class="pri-opt po-NONE sel" data-p="NONE" onclick="selPri(this)">None</div>
+<div class="pri-opt po-LOW" data-p="LOW" onclick="selPri(this)">Low</div>
+<div class="pri-opt po-MEDIUM" data-p="MEDIUM" onclick="selPri(this)"> Medium</div>
+<div class="pri-opt po-HIGH" data-p="HIGH" onclick="selPri(this)"> High</div>
+<div class="pri-opt po-CRITICAL" data-p="CRITICAL" onclick="selPri(this)"> Critical</div>
+</div>
+</div>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn-cancel" id="btn-move" type="button" onclick="moveWorkOrderStageFromModal()" style="display:none">Move to Results Pending</button>
+<button class="btn-del" id="btn-del" onclick="deleteWO()"> Delete</button>
+<button class="btn-cancel" onclick="closeModal()">Cancel</button>
+<button class="btn-save" onclick="saveWO()">Save</button>
+</div>
+</div>
+</div>
+<!-- TEST SELECT MODAL -->
+<div class="modal-overlay" id="test-select-overlay">
+<div class="modal" style="width:560px;max-width:96vw;">
+<div class="modal-header">
+<h3>Select Test To Edit</h3>
+<button class="modal-close" onclick="closeTestSelectorModal()">X</button>
+</div>
+<div class="modal-body">
+<label class="form-label">Test Row</label>
+<select class="form-input" id="test-select-list">
+</select>
+</div>
+<div class="modal-footer">
+<button class="btn-del" onclick="deleteSelectedTestRow()">Delete Test</button>
+<button class="btn-cancel" onclick="closeTestSelectorModal()">Cancel</button>
+<button class="btn-save" onclick="openEditTestModalFromSelector()">Edit Selected</button>
+</div>
+</div>
+</div>
+<!-- TEST EDIT MODAL -->
+<div class="modal-overlay" id="test-edit-overlay">
+<div class="modal" style="width:640px;max-width:96vw;">
+<div class="modal-header">
+<h3>Edit Test Row</h3>
+<button class="modal-close" onclick="closeTestEditModal()">X</button>
+</div>
+<div class="modal-body">
+<div class="form-grid">
+<div class="form-group">
+<label class="form-label">Test Type</label>
+<select class="form-input" id="e-test-type">
+<option value="AS-BFV_DENSITY">AS-BFV_DENSITY</option>
+<option value="AS-BFV_MW">AS-BFV_MW</option>
+<option value="C6GAS">C6GAS</option>
+<option value="GC-BFVC6MZ">GC-BFVC6MZ</option>
+<option value="GC-BFVC7MZ">GC-BFVC7MZ</option>
+<option value="GC-BFVC10MZ">GC-BFVC10MZ</option>
+<option value="GC-2103-C10MZ">GC-2103-C10MZ</option>
+<option value="C6LIQ">C6LIQ</option>
+<option value="C10LIQ">C10LIQ</option>
+</select>
+</div>
+<div class="form-group">
+<label class="form-label">Test Code</label>
+<input class="form-input" id="e-test-code" type="text">
+</div>
+<div class="form-group">
+<label class="form-label">Sample #</label>
+<input class="form-input" id="e-test-sample" type="text">
+</div>
+<div class="form-group">
+<label class="form-label">Cylinder #</label>
+<input class="form-input" id="e-test-cylinder" type="text">
+</div>
+<div class="form-group">
+<label class="form-label">Matrix</label>
+<input class="form-input" id="e-test-matrix" type="text">
+</div>
+<div class="form-group">
+<label class="form-label">Container Type</label>
+<input class="form-input" id="e-test-container" type="text">
+</div>
+<div class="form-group">
+<label class="form-label">Received</label>
+<input class="form-input" id="e-test-received" type="text">
+</div>
+<div class="form-group">
+<label class="form-label">Log Date</label>
+<input class="form-input" id="e-test-log-date" type="text">
+</div>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn-cancel" onclick="closeTestEditModal()">Cancel</button>
+<button class="btn-save" onclick="saveEditedTestRow()">Save Test</button>
+</div>
+</div>
+</div>
+<script src="app-config.js"></script>
+<script src="cloud-auth.js"></script>
+<script src="lab-dashboard.js"></script>
+</body>
+</html> 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
