@@ -66,14 +66,16 @@ h1{font-size:28px;letter-spacing:3px;text-transform:uppercase;color:var(--accent
 <script>
 const STORAGE_KEY = 'lab-wip-workorders';
 const PRI = {CRITICAL:0,HIGH:1,MEDIUM:2,LOW:3,NONE:4};
-const storageAdapter = (
-  window.storage &&
-  typeof window.storage.get === 'function' &&
-  typeof window.storage.set === 'function'
-) ? window.storage : {
-  get: async (key) => ({ value: localStorage.getItem(key) }),
-  set: async (key, value) => { localStorage.setItem(key, value); }
-};
+function getStorageAdapter(){
+  return (
+    window.storage &&
+    typeof window.storage.get === 'function' &&
+    typeof window.storage.set === 'function'
+  ) ? window.storage : {
+    get: async (key) => ({ value: localStorage.getItem(key) }),
+    set: async (key, value) => { localStorage.setItem(key, value); }
+  };
+}
 
 const uid = () => 'w'+Date.now()+Math.random().toString(36).slice(2,5);
 const parseDate = s => { if(!s) return null; const d = new Date(s); d.setHours(0,0,0,0); return isNaN(d) ? null : d; };
@@ -256,6 +258,7 @@ async function onCSVSelected(event){
       const importedWOs = buildWOsFromSureChemCSV(String(reader.result || ''));
       if(!importedWOs.length) throw new Error('No valid work orders found in CSV.');
 
+      const storageAdapter = getStorageAdapter();
       const existingRaw = await storageAdapter.get(STORAGE_KEY);
       let existingWOs = [];
       if(existingRaw && typeof existingRaw.value === 'string' && existingRaw.value.trim()){
