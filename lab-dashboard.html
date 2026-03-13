@@ -10,8 +10,11 @@
 <body>
 <header>
 <div class="header-left">
+<img class="spl-logo" src="assets/spl-logo.svg" alt="SPL">
+<div class="header-brand">
 <h1> Lab WIP Dashboard</h1>
 <p>WORK IN PROGRESS OPEN WORK ORDERS REAL-TIME STATUS</p>
+</div>
 </div>
 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
 <div class="live-clock">
@@ -369,6 +372,14 @@
 </div>
 <div class="schedule-panel" style="margin-top:12px;">
 <div class="table-header">
+<h2>Liquid Lane Order</h2>
+<div class="refresh-time">Sample-level order, lightest to heaviest hydrocarbon</div>
+</div>
+<div id="liquid-lane-list" class="schedule-list">
+</div>
+</div>
+<div class="schedule-panel" style="margin-top:12px;">
+<div class="table-header">
 <h2>Employee Workload</h2>
 <div class="refresh-time" id="employee-plan-summary">
 </div>
@@ -409,6 +420,7 @@
 <th>Sample</th>
 <th>Tests</th>
 <th>Matrix</th>
+<th>Hydrocarbon</th>
 <th>Container</th>
 <th>Cylinder #</th>
 <th>Received</th>
@@ -504,6 +516,19 @@
 <input class="form-input" id="f-test-sample" type="text" placeholder="Sample # (e.g. 006A)">
 <input class="form-input" id="f-test-cylinder" type="text" placeholder="Cylinder #">
 <input class="form-input" id="f-test-matrix" type="text" placeholder="Matrix">
+<select class="form-input" id="f-test-hydrocarbon">
+<option value="">Hydrocarbon (liquids only)</option>
+<option value="C1">C1</option>
+<option value="C2">C2</option>
+<option value="C3">C3</option>
+<option value="C4">C4</option>
+<option value="C5">C5</option>
+<option value="C6">C6</option>
+<option value="C7">C7</option>
+<option value="C8">C8</option>
+<option value="C9">C9</option>
+<option value="C10">C10</option>
+</select>
 <input class="form-input" id="f-test-container" type="text" placeholder="Container Type">
 <input class="form-input" id="f-test-received" type="text" placeholder="Received (optional)">
 <input class="form-input" id="f-test-log-date" type="text" placeholder="Log Date (optional)">
@@ -596,6 +621,22 @@
 <div class="form-group">
 <label class="form-label">Container Type</label>
 <input class="form-input" id="e-test-container" type="text">
+</div>
+<div class="form-group">
+<label class="form-label">Hydrocarbon</label>
+<select class="form-input" id="e-test-hydrocarbon">
+<option value="">Not set</option>
+<option value="C1">C1</option>
+<option value="C2">C2</option>
+<option value="C3">C3</option>
+<option value="C4">C4</option>
+<option value="C5">C5</option>
+<option value="C6">C6</option>
+<option value="C7">C7</option>
+<option value="C8">C8</option>
+<option value="C9">C9</option>
+<option value="C10">C10</option>
+</select>
 </div>
 <div class="form-group">
 <label class="form-label">Received</label>
