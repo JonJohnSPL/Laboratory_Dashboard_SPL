@@ -78,7 +78,7 @@ function getStorageAdapter(){
 }
 
 const uid = () => 'w'+Date.now()+Math.random().toString(36).slice(2,5);
-const parseDate = s => { if(!s) return null; const d = new Date(s); d.setHours(0,0,0,0); return isNaN(d) ? null : d; };
+const parseDate = s => { if(!s) return null; const raw = String(s).trim(); const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:$|T)/); const d = match ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])) : new Date(raw); d.setHours(0,0,0,0); return isNaN(d) ? null : d; };
 const toInputDate = s => { const d=parseDate(s); if(!d) return null; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 let importMode = 'replace';
 const woKey = n => (n || '').toString().trim().toUpperCase();
