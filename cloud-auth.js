@@ -25,7 +25,9 @@
   window.appAuth = {
     getMode: () => state.mode,
     getUser: () => state.user,
-    signOut: () => signOut()
+    signOut: () => signOut(),
+    fetch: (path, options) => authorizedFetch(path, options),
+    requestJson: (path, options) => requestJson(path, options)
   };
 
   init();
@@ -467,4 +469,3 @@
     }[ch]));
   }
 })();
-

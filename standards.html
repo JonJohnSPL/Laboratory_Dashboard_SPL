@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Standards Records</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="standards.css">
+</head>
+<body>
+<header>
+  <div class="header-left">
+    <img class="spl-logo" src="assets/spl-logo.svg" alt="SPL">
+    <div class="header-brand">
+      <h1>Standards Records</h1>
+      <p>Calibration gas cylinders, concentrations, receipt history, and tag images</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-clock">
+      <span>Current Time</span>
+      <div id="clock">--:--:--</div>
+      <div id="datedisp" class="date-display"></div>
+    </div>
+    <div data-session-slot></div>
+    <div class="nav-row">
+      <button class="sec-btn" onclick="window.location.href='lab-dashboard.html'">Dashboard</button>
+      <button class="sec-btn" onclick="window.location.href='import.html'">Import</button>
+      <button class="sec-btn current" type="button">Standards</button>
+    </div>
+    <div id="save-indicator" class="save-indicator" style="visibility:hidden;">Saved</div>
+  </div>
+</header>
+
+<div class="stats-bar">
+  <div class="stat-card">
+    <div class="stat-label">Total Cylinders</div>
+    <div class="stat-value" id="stat-total">0</div>
+  </div>
+  <div class="stat-card ok">
+    <div class="stat-label">Active</div>
+    <div class="stat-value ok" id="stat-active">0</div>
+  </div>
+  <div class="stat-card warn">
+    <div class="stat-label">Expired</div>
+    <div class="stat-value warn" id="stat-expired">0</div>
+  </div>
+  <div class="stat-card danger">
+    <div class="stat-label">Inactive</div>
+    <div class="stat-value danger" id="stat-inactive">0</div>
+  </div>
+</div>
+
+<div class="toolbar">
+  <span class="tb-label">Filter</span>
+  <div class="filter-group">
+    <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
+    <button class="filter-btn" data-filter="active" onclick="setFilter('active')">Active</button>
+    <button class="filter-btn" data-filter="expired" onclick="setFilter('expired')">Expired</button>
+    <button class="filter-btn" data-filter="inactive" onclick="setFilter('inactive')">Inactive</button>
+  </div>
+  <div class="tb-sep"></div>
+  <input id="search-input" type="text" placeholder="Search cylinder, vendor, QC #, notes, gas..." oninput="updateSearch(this.value)">
+  <div class="toolbar-spacer"></div>
+  <button class="add-wo-btn" onclick="openStandardModal()">+ Add Standard</button>
+</div>
+
+<div class="standards-layout">
+  <section class="table-container">
+    <div class="table-header">
+      <h2>Standards Inventory</h2>
+      <div class="refresh-time" id="last-update">Loading records...</div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Cylinder</th>
+          <th>Vendor / QC</th>
+          <th>Received</th>
+          <th>Expires</th>
+          <th>Mix</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="standards-tbody">
+        <tr>
+          <td colspan="6">
+            <div class="empty-state">
+              <div class="big">[]</div>
+              Loading standards records...
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <aside class="detail-panel" id="detail-panel">
+    <div class="detail-empty">
+      <h2>No Standard Selected</h2>
+      <p>Add a standards cylinder or choose one from the list to review its concentrations and tag image.</p>
+    </div>
+  </aside>
+</div>
+
+<div class="modal-overlay" id="standard-modal-overlay">
+  <div class="modal standard-modal">
+    <div class="modal-header">
+      <h3 id="standard-modal-title">Add Standard</h3>
+      <button class="modal-close" type="button" onclick="closeStandardModal()">X</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label" for="std-vendor">Vendor</label>
+          <input class="form-input" id="std-vendor" type="text" placeholder="Accurate Gas Products">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="std-qc">QC #</label>
+          <input class="form-input" id="std-qc" type="text" placeholder="022924-2">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="std-cylinder">Cylinder #</label>
+          <input class="form-input" id="std-cylinder" type="text" placeholder="KA37806">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="std-pressure">Pressure (PSIA)</label>
+          <input class="form-input" id="std-pressure" type="number" min="0" step="0.1" placeholder="123">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="std-received">Received On</label>
+          <input class="form-input" id="std-received" type="date" onchange="handleDateInputChange()">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="std-certified">Certified / Tag Date</label>
+          <input class="form-input" id="std-certified" type="date" onchange="handleDateInputChange()">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="std-expires">Expires On</label>
+          <input class="form-input" id="std-expires" type="date" oninput="markExpiryTouched()">
+        </div>
+        <div class="form-group toggle-group">
+          <label class="form-label" for="std-active">Status</label>
+          <label class="toggle-card">
+            <input id="std-active" type="checkbox" checked>
+            <span>Active standard</span>
+          </label>
+        </div>
+        <div class="form-group full">
+          <label class="form-label" for="std-notes">Notes</label>
+          <textarea class="form-input" id="std-notes" rows="3" placeholder="Optional notes about use, location, or condition"></textarea>
+        </div>
+        <div class="form-group full">
+          <div class="section-head">
+            <label class="form-label">Concentrations</label>
+            <button class="add-wo-btn" type="button" onclick="addComponentRow()">+ Add Component</button>
+          </div>
+          <div id="component-rows" class="component-list"></div>
+        </div>
+        <div class="form-group full">
+          <div class="section-head">
+            <label class="form-label">Tag Image</label>
+            <div class="image-actions">
+              <button class="sec-btn small" type="button" onclick="chooseTagImage()">Choose Image</button>
+              <button class="sec-btn small" type="button" onclick="openModalTagImage()">Open Image</button>
+              <button class="sec-btn small danger" type="button" onclick="removeTagImage()">Remove</button>
+            </div>
+          </div>
+          <input id="std-tag-image" type="file" accept="image/*" style="display:none;" onchange="onTagImageSelected(event)">
+          <div id="tag-image-meta" class="image-meta">No tag image attached.</div>
+          <div id="tag-image-preview" class="image-preview empty">Tag preview will appear here.</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" type="button" onclick="closeStandardModal()">Cancel</button>
+      <button class="btn-save" type="button" onclick="saveStandardFromModal()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="app-config.js"></script>
+<script src="cloud-auth.js"></script>
+<script src="standards.js"></script>
+</body>
+</html>
