@@ -1,5 +1,6 @@
 const STANDARDS_STORAGE_KEY = 'lab-standards-records';
 const AUTO_REFRESH_MS = 15000;
+const SCAN_STATUS_DEFAULT = 'Scan Tag uses OCR to prefill what it can from the uploaded image.';
 
 let standards = [];
 let currentFilter = 'all';
@@ -13,6 +14,8 @@ let modalExpiryTouched = false;
 let autoRefreshTimer = null;
 let autoRefreshInFlight = false;
 let saveInFlight = false;
+let scanInFlight = false;
+let activeScanToken = 0;
 let hideSaveStatusTimer = null;
 let lastLoadedSnapshot = '';
 
@@ -139,6 +142,261 @@ function createEmptyImageState(){
     type: '',
     size: 0
   };
+}
+
+function setScanButtonBusy(isBusy){
+  const button = document.getElementById('scan-tag-btn');
+  if(!button) return;
+  button.disabled = !!isBusy;
+  button.textContent = isBusy ? 'Scanning...' : 'Scan Tag';
+}
+
+function setTagScanStatus(message = '', tone = ''){
+  const el = document.getElementById('tag-scan-status');
+  if(!el) return;
+  el.className = 'image-meta';
+  if(tone === 'working'){
+    el.classList.add('scan-working');
+  } else if(tone === 'success'){
+    el.classList.add('scan-success');
+  } else if(tone === 'error'){
+    el.classList.add('scan-error');
+  }
+  el.textContent = message || SCAN_STATUS_DEFAULT;
+}
+
+function resetTagScanStatus(){
+  setTagScanStatus(SCAN_STATUS_DEFAULT);
+}
+
+function normalizeOcrText(text){
+  return String(text || '').replace(/\r/g, '');
+}
+
+function normalizeOcrLine(line){
+  return String(line || '')
+    .toUpperCase()
+    .replace(/[|]/g, 'I')
+    .replace(/[`]/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getNormalizedOcrLines(text){
+  return normalizeOcrText(text).split('\n').map(normalizeOcrLine).filter(Boolean);
+}
+
+function parseTagDateToInput(value){
+  const cleaned = String(value || '').trim().replace(/[^0-9/.-]/g, '');
+  const match = cleaned.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/);
+  if(match){
+    let year = Number(match[3]);
+    if(year < 100){
+      year += year >= 70 ? 1900 : 2000;
+    }
+    const date = new Date(year, Number(match[1]) - 1, Number(match[2]));
+    date.setHours(0, 0, 0, 0);
+    return Number.isNaN(date.getTime()) ? '' : toInputDate(date);
+  }
+  return toInputDate(cleaned);
+}
+
+function extractTagVendorName(lines){
+  const stopIndex = lines.findIndex((line) => /^QC\s*#?/.test(line) || /^LOT\s*\/?\s*QC/.test(line) || /^DATE\b/.test(line));
+  const pool = lines.slice(0, stopIndex > -1 ? stopIndex : Math.min(lines.length, 8));
+  const vendorLines = pool.filter((line) => {
+    if(/\d/.test(line)){
+      return false;
+    }
+    return !/^(DATE|QC|LOT|CYL|CYLINDER|SHELF|LIFE|PRESSURE|PSIA|READ)\b/.test(line);
+  });
+  return vendorLines.join(' ').replace(/\s+/g, ' ').trim();
+}
+
+function parseTagComponentLine(line){
+  const match = String(line || '').match(/^([A-Z0-9+\- ]{2,})\s+([0-9]+(?:[.,][0-9]+)?)\s*(%|PPM|PPB|MOL%|VOL%)$/);
+  if(!match){
+    return null;
+  }
+  const componentName = match[1].replace(/\s+/g, ' ').trim();
+  if(/^(DATE|QC|LOT|CYL|CYLINDER|SHELF|LIFE|PRESSURE|PSIA|READ|BOARD|LAFAYETTE|M%)\b/.test(componentName)){
+    return null;
+  }
+  const concentrationValue = normalizeNumber(match[2].replace(',', '.'));
+  if(concentrationValue === null){
+    return null;
+  }
+  return {
+    id: uid('cmp'),
+    componentName,
+    concentrationValue: formatNumber(concentrationValue),
+    concentrationUnit: match[3],
+    sortOrder: 0
+  };
+}
+
+function extractTagComponents(lines){
+  return lines
+    .map(parseTagComponentLine)
+    .filter(Boolean)
+    .map((component, index) => ({
+      ...component,
+      sortOrder: index
+    }));
+}
+
+function extractTagDataFromText(text){
+  const lines = getNormalizedOcrLines(text);
+  const joined = lines.join('\n');
+  const qcMatch = joined.match(/(?:^|\n)(?:LOT\s*\/?\s*)?QC\s*#?\s*([A-Z0-9-]+)/);
+  const cylinderMatch = joined.match(/(?:^|\n)(?:CYL|CYLINDER)\s*#?\s*([A-Z0-9-]+)/);
+  const dateMatch = joined.match(/(?:^|\n)DATE\b[^0-9]{0,8}(\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4})/);
+  const pressureMatch = joined.match(/\b([0-9]{2,5}(?:[.,][0-9]+)?)\s*PSIA\b/) || joined.match(/(?:PRESSURE|PSIA)[^0-9]{0,12}([0-9]{2,5}(?:[.,][0-9]+)?)/);
+  return {
+    vendorName: extractTagVendorName(lines),
+    qcNumber: qcMatch?.[1] || '',
+    cylinderNumber: cylinderMatch?.[1] || '',
+    certifiedOn: parseTagDateToInput(dateMatch?.[1] || ''),
+    pressurePsia: pressureMatch ? normalizeNumber(pressureMatch[1].replace(',', '.')) : null,
+    components: extractTagComponents(lines),
+    rawText: normalizeOcrText(text)
+  };
+}
+
+function fillModalFieldIfBlank(id, value, formatter = (next) => String(next)){
+  if(value === null || value === undefined || value === ''){
+    return { filled:false, conflict:false };
+  }
+  const el = document.getElementById(id);
+  if(!el){
+    return { filled:false, conflict:false };
+  }
+  const nextValue = String(formatter(value)).trim();
+  if(!nextValue){
+    return { filled:false, conflict:false };
+  }
+  const currentValue = String(el.value || '').trim();
+  if(!currentValue){
+    el.value = nextValue;
+    return { filled:true, conflict:false };
+  }
+  return { filled:false, conflict:currentValue !== nextValue };
+}
+
+function applyScannedTagData(parsed){
+  let filledFields = 0;
+  let conflicts = 0;
+  let replacedComponents = 0;
+  const expiresInput = document.getElementById('std-expires');
+  const expiryBefore = expiresInput?.value || '';
+  [
+    fillModalFieldIfBlank('std-vendor', parsed.vendorName),
+    fillModalFieldIfBlank('std-qc', parsed.qcNumber),
+    fillModalFieldIfBlank('std-cylinder', parsed.cylinderNumber),
+    fillModalFieldIfBlank('std-certified', parsed.certifiedOn),
+    fillModalFieldIfBlank('std-pressure', parsed.pressurePsia, formatNumber)
+  ].forEach((result) => {
+    if(result.filled){
+      filledFields += 1;
+    } else if(result.conflict){
+      conflicts += 1;
+    }
+  });
+  if(parsed.certifiedOn && !expiryBefore && !modalExpiryTouched){
+    handleDateInputChange();
+    if(expiresInput?.value){
+      const certified = document.getElementById('std-certified')?.value || '';
+      if(certified){
+        filledFields += 1;
+      }
+    }
+  }
+  const meaningfulRows = modalComponentRows.filter((component) => {
+    return String(component.componentName || '').trim() || String(component.concentrationValue || '').trim();
+  });
+  if(parsed.components.length){
+    const shouldReplace = !meaningfulRows.length || confirm('Replace the current concentration rows with the scanned mix from the tag?');
+    if(shouldReplace){
+      modalComponentRows = parsed.components.map((component, index) => ({
+        id: uid('cmp'),
+        componentName: component.componentName,
+        concentrationValue: component.concentrationValue,
+        concentrationUnit: component.concentrationUnit || '%',
+        sortOrder: index
+      }));
+      renderComponentRows();
+      replacedComponents = modalComponentRows.length;
+    }
+  }
+  return { filledFields, conflicts, replacedComponents };
+}
+
+async function getModalTagImageSource(){
+  if(modalImageState.previewUrl || modalImageState.dataUrl){
+    return modalImageState.previewUrl || modalImageState.dataUrl;
+  }
+  if(modalImageState.mode === 'existing-remote' && modalImageState.path){
+    const url = await ensureStandardImageUrl({ tagImagePath:modalImageState.path, tagImageDataUrl:'' });
+    if(url){
+      modalImageState.previewUrl = url;
+      renderModalImageState();
+    }
+    return url;
+  }
+  return '';
+}
+
+async function scanTagImage(){
+  if(scanInFlight){
+    return;
+  }
+  let token = 0;
+  try {
+    const imageSource = await getModalTagImageSource();
+    if(!imageSource){
+      setTagScanStatus('Attach or load a tag image before scanning.', 'error');
+      return;
+    }
+    if(!window.Tesseract || typeof window.Tesseract.recognize !== 'function'){
+      setTagScanStatus('OCR is not ready. Refresh the page and try the scan again.', 'error');
+      return;
+    }
+    token = Date.now();
+    activeScanToken = token;
+    scanInFlight = true;
+    setScanButtonBusy(true);
+    setTagScanStatus('Scanning tag image... this can take several seconds.', 'working');
+    const result = await window.Tesseract.recognize(imageSource, 'eng');
+    if(activeScanToken !== token){
+      return;
+    }
+    const parsed = extractTagDataFromText(result?.data?.text || '');
+    const outcome = applyScannedTagData(parsed);
+    if(!outcome.filledFields && !outcome.replacedComponents && !outcome.conflicts){
+      setTagScanStatus('Scan finished, but no fields could be read confidently from this tag.', 'error');
+      return;
+    }
+    const parts = [];
+    if(outcome.filledFields){
+      parts.push(`filled ${outcome.filledFields} field(s)`);
+    }
+    if(outcome.replacedComponents){
+      parts.push(`loaded ${outcome.replacedComponents} component row(s)`);
+    }
+    if(outcome.conflicts){
+      parts.push(`left ${outcome.conflicts} existing field(s) unchanged`);
+    }
+    setTagScanStatus(`Scan complete: ${parts.join(', ')}. Review everything before saving.`, 'success');
+  } catch (error){
+    console.error('Unable to scan tag image:', error);
+    setTagScanStatus(error?.message || 'Unable to scan the tag image right now.', 'error');
+  } finally {
+    if(activeScanToken === token){
+      activeScanToken = 0;
+    }
+    scanInFlight = false;
+    setScanButtonBusy(false);
+  }
 }
 
 function normalizeComponent(raw, index = 0){
@@ -778,6 +1036,10 @@ function openStandardModal(id = ''){
   document.getElementById('std-tag-image').value = '';
   document.getElementById('delete-standard-btn').style.display = standard ? '' : 'none';
   modalExpiryTouched = !!standard?.expiresOn;
+  activeScanToken = 0;
+  scanInFlight = false;
+  setScanButtonBusy(false);
+  resetTagScanStatus();
   renderComponentRows();
   renderModalImageState();
   document.getElementById('standard-modal-overlay').classList.add('open');
@@ -792,6 +1054,10 @@ function closeStandardModal(){
   modalComponentRows = [];
   modalImageState = createEmptyImageState();
   modalExpiryTouched = false;
+  activeScanToken = 0;
+  scanInFlight = false;
+  setScanButtonBusy(false);
+  resetTagScanStatus();
   document.getElementById('delete-standard-btn').style.display = 'none';
 }
 
@@ -849,6 +1115,7 @@ function onTagImageSelected(event){
       size:Number(file.size || 0)
     };
     renderModalImageState();
+    resetTagScanStatus();
   };
   reader.onerror = () => {
     alert('Unable to read the selected image.');
@@ -862,6 +1129,7 @@ function removeTagImage(){
   }
   modalImageState = { ...createEmptyImageState(), mode:'removed' };
   renderModalImageState();
+  resetTagScanStatus();
 }
 
 async function renderModalRemotePreview(){
