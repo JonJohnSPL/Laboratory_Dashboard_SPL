@@ -50,6 +50,8 @@ with check (true);
 
 create table if not exists public.standards (
   id uuid primary key default gen_random_uuid(),
+  standard_identifier text not null default '',
+  standard_name text not null default '',
   vendor_name text not null default '',
   qc_number text not null default '',
   cylinder_number text not null,
@@ -65,6 +67,17 @@ create table if not exists public.standards (
   created_by uuid,
   updated_by uuid
 );
+
+alter table public.standards add column if not exists standard_identifier text not null default '';
+alter table public.standards add column if not exists standard_name text not null default '';
+
+update public.standards
+set standard_identifier = coalesce(nullif(standard_identifier, ''), cylinder_number)
+where coalesce(standard_identifier, '') = '';
+
+update public.standards
+set standard_name = coalesce(nullif(standard_name, ''), vendor_name, 'Unnamed Standard')
+where coalesce(standard_name, '') = '';
 
 create table if not exists public.standard_components (
   id uuid primary key default gen_random_uuid(),
@@ -120,6 +133,13 @@ for update
 to authenticated
 using (true)
 with check (true);
+
+drop policy if exists "Authenticated users can delete standards" on public.standards;
+create policy "Authenticated users can delete standards"
+on public.standards
+for delete
+to authenticated
+using (true);
 
 drop policy if exists "Authenticated users can read standard components" on public.standard_components;
 create policy "Authenticated users can read standard components"

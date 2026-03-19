@@ -3,6 +3,7 @@ const AUTO_REFRESH_MS = 15000;
 
 let standards = [];
 let currentFilter = 'all';
+let currentView = 'inventory';
 let searchTerm = '';
 let selectedStandardId = null;
 let editStandardId = null;
@@ -154,6 +155,8 @@ function normalizeStandard(raw){
   const components = Array.isArray(raw?.components) ? raw.components : [];
   return {
     id: String(raw?.id || uid()),
+    standardIdentifier: String(raw?.standardIdentifier ?? raw?.standard_identifier ?? '').trim(),
+    standardName: String(raw?.standardName ?? raw?.standard_name ?? '').trim(),
     vendorName: String(raw?.vendorName ?? raw?.vendor_name ?? '').trim(),
     qcNumber: String(raw?.qcNumber ?? raw?.qc_number ?? '').trim(),
     cylinderNumber: String(raw?.cylinderNumber ?? raw?.cylinder_number ?? '').trim(),
@@ -185,13 +188,15 @@ function normalizeStandards(list){
       const updatedA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
       const updatedB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
       if(updatedA !== updatedB) return updatedB - updatedA;
-      return a.cylinderNumber.localeCompare(b.cylinderNumber);
+      return (a.standardIdentifier || a.cylinderNumber).localeCompare(b.standardIdentifier || b.cylinderNumber);
     });
 }
 
 function buildSnapshot(list){
   return JSON.stringify(list.map((standard) => ({
     id: standard.id,
+    standardIdentifier: standard.standardIdentifier,
+    standardName: standard.standardName,
     vendorName: standard.vendorName,
     qcNumber: standard.qcNumber,
     cylinderNumber: standard.cylinderNumber,
@@ -246,6 +251,8 @@ function getVisibleStandards(){
       return true;
     }
     const searchBlob = [
+      standard.standardIdentifier,
+      standard.standardName,
       standard.cylinderNumber,
       standard.vendorName,
       standard.qcNumber,
@@ -276,8 +283,14 @@ function componentSummary(standard){
   if(!standard.components.length){
     return 'No concentrations saved';
   }
-  const first = standard.components.slice(0, 3)
-    .map((component) => `${component.componentName} ${component.concentrationValue}${component.concentrationUnit}`);
+  const first = [...standard.components]
+    .sort((a, b) => {
+      const valueA = normalizeNumber(a.concentrationValue) ?? -1;
+      const valueB = normalizeNumber(b.concentrationValue) ?? -1;
+      return valueB - valueA;
+    })
+    .slice(0, 3)
+    .map((component) => component.componentName || 'Unnamed');
   const suffix = standard.components.length > 3 ? ` +${standard.components.length - 3} more` : '';
   return `${first.join(' | ')}${suffix}`;
 }
@@ -325,6 +338,14 @@ function renderFilterButtons(){
   });
 }
 
+function renderViewButtons(){
+  document.querySelectorAll('.view-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.view === currentView);
+  });
+  document.getElementById('inventory-screen')?.classList.toggle('active', currentView === 'inventory');
+  document.getElementById('logs-screen')?.classList.toggle('active', currentView === 'logs');
+}
+
 function renderTable(){
   const tbody = document.getElementById('standards-tbody');
   const visible = getVisibleStandards();
@@ -347,12 +368,12 @@ function renderTable(){
     return `
       <tr class="${selectedStandardId === standard.id ? 'selected' : ''}" onclick="selectStandard('${esc(standard.id)}')">
         <td>
-          <div class="record-title">${esc(standard.cylinderNumber || 'Unlabeled cylinder')}</div>
-          <div class="record-sub">${esc(standard.vendorName || 'Vendor not set')}</div>
+          <div class="record-title">${esc(standard.standardIdentifier || 'Unassigned ID')}</div>
+          <div class="record-sub">Cylinder # ${esc(standard.cylinderNumber || 'Not set')}</div>
         </td>
         <td>
-          <div>${esc(standard.vendorName || 'Vendor not set')}</div>
-          <div class="record-sub">QC # ${esc(standard.qcNumber || 'Not set')}</div>
+          <div>${esc(standard.standardName || 'Unnamed Standard')}</div>
+          <div class="record-sub">Lot/QC # ${esc(standard.qcNumber || 'Not set')}</div>
         </td>
         <td>${esc(fmtDate(standard.receivedOn))}</td>
         <td>${esc(fmtDate(standard.expiresOn))}</td>
@@ -370,7 +391,7 @@ function renderDetail(){
     panel.innerHTML = `
       <div class="detail-empty">
         <h2>No Standard Selected</h2>
-        <p>Add a standards cylinder or choose one from the list to review its concentrations and tag image.</p>
+        <p>Add a standard or choose one from the list to review its identifiers, concentrations, and tag image.</p>
       </div>
     `;
     return;
@@ -383,21 +404,38 @@ function renderDetail(){
     <div class="detail-card">
       <div class="detail-head">
         <div>
-          <div class="detail-title">${esc(standard.cylinderNumber || 'Unlabeled cylinder')}</div>
+          <div class="detail-title">${esc(standard.standardName || 'Unnamed Standard')}</div>
           <div class="detail-meta">
-            ${esc(standard.vendorName || 'Vendor not set')} | QC # ${esc(standard.qcNumber || 'Not set')}<br>
+            ID # ${esc(standard.standardIdentifier || 'Not set')} | Lot/QC # ${esc(standard.qcNumber || 'Not set')} | Cylinder # ${esc(standard.cylinderNumber || 'Not set')}<br>
             Last updated ${esc(fmtDateTime(standard.updatedAt || standard.createdAt))}
           </div>
         </div>
         <div class="detail-actions">
           <button class="sec-btn small" type="button" onclick="openStandardModal('${esc(standard.id)}')">Edit Record</button>
+          <button class="sec-btn small danger" type="button" onclick="deleteCurrentStandard('${esc(standard.id)}')">Delete</button>
           <button class="sec-btn small" type="button" onclick="openSelectedTagImage()">Open Tag</button>
         </div>
       </div>
       <div class="detail-grid">
         <div class="detail-item">
+          <div class="detail-item-label">Standard ID #</div>
+          <div class="detail-item-value">${esc(standard.standardIdentifier || 'Not set')}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-item-label">Standard Name</div>
+          <div class="detail-item-value">${esc(standard.standardName || 'Unnamed Standard')}</div>
+        </div>
+        <div class="detail-item">
           <div class="detail-item-label">Status</div>
           <div class="detail-item-value"><span class="status-pill ${esc(status.key)}">${esc(status.label)}</span></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-item-label">Lot / QC #</div>
+          <div class="detail-item-value">${esc(standard.qcNumber || 'Not set')}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-item-label">Cylinder #</div>
+          <div class="detail-item-value">${esc(standard.cylinderNumber || 'Not set')}</div>
         </div>
         <div class="detail-item">
           <div class="detail-item-label">Received On</div>
@@ -456,6 +494,127 @@ function renderDetail(){
   if(hasTagImage(standard)){
     renderStandardImagePreview('detail-tag-preview', standard, standard.id);
   }
+}
+
+function renderLogs(){
+  const tbody = document.getElementById('logs-tbody');
+  const summary = document.getElementById('logs-summary');
+  if(!tbody || !summary) return;
+  const visible = [...getVisibleStandards()].sort((a, b) => {
+    const receivedA = parseDate(a.receivedOn)?.getTime() ?? 0;
+    const receivedB = parseDate(b.receivedOn)?.getTime() ?? 0;
+    if(receivedA !== receivedB) return receivedB - receivedA;
+    return (a.standardIdentifier || a.cylinderNumber).localeCompare(b.standardIdentifier || b.cylinderNumber);
+  });
+  summary.textContent = `${visible.length} record(s) ready to print`;
+  if(!visible.length){
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="9">
+          <div class="empty-state">
+            <div class="big">[]</div>
+            No standards match the current log filter.
+          </div>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+  tbody.innerHTML = visible.map((standard) => {
+    const status = getStatusInfo(standard);
+    return `
+      <tr>
+        <td>${esc(fmtDate(standard.receivedOn))}</td>
+        <td>${esc(standard.standardIdentifier || 'Not set')}</td>
+        <td>${esc(standard.standardName || 'Unnamed Standard')}</td>
+        <td>${esc(standard.qcNumber || 'Not set')}</td>
+        <td>${esc(standard.cylinderNumber || 'Not set')}</td>
+        <td>${esc(fmtDate(standard.certifiedOn))}</td>
+        <td>${esc(fmtDate(standard.expiresOn))}</td>
+        <td><span class="status-pill ${esc(status.key)}">${esc(status.label)}</span></td>
+        <td><div class="mix-preview">${esc(componentSummary(standard))}</div></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function printLogs(){
+  const visible = [...getVisibleStandards()].sort((a, b) => {
+    const receivedA = parseDate(a.receivedOn)?.getTime() ?? 0;
+    const receivedB = parseDate(b.receivedOn)?.getTime() ?? 0;
+    if(receivedA !== receivedB) return receivedB - receivedA;
+    return (a.standardIdentifier || a.cylinderNumber).localeCompare(b.standardIdentifier || b.cylinderNumber);
+  });
+  if(!visible.length){
+    alert('No standards are available to print.');
+    return;
+  }
+  const popup = window.open('', '_blank', 'noopener,noreferrer,width=1100,height=800');
+  if(!popup){
+    alert('Unable to open the print window. Please allow pop-ups and try again.');
+    return;
+  }
+  const printedAt = new Date().toLocaleString('en-US', {
+    month:'short',
+    day:'numeric',
+    year:'numeric',
+    hour:'numeric',
+    minute:'2-digit'
+  });
+  const rows = visible.map((standard) => {
+    const status = getStatusInfo(standard).label;
+    return `
+      <tr>
+        <td>${esc(fmtDate(standard.receivedOn))}</td>
+        <td>${esc(standard.standardIdentifier || 'Not set')}</td>
+        <td>${esc(standard.standardName || 'Unnamed Standard')}</td>
+        <td>${esc(standard.qcNumber || 'Not set')}</td>
+        <td>${esc(standard.cylinderNumber || 'Not set')}</td>
+        <td>${esc(fmtDate(standard.certifiedOn))}</td>
+        <td>${esc(fmtDate(standard.expiresOn))}</td>
+        <td>${esc(status)}</td>
+        <td>${esc(componentSummary(standard))}</td>
+      </tr>
+    `;
+  }).join('');
+  popup.document.write(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Standards Receipt Log</title>
+<style>
+body{font-family:Arial,sans-serif;color:#111;padding:24px;}
+h1{margin:0 0 8px;font-size:24px;}
+p{margin:0 0 18px;color:#444;font-size:12px;}
+table{width:100%;border-collapse:collapse;}
+th,td{border:1px solid #bbb;padding:8px 10px;text-align:left;font-size:12px;vertical-align:top;}
+th{background:#efefef;text-transform:uppercase;letter-spacing:.08em;font-size:10px;}
+</style>
+</head>
+<body>
+<h1>Standards Receipt Log</h1>
+<p>Printed ${esc(printedAt)} | ${esc(visible.length)} record(s)</p>
+<table>
+<thead>
+<tr>
+<th>Received</th>
+<th>ID #</th>
+<th>Name</th>
+<th>Lot/QC #</th>
+<th>Cylinder</th>
+<th>Certified</th>
+<th>Expires</th>
+<th>Status</th>
+<th>Mix</th>
+</tr>
+</thead>
+<tbody>${rows}</tbody>
+</table>
+</body>
+</html>`);
+  popup.document.close();
+  popup.focus();
+  popup.print();
 }
 
 async function renderStandardImagePreview(containerId, standard, guardId = ''){
@@ -530,6 +689,11 @@ function selectStandard(id){
   render();
 }
 
+function setView(view){
+  currentView = view === 'logs' ? 'logs' : 'inventory';
+  render();
+}
+
 function setFilter(filter){
   currentFilter = filter;
   ensureSelectedStandard();
@@ -600,6 +764,8 @@ function openStandardModal(id = ''){
         : createEmptyImageState()
     : createEmptyImageState();
   document.getElementById('standard-modal-title').textContent = standard ? 'Edit Standard' : 'Add Standard';
+  document.getElementById('std-id').value = standard?.standardIdentifier || '';
+  document.getElementById('std-name').value = standard?.standardName || '';
   document.getElementById('std-vendor').value = standard?.vendorName || '';
   document.getElementById('std-qc').value = standard?.qcNumber || '';
   document.getElementById('std-cylinder').value = standard?.cylinderNumber || '';
@@ -610,6 +776,7 @@ function openStandardModal(id = ''){
   document.getElementById('std-active').checked = standard?.isActive ?? true;
   document.getElementById('std-notes').value = standard?.notes || '';
   document.getElementById('std-tag-image').value = '';
+  document.getElementById('delete-standard-btn').style.display = standard ? '' : 'none';
   modalExpiryTouched = !!standard?.expiresOn;
   renderComponentRows();
   renderModalImageState();
@@ -625,6 +792,7 @@ function closeStandardModal(){
   modalComponentRows = [];
   modalImageState = createEmptyImageState();
   modalExpiryTouched = false;
+  document.getElementById('delete-standard-btn').style.display = 'none';
 }
 
 function renderComponentRows(){
@@ -784,12 +952,17 @@ function handleDateInputChange(){
 }
 
 function buildDraftFromModal(){
+  const standardIdentifier = document.getElementById('std-id').value.trim();
+  const standardName = document.getElementById('std-name').value.trim();
   const cylinderNumber = document.getElementById('std-cylinder').value.trim();
   const receivedOn = document.getElementById('std-received').value;
   const certifiedOn = document.getElementById('std-certified').value;
   const expiresValue = document.getElementById('std-expires').value || addOneYear(certifiedOn || receivedOn);
-  if(!cylinderNumber){
-    throw new Error('Cylinder number is required.');
+  if(!standardIdentifier){
+    throw new Error('Standard ID # is required.');
+  }
+  if(!standardName){
+    throw new Error('Standard name is required.');
   }
   if(!receivedOn){
     throw new Error('Received date is required.');
@@ -812,6 +985,8 @@ function buildDraftFromModal(){
   }
   return {
     id: editStandardId || '',
+    standardIdentifier,
+    standardName,
     vendorName: document.getElementById('std-vendor').value.trim(),
     qcNumber: document.getElementById('std-qc').value.trim(),
     cylinderNumber,
@@ -842,6 +1017,34 @@ async function saveStandardFromModal(){
     console.error('Unable to save standard record:', error);
     showSaveStatus('error', 'SAVE FAILED');
     alert(error.message || 'Unable to save the standard record.');
+  } finally {
+    saveInFlight = false;
+  }
+}
+
+async function deleteCurrentStandard(id = ''){
+  const targetId = id || editStandardId || selectedStandardId;
+  if(!targetId) return;
+  const existing = standards.find((standard) => standard.id === targetId);
+  if(!existing) return;
+  const label = existing.standardIdentifier || existing.standardName || existing.cylinderNumber || 'this standard';
+  if(!confirm(`Delete ${label}? This cannot be undone.`)){
+    return;
+  }
+  try {
+    showSaveStatus('saving', 'DELETING...');
+    saveInFlight = true;
+    await getRepository().delete(existing);
+    if(editStandardId === existing.id){
+      closeStandardModal();
+    }
+    await loadStandards({ silent:true, force:true });
+    showSaveStatus('saved', 'DELETED');
+    hideSaveStatusSoon();
+  } catch (error){
+    console.error('Unable to delete standard record:', error);
+    showSaveStatus('error', 'DELETE FAILED');
+    alert(error.message || 'Unable to delete the standard record.');
   } finally {
     saveInFlight = false;
   }
@@ -880,18 +1083,26 @@ const localRepository = {
       : [nextRecord, ...list];
     localStorage.setItem(STANDARDS_STORAGE_KEY, JSON.stringify(nextList));
     return nextRecord.id;
+  },
+
+  async delete(existing){
+    const list = normalizeStandards(await this.list());
+    const nextList = list.filter((row) => row.id !== existing.id);
+    localStorage.setItem(STANDARDS_STORAGE_KEY, JSON.stringify(nextList));
   }
 };
 
 const remoteRepository = {
   async list(){
-    return window.appAuth.requestJson('/rest/v1/standards?select=id,vendor_name,qc_number,cylinder_number,received_on,certified_on,expires_on,pressure_psia,is_active,notes,tag_image_path,created_at,updated_at,components:standard_components(id,component_name,concentration_value,concentration_unit,sort_order)');
+    return window.appAuth.requestJson('/rest/v1/standards?select=id,standard_identifier,standard_name,vendor_name,qc_number,cylinder_number,received_on,certified_on,expires_on,pressure_psia,is_active,notes,tag_image_path,created_at,updated_at,components:standard_components(id,component_name,concentration_value,concentration_unit,sort_order)');
   },
 
   async save(draft, existing){
     const currentPath = existing?.tagImagePath || '';
     const imageState = draft.imageState || createEmptyImageState();
     const payload = {
+      standard_identifier: draft.standardIdentifier,
+      standard_name: draft.standardName,
       vendor_name: draft.vendorName,
       qc_number: draft.qcNumber,
       cylinder_number: draft.cylinderNumber,
@@ -901,7 +1112,7 @@ const remoteRepository = {
       pressure_psia: draft.pressurePsia,
       is_active: !!draft.isActive,
       notes: draft.notes,
-      tag_image_path: imageState.mode === 'existing-remote' ? currentPath || null : (imageState.mode === 'removed' || imageState.mode === 'new' ? null : currentPath || null)
+      tag_image_path: imageState.mode === 'removed' ? null : currentPath || null
     };
     const row = draft.id
       ? firstRow(await window.appAuth.requestJson(
@@ -986,6 +1197,19 @@ const remoteRepository = {
       clearCachedImage(currentPath);
     }
     return row.id;
+  },
+
+  async delete(existing){
+    if(existing?.tagImagePath){
+      await removeRemoteTagImage(existing.tagImagePath).catch((error) => {
+        console.warn('Unable to remove remote tag image during delete:', error);
+      });
+      clearCachedImage(existing.tagImagePath);
+    }
+    await window.appAuth.requestJson(
+      `/rest/v1/standards?id=eq.${encodeURIComponent(existing.id)}`,
+      { method:'DELETE' }
+    );
   }
 };
 
@@ -1069,7 +1293,11 @@ async function uploadRemoteTagImage(path, dataUrl, type){
   );
   if(!response.ok){
     const payload = await response.json().catch(() => ({}));
-    throw new Error(payload?.message || `Image upload failed (${response.status}).`);
+    const message = String(payload?.message || payload?.error || `Image upload failed (${response.status}).`);
+    if(message.toLowerCase().includes('bucket not found')){
+      throw new Error('Supabase storage bucket "standard-tags" was not found. Run the storage bucket section of supabase/schema.sql in Supabase, then try again.');
+    }
+    throw new Error(message);
   }
 }
 
@@ -1113,8 +1341,10 @@ async function loadStandards(options = {}){
 function render(){
   renderStats();
   renderFilterButtons();
+  renderViewButtons();
   renderTable();
   renderDetail();
+  renderLogs();
 }
 
 function isInteractionOverlayOpen(){

@@ -34,7 +34,7 @@
 
 <div class="stats-bar">
   <div class="stat-card">
-    <div class="stat-label">Total Cylinders</div>
+    <div class="stat-label">Total Standards</div>
     <div class="stat-value" id="stat-total">0</div>
   </div>
   <div class="stat-card ok">
@@ -60,47 +60,91 @@
     <button class="filter-btn" data-filter="inactive" onclick="setFilter('inactive')">Inactive</button>
   </div>
   <div class="tb-sep"></div>
-  <input id="search-input" type="text" placeholder="Search cylinder, vendor, QC #, notes, gas..." oninput="updateSearch(this.value)">
+  <input id="search-input" type="text" placeholder="Search ID #, name, lot/QC #, cylinder, notes, gas..." oninput="updateSearch(this.value)">
   <div class="toolbar-spacer"></div>
   <button class="add-wo-btn" onclick="openStandardModal()">+ Add Standard</button>
 </div>
 
-<div class="standards-layout">
+<div class="view-tabs">
+  <button class="view-btn active" data-view="inventory" onclick="setView('inventory')">Inventory</button>
+  <button class="view-btn" data-view="logs" onclick="setView('logs')">Logs</button>
+</div>
+
+<div id="inventory-screen" class="screen active">
+  <div class="standards-layout">
+    <section class="table-container">
+      <div class="table-header">
+        <h2>Standards Inventory</h2>
+        <div class="refresh-time" id="last-update">Loading records...</div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>ID #</th>
+            <th>Name / Lot-QC #</th>
+            <th>Received</th>
+            <th>Expires</th>
+            <th>Mix</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="standards-tbody">
+          <tr>
+            <td colspan="6">
+              <div class="empty-state">
+                <div class="big">[]</div>
+                Loading standards records...
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <aside class="detail-panel" id="detail-panel">
+      <div class="detail-empty">
+        <h2>No Standard Selected</h2>
+        <p>Add a standard or choose one from the list to review its identifiers, concentrations, and tag image.</p>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div id="logs-screen" class="screen">
   <section class="table-container">
     <div class="table-header">
-      <h2>Standards Inventory</h2>
-      <div class="refresh-time" id="last-update">Loading records...</div>
+      <h2>Receipt Log</h2>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <div class="refresh-time" id="logs-summary">Loading log...</div>
+        <button class="sec-btn small" type="button" onclick="printLogs()">Print Log</button>
+      </div>
     </div>
     <table>
       <thead>
         <tr>
-          <th>Cylinder</th>
-          <th>Vendor / QC</th>
           <th>Received</th>
+          <th>ID #</th>
+          <th>Name</th>
+          <th>Lot/QC #</th>
+          <th>Cylinder</th>
+          <th>Certified</th>
           <th>Expires</th>
-          <th>Mix</th>
           <th>Status</th>
+          <th>Mix</th>
         </tr>
       </thead>
-      <tbody id="standards-tbody">
+      <tbody id="logs-tbody">
         <tr>
-          <td colspan="6">
+          <td colspan="9">
             <div class="empty-state">
               <div class="big">[]</div>
-              Loading standards records...
+              Loading standards log...
             </div>
           </td>
         </tr>
       </tbody>
     </table>
   </section>
-
-  <aside class="detail-panel" id="detail-panel">
-    <div class="detail-empty">
-      <h2>No Standard Selected</h2>
-      <p>Add a standards cylinder or choose one from the list to review its concentrations and tag image.</p>
-    </div>
-  </aside>
 </div>
 
 <div class="modal-overlay" id="standard-modal-overlay">
@@ -112,11 +156,19 @@
     <div class="modal-body">
       <div class="form-grid">
         <div class="form-group">
+          <label class="form-label" for="std-id">Standard ID #</label>
+          <input class="form-input" id="std-id" type="text" placeholder="23-02-03-01">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="std-name">Standard Name</label>
+          <input class="form-input" id="std-name" type="text" placeholder="HE Standard">
+        </div>
+        <div class="form-group">
           <label class="form-label" for="std-vendor">Vendor</label>
           <input class="form-input" id="std-vendor" type="text" placeholder="Accurate Gas Products">
         </div>
         <div class="form-group">
-          <label class="form-label" for="std-qc">QC #</label>
+          <label class="form-label" for="std-qc">Lot / QC #</label>
           <input class="form-input" id="std-qc" type="text" placeholder="022924-2">
         </div>
         <div class="form-group">
@@ -173,6 +225,7 @@
       </div>
     </div>
     <div class="modal-footer">
+      <button class="btn-del" id="delete-standard-btn" type="button" onclick="deleteCurrentStandard()" style="display:none;">Delete</button>
       <button class="btn-cancel" type="button" onclick="closeStandardModal()">Cancel</button>
       <button class="btn-save" type="button" onclick="saveStandardFromModal()">Save</button>
     </div>
