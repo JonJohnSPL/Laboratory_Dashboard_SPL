@@ -109,9 +109,12 @@ function normalizeNumber(value){
 function formatNumber(value){
   const parsed = normalizeNumber(value);
   if(parsed === null) return '';
-  return parsed.toString().includes('e')
-    ? parsed.toFixed(6).replace(/\.?0+$/, '')
-    : String(parsed).replace(/\.?0+$/, '');
+  const asString = parsed.toString().includes('e')
+    ? parsed.toFixed(6)
+    : String(parsed);
+  return asString.includes('.')
+    ? asString.replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1')
+    : asString;
 }
 
 function addOneYear(value){
@@ -742,6 +745,7 @@ function printLogs(){
       </tr>
     `;
   }).join('');
+  popup.document.open();
   popup.document.write(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -754,6 +758,9 @@ p{margin:0 0 18px;color:#444;font-size:12px;}
 table{width:100%;border-collapse:collapse;}
 th,td{border:1px solid #bbb;padding:8px 10px;text-align:left;font-size:12px;vertical-align:top;}
 th{background:#efefef;text-transform:uppercase;letter-spacing:.08em;font-size:10px;}
+@media print{
+  body{padding:12px;}
+}
 </style>
 </head>
 <body>
@@ -775,11 +782,20 @@ th{background:#efefef;text-transform:uppercase;letter-spacing:.08em;font-size:10
 </thead>
 <tbody>${rows}</tbody>
 </table>
+<script>
+window.addEventListener('load', function(){
+  setTimeout(function(){
+    window.focus();
+    window.print();
+  }, 250);
+});
+window.addEventListener('afterprint', function(){
+  window.close();
+});
+</script>
 </body>
 </html>`);
   popup.document.close();
-  popup.focus();
-  popup.print();
 }
 
 async function renderStandardImagePreview(containerId, standard, guardId = ''){
