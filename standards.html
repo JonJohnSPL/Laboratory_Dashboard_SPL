@@ -214,12 +214,14 @@
             <label class="form-label">Tag Image</label>
             <div class="image-actions">
               <button class="sec-btn small" type="button" onclick="chooseTagImage()">Choose Image</button>
+              <button class="sec-btn small" type="button" onclick="scanTagImage()">Scan Tag</button>
               <button class="sec-btn small" type="button" onclick="openModalTagImage()">Open Image</button>
               <button class="sec-btn small danger" type="button" onclick="removeTagImage()">Remove</button>
             </div>
           </div>
           <input id="std-tag-image" type="file" accept="image/*" style="display:none;" onchange="onTagImageSelected(event)">
           <div id="tag-image-meta" class="image-meta">No tag image attached.</div>
+          <div id="tag-scan-status" class="image-meta">Scan Tag uses OCR to prefill what it can from the uploaded image.</div>
           <div id="tag-image-preview" class="image-preview empty">Tag preview will appear here.</div>
         </div>
       </div>
@@ -234,6 +236,7 @@
 
 <script src="app-config.js"></script>
 <script src="cloud-auth.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="standards.js"></script>
 </body>
 </html>
