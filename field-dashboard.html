@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SPL Pittsburgh Field Ops Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="field-dashboard.css">
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <img class="spl-logo" src="assets/spl-logo.svg" alt="SPL">
+      <div class="header-brand">
+        <h1>Pittsburgh Field Ops Dashboard</h1>
+        <p>Dispatch, scheduling, resource readiness, sample logistics, and maintenance control</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="live-clock">
+        <span>Current Time</span>
+        <div id="clock">--:--:--</div>
+        <div id="datedisp" class="date-display"></div>
+      </div>
+      <div data-session-slot></div>
+      <div class="nav-row">
+        <button class="sec-btn" onclick="window.location.href='index.html'">Home</button>
+        <button class="sec-btn" onclick="window.location.href='lab-dashboard.html'">Lab WIP</button>
+        <button class="sec-btn" onclick="window.location.href='import.html'">Import</button>
+        <button class="sec-btn" onclick="window.location.href='standards.html'">Standards</button>
+        <button class="sec-btn current" type="button">Field Ops</button>
+      </div>
+      <div id="save-indicator" class="save-indicator" style="visibility:hidden;">Saved</div>
+    </div>
+  </header>
+
+  <div class="view-tabs">
+    <button class="view-btn active" data-view="overview" onclick="switchView('overview')">Overview</button>
+    <button class="view-btn" data-view="dispatch" onclick="switchView('dispatch')">Dispatch</button>
+    <button class="view-btn" data-view="schedule" onclick="switchView('schedule')">Schedule</button>
+    <button class="view-btn" data-view="directory" onclick="switchView('directory')">Directory</button>
+    <button class="view-btn" data-view="resources" onclick="switchView('resources')">Resources</button>
+    <button class="view-btn" data-view="samples" onclick="switchView('samples')">Samples</button>
+    <button class="view-btn" data-view="maintenance" onclick="switchView('maintenance')">Maintenance</button>
+  </div>
+
+  <div id="overview-screen" class="screen active">
+    <div class="stats-bar" id="overview-stats"></div>
+    <div class="quick-actions" id="overview-actions"></div>
+    <div class="overview-grid">
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Today's Dispatch</h2>
+          <button class="act-btn" type="button" onclick="switchView('dispatch')">Open Dispatch</button>
+        </div>
+        <div class="panel-body" id="today-jobs-panel"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Resource Readiness</h2>
+          <button class="act-btn" type="button" onclick="switchView('resources')">Open Resources</button>
+        </div>
+        <div class="panel-body" id="resource-readiness-panel"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Issues Needing Attention</h2>
+          <button class="act-btn" type="button" onclick="switchView('schedule')">Open Schedule</button>
+        </div>
+        <div class="panel-body" id="issues-panel"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Next 7 Days</h2>
+          <button class="act-btn" type="button" onclick="switchView('schedule')">Open Week</button>
+        </div>
+        <div class="panel-body" id="next-seven-panel"></div>
+      </section>
+    </div>
+  </div>
+
+  <div id="dispatch-screen" class="screen">
+    <div class="toolbar" id="dispatch-toolbar"></div>
+    <section class="panel table-panel">
+      <div class="panel-header">
+        <h2>Jobs / Dispatch Board</h2>
+        <div class="panel-meta" id="dispatch-summary"></div>
+      </div>
+      <div class="panel-body" id="dispatch-table"></div>
+    </section>
+  </div>
+
+  <div id="schedule-screen" class="screen">
+    <div class="toolbar schedule-toolbar" id="schedule-toolbar"></div>
+    <div class="schedule-layout">
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Weekly Schedule</h2>
+          <div class="panel-meta" id="schedule-summary"></div>
+        </div>
+        <div class="panel-body" id="schedule-board"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Conflicts & Gaps</h2>
+          <button class="act-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button>
+        </div>
+        <div class="panel-body" id="schedule-conflicts"></div>
+      </section>
+    </div>
+  </div>
+
+  <div id="directory-screen" class="screen">
+    <div class="toolbar" id="directory-toolbar"></div>
+    <div class="split-layout">
+      <section class="panel table-panel">
+        <div class="panel-header">
+          <h2>Clients</h2>
+          <button class="act-btn" type="button" onclick="openEntityModal('clients')">+ Add Client</button>
+        </div>
+        <div class="panel-body" id="clients-table"></div>
+      </section>
+      <section class="panel table-panel">
+        <div class="panel-header">
+          <h2>Sites / Locations</h2>
+          <button class="act-btn" type="button" onclick="openEntityModal('sites')">+ Add Site</button>
+        </div>
+        <div class="panel-body" id="sites-table"></div>
+      </section>
+    </div>
+  </div>
+
+  <div id="resources-screen" class="screen">
+    <div class="resource-grid">
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Technicians</h2>
+          <button class="act-btn" type="button" onclick="openEntityModal('technicians')">+ Add Tech</button>
+        </div>
+        <div class="panel-body" id="technicians-panel"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Trucks</h2>
+          <button class="act-btn" type="button" onclick="openEntityModal('trucks')">+ Add Truck</button>
+        </div>
+        <div class="panel-body" id="trucks-panel"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Trailers</h2>
+          <button class="act-btn" type="button" onclick="openEntityModal('trailers')">+ Add Trailer</button>
+        </div>
+        <div class="panel-body" id="trailers-panel"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Equipment</h2>
+          <button class="act-btn" type="button" onclick="openEntityModal('equipment')">+ Add Equipment</button>
+        </div>
+        <div class="panel-body" id="equipment-panel"></div>
+      </section>
+    </div>
+  </div>
+
+  <div id="samples-screen" class="screen">
+    <div class="toolbar simple-toolbar">
+      <div class="toolbar-summary">Bridge field collections to lab handoff and chain-of-custody tracking.</div>
+      <button class="add-btn" type="button" onclick="openEntityModal('samples')">+ Add Sample</button>
+    </div>
+    <section class="panel table-panel">
+      <div class="panel-header">
+        <h2>Sample Logistics</h2>
+        <div class="panel-meta" id="samples-summary"></div>
+      </div>
+      <div class="panel-body" id="samples-table"></div>
+    </section>
+  </div>
+
+  <div id="maintenance-screen" class="screen">
+    <div class="toolbar simple-toolbar">
+      <div class="toolbar-summary">Track preventive work, inspections, repairs, and calibration readiness.</div>
+      <button class="add-btn" type="button" onclick="openEntityModal('maintenanceRecords')">+ Add Maintenance</button>
+    </div>
+    <section class="panel table-panel">
+      <div class="panel-header">
+        <h2>Maintenance & Readiness</h2>
+        <div class="panel-meta" id="maintenance-summary"></div>
+      </div>
+      <div class="panel-body" id="maintenance-table"></div>
+    </section>
+  </div>
+
+  <div class="modal-overlay" id="entity-modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="entity-modal-title">Add Record</h3>
+        <button class="modal-close" type="button" onclick="closeEntityModal()">X</button>
+      </div>
+      <div class="modal-body" id="entity-modal-body"></div>
+      <div class="modal-footer">
+        <button class="btn-del" id="entity-modal-delete" type="button" onclick="deleteCurrentModalEntity()" style="display:none;">Delete</button>
+        <button class="btn-cancel" type="button" onclick="closeEntityModal()">Cancel</button>
+        <button class="btn-save" type="button" onclick="saveEntityFromModal()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app-config.js"></script>
+  <script>
+    window.APP_CONFIG = Object.assign({}, window.APP_CONFIG || {}, {
+      authTitle: 'SPL Field Ops Dashboard',
+      authHelpText: 'Sign in to access shared SPL Pittsburgh Field operations data.'
+    });
+  </script>
+  <script src="cloud-auth.js"></script>
+  <script src="field-dashboard.js"></script>
+</body>
+</html>
