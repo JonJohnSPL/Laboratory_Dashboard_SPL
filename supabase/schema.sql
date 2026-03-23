@@ -176,6 +176,12 @@ on conflict (id) do update
 set name = excluded.name,
     public = excluded.public;
 
+insert into storage.buckets (id, name, public)
+values ('field-assets', 'field-assets', false)
+on conflict (id) do update
+set name = excluded.name,
+    public = excluded.public;
+
 drop policy if exists "Authenticated users can read standard tag images" on storage.objects;
 create policy "Authenticated users can read standard tag images"
 on storage.objects
@@ -204,6 +210,35 @@ on storage.objects
 for delete
 to authenticated
 using (bucket_id = 'standard-tags');
+
+drop policy if exists "Authenticated users can read field asset images" on storage.objects;
+create policy "Authenticated users can read field asset images"
+on storage.objects
+for select
+to authenticated
+using (bucket_id = 'field-assets');
+
+drop policy if exists "Authenticated users can upload field asset images" on storage.objects;
+create policy "Authenticated users can upload field asset images"
+on storage.objects
+for insert
+to authenticated
+with check (bucket_id = 'field-assets');
+
+drop policy if exists "Authenticated users can update field asset images" on storage.objects;
+create policy "Authenticated users can update field asset images"
+on storage.objects
+for update
+to authenticated
+using (bucket_id = 'field-assets')
+with check (bucket_id = 'field-assets');
+
+drop policy if exists "Authenticated users can delete field asset images" on storage.objects;
+create policy "Authenticated users can delete field asset images"
+on storage.objects
+for delete
+to authenticated
+using (bucket_id = 'field-assets');
 
 create or replace function public.touch_field_ops_row()
 returns trigger
@@ -335,12 +370,67 @@ create table if not exists public.field_trucks (
   service_status text not null default 'Available' check (service_status in ('Available', 'In Use', 'Maintenance', 'Out of Service')),
   last_service_date date,
   next_service_due date,
+  workflow text not null default '',
+  gps_id text not null default '',
+  gps_status text not null default '',
+  gvwr integer,
+  business_unit text not null default '',
+  primary_use text not null default '',
+  assigned_to text not null default '',
+  current_driver text not null default '',
+  assigned_technician_id uuid,
+  duty text not null default '',
+  lease_company text not null default '',
+  model text not null default '',
+  vehicle_information text not null default '',
+  lease_begin_date date,
+  delivery_date date,
+  lease_end_date date,
+  returned_date date,
+  license_plate_number text not null default '',
+  make text not null default '',
+  color text not null default '',
+  ownership text not null default '',
+  registered_state text not null default '',
+  registration_expiration_date date,
+  state_insurance_expiration_date date,
+  vin text not null default '',
+  vehicle_id text not null default '',
+  vehicle_year integer,
   notes text not null default '',
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
   created_by uuid,
   updated_by uuid
 );
+alter table public.field_trucks add column if not exists photo_path text;
+alter table public.field_trucks add column if not exists workflow text not null default '';
+alter table public.field_trucks add column if not exists gps_id text not null default '';
+alter table public.field_trucks add column if not exists gps_status text not null default '';
+alter table public.field_trucks add column if not exists gvwr integer;
+alter table public.field_trucks add column if not exists business_unit text not null default '';
+alter table public.field_trucks add column if not exists primary_use text not null default '';
+alter table public.field_trucks add column if not exists assigned_to text not null default '';
+alter table public.field_trucks add column if not exists current_driver text not null default '';
+alter table public.field_trucks add column if not exists assigned_technician_id uuid;
+alter table public.field_trucks add column if not exists duty text not null default '';
+alter table public.field_trucks add column if not exists lease_company text not null default '';
+alter table public.field_trucks add column if not exists model text not null default '';
+alter table public.field_trucks add column if not exists vehicle_information text not null default '';
+alter table public.field_trucks add column if not exists lease_begin_date date;
+alter table public.field_trucks add column if not exists delivery_date date;
+alter table public.field_trucks add column if not exists lease_end_date date;
+alter table public.field_trucks add column if not exists returned_date date;
+alter table public.field_trucks add column if not exists license_plate_number text not null default '';
+alter table public.field_trucks add column if not exists make text not null default '';
+alter table public.field_trucks add column if not exists color text not null default '';
+alter table public.field_trucks add column if not exists ownership text not null default '';
+alter table public.field_trucks add column if not exists registered_state text not null default '';
+alter table public.field_trucks add column if not exists registration_expiration_date date;
+alter table public.field_trucks add column if not exists state_insurance_expiration_date date;
+alter table public.field_trucks add column if not exists vin text not null default '';
+alter table public.field_trucks add column if not exists vehicle_id text not null default '';
+alter table public.field_trucks add column if not exists vehicle_year integer;
 
 create table if not exists public.field_trailers (
   id uuid primary key default gen_random_uuid(),
@@ -348,6 +438,7 @@ create table if not exists public.field_trailers (
   trailer_type text not null default '',
   capacity_configuration text not null default '',
   service_status text not null default 'Available' check (service_status in ('Available', 'Assigned', 'In Use', 'Maintenance', 'Out of Service')),
+  assigned_truck_id uuid,
   last_inspection_date date,
   next_inspection_due date,
   notes text not null default '',
@@ -356,6 +447,8 @@ create table if not exists public.field_trailers (
   created_by uuid,
   updated_by uuid
 );
+alter table public.field_trailers add column if not exists photo_path text;
+alter table public.field_trailers add column if not exists assigned_truck_id uuid;
 
 create table if not exists public.field_equipment (
   id uuid primary key default gen_random_uuid(),
@@ -368,12 +461,17 @@ create table if not exists public.field_equipment (
   maintenance_status text not null default 'Available' check (maintenance_status in ('Available', 'Assigned', 'In Use', 'Needs Repair', 'Out of Service')),
   storage_location text not null default '',
   assigned_trailer_truck text not null default '',
+  assigned_truck_id uuid,
+  assigned_trailer_id uuid,
   notes text not null default '',
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
   created_by uuid,
   updated_by uuid
 );
+alter table public.field_equipment add column if not exists photo_path text;
+alter table public.field_equipment add column if not exists assigned_truck_id uuid;
+alter table public.field_equipment add column if not exists assigned_trailer_id uuid;
 
 create table if not exists public.field_samples (
   id uuid primary key default gen_random_uuid(),

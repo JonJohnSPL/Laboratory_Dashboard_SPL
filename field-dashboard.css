@@ -448,6 +448,48 @@ tbody tr:hover{background:rgba(255,255,255,.02);}
   border:1px solid var(--border);
   background:var(--surface2);
 }
+.clickable-card{
+  cursor:pointer;
+  transition:border-color .18s ease, transform .18s ease, box-shadow .18s ease;
+}
+.clickable-card:hover,
+.clickable-card:focus-visible{
+  border-color:rgba(89,214,125,.34);
+  box-shadow:0 12px 28px rgba(0,0,0,.18);
+  transform:translateY(-1px);
+  outline:none;
+}
+.resource-photo,
+.asset-photo-preview{
+  display:block;
+  width:100%;
+  object-fit:cover;
+  border-radius:10px;
+  border:1px solid rgba(89,214,125,.16);
+  background:rgba(8,12,9,.82);
+}
+.resource-photo{
+  height:168px;
+  margin-bottom:12px;
+}
+.asset-photo-preview{
+  min-height:220px;
+  max-height:280px;
+}
+.resource-photo.empty,
+.asset-photo-preview.empty{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:var(--muted);
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:1px;
+  text-transform:uppercase;
+}
+.asset-photo-error{
+  opacity:.45;
+}
 .resource-card-head{
   display:flex;
   justify-content:space-between;
@@ -607,6 +649,41 @@ textarea.form-input{min-height:86px;resize:vertical;}
   font-size:12px;
 }
 .toggle-card input{accent-color:var(--accent);}
+.asset-photo-field{
+  display:grid;
+  grid-template-columns:minmax(0, 1.2fr) minmax(220px, .8fr);
+  gap:14px;
+  padding:12px;
+  border-radius:12px;
+  border:1px solid var(--border);
+  background:var(--surface2);
+}
+.asset-photo-preview-wrap{
+  min-width:0;
+}
+.asset-photo-controls{
+  display:grid;
+  align-content:start;
+  gap:10px;
+}
+.asset-photo-upload{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:fit-content;
+}
+.asset-photo-input{
+  position:absolute;
+  width:1px;
+  height:1px;
+  opacity:0;
+  pointer-events:none;
+}
+.act-btn:disabled,
+.add-btn:disabled{
+  opacity:.45;
+  cursor:not-allowed;
+}
 .assignment-editor{
   margin-top:16px;
   padding-top:16px;
@@ -656,6 +733,7 @@ textarea.form-input{min-height:86px;resize:vertical;}
 @media (max-width: 980px){
   .stats-bar,.overview-grid,.split-layout,.resource-grid,.form-grid{grid-template-columns:1fr;}
   .assignment-row{grid-template-columns:1fr;}
+  .asset-photo-field{grid-template-columns:1fr;}
   table{min-width:640px;}
 }
 @media (max-width: 760px){

@@ -1,6 +1,8 @@
 const STORAGE_KEY = 'field-ops-dashboard-data';
 const AUTO_REFRESH_MS = 15000;
 const ENTITY_ORDER = ['clients', 'sites', 'jobs', 'jobAssignments', 'technicians', 'trucks', 'trailers', 'equipment', 'samples', 'maintenanceRecords'];
+const FIELD_ASSET_BUCKET = 'field-assets';
+const ASSET_PHOTO_ENTITY_KEYS = ['trucks', 'trailers', 'equipment'];
 
 const ACCOUNT_STATUS_OPTIONS = ['Active', 'On Hold', 'Inactive'];
 const SITE_TYPE_OPTIONS = ['Well Pad', 'LACT Unit', 'Facility', 'Pipeline Location', 'Office / Yard', 'Other'];
@@ -43,9 +45,9 @@ const ENTITY_CONFIG = {
   jobs:{ table:'field_jobs', label:'Job', idPrefix:'job', defaults:{ fieldfxTicketId:'', clientId:'', siteId:'', jobType:'', jobStatus:'New', priority:'Normal', requestedDate:'', scheduledStart:'', scheduledEnd:'', actualStart:'', actualEnd:'', durationPlanned:null, durationActual:null, scopeSummary:'', workInstructions:'', apiStandardReference:'', custodyAllocation:'Allocation', samplesRequired:false, meterUnitId:'', provingRequired:false, maintenanceRequired:false, clientContactForJob:'', dispatchNotes:'', completionNotes:'', followUpRequired:false, followUpNotes:'' }, fieldMap:{ fieldfxTicketId:'fieldfx_ticket_id', clientId:'client_id', siteId:'site_id', jobType:'job_type', jobStatus:'job_status', priority:'priority', requestedDate:'requested_date', scheduledStart:'scheduled_start', scheduledEnd:'scheduled_end', actualStart:'actual_start', actualEnd:'actual_end', durationPlanned:'duration_planned_minutes', durationActual:'duration_actual_minutes', scopeSummary:'scope_summary', workInstructions:'work_instructions', apiStandardReference:'api_standard_reference', custodyAllocation:'custody_allocation', samplesRequired:'samples_required', meterUnitId:'meter_unit_id', provingRequired:'proving_required', maintenanceRequired:'maintenance_required', clientContactForJob:'client_contact_for_job', dispatchNotes:'dispatch_notes', completionNotes:'completion_notes', followUpRequired:'follow_up_required', followUpNotes:'follow_up_notes' }, numberFields:['durationPlanned', 'durationActual'], booleanFields:['samplesRequired', 'provingRequired', 'maintenanceRequired', 'followUpRequired'] },
   jobAssignments:{ table:'field_job_assignments', label:'Assignment', idPrefix:'asg', defaults:{ jobId:'', assignmentType:'Technician', resourceId:'', assignedStart:'', assignedEnd:'', assignmentStatus:'Assigned', assignmentNotes:'' }, fieldMap:{ jobId:'job_id', assignmentType:'assignment_type', resourceId:'resource_id', assignedStart:'assigned_start', assignedEnd:'assigned_end', assignmentStatus:'assignment_status', assignmentNotes:'assignment_notes' } },
   technicians:{ table:'field_technicians', label:'Technician', idPrefix:'tech', defaults:{ employeeName:'', role:'Field Tech', phone:'', email:'', homeBase:'', certifications:'', apiSafetyTrainingStatus:'', availabilityStatus:'Available', skillTags:'', notes:'' }, fieldMap:{ employeeName:'employee_name', role:'role', phone:'phone', email:'email', homeBase:'home_base', certifications:'certifications', apiSafetyTrainingStatus:'api_safety_training_status', availabilityStatus:'availability_status', skillTags:'skill_tags', notes:'notes' } },
-  trucks:{ table:'field_trucks', label:'Truck', idPrefix:'truck', defaults:{ unitNumber:'', vehicleType:'Pickup', plateVin:'', assignedRegion:'', odometer:null, serviceStatus:'Available', lastServiceDate:'', nextServiceDue:'', notes:'' }, fieldMap:{ unitNumber:'unit_number', vehicleType:'vehicle_type', plateVin:'plate_vin', assignedRegion:'assigned_region', odometer:'odometer', serviceStatus:'service_status', lastServiceDate:'last_service_date', nextServiceDue:'next_service_due', notes:'notes' }, numberFields:['odometer'] },
-  trailers:{ table:'field_trailers', label:'Trailer', idPrefix:'trailer', defaults:{ trailerNumber:'', trailerType:'', capacityConfiguration:'', serviceStatus:'Available', lastInspectionDate:'', nextInspectionDue:'', notes:'' }, fieldMap:{ trailerNumber:'trailer_number', trailerType:'trailer_type', capacityConfiguration:'capacity_configuration', serviceStatus:'service_status', lastInspectionDate:'last_inspection_date', nextInspectionDue:'next_inspection_due', notes:'notes' } },
-  equipment:{ table:'field_equipment', label:'Equipment', idPrefix:'equip', defaults:{ equipmentName:'', equipmentType:'Small Volume Prover', serialNumber:'', calibrationStatus:'Current', lastCalibrationDate:'', nextCalibrationDue:'', maintenanceStatus:'Available', storageLocation:'', assignedTrailerTruck:'', notes:'' }, fieldMap:{ equipmentName:'equipment_name', equipmentType:'equipment_type', serialNumber:'serial_number', calibrationStatus:'calibration_status', lastCalibrationDate:'last_calibration_date', nextCalibrationDue:'next_calibration_due', maintenanceStatus:'maintenance_status', storageLocation:'storage_location', assignedTrailerTruck:'assigned_trailer_truck', notes:'notes' } },
+  trucks:{ table:'field_trucks', label:'Truck', idPrefix:'truck', defaults:{ unitNumber:'', vehicleType:'Pickup', plateVin:'', assignedRegion:'', odometer:null, serviceStatus:'Available', lastServiceDate:'', nextServiceDue:'', truckWorkflow:'', gpsId:'', gpsStatus:'', gvwr:null, businessUnit:'', primaryUse:'', assignedTo:'', currentDriver:'', assignedTechnicianId:'', duty:'', model:'', vehicleInformation:'', leaseCompany:'', leaseBeginDate:'', deliveryDate:'', leaseEndDate:'', returnedDate:'', licensePlateNumber:'', make:'', color:'', ownership:'', registeredState:'', registrationExpirationDate:'', stateInsuranceExpirationDate:'', vin:'', vehicleId:'', vehicleYear:null, assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ unitNumber:'unit_number', vehicleType:'vehicle_type', plateVin:'plate_vin', assignedRegion:'assigned_region', odometer:'odometer', serviceStatus:'service_status', lastServiceDate:'last_service_date', nextServiceDue:'next_service_due', truckWorkflow:'workflow', gpsId:'gps_id', gpsStatus:'gps_status', gvwr:'gvwr', businessUnit:'business_unit', primaryUse:'primary_use', assignedTo:'assigned_to', currentDriver:'current_driver', assignedTechnicianId:'assigned_technician_id', duty:'duty', model:'model', vehicleInformation:'vehicle_information', leaseCompany:'lease_company', leaseBeginDate:'lease_begin_date', deliveryDate:'delivery_date', leaseEndDate:'lease_end_date', returnedDate:'returned_date', licensePlateNumber:'license_plate_number', make:'make', color:'color', ownership:'ownership', registeredState:'registered_state', registrationExpirationDate:'registration_expiration_date', stateInsuranceExpirationDate:'state_insurance_expiration_date', vin:'vin', vehicleId:'vehicle_id', vehicleYear:'vehicle_year', assetPhotoPath:'photo_path', notes:'notes' }, numberFields:['odometer', 'gvwr', 'vehicleYear'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
+  trailers:{ table:'field_trailers', label:'Trailer', idPrefix:'trailer', defaults:{ trailerNumber:'', trailerType:'', capacityConfiguration:'', serviceStatus:'Available', assignedTruckId:'', lastInspectionDate:'', nextInspectionDue:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ trailerNumber:'trailer_number', trailerType:'trailer_type', capacityConfiguration:'capacity_configuration', serviceStatus:'service_status', assignedTruckId:'assigned_truck_id', lastInspectionDate:'last_inspection_date', nextInspectionDue:'next_inspection_due', assetPhotoPath:'photo_path', notes:'notes' }, localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
+  equipment:{ table:'field_equipment', label:'Equipment', idPrefix:'equip', defaults:{ equipmentName:'', equipmentType:'Small Volume Prover', serialNumber:'', calibrationStatus:'Current', lastCalibrationDate:'', nextCalibrationDue:'', maintenanceStatus:'Available', storageLocation:'', assignedTrailerTruck:'', assignedTruckId:'', assignedTrailerId:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ equipmentName:'equipment_name', equipmentType:'equipment_type', serialNumber:'serial_number', calibrationStatus:'calibration_status', lastCalibrationDate:'last_calibration_date', nextCalibrationDue:'next_calibration_due', maintenanceStatus:'maintenance_status', storageLocation:'storage_location', assignedTrailerTruck:'assigned_trailer_truck', assignedTruckId:'assigned_truck_id', assignedTrailerId:'assigned_trailer_id', assetPhotoPath:'photo_path', notes:'notes' }, localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
   samples:{ table:'field_samples', label:'Sample', idPrefix:'sample', defaults:{ jobId:'', clientId:'', siteId:'', sampleType:'Gas', containerType:'Cylinder', collectionDateTime:'', pickedUpBy:'', dropOffLocation:'', chainOfCustodyStatus:'Requested', labReceiptStatus:'Requested', priorityTat:'', notes:'' }, fieldMap:{ jobId:'job_id', clientId:'client_id', siteId:'site_id', sampleType:'sample_type', containerType:'container_type', collectionDateTime:'collection_date_time', pickedUpBy:'picked_up_by', dropOffLocation:'drop_off_location', chainOfCustodyStatus:'chain_of_custody_status', labReceiptStatus:'lab_receipt_status', priorityTat:'priority_tat', notes:'notes' } },
   maintenanceRecords:{ table:'field_maintenance_records', label:'Maintenance Record', idPrefix:'maint', defaults:{ assetType:'Equipment', assetId:'', maintenanceType:'Preventive', openDate:'', dueDate:'', completedDate:'', status:'Open', issueDescription:'', resolution:'', vendorInternal:'Internal', cost:null, assignedPerson:'', notes:'' }, fieldMap:{ assetType:'asset_type', assetId:'asset_id', maintenanceType:'maintenance_type', openDate:'open_date', dueDate:'due_date', completedDate:'completed_date', status:'status', issueDescription:'issue_description', resolution:'resolution', vendorInternal:'vendor_internal', cost:'cost', assignedPerson:'assigned_person', notes:'notes' }, numberFields:['cost'] }
 };
@@ -54,6 +56,8 @@ let state = { activeView:'overview', scheduleAnchorDate:getStartOfWeekISO(new Da
 let modalState = createClosedModalState();
 let lastLoadedSnapshot = '';
 let hideSaveStatusTimer = null;
+const remoteAssetPhotoUrlCache = new Map();
+const remoteAssetPhotoLoadPromises = new Map();
 
 function createEmptyData(){ return { clients:[], sites:[], jobs:[], jobAssignments:[], technicians:[], trucks:[], trailers:[], equipment:[], samples:[], maintenanceRecords:[] }; }
 function createClosedModalState(){ return { open:false, entity:'', id:'', formData:{}, assignments:[] }; }
@@ -180,6 +184,7 @@ function toRemotePayload(entityKey, draft){
   const cfg = ENTITY_CONFIG[entityKey];
   const payload = {};
   Object.keys(cfg.defaults).forEach((key) => {
+    if((cfg.localOnlyFields || []).includes(key)) return;
     const remoteKey = cfg.fieldMap[key] || key;
     const value = draft[key];
     if((cfg.booleanFields || []).includes(key)) payload[remoteKey] = !!value;
@@ -212,6 +217,7 @@ const remoteRepository = {
   },
   async deleteRecord(entityKey, id){ await window.appAuth.requestJson(`/rest/v1/${ENTITY_CONFIG[entityKey].table}?id=eq.${encodeURIComponent(id)}`, { method:'DELETE' }); },
   async deleteWhere(table, filters){ if(!filters.length) return; const query = filters.map((filter) => `${filter.column}=eq.${encodeURIComponent(filter.value)}`).join('&'); await window.appAuth.requestJson(`/rest/v1/${table}?${query}`, { method:'DELETE' }); },
+  async updateWhere(table, filters, payload){ if(!filters.length) return; const query = filters.map((filter) => `${filter.column}=eq.${encodeURIComponent(filter.value)}`).join('&'); await window.appAuth.requestJson(`/rest/v1/${table}?${query}`, { method:'PATCH', headers:{ 'Content-Type':'application/json', 'Prefer':'return=minimal' }, body:JSON.stringify(payload) }); },
   async insertRows(table, rows){ if(!rows.length) return; await window.appAuth.requestJson(`/rest/v1/${table}`, { method:'POST', headers:{ 'Content-Type':'application/json', 'Prefer':'return=minimal' }, body:JSON.stringify(rows) }); }
 };
 
@@ -415,10 +421,37 @@ const FORM_DEFINITIONS = {
     { key:'vehicleType', label:'Vehicle Type', type:'select', options:TRUCK_TYPE_OPTIONS },
     { key:'serviceStatus', label:'Service Status', type:'select', options:VEHICLE_STATUS_OPTIONS },
     { key:'assignedRegion', label:'Assigned Region', type:'text' },
-    { key:'plateVin', label:'Plate / VIN', type:'text' },
+    { key:'truckWorkflow', label:'Workflow', type:'text' },
+    { key:'businessUnit', label:'Lab / Field / Sales', type:'text' },
+    { key:'primaryUse', label:'Primary Use', type:'text' },
+    { key:'assignedTechnicianId', label:'Assigned Tech', type:'select', options:() => buildTechnicianAssignmentOptions(), handler:'changeTruckAssignedTechnician', placeholderLabel:'Pool' },
+    { key:'assignedTo', label:'Assigned To', type:'text' },
+    { key:'duty', label:'Duty', type:'text' },
+    { key:'make', label:'Make', type:'text' },
+    { key:'color', label:'Truck Color', type:'text' },
+    { key:'model', label:'Model', type:'text' },
+    { key:'vehicleYear', label:'Year Of Vehicle', type:'number' },
+    { key:'vehicleId', label:'Vehicle ID', type:'text' },
+    { key:'vehicleInformation', label:'Vehicle Information', type:'text' },
+    { key:'ownership', label:'Ownership', type:'text' },
+    { key:'leaseCompany', label:'Lease Company', type:'text' },
+    { key:'leaseBeginDate', label:'Lease Begin Date', type:'date' },
+    { key:'deliveryDate', label:'Delivery Date', type:'date' },
+    { key:'leaseEndDate', label:'Lease End Date', type:'date' },
+    { key:'returnedDate', label:'Returned Date', type:'date' },
+    { key:'licensePlateNumber', label:'License Plate Number', type:'text' },
+    { key:'registeredState', label:'Registered State', type:'text' },
+    { key:'vin', label:'VIN', type:'text' },
+    { key:'plateVin', label:'Plate / VIN Summary', type:'text' },
+    { key:'gpsId', label:'GPS ID', type:'text' },
+    { key:'gpsStatus', label:'GPS Status', type:'text' },
+    { key:'gvwr', label:'GVWR', type:'number' },
     { key:'odometer', label:'Odometer', type:'number' },
-    { key:'lastServiceDate', label:'Last Service Date', type:'date' },
+    { key:'lastServiceDate', label:'Date Of Last Inspection', type:'date' },
+    { key:'registrationExpirationDate', label:'Registration Expiration Date', type:'date' },
+    { key:'stateInsuranceExpirationDate', label:'State Insurance Expiration Date', type:'date' },
     { key:'nextServiceDue', label:'Next Service Due', type:'date' },
+    { key:'assetPhotoPath', label:'Truck Photo', type:'image', full:true },
     { key:'notes', label:'Notes', type:'textarea', full:true }
   ],
   trailers:[
@@ -426,9 +459,11 @@ const FORM_DEFINITIONS = {
     { key:'trailerNumber', label:'Trailer Number', type:'text', required:true },
     { key:'trailerType', label:'Trailer Type', type:'text' },
     { key:'serviceStatus', label:'Service Status', type:'select', options:TRAILER_STATUS_OPTIONS },
+    { key:'assignedTruckId', label:'Assigned Truck', type:'select', options:() => buildTruckOptions() },
     { key:'capacityConfiguration', label:'Capacity / Configuration', type:'text', full:true },
     { key:'lastInspectionDate', label:'Last Inspection Date', type:'date' },
     { key:'nextInspectionDue', label:'Next Inspection Due', type:'date' },
+    { key:'assetPhotoPath', label:'Trailer Photo', type:'image', full:true },
     { key:'notes', label:'Notes', type:'textarea', full:true }
   ],
   equipment:[
@@ -439,9 +474,11 @@ const FORM_DEFINITIONS = {
     { key:'maintenanceStatus', label:'Maintenance Status', type:'select', options:EQUIPMENT_STATUS_OPTIONS },
     { key:'calibrationStatus', label:'Calibration Status', type:'select', options:CALIBRATION_STATUS_OPTIONS },
     { key:'storageLocation', label:'Storage Location', type:'text' },
-    { key:'assignedTrailerTruck', label:'Assigned Trailer / Truck', type:'text' },
+    { key:'assignedTruckId', label:'Assigned Truck', type:'select', options:() => buildTruckOptions(), handler:'changeEquipmentAssignedTruck' },
+    { key:'assignedTrailerId', label:'Assigned Trailer', type:'select', options:() => buildTrailerOptions(), handler:'changeEquipmentAssignedTrailer' },
     { key:'lastCalibrationDate', label:'Last Calibration Date', type:'date' },
     { key:'nextCalibrationDue', label:'Next Calibration Due', type:'date' },
+    { key:'assetPhotoPath', label:'Equipment Photo', type:'image', full:true },
     { key:'notes', label:'Notes', type:'textarea', full:true }
   ],
   samples:[
@@ -498,6 +535,13 @@ function buildSiteOptions(clientId = ''){ return state.data.sites.filter((row) =
 function buildJobOptions(){ return state.data.jobs.map((row) => ({ value:row.id, label:`${row.fieldfxTicketId || row.jobType || 'Job'} | ${getSiteLabel(row.siteId)}` })); }
 function buildAssetOptions(assetType = ''){ if(assetType === 'Truck') return state.data.trucks.map((row) => ({ value:row.id, label:row.unitNumber || 'Unnamed truck' })); if(assetType === 'Trailer') return state.data.trailers.map((row) => ({ value:row.id, label:row.trailerNumber || 'Unnamed trailer' })); return state.data.equipment.map((row) => ({ value:row.id, label:row.equipmentName || 'Unnamed equipment' })); }
 function buildResourceOptions(assignmentType = 'Technician'){ const entityKey = RESOURCE_ENTITY_BY_TYPE[assignmentType]; return entityKey ? state.data[entityKey].map((row) => ({ value:row.id, label:getResourceLabel(assignmentType, row.id) })) : []; }
+function buildTechnicianOptions(){ return state.data.technicians.map((row) => ({ value:row.id, label:row.employeeName || 'Unnamed technician' })); }
+function buildTechnicianAssignmentOptions(){ return [{ value:'', label:'Pool' }, ...buildTechnicianOptions()]; }
+function buildTruckOptions(){ return state.data.trucks.map((row) => ({ value:row.id, label:row.unitNumber || 'Unnamed truck' })); }
+function buildTrailerOptions(){ return state.data.trailers.map((row) => ({ value:row.id, label:row.trailerNumber || 'Unnamed trailer' })); }
+function getTechnicianLabel(id){ return state.data.technicians.find((row) => row.id === id)?.employeeName || 'Unassigned'; }
+function getTruckLabel(id){ return state.data.trucks.find((row) => row.id === id)?.unitNumber || 'Unassigned'; }
+function getTrailerLabel(id){ return state.data.trailers.find((row) => row.id === id)?.trailerNumber || 'Unassigned'; }
 
 function switchView(view){ state.activeView = view; render(); }
 function setDispatchFilter(key, value){ state.filters[key] = value; renderDispatch(buildDerivedState()); }
@@ -511,7 +555,8 @@ function getStatusBadge(status){ return `<span class="status-badge ${getStatusTo
 function normalizeOptions(options){ if(!Array.isArray(options)) return []; return options.map((option) => typeof option === 'string' ? { value:option, label:option } : option); }
 function renderTags(csvText){ const tags = String(csvText || '').split(',').map((value) => value.trim()).filter(Boolean); return tags.length ? `<div class="tag-row">${tags.map((tag) => `<span class="tag-chip">${esc(tag)}</span>`).join('')}</div>` : '<span class="muted">None listed</span>'; }
 function renderWarnings(warnings){ return warnings.length ? `<div class="warning-row">${warnings.map((warning) => `<span class="warning-chip">${esc(warning)}</span>`).join('')}</div>` : ''; }
-function renderActionButtons(entityKey, id){ return `<div class="table-actions"><button class="act-btn" type="button" onclick="openEntityModal('${entityKey}','${esc(id)}')">Edit</button><button class="act-btn danger" type="button" onclick="deleteEntityRecord('${entityKey}','${esc(id)}')">Delete</button></div>`; }
+function renderActionButtons(entityKey, id){ return `<div class="table-actions"><button class="act-btn" type="button" onclick="event.stopPropagation(); openEntityModal('${entityKey}','${esc(id)}')">Edit</button><button class="act-btn danger" type="button" onclick="event.stopPropagation(); deleteEntityRecord('${entityKey}','${esc(id)}')">Delete</button></div>`; }
+function renderCardOpenAttrs(entityKey, id){ return `class="resource-card clickable-card" role="button" tabindex="0" onclick="openEntityModal('${entityKey}','${esc(id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEntityModal('${entityKey}','${esc(id)}'); }"`; }
 
 function renderTable(columns, rows, emptyMarkup){
   if(!rows.length) return `<div class="empty-state">${emptyMarkup}</div>`;
@@ -601,11 +646,143 @@ function renderResourceCards(list, renderer, emptyLabel){
   return list.length ? `<div class="resource-cards">${list.map(renderer).join('')}</div>` : `<div class="empty-state">${esc(emptyLabel)}</div>`;
 }
 
+function isAssetPhotoEntity(entityKey){ return ASSET_PHOTO_ENTITY_KEYS.includes(entityKey); }
+function hasAssetPhoto(record){ return !!(record?.assetPhotoDataUrl || record?.assetPhotoPath); }
+function getAssetPhotoAlt(entityKey, record){
+  if(entityKey === 'trucks') return `Photo for truck ${record?.unitNumber || 'asset'}`;
+  if(entityKey === 'trailers') return `Photo for trailer ${record?.trailerNumber || 'asset'}`;
+  return `Photo for equipment ${record?.equipmentName || 'asset'}`;
+}
+function getAssetPhotoEmptyLabel(entityKey){
+  if(entityKey === 'trucks') return 'No truck photo';
+  if(entityKey === 'trailers') return 'No trailer photo';
+  return 'No equipment photo';
+}
+function renderAssetPhoto(record, options = {}){
+  const className = options.className || 'asset-photo';
+  const emptyLabel = options.emptyLabel || 'No photo';
+  const alt = options.alt || 'Asset photo';
+  if(record?.assetPhotoDataUrl) return `<img class="${className}" src="${esc(record.assetPhotoDataUrl)}" alt="${esc(alt)}">`;
+  if(record?.assetPhotoPath && isRemoteMode()) return `<img class="${className}" src="" alt="${esc(alt)}" data-asset-photo-path="${esc(record.assetPhotoPath)}">`;
+  return `<div class="${className} empty">${esc(emptyLabel)}</div>`;
+}
+function buildAssetPhotoStoragePath(entityKey, recordId, fileName){
+  const cleaned = String(fileName || 'asset-photo.jpg').toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'asset-photo.jpg';
+  return `${entityKey}/${recordId}/${Date.now()}-${cleaned}`;
+}
+function encodeStoragePath(path){ return String(path || '').split('/').map((segment) => encodeURIComponent(segment)).join('/'); }
+function dataUrlToBlob(dataUrl){
+  const parts = String(dataUrl || '').split(',');
+  if(parts.length < 2) throw new Error('Invalid image payload.');
+  const match = parts[0].match(/data:([^;]+);base64/i);
+  const mime = match ? match[1] : 'application/octet-stream';
+  const binary = atob(parts[1]);
+  const bytes = new Uint8Array(binary.length);
+  for(let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type:mime });
+}
+async function ensureAssetPhotoUrl(record){
+  if(!record) return '';
+  if(record.assetPhotoDataUrl) return record.assetPhotoDataUrl;
+  if(!record.assetPhotoPath || !isRemoteMode()) return '';
+  if(remoteAssetPhotoUrlCache.has(record.assetPhotoPath)) return remoteAssetPhotoUrlCache.get(record.assetPhotoPath);
+  if(remoteAssetPhotoLoadPromises.has(record.assetPhotoPath)) return remoteAssetPhotoLoadPromises.get(record.assetPhotoPath);
+  const promise = (async () => {
+    const response = await window.appAuth.fetch(`/storage/v1/object/authenticated/${FIELD_ASSET_BUCKET}/${encodeStoragePath(record.assetPhotoPath)}`, { headers:{ Accept:'*/*' } });
+    if(!response.ok) throw new Error(`Image request failed (${response.status}).`);
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    remoteAssetPhotoUrlCache.set(record.assetPhotoPath, url);
+    return url;
+  })();
+  remoteAssetPhotoLoadPromises.set(record.assetPhotoPath, promise);
+  try {
+    return await promise;
+  } finally {
+    remoteAssetPhotoLoadPromises.delete(record.assetPhotoPath);
+  }
+}
+function clearCachedAssetPhoto(path){
+  const cached = remoteAssetPhotoUrlCache.get(path);
+  if(cached){
+    URL.revokeObjectURL(cached);
+    remoteAssetPhotoUrlCache.delete(path);
+  }
+}
+async function hydrateAssetPhotoPreviews(scope = document){
+  const nodes = Array.from(scope.querySelectorAll('img[data-asset-photo-path]'));
+  await Promise.all(nodes.map(async (node) => {
+    const path = node.dataset.assetPhotoPath || '';
+    if(!path || node.getAttribute('src')) return;
+    try {
+      node.src = await ensureAssetPhotoUrl({ assetPhotoPath:path });
+    } catch (error){
+      console.warn('Unable to load asset photo:', error);
+      node.classList.add('asset-photo-error');
+    }
+  }));
+}
+function readFileAsDataUrl(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Unable to read the selected image.'));
+    reader.readAsDataURL(file);
+  });
+}
+async function handleAssetPhotoSelected(event){
+  const file = event?.target?.files?.[0];
+  if(!modalState.open || !file) return;
+  if(!String(file.type || '').startsWith('image/')){
+    alert('Please choose an image file.');
+    event.target.value = '';
+    return;
+  }
+  try {
+    const dataUrl = await readFileAsDataUrl(file);
+    modalState.formData.assetPhotoDataUrl = dataUrl;
+    modalState.formData.assetPhotoName = file.name || '';
+    modalState.formData.assetPhotoType = file.type || 'image/jpeg';
+    renderModal();
+  } catch (error){
+    console.error('Unable to read asset photo:', error);
+    alert(error.message || 'Unable to read the selected image.');
+  } finally {
+    if(event?.target) event.target.value = '';
+  }
+}
+function removeModalAssetPhoto(){
+  if(!modalState.open) return;
+  modalState.formData.assetPhotoPath = '';
+  modalState.formData.assetPhotoDataUrl = '';
+  modalState.formData.assetPhotoName = '';
+  modalState.formData.assetPhotoType = '';
+  renderModal();
+}
+async function openModalAssetPhoto(){
+  if(!modalState.open || !hasAssetPhoto(modalState.formData)){
+    alert('No photo attached yet.');
+    return;
+  }
+  try {
+    const url = await ensureAssetPhotoUrl(modalState.formData);
+    if(!url) throw new Error('No photo attached yet.');
+    window.open(url, '_blank', 'noopener');
+  } catch (error){
+    console.error('Unable to open asset photo:', error);
+    alert(error.message || 'Unable to open the asset photo.');
+  }
+}
+function renderAssetPhotoField(field){
+  const photoLabel = modalState.formData.assetPhotoName || (modalState.formData.assetPhotoPath ? 'Current saved photo' : 'JPG, PNG, or HEIC image');
+  return `<div class="form-group full"><label class="form-label">${esc(field.label)}</label><div class="asset-photo-field"><div class="asset-photo-preview-wrap">${renderAssetPhoto(modalState.formData, { className:'asset-photo-preview', emptyLabel:'No photo selected', alt:field.label })}</div><div class="asset-photo-controls"><label class="add-btn asset-photo-upload" for="asset-photo-input">Choose Photo</label><input id="asset-photo-input" class="asset-photo-input" type="file" accept="image/*" onchange="handleAssetPhotoSelected(event)"><div class="muted">${esc(photoLabel)}</div><div class="table-actions"><button class="act-btn" type="button" onclick="openModalAssetPhoto()" ${hasAssetPhoto(modalState.formData) ? '' : 'disabled'}>Open Photo</button><button class="act-btn danger" type="button" onclick="removeModalAssetPhoto()" ${hasAssetPhoto(modalState.formData) ? '' : 'disabled'}>Remove Photo</button></div></div></div></div>`;
+}
+
 function renderResources(){
-  document.getElementById('technicians-panel').innerHTML = renderResourceCards(state.data.technicians, (tech) => `<div class="resource-card"><div class="resource-card-head"><div><div class="item-title">${esc(tech.employeeName || 'Unnamed technician')}</div><div class="muted">${esc(tech.role)}</div></div>${getStatusBadge(tech.availabilityStatus)}</div>${renderTags(tech.skillTags)}<div class="muted">${esc(tech.phone || tech.email || 'No contact info')}</div><div class="table-actions" style="margin-top:10px;">${renderActionButtons('technicians', tech.id)}</div></div>`, 'No technicians yet');
-  document.getElementById('trucks-panel').innerHTML = renderResourceCards(state.data.trucks, (truck) => `<div class="resource-card"><div class="resource-card-head"><div><div class="item-title">${esc(truck.unitNumber || 'Unnamed truck')}</div><div class="muted">${esc(truck.vehicleType)}</div></div>${getStatusBadge(truck.serviceStatus)}</div><div class="muted">${esc(truck.assignedRegion || 'No region')} | ${esc(truck.plateVin || 'No plate/VIN')}</div><div class="table-actions" style="margin-top:10px;">${renderActionButtons('trucks', truck.id)}</div></div>`, 'No trucks yet');
-  document.getElementById('trailers-panel').innerHTML = renderResourceCards(state.data.trailers, (trailer) => `<div class="resource-card"><div class="resource-card-head"><div><div class="item-title">${esc(trailer.trailerNumber || 'Unnamed trailer')}</div><div class="muted">${esc(trailer.trailerType || 'No trailer type')}</div></div>${getStatusBadge(trailer.serviceStatus)}</div><div class="muted">${esc(trailer.capacityConfiguration || 'No capacity/configuration')}</div><div class="table-actions" style="margin-top:10px;">${renderActionButtons('trailers', trailer.id)}</div></div>`, 'No trailers yet');
-  document.getElementById('equipment-panel').innerHTML = renderResourceCards(state.data.equipment, (item) => `<div class="resource-card"><div class="resource-card-head"><div><div class="item-title">${esc(item.equipmentName || 'Unnamed equipment')}</div><div class="muted">${esc(item.equipmentType)}</div></div>${getStatusBadge(item.maintenanceStatus)}</div><div class="mini-tags">${getStatusBadge(item.calibrationStatus)}${item.serialNumber ? `<span class="tag-chip">${esc(item.serialNumber)}</span>` : ''}</div><div class="muted">${esc(item.storageLocation || 'No storage location')}</div><div class="table-actions" style="margin-top:10px;">${renderActionButtons('equipment', item.id)}</div></div>`, 'No equipment yet');
+  document.getElementById('technicians-panel').innerHTML = renderResourceCards(state.data.technicians, (tech) => `<div ${renderCardOpenAttrs('technicians', tech.id)}><div class="resource-card-head"><div><div class="item-title">${esc(tech.employeeName || 'Unnamed technician')}</div><div class="muted">${esc(tech.role)}</div></div>${getStatusBadge(tech.availabilityStatus)}</div>${renderTags(tech.skillTags)}<div class="muted">${esc(tech.phone || tech.email || 'No contact info')}</div></div>`, 'No technicians yet');
+  document.getElementById('trucks-panel').innerHTML = renderResourceCards(state.data.trucks, (truck) => `<div ${renderCardOpenAttrs('trucks', truck.id)}><div class="resource-card-head"><div><div class="item-title">${esc(truck.unitNumber || 'Unnamed truck')}</div><div class="muted">${esc([truck.color, truck.vehicleYear, truck.make, truck.model, truck.duty || truck.vehicleType].filter(Boolean).join(' ') || truck.vehicleType)}</div></div>${getStatusBadge(truck.serviceStatus)}</div><div class="mini-tags">${truck.truckWorkflow ? `<span class="tag-chip">${esc(truck.truckWorkflow)}</span>` : ''}${truck.businessUnit ? `<span class="tag-chip">${esc(truck.businessUnit)}</span>` : ''}${truck.primaryUse ? `<span class="tag-chip">${esc(truck.primaryUse)}</span>` : ''}${truck.gpsStatus ? getStatusBadge(truck.gpsStatus) : ''}</div><div class="muted">${esc(truck.assignedRegion || 'No region')} | ${esc(truck.licensePlateNumber || truck.plateVin || 'No plate')} | ${esc(truck.vin || 'No VIN')}</div><div class="muted">Tech: ${esc(truck.assignedTechnicianId ? getTechnicianLabel(truck.assignedTechnicianId) : (truck.assignedTo || 'Pool'))}</div><div class="muted">${truck.odometer !== null ? `${esc(truck.odometer)} mi` : 'No odometer'} ${truck.vehicleInformation ? `| ${esc(truck.vehicleInformation)}` : ''}</div><div class="muted">${esc(truck.ownership || 'No ownership')} ${truck.leaseCompany ? `| ${esc(truck.leaseCompany)}` : ''}</div></div>`, 'No trucks yet');
+  document.getElementById('trailers-panel').innerHTML = renderResourceCards(state.data.trailers, (trailer) => `<div ${renderCardOpenAttrs('trailers', trailer.id)}><div class="resource-card-head"><div><div class="item-title">${esc(trailer.trailerNumber || 'Unnamed trailer')}</div><div class="muted">${esc(trailer.trailerType || 'No trailer type')}</div></div>${getStatusBadge(trailer.serviceStatus)}</div><div class="muted">${esc(trailer.capacityConfiguration || 'No capacity/configuration')}</div><div class="muted">Assigned Truck: ${esc(trailer.assignedTruckId ? getTruckLabel(trailer.assignedTruckId) : 'Unassigned')}</div></div>`, 'No trailers yet');
+  document.getElementById('equipment-panel').innerHTML = renderResourceCards(state.data.equipment, (item) => `<div ${renderCardOpenAttrs('equipment', item.id)}><div class="resource-card-head"><div><div class="item-title">${esc(item.equipmentName || 'Unnamed equipment')}</div><div class="muted">${esc(item.equipmentType)}</div></div>${getStatusBadge(item.maintenanceStatus)}</div><div class="mini-tags">${getStatusBadge(item.calibrationStatus)}${item.serialNumber ? `<span class="tag-chip">${esc(item.serialNumber)}</span>` : ''}</div><div class="muted">${esc(item.storageLocation || 'No storage location')}</div><div class="muted">Truck: ${esc(item.assignedTruckId ? getTruckLabel(item.assignedTruckId) : 'Unassigned')} | Trailer: ${esc(item.assignedTrailerId ? getTrailerLabel(item.assignedTrailerId) : 'Unassigned')}</div></div>`, 'No equipment yet');
 }
 
 function renderSamples(){
@@ -635,6 +812,7 @@ function render(){
   renderSamples();
   renderMaintenance();
   renderModal();
+  hydrateAssetPhotoPreviews();
 }
 
 function getNewRecordDraft(entityKey){
@@ -651,12 +829,13 @@ function renderFormField(field){
   if(field.kind === 'section') return `<div class="form-section"><h4>${esc(field.label)}</h4></div>`;
   const fullClass = field.full ? ' full' : '';
   if(field.type === 'checkbox') return `<div class="form-group${fullClass}"><label class="form-label">${esc(field.label)}</label><label class="toggle-card"><input type="checkbox" ${modalState.formData[field.key] ? 'checked' : ''} onchange="toggleModalField('${field.key}', this.checked)"><span>${esc(field.label)}</span></label></div>`;
+  if(field.type === 'image') return renderAssetPhotoField(field);
   const value = modalState.formData[field.key];
   const options = normalizeOptionsList(field.options || []);
   const control = field.type === 'textarea'
     ? `<textarea class="form-input" oninput="setModalField('${field.key}', this.value)">${esc(value)}</textarea>`
     : field.type === 'select'
-      ? `<select class="form-input" onchange="${field.handler ? `${field.handler}(this.value)` : `setModalField('${field.key}', this.value)`}"><option value="">${field.required ? 'Select...' : 'Optional'}</option>${options.map((option) => `<option value="${esc(option.value)}" ${String(value) === String(option.value) ? 'selected' : ''}>${esc(option.label)}</option>`).join('')}</select>`
+      ? `<select class="form-input" onchange="${field.handler ? `${field.handler}(this.value)` : `setModalField('${field.key}', this.value)`}"><option value="">${esc(field.placeholderLabel || (field.required ? 'Select...' : 'Optional'))}</option>${options.map((option) => `<option value="${esc(option.value)}" ${String(value) === String(option.value) ? 'selected' : ''}>${esc(option.label)}</option>`).join('')}</select>`
       : `<input class="form-input" type="${field.type || 'text'}" value="${esc(value ?? '')}" oninput="setModalField('${field.key}', this.value, '${field.type === 'number' ? 'number' : 'text'}')">`;
   return `<div class="form-group${fullClass}"><label class="form-label">${esc(field.label)}</label>${control}</div>`;
 }
@@ -678,11 +857,13 @@ function renderModal(){
   document.getElementById('entity-modal-title').textContent = `${modalState.id ? 'Edit' : 'Add'} ${ENTITY_CONFIG[modalState.entity].label}`;
   document.getElementById('entity-modal-delete').style.display = modalState.id ? '' : 'none';
   document.getElementById('entity-modal-body').innerHTML = `<div class="form-grid">${(FORM_DEFINITIONS[modalState.entity] || []).map((field) => renderFormField(field)).join('')}</div>${modalState.entity === 'jobs' ? renderAssignmentEditor() : ''}`;
+  hydrateAssetPhotoPreviews(document.getElementById('entity-modal-body'));
 }
 
 function openEntityModal(entityKey, id = ''){
   const existing = id ? state.data[entityKey].find((row) => row.id === id) : null;
   modalState = { open:true, entity:entityKey, id:existing?.id || '', formData:existing ? clone(existing) : getNewRecordDraft(entityKey), assignments:entityKey === 'jobs' ? (existing ? getAssignmentsForJob(existing.id).map((row) => clone(row)) : []) : [] };
+  if(entityKey === 'equipment' && !existing) syncEquipmentAssignmentSummary();
   renderModal();
 }
 
@@ -695,6 +876,28 @@ function changeJobType(value){ modalState.formData.jobType = value; renderModal(
 function changeSampleJob(value){ modalState.formData.jobId = value; const job = getJob(value); if(job){ modalState.formData.clientId = job.clientId; modalState.formData.siteId = job.siteId; } renderModal(); }
 function changeSampleClient(value){ modalState.formData.clientId = value; const site = getSite(modalState.formData.siteId); if(site && site.clientId !== value) modalState.formData.siteId = ''; renderModal(); }
 function changeMaintenanceAssetType(value){ modalState.formData.assetType = value; modalState.formData.assetId = ''; renderModal(); }
+function changeTruckAssignedTechnician(value){
+  modalState.formData.assignedTechnicianId = value;
+  const tech = state.data.technicians.find((row) => row.id === value) || null;
+  modalState.formData.assignedTo = tech?.employeeName || '';
+  modalState.formData.currentDriver = tech?.employeeName || '';
+  renderModal();
+}
+function syncEquipmentAssignmentSummary(){
+  const truck = modalState.formData.assignedTruckId ? getTruckLabel(modalState.formData.assignedTruckId) : '';
+  const trailer = modalState.formData.assignedTrailerId ? getTrailerLabel(modalState.formData.assignedTrailerId) : '';
+  modalState.formData.assignedTrailerTruck = [truck, trailer].filter((value) => value && value !== 'Unassigned').join(' | ');
+}
+function changeEquipmentAssignedTruck(value){
+  modalState.formData.assignedTruckId = value;
+  syncEquipmentAssignmentSummary();
+  renderModal();
+}
+function changeEquipmentAssignedTrailer(value){
+  modalState.formData.assignedTrailerId = value;
+  syncEquipmentAssignmentSummary();
+  renderModal();
+}
 
 function addAssignmentRow(){ modalState.assignments.push(normalizeRecord('jobAssignments', { id:uid(ENTITY_CONFIG.jobAssignments.idPrefix), assignmentType:'Technician', resourceId:'', assignedStart:modalState.formData.scheduledStart || '', assignedEnd:modalState.formData.scheduledEnd || '', assignmentStatus:'Assigned', assignmentNotes:'' })); renderModal(); }
 function removeAssignmentRow(id){ modalState.assignments = modalState.assignments.filter((row) => row.id !== id); renderModal(); }
@@ -767,6 +970,47 @@ async function saveRemoteJob(draft, assignments){
   return jobId;
 }
 
+async function uploadRemoteAssetPhoto(path, dataUrl, type){
+  const response = await window.appAuth.fetch(`/storage/v1/object/${FIELD_ASSET_BUCKET}/${encodeStoragePath(path)}`, {
+    method:'POST',
+    headers:{ Accept:'application/json', 'Content-Type':type || 'image/jpeg', 'x-upsert':'true' },
+    body:dataUrlToBlob(dataUrl)
+  });
+  if(!response.ok){
+    const payload = await response.json().catch(() => ({}));
+    const message = String(payload?.message || payload?.error || `Image upload failed (${response.status}).`);
+    if(message.toLowerCase().includes('bucket not found')) throw new Error(`Supabase storage bucket "${FIELD_ASSET_BUCKET}" was not found. Run the storage bucket section of supabase/schema.sql in Supabase, then try again.`);
+    throw new Error(message);
+  }
+}
+async function removeRemoteAssetPhoto(path){
+  if(!path) return;
+  await window.appAuth.requestJson('/storage/v1/object/remove', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body:JSON.stringify({ prefixes:[path] })
+  });
+}
+async function saveRemoteAssetRecord(entityKey, draft){
+  const existing = draft.id ? state.data[entityKey].find((row) => row.id === draft.id) : null;
+  const currentPath = existing?.assetPhotoPath || '';
+  const baseDraft = { ...draft, assetPhotoPath:draft.assetPhotoDataUrl ? (currentPath || '') : (draft.assetPhotoPath || '') };
+  const recordId = await remoteRepository.saveRecord(entityKey, baseDraft);
+  if(draft.assetPhotoDataUrl){
+    const uploadPath = buildAssetPhotoStoragePath(entityKey, recordId, draft.assetPhotoName || 'asset-photo.jpg');
+    await uploadRemoteAssetPhoto(uploadPath, draft.assetPhotoDataUrl, draft.assetPhotoType || 'image/jpeg');
+    await remoteRepository.saveRecord(entityKey, { ...draft, id:recordId, assetPhotoPath:uploadPath });
+    if(currentPath && currentPath !== uploadPath){
+      await removeRemoteAssetPhoto(currentPath).catch((error) => console.warn('Unable to remove replaced asset photo:', error));
+      clearCachedAssetPhoto(currentPath);
+    }
+  } else if(currentPath && !draft.assetPhotoPath){
+    await removeRemoteAssetPhoto(currentPath).catch((error) => console.warn('Unable to remove asset photo:', error));
+    clearCachedAssetPhoto(currentPath);
+  }
+  return recordId;
+}
+
 async function saveEntityFromModal(){
   const validationMessage = validateModal();
   if(validationMessage){ alert(validationMessage); return; }
@@ -776,7 +1020,7 @@ async function saveEntityFromModal(){
     if(modalState.entity === 'jobs'){
       if(isRemoteMode()){ await saveRemoteJob(modalState.formData, modalState.assignments); await loadData({ silent:true, force:true }); }
       else await saveLocalJob(modalState.formData, modalState.assignments);
-    } else if(isRemoteMode()){ await remoteRepository.saveRecord(modalState.entity, modalState.formData); await loadData({ silent:true, force:true }); }
+    } else if(isRemoteMode()){ if(isAssetPhotoEntity(modalState.entity)) await saveRemoteAssetRecord(modalState.entity, modalState.formData); else await remoteRepository.saveRecord(modalState.entity, modalState.formData); await loadData({ silent:true, force:true }); }
     else await saveLocalRecord(modalState.entity, modalState.formData);
     closeEntityModal();
     showSaveStatus('saved', 'SAVED');
@@ -796,9 +1040,9 @@ function buildLocalDeleteResult(entityKey, id){
   if(entityKey === 'clients'){ const siteIds = next.sites.filter((site) => site.clientId === id).map((site) => site.id); const jobIds = next.jobs.filter((job) => job.clientId === id || siteIds.includes(job.siteId)).map((job) => job.id); next.clients = next.clients.filter((row) => row.id !== id); next.sites = next.sites.filter((row) => row.clientId !== id); next.jobs = next.jobs.filter((row) => row.clientId !== id && !siteIds.includes(row.siteId)); next.jobAssignments = next.jobAssignments.filter((row) => !jobIds.includes(row.jobId)); next.samples = next.samples.filter((row) => row.clientId !== id && !siteIds.includes(row.siteId) && !jobIds.includes(row.jobId)); }
   else if(entityKey === 'sites'){ const jobIds = next.jobs.filter((job) => job.siteId === id).map((job) => job.id); next.sites = next.sites.filter((row) => row.id !== id); next.jobs = next.jobs.filter((row) => row.siteId !== id); next.jobAssignments = next.jobAssignments.filter((row) => !jobIds.includes(row.jobId)); next.samples = next.samples.filter((row) => row.siteId !== id && !jobIds.includes(row.jobId)); }
   else if(entityKey === 'jobs'){ next.jobs = next.jobs.filter((row) => row.id !== id); next.jobAssignments = next.jobAssignments.filter((row) => row.jobId !== id); next.samples = next.samples.filter((row) => row.jobId !== id); }
-  else if(entityKey === 'technicians'){ next.technicians = next.technicians.filter((row) => row.id !== id); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Technician' && row.resourceId === id)); }
-  else if(entityKey === 'trucks'){ next.trucks = next.trucks.filter((row) => row.id !== id); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Truck' && row.resourceId === id)); next.maintenanceRecords = next.maintenanceRecords.filter((row) => !(row.assetType === 'Truck' && row.assetId === id)); }
-  else if(entityKey === 'trailers'){ next.trailers = next.trailers.filter((row) => row.id !== id); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Trailer' && row.resourceId === id)); next.maintenanceRecords = next.maintenanceRecords.filter((row) => !(row.assetType === 'Trailer' && row.assetId === id)); }
+  else if(entityKey === 'technicians'){ next.technicians = next.technicians.filter((row) => row.id !== id); next.trucks = next.trucks.map((row) => row.assignedTechnicianId === id ? { ...row, assignedTechnicianId:'', assignedTo:'', currentDriver:'' } : row); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Technician' && row.resourceId === id)); }
+  else if(entityKey === 'trucks'){ next.trucks = next.trucks.filter((row) => row.id !== id); next.trailers = next.trailers.map((row) => row.assignedTruckId === id ? { ...row, assignedTruckId:'' } : row); next.equipment = next.equipment.map((row) => row.assignedTruckId === id ? { ...row, assignedTruckId:'', assignedTrailerTruck:row.assignedTrailerId ? getTrailerLabel(row.assignedTrailerId) : '' } : row); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Truck' && row.resourceId === id)); next.maintenanceRecords = next.maintenanceRecords.filter((row) => !(row.assetType === 'Truck' && row.assetId === id)); }
+  else if(entityKey === 'trailers'){ next.trailers = next.trailers.filter((row) => row.id !== id); next.equipment = next.equipment.map((row) => row.assignedTrailerId === id ? { ...row, assignedTrailerId:'', assignedTrailerTruck:row.assignedTruckId ? getTruckLabel(row.assignedTruckId) : '' } : row); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Trailer' && row.resourceId === id)); next.maintenanceRecords = next.maintenanceRecords.filter((row) => !(row.assetType === 'Trailer' && row.assetId === id)); }
   else if(entityKey === 'equipment'){ next.equipment = next.equipment.filter((row) => row.id !== id); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Equipment' && row.resourceId === id)); next.maintenanceRecords = next.maintenanceRecords.filter((row) => !(row.assetType === 'Equipment' && row.assetId === id)); }
   else next[entityKey] = next[entityKey].filter((row) => row.id !== id);
   return next;
@@ -810,10 +1054,12 @@ async function deleteEntityRecord(entityKey, id){
   showSaveStatus('saving', 'DELETING');
   try {
     if(isRemoteMode()){
-      if(entityKey === 'technicians') await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'assignment_type', value:'Technician' }, { column:'resource_id', value:id }]);
-      if(entityKey === 'trucks'){ await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'assignment_type', value:'Truck' }, { column:'resource_id', value:id }]); await remoteRepository.deleteWhere(ENTITY_CONFIG.maintenanceRecords.table, [{ column:'asset_type', value:'Truck' }, { column:'asset_id', value:id }]); }
-      if(entityKey === 'trailers'){ await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'assignment_type', value:'Trailer' }, { column:'resource_id', value:id }]); await remoteRepository.deleteWhere(ENTITY_CONFIG.maintenanceRecords.table, [{ column:'asset_type', value:'Trailer' }, { column:'asset_id', value:id }]); }
+      const existing = state.data[entityKey]?.find((row) => row.id === id) || null;
+      if(entityKey === 'technicians'){ await remoteRepository.updateWhere(ENTITY_CONFIG.trucks.table, [{ column:'assigned_technician_id', value:id }], { assigned_technician_id:'', assigned_to:'', current_driver:'' }); await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'assignment_type', value:'Technician' }, { column:'resource_id', value:id }]); }
+      if(entityKey === 'trucks'){ await remoteRepository.updateWhere(ENTITY_CONFIG.trailers.table, [{ column:'assigned_truck_id', value:id }], { assigned_truck_id:'' }); await remoteRepository.updateWhere(ENTITY_CONFIG.equipment.table, [{ column:'assigned_truck_id', value:id }], { assigned_truck_id:'', assigned_trailer_truck:'' }); await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'assignment_type', value:'Truck' }, { column:'resource_id', value:id }]); await remoteRepository.deleteWhere(ENTITY_CONFIG.maintenanceRecords.table, [{ column:'asset_type', value:'Truck' }, { column:'asset_id', value:id }]); }
+      if(entityKey === 'trailers'){ await remoteRepository.updateWhere(ENTITY_CONFIG.equipment.table, [{ column:'assigned_trailer_id', value:id }], { assigned_trailer_id:'', assigned_trailer_truck:'' }); await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'assignment_type', value:'Trailer' }, { column:'resource_id', value:id }]); await remoteRepository.deleteWhere(ENTITY_CONFIG.maintenanceRecords.table, [{ column:'asset_type', value:'Trailer' }, { column:'asset_id', value:id }]); }
       if(entityKey === 'equipment'){ await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'assignment_type', value:'Equipment' }, { column:'resource_id', value:id }]); await remoteRepository.deleteWhere(ENTITY_CONFIG.maintenanceRecords.table, [{ column:'asset_type', value:'Equipment' }, { column:'asset_id', value:id }]); }
+      if(existing?.assetPhotoPath){ await removeRemoteAssetPhoto(existing.assetPhotoPath).catch((error) => console.warn('Unable to remove deleted asset photo:', error)); clearCachedAssetPhoto(existing.assetPhotoPath); }
       await remoteRepository.deleteRecord(entityKey, id);
       await loadData({ silent:true, force:true });
     } else await persistLocal(buildLocalDeleteResult(entityKey, id));
