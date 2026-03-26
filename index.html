@@ -13,6 +13,7 @@
       --border:#2a2f3f;
       --accent:#00d4ff;
       --field:#59d67d;
+      --tests:#ff8c42;
       --warn:#ffd166;
       --text:#e2e8f0;
       --muted:#64748b;
@@ -151,7 +152,7 @@
     .status-dot{width:9px;height:9px;margin-top:4px;border-radius:999px;flex:0 0 auto;background:var(--accent);}
     .status-item.field .status-dot{background:var(--field);}
     .status-item.warn .status-dot{background:var(--warn);}
-    .launch-grid{display:grid;grid-template-columns:repeat(4, minmax(0, 1fr));gap:16px;}
+    .launch-grid{display:grid;grid-template-columns:repeat(5, minmax(0, 1fr));gap:16px;}
     .launch-card{
       display:flex;
       flex-direction:column;
@@ -176,6 +177,7 @@
     .launch-card:hover{transform:translateY(-4px);box-shadow:0 24px 54px rgba(0,0,0,.32);}
     .launch-card.lab:hover{border-color:rgba(0,212,255,.36);}
     .launch-card.field:hover{border-color:rgba(89,214,125,.42);}
+    .launch-card.tests:hover{border-color:rgba(255,140,66,.38);}
     .launch-card.standards:hover{border-color:rgba(255,209,102,.36);}
     .launch-card.import:hover{border-color:rgba(255,56,96,.3);}
     .launch-eyebrow{
@@ -193,6 +195,7 @@
     }
     .launch-card.lab h3{color:var(--accent);}
     .launch-card.field h3{color:var(--field);}
+    .launch-card.tests h3{color:var(--tests);}
     .launch-card.standards h3{color:var(--warn);}
     .launch-card.import h3{color:#ff93ac;}
     .launch-copy{
@@ -234,7 +237,7 @@
         <div>
           <div class="kicker">Shared Operations Workspace</div>
           <h1>SPL Dashboard Launchpad</h1>
-          <p class="header-copy">Choose the operational workspace you need right now. Lab WIP, Field Ops, Standards, and Import all stay inside the same static app shell with the shared authenticated access pattern already in this repo.</p>
+          <p class="header-copy">Choose the operational workspace you need right now. Lab WIP, Field Ops, Test Types, Standards, and Import all stay inside the same static app shell with the shared authenticated access pattern already in this repo.</p>
         </div>
       </div>
       <div class="header-right">
@@ -313,6 +316,16 @@
           <span class="meta-pill">Inventory</span>
           <span class="meta-pill">Tag OCR</span>
           <span class="meta-pill">Logs</span>
+        </div>
+      </a>
+      <a class="launch-card tests" href="test-types.html">
+        <div class="launch-eyebrow">Configuration</div>
+        <h3>Test Types</h3>
+        <p class="launch-copy">Manage the shared lab test catalog, including display labels, estimated minutes, grouped-family behavior, and the aliases used to map historical work orders.</p>
+        <div class="launch-meta">
+          <span class="meta-pill">Catalog</span>
+          <span class="meta-pill">Timing</span>
+          <span class="meta-pill">Aliases</span>
         </div>
       </a>
       <a class="launch-card import" href="import.html">

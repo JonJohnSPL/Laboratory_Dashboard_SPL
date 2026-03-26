@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab Test Types</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="standards.css">
+</head>
+<body>
+<header>
+  <div class="header-left">
+    <img class="spl-logo" src="assets/spl-logo.svg" alt="SPL">
+    <div class="header-brand">
+      <h1>Lab Test Types</h1>
+      <p>Shared lab test definitions, timing rules, grouped families, and aliases used across the dashboard</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-clock">
+      <span>Current Time</span>
+      <div id="clock">--:--:--</div>
+      <div id="datedisp" class="date-display"></div>
+    </div>
+    <div data-session-slot></div>
+    <div class="nav-row">
+      <button class="sec-btn" onclick="window.location.href='index.html'">Home</button>
+      <button class="sec-btn" onclick="window.location.href='lab-dashboard.html'">Dashboard</button>
+      <button class="sec-btn" onclick="window.location.href='field-dashboard.html'">Field Ops</button>
+      <button class="sec-btn" onclick="window.location.href='import.html'">Import</button>
+      <button class="sec-btn" onclick="window.location.href='standards.html'">Standards</button>
+      <button class="sec-btn current" type="button">Test Types</button>
+    </div>
+    <div id="save-indicator" class="save-indicator" style="visibility:hidden;">Saved</div>
+  </div>
+</header>
+
+<div class="stats-bar">
+  <div class="stat-card">
+    <div class="stat-label">Total Types</div>
+    <div class="stat-value" id="stat-total">0</div>
+  </div>
+  <div class="stat-card ok">
+    <div class="stat-label">Per Sample</div>
+    <div class="stat-value ok" id="stat-per-sample">0</div>
+  </div>
+  <div class="stat-card warn">
+    <div class="stat-label">Per Row</div>
+    <div class="stat-value warn" id="stat-per-row">0</div>
+  </div>
+  <div class="stat-card danger">
+    <div class="stat-label">Grouped Families</div>
+    <div class="stat-value danger" id="stat-groups">0</div>
+  </div>
+</div>
+
+<div class="toolbar">
+  <span class="tb-label">Search</span>
+  <input id="search-input" type="text" placeholder="Search code, label, alias, or family..." oninput="updateSearch(this.value)">
+  <div class="toolbar-spacer"></div>
+  <button class="add-wo-btn" type="button" onclick="openTestTypeModal()">+ Add Test Type</button>
+</div>
+
+<div class="standards-layout">
+  <section class="table-container">
+    <div class="table-header">
+      <h2>Test Type Catalog</h2>
+      <div class="refresh-time" id="last-update">Loading test types...</div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Label</th>
+          <th>Minutes</th>
+          <th>Counting</th>
+          <th>Group</th>
+        </tr>
+      </thead>
+      <tbody id="test-types-tbody">
+        <tr>
+          <td colspan="5">
+            <div class="empty-state">
+              <div class="big">[]</div>
+              Loading test type catalog...
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <aside class="detail-panel" id="detail-panel">
+    <div class="detail-empty">
+      <h2>No Test Type Selected</h2>
+      <p>Add a test type or choose one from the list to review timing, grouping, and alias rules.</p>
+    </div>
+  </aside>
+</div>
+
+<div class="modal-overlay" id="test-type-modal-overlay">
+  <div class="modal standard-modal">
+    <div class="modal-header">
+      <h3 id="test-type-modal-title">Add Test Type</h3>
+      <button class="modal-close" type="button" onclick="closeTestTypeModal()">X</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label" for="type-key">Test Code</label>
+          <input class="form-input" id="type-key" type="text" placeholder="C6GAS">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="type-label">Display Label</label>
+          <input class="form-input" id="type-label" type="text" placeholder="C6GAS">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="type-short-label">Short Label</label>
+          <input class="form-input" id="type-short-label" type="text" placeholder="Shown in summaries">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="type-minutes">Minutes</label>
+          <input class="form-input" id="type-minutes" type="number" min="0" step="5" placeholder="15">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="type-count-mode">Count Method</label>
+          <select class="form-input" id="type-count-mode">
+            <option value="perSample">Once Per Sample</option>
+            <option value="perRow">Every Matching Row</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="type-group-key">Group Family</label>
+          <input class="form-input" id="type-group-key" type="text" placeholder="Optional, e.g. GC-BFVC">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="type-group-rank">Group Rank</label>
+          <input class="form-input" id="type-group-rank" type="number" min="0" step="1" placeholder="Higher rank wins">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="type-aliases">Aliases</label>
+          <input class="form-input" id="type-aliases" type="text" placeholder="Comma separated aliases">
+        </div>
+        <div class="form-group full">
+          <label class="form-label">Notes</label>
+          <div class="image-meta">Grouped families count once per sample using the highest group rank present. If you rename a code, the previous code is preserved as an alias to protect historical work orders.</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" type="button" onclick="closeTestTypeModal()">Cancel</button>
+      <button class="btn-save" type="button" onclick="saveTestTypeFromModal()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="app-config.js"></script>
+<script src="cloud-auth.js"></script>
+<script src="test-types.js"></script>
+</body>
+</html>
