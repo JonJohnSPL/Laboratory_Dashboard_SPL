@@ -81,22 +81,6 @@
 </div>
 <span class="tb-label">Sort</span>
 <select id="sort-field" onchange="render()">
-<option value="priority">Priority</option>
-<option value="dueDate">Due Date</option>
-<option value="number">WO Number</option>
-<option value="client">Client</option>
-<option value="assignedTo">Assigned To</option>
-<option value="AS-BFV_DENSITY">AS-BFV_DENSITY</option>
-<option value="AS-BFV_MW">AS-BFV_MW</option>
-<option value="C6GAS">C6GAS</option>
-<option value="GC-BFVC6MZ">GC-BFVC6MZ</option>
-<option value="GC-BFVC7MZ">GC-BFVC7MZ</option>
-<option value="GC-BFVC10MZ">GC-BFVC10MZ</option>
-<option value="GC-2103-C10MZ">GC-2103-C10MZ</option>
-<option value="C6LIQ">C6LIQ</option>
-<option value="C10LIQ">C10LIQ</option>
-<option value="estTime">Est. Time</option>
-<option value="status">Status</option>
 </select>
 <select id="sort-dir" onchange="render()">
 <option value="asc">Asc </option>
@@ -132,43 +116,7 @@
 <div class="refresh-time" id="last-update">No data loaded</div>
 </div>
 <table id="wo-table">
-<thead>
-<tr>
-<th class="sortable col-number" onclick="clickSort('number')">Work Order</th>
-<th class="sortable col-priority" onclick="clickSort('priority')">Priority</th>
-<th class="sortable col-client" onclick="clickSort('client')">Client</th>
-<th class="sortable col-assignedTo" onclick="clickSort('assignedTo')">Assigned To</th>
-<th class="num sortable col-AS-BFV_DENSITY" onclick="clickSort('AS-BFV_DENSITY')">AS-BFV_DENSITY<br>
-<span style="font-size:9px;font-weight:400;color:#4a5568">15 min</span>
-</th>
-<th class="num sortable col-AS-BFV_MW" onclick="clickSort('AS-BFV_MW')">AS-BFV_MW<br>
-<span style="font-size:9px;font-weight:400;color:#4a5568">15 min</span>
-</th>
-<th class="num sortable col-C6GAS" onclick="clickSort('C6GAS')">C6GAS<br>
-<span style="font-size:9px;font-weight:400;color:#4a5568">15 min</span>
-</th>
-<th class="num sortable col-GC-BFVC6MZ" onclick="clickSort('GC-BFVC6MZ')">GC-BFVC6MZ<br>
-<span style="font-size:9px;font-weight:400;color:#4a5568">40 min grouped</span>
-</th>
-<th class="num sortable col-GC-BFVC7MZ" onclick="clickSort('GC-BFVC7MZ')">GC-BFVC7MZ<br>
-<span style="font-size:9px;font-weight:400;color:#4a5568">40 min grouped</span>
-</th>
-<th class="num sortable col-GC-BFVC10MZ" onclick="clickSort('GC-BFVC10MZ')">GC-BFVC10MZ<br>
-<span style="font-size:9px;font-weight:400;color:#4a5568">40 min grouped</span>
-</th>
-<th class="num sortable col-GC-2103-C10MZ" onclick="clickSort('GC-2103-C10MZ')">GC-2103-C10MZ<br>
-<span style="font-size:9px;font-weight:400;color:#4a5568">90 min</span>
-</th>
-<th class="num sortable col-C6LIQ" onclick="clickSort('C6LIQ')">C6LIQ<br>
-<span style="font-size:9px;font-weight:400;color:#4a5568">40 min</span>
-</th>
-<th class="num sortable col-C10LIQ" onclick="clickSort('C10LIQ')">C10LIQ<br>
-<span style="font-size:9px;font-weight:400;color:#4a5568">40 min</span>
-</th>
-<th class="sortable col-estTime" onclick="clickSort('estTime')">Est. Time</th>
-<th class="sortable col-dueDate" onclick="clickSort('dueDate')">Due Date</th>
-<th class="sortable col-status" onclick="clickSort('status')">Status</th>
-</tr>
+<thead id="wo-table-head">
 </thead>
 <tbody id="wo-tbody">
 <tr>
@@ -258,43 +206,7 @@
 <div class="refresh-time" id="pending-last-update">No data loaded</div>
 </div>
 <table id="pending-wo-table">
-<thead>
-<tr>
-<th class="sortable col-number" onclick="clickSort('number')">Work Order</th>
-<th class="sortable col-priority" onclick="clickSort('priority')">Priority</th>
-<th class="sortable col-client" onclick="clickSort('client')">Client</th>
-<th class="sortable col-assignedTo" onclick="clickSort('assignedTo')">Assigned To</th>
-<th class="num sortable col-AS-BFV_DENSITY" onclick="clickSort('AS-BFV_DENSITY')">AS-BFV_DENSITY<br>
-<span style="font-size:9px;font-weight:400;color:#4a5568">15 min</span>
-</th>
-<th class="num sortable col-AS-BFV_MW" onclick="clickSort('AS-BFV_MW')">AS-BFV_MW<br>
-<span style="font-size:9px;font-weight:400;color:#4a5568">15 min</span>
-</th>
-<th class="num sortable col-C6GAS" onclick="clickSort('C6GAS')">C6GAS<br>
-<span style="font-size:9px;font-weight:400;color:#4a5568">15 min</span>
-</th>
-<th class="num sortable col-GC-BFVC6MZ" onclick="clickSort('GC-BFVC6MZ')">GC-BFVC6MZ<br>
-<span style="font-size:9px;font-weight:400;color:#4a5568">40 min grouped</span>
-</th>
-<th class="num sortable col-GC-BFVC7MZ" onclick="clickSort('GC-BFVC7MZ')">GC-BFVC7MZ<br>
-<span style="font-size:9px;font-weight:400;color:#4a5568">40 min grouped</span>
-</th>
-<th class="num sortable col-GC-BFVC10MZ" onclick="clickSort('GC-BFVC10MZ')">GC-BFVC10MZ<br>
-<span style="font-size:9px;font-weight:400;color:#4a5568">40 min grouped</span>
-</th>
-<th class="num sortable col-GC-2103-C10MZ" onclick="clickSort('GC-2103-C10MZ')">GC-2103-C10MZ<br>
-<span style="font-size:9px;font-weight:400;color:#4a5568">90 min</span>
-</th>
-<th class="num sortable col-C6LIQ" onclick="clickSort('C6LIQ')">C6LIQ<br>
-<span style="font-size:9px;font-weight:400;color:#4a5568">40 min</span>
-</th>
-<th class="num sortable col-C10LIQ" onclick="clickSort('C10LIQ')">C10LIQ<br>
-<span style="font-size:9px;font-weight:400;color:#4a5568">40 min</span>
-</th>
-<th class="sortable col-estTime" onclick="clickSort('estTime')">Est. Time</th>
-<th class="sortable col-dueDate" onclick="clickSort('dueDate')">Due Date</th>
-<th class="sortable col-status" onclick="clickSort('status')">Status</th>
-</tr>
+<thead id="pending-wo-table-head">
 </thead>
 <tbody id="pending-wo-tbody">
 <tr>
@@ -465,7 +377,7 @@
 </div>
 </div>
 </div>
-<footer>TIME ESTIMATES: AS-BFV_DENSITY = 15 min AS-BFV_MW = 15 min C6GAS = 15 min GC-BFVC6/7/10 = 40 min grouped by highest C# per sample GC-2103-C10MZ = 90 min C6LIQ = 40 min C10LIQ = 40 min</footer>
+<footer id="test-estimates-footer">TIME ESTIMATES:</footer>
 <!-- MODAL -->
 <div class="modal-overlay" id="modal-overlay">
 <div class="modal">
@@ -507,15 +419,6 @@
 <label class="form-label">Test Rows</label>
 <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;">
 <select class="form-input" id="f-test-type">
-<option value="AS-BFV_DENSITY">AS-BFV_DENSITY</option>
-<option value="AS-BFV_MW">AS-BFV_MW</option>
-<option value="C6GAS">C6GAS</option>
-<option value="GC-BFVC6MZ">GC-BFVC6MZ</option>
-<option value="GC-BFVC7MZ">GC-BFVC7MZ</option>
-<option value="GC-BFVC10MZ">GC-BFVC10MZ</option>
-<option value="GC-2103-C10MZ">GC-2103-C10MZ</option>
-<option value="C6LIQ">C6LIQ</option>
-<option value="C10LIQ">C10LIQ</option>
 </select>
 <input class="form-input" id="f-test-code" type="text" placeholder="Test Code (e.g. GC-BFVC10MZ)">
 <input class="form-input" id="f-test-sample" type="text" placeholder="Sample # (e.g. 006A)">
@@ -542,6 +445,7 @@
 <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
 <button type="button" class="btn-save" id="test-add-btn" onclick="upsertDraftTestRow()" style="padding:8px 14px;">Add Test</button>
 <button type="button" class="sec-btn" onclick="openTestSelectorModal()" style="padding:8px 14px;">Edit Test(s)</button>
+<button type="button" class="sec-btn" onclick="openTestCatalogModal()" style="padding:8px 14px;">Manage Test Types</button>
 </div>
 <div id="test-draft-list" style="margin-top:10px;font-family:var(--mono);font-size:12px;color:var(--muted);">
 </div>
@@ -597,15 +501,6 @@
 <div class="form-group">
 <label class="form-label">Test Type</label>
 <select class="form-input" id="e-test-type">
-<option value="AS-BFV_DENSITY">AS-BFV_DENSITY</option>
-<option value="AS-BFV_MW">AS-BFV_MW</option>
-<option value="C6GAS">C6GAS</option>
-<option value="GC-BFVC6MZ">GC-BFVC6MZ</option>
-<option value="GC-BFVC7MZ">GC-BFVC7MZ</option>
-<option value="GC-BFVC10MZ">GC-BFVC10MZ</option>
-<option value="GC-2103-C10MZ">GC-2103-C10MZ</option>
-<option value="C6LIQ">C6LIQ</option>
-<option value="C10LIQ">C10LIQ</option>
 </select>
 </div>
 <div class="form-group">
@@ -658,6 +553,71 @@
 <div class="modal-footer">
 <button class="btn-cancel" onclick="closeTestEditModal()">Cancel</button>
 <button class="btn-save" onclick="saveEditedTestRow()">Save Test</button>
+</div>
+</div>
+</div>
+<!-- TEST CATALOG MODAL -->
+<div class="modal-overlay" id="test-catalog-overlay">
+<div class="modal" style="width:900px;max-width:96vw;">
+<div class="modal-header">
+<h3>Manage Test Types</h3>
+<button class="modal-close" onclick="closeTestCatalogModal()">X</button>
+</div>
+<div class="modal-body">
+<div class="form-label" style="font-size:11px;margin-bottom:10px;">Add or update test definitions used in the lab dashboard. Grouped families count once per sample using the highest group rank present.</div>
+<div style="display:grid;grid-template-columns:minmax(280px,1fr) minmax(360px,1.2fr);gap:14px;align-items:start;">
+<div style="border:1px solid var(--border);border-radius:8px;background:var(--surface2);padding:10px;">
+<div class="form-label" style="margin-bottom:8px;">Current Test Types</div>
+<div id="test-catalog-list" style="display:flex;flex-direction:column;gap:8px;max-height:420px;overflow:auto;"></div>
+</div>
+<div style="border:1px solid var(--border);border-radius:8px;background:var(--surface2);padding:10px;">
+<div class="form-grid">
+<div class="form-group">
+<label class="form-label">Test Code</label>
+<input class="form-input" id="tc-key" type="text" placeholder="e.g. C6GAS">
+</div>
+<div class="form-group">
+<label class="form-label">Display Label</label>
+<input class="form-input" id="tc-label" type="text" placeholder="Shown in table headers">
+</div>
+<div class="form-group">
+<label class="form-label">Short Label</label>
+<input class="form-input" id="tc-short-label" type="text" placeholder="Used in summaries">
+</div>
+<div class="form-group">
+<label class="form-label">Minutes</label>
+<input class="form-input" id="tc-minutes" type="number" min="0" step="5" placeholder="15">
+</div>
+<div class="form-group">
+<label class="form-label">Count Method</label>
+<select class="form-input" id="tc-count-mode">
+<option value="perSample">Once Per Sample</option>
+<option value="perRow">Every Matching Row</option>
+</select>
+</div>
+<div class="form-group">
+<label class="form-label">Group Family</label>
+<input class="form-input" id="tc-group-key" type="text" placeholder="Optional, e.g. GC-BFVC">
+</div>
+<div class="form-group">
+<label class="form-label">Group Rank</label>
+<input class="form-input" id="tc-group-rank" type="number" min="0" step="1" placeholder="Higher rank wins">
+</div>
+<div class="form-group">
+<label class="form-label">Aliases</label>
+<input class="form-input" id="tc-aliases" type="text" placeholder="Comma separated optional aliases">
+</div>
+<div class="form-group full">
+<label class="form-label">Notes</label>
+<div class="form-label" style="font-size:11px;letter-spacing:1px;text-transform:none;">Example: keep `GC-BFVC6MZ`, `GC-BFVC7MZ`, and `GC-BFVC10MZ` in the same family with ranks `6`, `7`, and `10` so only the heaviest one counts per sample.</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn-cancel" type="button" onclick="resetTestCatalogForm()">Clear Form</button>
+<button class="btn-save" type="button" onclick="saveTestCatalogEntry()">Save Test Type</button>
 </div>
 </div>
 </div>

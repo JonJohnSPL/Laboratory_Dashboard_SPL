@@ -8,6 +8,21 @@ const COLUMN_STORAGE_KEY = 'lab-wip-column-visibility';
 let columnVisibility = {};
 const COLUMN_DEFS = [ {key:'number', label:'Work Order', width:190, fixed:true}, {key:'priority', label:'Priority', width:120}, {key:'client', label:'Client', width:200}, {key:'assignedTo', label:'Assigned To', width:180}, {key:'AS-BFV_DENSITY', label:'AS-BFV_DENSITY', width:130}, {key:'AS-BFV_MW', label:'AS-BFV_MW', width:130}, {key:'C6GAS', label:'C6GAS', width:110}, {key:'GC-BFVC6MZ', label:'GC-BFVC6MZ', width:130}, {key:'GC-BFVC7MZ', label:'GC-BFVC7MZ', width:130}, {key:'GC-BFVC10MZ', label:'GC-BFVC10MZ', width:130}, {key:'GC-2103-C10MZ', label:'GC-2103-C10MZ', width:150}, {key:'C6LIQ', label:'C6LIQ', width:110}, {key:'C10LIQ', label:'C10LIQ', width:110}, {key:'estTime', label:'Est. Time', width:120}, {key:'dueDate', label:'Due Date', width:130}, {key:'status', label:'Status', width:170},
 ];
+const TEST_DEFINITION_STORAGE_KEY = 'lab-wip-test-definitions';
+const FIXED_COLUMN_KEYS = ['number','priority','client','assignedTo'];
+const TRAILING_COLUMN_KEYS = ['estTime','dueDate','status'];
+const DEFAULT_TEST_DEFS = [
+{ key:'AS-BFV_DENSITY', label:'AS-BFV_DENSITY', shortLabel:'DENS', minutes:15, countMode:'perSample', aliases:['AS-BFV_DENSITY','ASBFVDENSITY'] },
+{ key:'AS-BFV_MW', label:'AS-BFV_MW', shortLabel:'MW', minutes:15, countMode:'perSample', aliases:['AS-BFV_MW','ASBFVMW'] },
+{ key:'C6GAS', label:'C6GAS', shortLabel:'C6GAS', minutes:15, countMode:'perSample', aliases:['C6GAS','C6-GAS','GAS','GC-C6GAS'] },
+{ key:'GC-BFVC6MZ', label:'GC-BFVC6MZ', shortLabel:'BFVC6', minutes:40, countMode:'perSample', groupKey:'GC-BFVC', groupRank:6, aliases:['GC-BFVC6MZ','BFVC6MZ','BFVC6'] },
+{ key:'GC-BFVC7MZ', label:'GC-BFVC7MZ', shortLabel:'BFVC7', minutes:40, countMode:'perSample', groupKey:'GC-BFVC', groupRank:7, aliases:['GC-BFVC7MZ','BFVC7MZ','BFVC7'] },
+{ key:'GC-BFVC10MZ', label:'GC-BFVC10MZ', shortLabel:'BFVC10', minutes:40, countMode:'perSample', groupKey:'GC-BFVC', groupRank:10, aliases:['GC-BFVC10MZ','BFVC10MZ','BFVC10','GC'] },
+{ key:'GC-2103-C10MZ', label:'GC-2103-C10MZ', shortLabel:'GC2103', minutes:90, countMode:'perSample', aliases:['GC-2103-C10MZ','2103C10MZ'] },
+{ key:'C6LIQ', label:'C6LIQ', shortLabel:'C6LIQ', minutes:40, countMode:'perSample', aliases:['C6LIQ','C6-LIQ','LIQ'] },
+{ key:'C10LIQ', label:'C10LIQ', shortLabel:'C10LIQ', minutes:40, countMode:'perSample', aliases:['C10LIQ','C10-LIQ'] },
+];
+let testDefinitions = [];
 let WOs = [];
 let editId = null;
 let sortState = {field:'priority',dir:'asc'};
@@ -20,40 +35,70 @@ let modalPdfAttachment = null;
 let appView = 'queue';
 let scheduleDragIndex = null;
 let scheduleState = {date:'',employees:[],entries:[],tasks:[]};
+let editingTestDefinitionId = null;
 const WO_STAGE = { RUNNING:'running', PENDING:'pending', DONE:'done' };
-function normalizeTestCode(code){ const c=(code||'').toUpperCase().replace(/\s+/g,'');
-if(c==='GAS') return 'C6GAS';
-if(c==='LIQ') return 'C6LIQ';
-if(c==='GC') return 'GC-BFVC10MZ';
-if(c.includes('AS-BFV_DENSITY')) return 'AS-BFV_DENSITY';
-if(c.includes('AS-BFV_MW')) return 'AS-BFV_MW';
-if(c.includes('C6GAS') || c.includes('C6-GAS')) return 'C6GAS';
-if(c.includes('GC-BFVC10MZ') || c.includes('BFVC10MZ') || c.includes('BFVC10')) return 'GC-BFVC10MZ';
-if(c.includes('GC-2103-C10MZ') || c.includes('2103C10MZ')) return 'GC-2103-C10MZ';
-if(c.includes('GC-BFVC7MZ') || c.includes('BFVC7MZ') || c.includes('BFVC7')) return 'GC-BFVC7MZ';
-if(c.includes('GC-BFVC6MZ') || c.includes('BFVC6MZ') || c.includes('BFVC6')) return 'GC-BFVC6MZ';
-if(c.includes('C10LIQ') || c.includes('C10-LIQ')) return 'C10LIQ';
-if(c.includes('C6LIQ') || c.includes('C6-LIQ')) return 'C6LIQ';
-return '';
-}
+function normalizeCatalogKey(raw){ return String(raw || '').trim().toUpperCase().replace(/\s+/g,'_').replace(/[^A-Z0-9_-]/g,''); }
+function normalizeAliasToken(raw){ return String(raw || '').trim().toUpperCase().replace(/[^A-Z0-9]/g,''); }
+function uniqueList(list){ return [...new Set((Array.isArray(list) ? list : []).map(item => String(item || '').trim()).filter(Boolean))]; }
+function getColumnWidthForTest(def){ return Math.max(110, Math.min(180, 20 + String(def?.label || '').length * 8)); }
+function inferTestTone(def){ const key = String(def?.key || '').toUpperCase(); if(def?.groupKey) return 'gc'; if(key.includes('LIQ')) return 'liq'; if(key.includes('2103')) return 'gc'; return 'default'; }
+function normalizeTestDefinition(def, index = 0){ const key = normalizeCatalogKey(def?.key || def?.code || def?.label || `TEST_${index + 1}`); if(!key) return null; const label = String(def?.label || key).trim() || key; const aliasSource = Array.isArray(def?.aliases) ? def.aliases : String(def?.aliases || '').split(','); const aliases = uniqueList([key, label, ...aliasSource]); return { id:String(def?.id || key), key, label, shortLabel:String(def?.shortLabel || label).trim() || label, minutes:Math.max(0, Number(def?.minutes || 0)), countMode:def?.countMode === 'perRow' ? 'perRow' : 'perSample', groupKey:normalizeCatalogKey(def?.groupKey || ''), groupRank:Math.max(0, Number(def?.groupRank || 0)), aliases, tone:inferTestTone({ key, groupKey:def?.groupKey || '' }), sortOrder:Number.isFinite(Number(def?.sortOrder)) ? Number(def.sortOrder) : index, columnWidth:getColumnWidthForTest(def) }; }
+function getDefaultTestDefinitions(){ return DEFAULT_TEST_DEFS.map((def, index) => normalizeTestDefinition({ ...def, sortOrder:index }, index)).filter(Boolean); }
+function getTestDefinitions(){ return testDefinitions.length ? testDefinitions : getDefaultTestDefinitions(); }
+function getTestKeys(){ return getTestDefinitions().map(def => def.key); }
+function getTestDefinitionByKey(key){ const normalized = normalizeCatalogKey(key); return getTestDefinitions().find(def => def.key === normalized) || null; }
+function getTestLabel(key){ const direct = getTestDefinitionByKey(key); if(direct) return direct.label; const normalized = normalizeTestCode(key); return getTestDefinitionByKey(normalized)?.label || String(key || ''); }
+function getTestShortLabel(key){ const direct = getTestDefinitionByKey(key); if(direct) return direct.shortLabel; const normalized = normalizeTestCode(key); return getTestDefinitionByKey(normalized)?.shortLabel || getTestLabel(key); }
+function getDefaultTestKey(){ return getTestDefinitions()[0]?.key || 'TEST'; }
+function getTestHeaderMeta(def){ if(def?.groupKey) return `${def.minutes} min grouped`; if(def?.countMode === 'perRow') return `${def.minutes} min each`; return `${def?.minutes || 0} min`; }
+function syncLegacyTestArrays(){ TEST_CODES.splice(0, TEST_CODES.length, ...getTestKeys()); Object.keys(TEST_MINS).forEach(key => delete TEST_MINS[key]); getTestDefinitions().forEach(def => { TEST_MINS[def.key] = Number(def.minutes || 0); }); const fixedColumns = COLUMN_DEFS.filter(col => FIXED_COLUMN_KEYS.includes(col.key)); const trailingColumns = COLUMN_DEFS.filter(col => TRAILING_COLUMN_KEYS.includes(col.key)); COLUMN_DEFS.splice(0, COLUMN_DEFS.length, ...fixedColumns, ...getTestDefinitions().map(def => ({ key:def.key, label:def.label, width:def.columnWidth })), ...trailingColumns); }
+function reconcileColumnVisibility(){ const defaults = {}; COLUMN_DEFS.forEach(col => { defaults[col.key] = true; }); columnVisibility = { ...defaults, ...(columnVisibility || {}) }; COLUMN_DEFS.forEach(col => { if(col.fixed) columnVisibility[col.key] = true; }); }
+function setTestDefinitions(defs){ const next = (Array.isArray(defs) && defs.length ? defs : getDefaultTestDefinitions()).map((def, index) => normalizeTestDefinition(def, index)).filter(Boolean).sort((a,b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label)); testDefinitions = next.length ? next : getDefaultTestDefinitions(); syncLegacyTestArrays(); reconcileColumnVisibility(); }
+function normalizeTestCode(code){ const raw = String(code || '').trim(); if(!raw) return ''; const normalizedKey = normalizeCatalogKey(raw); if(getTestDefinitionByKey(normalizedKey)) return normalizedKey; const token = normalizeAliasToken(raw); if(!token) return ''; let partialMatch = ''; for(const def of getTestDefinitions()){ for(const alias of def.aliases){ const aliasToken = normalizeAliasToken(alias); if(!aliasToken) continue; if(aliasToken === token) return def.key; if(!partialMatch && (token.includes(aliasToken) || aliasToken.includes(token))) partialMatch = def.key; } } return partialMatch; }
 function normalizeHydrocarbonCode(code){ const raw = String(code || '').trim().toUpperCase().replace(/\s+/g,''); if(raw === 'UNKNOWN' || raw === 'UNK') return 'UNKNOWN'; if(/^C(?:10|[1-9])$/.test(raw)) return raw; const numeric = raw.replace(/^C/i,''); return /^(?:10|[1-9])$/.test(numeric) ? `C${numeric}` : ''; }
 function getHydrocarbonRank(code){ const normalized = normalizeHydrocarbonCode(code); if(!normalized) return 999; if(normalized === 'UNKNOWN') return 998; return Number(normalized.slice(1)); }
-function isLiquidTestCode(code){ const normalized = normalizeTestCode(code); return normalized === 'C6LIQ' || normalized === 'C10LIQ'; }
+function isLiquidTestCode(code){ const def = getTestDefinitionByKey(normalizeTestCode(code)); return !!def && def.tone === 'liq'; }
 function blankCounts(){ return TEST_CODES.reduce((acc,code)=>{acc[code]=0;
 return acc;},{});
 }
-function getWOMetrics(w){ const counts = blankCounts();
+function calculateCountsFromRows(rows){ const counts = blankCounts();
 let minutes = 0;
 let totalTests = 0;
-const rows = Array.isArray(w.testRows) ? w.testRows : [];
-if(rows.length){ const sampleMap = new Map(); rows.forEach((r, idx) => { const sampleKey = (r.sampleId && String(r.sampleId).trim()) || `ROW_${idx}`;
-if(!sampleMap.has(sampleKey)) sampleMap.set(sampleKey, []); sampleMap.get(sampleKey).push(r); });
-for(const sampleRows of sampleMap.values()){ const sampleCodes = new Set(sampleRows.map(r => normalizeTestCode(r.testCode || r.type)).filter(Boolean));
-const maxGC = sampleCodes.has('GC-BFVC10MZ') ? 'GC-BFVC10MZ' : sampleCodes.has('GC-BFVC7MZ') ? 'GC-BFVC7MZ' : sampleCodes.has('GC-BFVC6MZ') ? 'GC-BFVC6MZ' : '';
-if(maxGC){ counts[maxGC] += 1; totalTests += 1; minutes += TEST_MINS[maxGC]; } ['AS-BFV_DENSITY','AS-BFV_MW','C6GAS','GC-2103-C10MZ','C6LIQ','C10LIQ'].forEach(code => { if(sampleCodes.has(code)){ counts[code] += 1; totalTests += 1; minutes += TEST_MINS[code]; } }); } } else { const legacyGas = Number(w.gas || 0);
-const legacyLiq = Number(w.liq || 0);
-const legacyGc = Number(w.gc || 0);
-if(legacyGas){ counts['C6GAS'] += legacyGas; totalTests += legacyGas; minutes += legacyGas * TEST_MINS['C6GAS']; } if(legacyLiq){ counts['C6LIQ'] += legacyLiq; totalTests += legacyLiq; minutes += legacyLiq * TEST_MINS['C6LIQ']; } if(legacyGc){ counts['GC-BFVC10MZ'] += legacyGc; totalTests += legacyGc; minutes += legacyGc * TEST_MINS['GC-BFVC10MZ']; } } return {counts,minutes,totalTests};
+const definitions = getTestDefinitions();
+const defMap = new Map(definitions.map(def => [def.key, def]));
+const sampleMap = new Map();
+rows.forEach((row, idx) => { const sampleKey = (row?.sampleId && String(row.sampleId).trim()) || `ROW_${idx}`;
+if(!sampleMap.has(sampleKey)) sampleMap.set(sampleKey, []); sampleMap.get(sampleKey).push(row); });
+for(const sampleRows of sampleMap.values()){ const rowCodes = sampleRows.map(row => normalizeTestCode(row?.testCode || row?.type)).filter(Boolean);
+const codeSet = new Set(rowCodes);
+const rowCounts = rowCodes.reduce((acc, key) => { acc[key] = (acc[key] || 0) + 1; return acc; }, {});
+const groupedSelections = new Map();
+codeSet.forEach(key => { const def = defMap.get(key);
+if(!def?.groupKey) return;
+const current = groupedSelections.get(def.groupKey);
+if(!current || def.groupRank > current.groupRank) groupedSelections.set(def.groupKey, def); });
+groupedSelections.forEach(def => { counts[def.key] += 1; totalTests += 1; minutes += Number(def.minutes || 0); });
+definitions.forEach(def => { if(def.groupKey) return;
+if(def.countMode === 'perRow'){ const rowCount = Number(rowCounts[def.key] || 0);
+if(!rowCount) return;
+counts[def.key] += rowCount;
+totalTests += rowCount;
+minutes += rowCount * Number(def.minutes || 0);
+return; }
+if(codeSet.has(def.key)){ counts[def.key] += 1; totalTests += 1; minutes += Number(def.minutes || 0); } }); }
+return {counts,minutes,totalTests};
+}
+function getWOMetrics(w){ const rows = Array.isArray(w.testRows) ? w.testRows : [];
+if(rows.length) return calculateCountsFromRows(rows);
+const counts = blankCounts();
+let minutes = 0;
+let totalTests = 0;
+const legacyMap = { C6GAS:Number(w.gas || 0), C6LIQ:Number(w.liq || 0), 'GC-BFVC10MZ':Number(w.gc || 0) };
+Object.entries(legacyMap).forEach(([key, count]) => { if(!count || !TEST_MINS[key]) return;
+counts[key] += count;
+totalTests += count;
+minutes += count * TEST_MINS[key]; });
+return {counts,minutes,totalTests};
 }
 function normalizePdfAttachment(a){ if(!a || typeof a !== 'object') return null;
 const dataUrl = typeof a.dataUrl === 'string' ? a.dataUrl : '';
@@ -95,9 +140,7 @@ const m = String(d.getMonth()+1).padStart(2,'0');
 const day = String(d.getDate()).padStart(2,'0');
 return `${y}-${m}-${day}`; };
 const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-const TEST_LABEL = TEST_CODES.reduce((acc,code)=>{acc[code]=code;
-return acc;},{});
-const inferTypeFromCode = code => normalizeTestCode(code) || 'AS-BFV_DENSITY'; scheduleState = {date:todayISO(),employees:[],entries:[],tasks:[]}; (function tick(){ const n=new Date(); document.getElementById('clock').textContent=n.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); document.getElementById('datedisp').textContent=n.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'}); setTimeout(tick,1000); })();
+const inferTypeFromCode = code => normalizeTestCode(code) || getDefaultTestKey(); setTestDefinitions(getDefaultTestDefinitions()); scheduleState = {date:todayISO(),employees:[],entries:[],tasks:[]}; (function tick(){ const n=new Date(); document.getElementById('clock').textContent=n.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); document.getElementById('datedisp').textContent=n.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'}); setTimeout(tick,1000); })();
 function clickSort(f){ if(sortState.field===f) sortState.dir=sortState.dir==='asc'?'desc':'asc'; else{sortState.field=f;sortState.dir='asc';} document.getElementById('sort-field').value=f; document.getElementById('sort-dir').value=sortState.dir; render(); }
 function sortByPriority(){ sortState = {field:'priority',dir:'asc'}; document.getElementById('sort-field').value='priority'; document.getElementById('sort-dir').value='asc'; render(); }
 function getSorted(){ const f=document.getElementById('sort-field').value;
@@ -228,8 +271,40 @@ taskList.innerHTML = buckets.filter(bucket => bucket.tasks.length).map(bucket =>
 return ` <div class="task-card"> <div class="task-card-head"> <div class="task-card-name">${esc(bucket.name)}</div> <div class="task-card-total">${totalMinutes ? fmtMOrZero(totalMinutes) : 'No time set'}</div> </div> <div class="task-card-lines"> ${bucket.tasks.map(task => `<div><span>${esc(task.name)}${task.minutes ? ` (${fmtMOrZero(task.minutes)})` : ''}</span><button class="act-btn" type="button" onclick="removeEmployeeTask('${esc(task.id)}')">Remove</button></div>`).join('')} </div> </div> `;
 }).join('');
 }
+function renderSortFieldOptions(){ const select = document.getElementById('sort-field');
+if(!select) return;
+const current = sortState.field || select.value || 'priority';
+const baseOptions = [
+{ value:'priority', label:'Priority' },
+{ value:'dueDate', label:'Due Date' },
+{ value:'number', label:'WO Number' },
+{ value:'client', label:'Client' },
+{ value:'assignedTo', label:'Assigned To' },
+];
+const testOptions = getTestDefinitions().map(def => ({ value:def.key, label:def.label }));
+const trailingOptions = [
+{ value:'estTime', label:'Est. Time' },
+{ value:'status', label:'Status' },
+];
+select.innerHTML = [...baseOptions, ...testOptions, ...trailingOptions].map(option => `<option value="${esc(option.value)}">${esc(option.label)}</option>`).join('');
+select.value = [...baseOptions, ...testOptions, ...trailingOptions].some(option => option.value === current) ? current : 'priority';
+sortState.field = select.value;
+}
+function renderWorkOrderTableHeaders(){ const buildHeader = () => COLUMN_DEFS.map(col => { if(FIXED_COLUMN_KEYS.includes(col.key) || TRAILING_COLUMN_KEYS.includes(col.key)){ return `<th class="sortable col-${col.key}" onclick="clickSort('${col.key}')">${esc(col.label)}</th>`; } const def = getTestDefinitionByKey(col.key); const meta = def ? getTestHeaderMeta(def) : ''; return `<th class="num sortable col-${col.key}" onclick="clickSort('${col.key}')">${esc(col.label)}<br><span style="font-size:9px;font-weight:400;color:#4a5568">${esc(meta)}</span></th>`; }).join(''); const queueHead = document.getElementById('wo-table-head'); const pendingHead = document.getElementById('pending-wo-table-head'); if(queueHead) queueHead.innerHTML = `<tr>${buildHeader()}</tr>`; if(pendingHead) pendingHead.innerHTML = `<tr>${buildHeader()}</tr>`; }
+function renderTestTypeOptions(){ const options = getTestDefinitions().map(def => `<option value="${esc(def.key)}">${esc(def.label)}</option>`).join(''); ['f-test-type','e-test-type'].forEach(id => { const select = document.getElementById(id); if(!select) return; const current = select.value; const normalizedCurrent = normalizeTestCode(current); select.innerHTML = options; select.value = getTestDefinitionByKey(current)?.key || getTestDefinitionByKey(normalizedCurrent)?.key || getDefaultTestKey(); }); }
+function renderTestEstimateFooter(){ const footer = document.getElementById('test-estimates-footer');
+if(!footer) return;
+const parts = getTestDefinitions().map(def => `${def.label} = ${def.minutes} min${def.groupKey ? ' grouped by highest rank per sample' : def.countMode === 'perRow' ? ' per row' : ''}`);
+footer.textContent = `TIME ESTIMATES: ${parts.join(' | ')}`;
+}
+function renderTestCatalogList(){ const container = document.getElementById('test-catalog-list');
+if(!container) return;
+container.innerHTML = getTestDefinitions().map(def => { const detail = [`${def.minutes} min`, def.countMode === 'perRow' ? 'per row' : 'per sample', def.groupKey ? `group ${def.groupKey} rank ${def.groupRank}` : 'standalone'].join(' | '); return `<div style="border:1px solid var(--border);border-radius:6px;padding:8px;background:var(--surface);"> <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;"> <div> <div style="color:var(--text);font-family:var(--sans);font-size:14px;">${esc(def.label)}</div> <div style="color:var(--muted);font-family:var(--mono);font-size:11px;">${esc(def.key)} | ${esc(detail)}</div> </div> <button type="button" class="act-btn" onclick="editTestCatalogEntry('${esc(def.id)}')">Edit</button> </div> </div>`; }).join('');
+}
+function renderDynamicTestUI(){ renderSortFieldOptions(); renderWorkOrderTableHeaders(); renderTestTypeOptions(); renderTestEstimateFooter(); renderColumnSelector(); renderTestCatalogList(); applyColumnVisibility(); }
 function initColumnVisibility(){ const defaults = {}; COLUMN_DEFS.forEach(col => { defaults[col.key] = true; }); try { const raw = localStorage.getItem(COLUMN_STORAGE_KEY);
 const parsed = raw ? JSON.parse(raw) : {}; columnVisibility = {...defaults, ...(parsed && typeof parsed === 'object' ? parsed : {})}; } catch { columnVisibility = defaults; }
+reconcileColumnVisibility();
 }
 function getVisibleColumnCount(){ return COLUMN_DEFS.filter(col => col.fixed || columnVisibility[col.key] !== false).length;
 }
@@ -254,7 +329,7 @@ if(visibleCount === 0) return; columnVisibility = next; applyColumnVisibility();
 function aggregateCounts(workOrders){ const totals = blankCounts(); workOrders.forEach(w => { const counts = getWOCounts(w); TEST_CODES.forEach(code => { totals[code] += counts[code] || 0; }); });
 return totals;
 }
-function formatCountsSummary(counts){ const parts = [ ['DENS','AS-BFV_DENSITY'], ['MW','AS-BFV_MW'], ['C6GAS','C6GAS'], ['BFVC6','GC-BFVC6MZ'], ['BFVC7','GC-BFVC7MZ'], ['BFVC10','GC-BFVC10MZ'], ['GC2103','GC-2103-C10MZ'], ['C6LIQ','C6LIQ'], ['C10LIQ','C10LIQ'] ] .map(([label, key]) => ({label, value: Number(counts[key] || 0)})) .filter(item => item.value > 0) .map(item => `${item.label} ${item.value}`);
+function formatCountsSummary(counts){ const parts = getTestDefinitions().map(def => ({label:getTestShortLabel(def.key), value:Number(counts[def.key] || 0)})).filter(item => item.value > 0).map(item => `${item.label} ${item.value}`);
 return parts.length ? parts.join(' | ') : 'None'; }
 function normalizeMatrixBucket(raw){ const m = (raw || '').toString().trim().toLowerCase();
 if(!m) return '';
@@ -418,7 +493,8 @@ const safeAssignedTo = esc(getWOAssigneeLabel(w));
 const counts = getWOCounts(w);
 const priBadge=(pri==='CRITICAL'||pri==='HIGH'||pri==='MEDIUM'||pri==='LOW') ?`<div class="pri-badge pb-${pri}">${pri==='CRITICAL'?'&#128680;':pri==='HIGH'?'&#128293;':pri==='MEDIUM'?'&#9888;&#65039;':'&#128998;'} ${pri}</div>`: `<span style="color:var(--muted);font-size:11px"></span>`;
 const testCell=(v,cls='')=>v?`<span class="tc ${cls}">${v}</span>`:`<span class="tc empty"></span>`;
- const dueFmt=fmtDate(w.dueDate)||'<span style="color:var(--muted)">Not set</span>'; html+=` <tr class="p-${pri}${w.stage===WO_STAGE.DONE?' complete-row':''} wo-clickable-row" data-id="${w.id}" onclick="openActionsModal('${w.id}')" title="Click for actions"> <td class="col-number"><div class="wo-num">${safeNum}</div>${safeNotes?`<div class="wo-sub">${safeNotes}</div>`:''}${sampleCount?`<div class="wo-sub">${sampleCount} sample(s)</div>`:''}</td> <td class="col-priority">${priBadge}</td> <td class="col-client" style="font-family:var(--sans);font-size:14px">${safeClient||'<span style="color:var(--muted)"></span>'}</td> <td class="col-assignedTo" style="font-family:var(--mono);font-size:12px">${safeAssignedTo}</td> <td class="num col-AS-BFV_DENSITY">${testCell(counts['AS-BFV_DENSITY'])}</td> <td class="num col-AS-BFV_MW">${testCell(counts['AS-BFV_MW'],'liq')}</td> <td class="num col-C6GAS">${testCell(counts['C6GAS'])}</td> <td class="num col-GC-BFVC6MZ">${testCell(counts['GC-BFVC6MZ'],'gc')}</td> <td class="num col-GC-BFVC7MZ">${testCell(counts['GC-BFVC7MZ'],'gc')}</td> <td class="num col-GC-BFVC10MZ">${testCell(counts['GC-BFVC10MZ'],'gc')}</td> <td class="num col-GC-2103-C10MZ">${testCell(counts['GC-2103-C10MZ'],'gc')}</td> <td class="num col-C6LIQ">${testCell(counts['C6LIQ'],'liq')}</td> <td class="num col-C10LIQ">${testCell(counts['C10LIQ'],'liq')}</td> <td class="col-estTime"><div class="est-time">${fmtMOrZero(mins)}${mins?`<div class="est-mins">${mins} min</div>`:''}</div></td> <td class="col-dueDate"><div style="font-family:var(--mono);font-size:12px">${dueFmt}</div></td> <td class="col-status"><span class="sb ${st.cls}">${st.label}</span>${st.dl?`<span class="overdue-info">${st.dl}</span>`:''}</td> </tr>`; } } document.getElementById(tbodyId).innerHTML=html; applyColumnVisibility(); const stamp = `Updated ${new Date().toLocaleTimeString()}`; document.getElementById('last-update').textContent=stamp; const pendingStamp = document.getElementById('pending-last-update'); if(pendingStamp) pendingStamp.textContent=stamp; updateStats(); renderSchedule(); }
+ const testCells = getTestDefinitions().map(def => { const cls = def.tone === 'gc' ? 'gc' : def.tone === 'liq' ? 'liq' : ''; return `<td class="num col-${def.key}">${testCell(counts[def.key], cls)}</td>`; }).join('');
+ const dueFmt=fmtDate(w.dueDate)||'<span style="color:var(--muted)">Not set</span>'; html+=` <tr class="p-${pri}${w.stage===WO_STAGE.DONE?' complete-row':''} wo-clickable-row" data-id="${w.id}" onclick="openActionsModal('${w.id}')" title="Click for actions"> <td class="col-number"><div class="wo-num">${safeNum}</div>${safeNotes?`<div class="wo-sub">${safeNotes}</div>`:''}${sampleCount?`<div class="wo-sub">${sampleCount} sample(s)</div>`:''}</td> <td class="col-priority">${priBadge}</td> <td class="col-client" style="font-family:var(--sans);font-size:14px">${safeClient||'<span style="color:var(--muted)"></span>'}</td> <td class="col-assignedTo" style="font-family:var(--mono);font-size:12px">${safeAssignedTo}</td> ${testCells} <td class="col-estTime"><div class="est-time">${fmtMOrZero(mins)}${mins?`<div class="est-mins">${mins} min</div>`:''}</div></td> <td class="col-dueDate"><div style="font-family:var(--mono);font-size:12px">${dueFmt}</div></td> <td class="col-status"><span class="sb ${st.cls}">${st.label}</span>${st.dl?`<span class="overdue-info">${st.dl}</span>`:''}</td> </tr>`; } } document.getElementById(tbodyId).innerHTML=html; applyColumnVisibility(); const stamp = `Updated ${new Date().toLocaleTimeString()}`; document.getElementById('last-update').textContent=stamp; const pendingStamp = document.getElementById('pending-last-update'); if(pendingStamp) pendingStamp.textContent=stamp; updateStats(); renderSchedule(); }
 function renderPdfAttachmentInfo(){ const meta = document.getElementById('f-pdf-meta');
 if(!meta) return;
 if(modalPdfAttachment && modalPdfAttachment.name){ const sizeLabel = modalPdfAttachment.size ? ` (${Math.round(modalPdfAttachment.size/1024)} KB)` : ''; meta.innerHTML = `Attached: ${esc(modalPdfAttachment.name)}${sizeLabel} <button type="button" class="act-btn" style="margin-left:8px;padding:2px 6px;" onclick="openCurrentPdfAttachment()">Open</button> <button type="button" class="act-btn" style="margin-left:6px;padding:2px 6px;" onclick="clearCurrentPdfAttachment()">Remove</button>`; } else { meta.textContent = 'No PDF attached'; } }
@@ -465,7 +541,7 @@ if(input) input.value='';}
 function getDraftRowsFromWO(w){ if(Array.isArray(w.testRows) && w.testRows.length){ return w.testRows.map(r=>({ id:r.id || uid(), type:normalizeTestCode(r.type || r.testCode) || inferTypeFromCode(r.testCode), testCode:r.testCode || '', sampleId:r.sampleId || '', cylinderNumber:r.cylinderNumber || '', matrix:r.matrix || '', hydrocarbon:normalizeHydrocarbonCode(r.hydrocarbon), containerType:r.containerType || '', received:r.received || '', logDate:r.logDate || '', dueDate:r.dueDate || w.dueDate || '', })); } if(Array.isArray(w.samples) && w.samples.length){ const rows = [];
 for(const s of w.samples){ const codes = Array.isArray(s.testCodes) && s.testCodes.length ? s.testCodes : [''];
 for(const tc of codes){ rows.push({ id:uid(), type:inferTypeFromCode(tc), testCode:tc || '', sampleId:s.sampleId || '', cylinderNumber:s.cylinderNumber || '', matrix:s.matrix || '', hydrocarbon:normalizeHydrocarbonCode(s.hydrocarbon), containerType:s.containerType || '', received:s.received || '', logDate:s.logDate || '', dueDate:s.dueDate || w.dueDate || '', }); } } return rows; } const rows = [];
-const addPlaceholder = (code,count) => { for(let i=0;i<count;i++){ rows.push({id:uid(),type:code,testCode:code,sampleId:`AUTO-${code}-${i+1}`,cylinderNumber:'',matrix:'',hydrocarbon:'',containerType:'',received:'',logDate:'',dueDate:w.dueDate||''}); } };
+const addPlaceholder = (code,count) => { for(let i=0;i<count;i++){ rows.push({id:uid(),type:code,testCode:getTestLabel(code),sampleId:`AUTO-${code}-${i+1}`,cylinderNumber:'',matrix:'',hydrocarbon:'',containerType:'',received:'',logDate:'',dueDate:w.dueDate||''}); } };
 const metrics = getWOMetrics(w); TEST_CODES.forEach(code => addPlaceholder(code, metrics.counts[code] || 0));
 return rows;
 }
@@ -489,15 +565,15 @@ const w = WOs.find(x=>x.id===activeActionWO);
 if(!w || !w.pdfAttachment || !w.pdfAttachment.dataUrl){ alert('No PDF attached to this work order.'); return; } openPdfAttachment(w.pdfAttachment); }
 function openEditFromActions(){ if(!activeActionWO) return;
 const id = activeActionWO; closeActionsModal(); openModal(id); }
-function resetDraftTestForm(){ document.getElementById('f-test-type').value='AS-BFV_DENSITY'; document.getElementById('f-test-code').value=''; document.getElementById('f-test-sample').value=''; document.getElementById('f-test-cylinder').value=''; document.getElementById('f-test-matrix').value=''; document.getElementById('f-test-hydrocarbon').value=''; document.getElementById('f-test-container').value=''; document.getElementById('f-test-received').value=''; document.getElementById('f-test-log-date').value=''; }
+function resetDraftTestForm(){ document.getElementById('f-test-type').value=getDefaultTestKey(); document.getElementById('f-test-code').value=''; document.getElementById('f-test-sample').value=''; document.getElementById('f-test-cylinder').value=''; document.getElementById('f-test-matrix').value=''; document.getElementById('f-test-hydrocarbon').value=''; document.getElementById('f-test-container').value=''; document.getElementById('f-test-received').value=''; document.getElementById('f-test-log-date').value=''; }
 function getDraftTestRowFromForm(){ const sampleId = document.getElementById('f-test-sample').value.trim();
 if(!sampleId){ alert('Sample # is required for each test row.');
 return null; } const type = document.getElementById('f-test-type').value;
 const testCode = document.getElementById('f-test-code').value.trim();
-return { id:uid(), type, testCode:testCode || TEST_LABEL[type], sampleId, cylinderNumber:document.getElementById('f-test-cylinder').value.trim(), matrix:document.getElementById('f-test-matrix').value.trim(), hydrocarbon:normalizeHydrocarbonCode(document.getElementById('f-test-hydrocarbon').value), containerType:document.getElementById('f-test-container').value.trim(), received:document.getElementById('f-test-received').value.trim(), logDate:document.getElementById('f-test-log-date').value.trim(), dueDate:document.getElementById('f-due').value || '', }; }
+return { id:uid(), type, testCode:testCode || getTestLabel(type), sampleId, cylinderNumber:document.getElementById('f-test-cylinder').value.trim(), matrix:document.getElementById('f-test-matrix').value.trim(), hydrocarbon:normalizeHydrocarbonCode(document.getElementById('f-test-hydrocarbon').value), containerType:document.getElementById('f-test-container').value.trim(), received:document.getElementById('f-test-received').value.trim(), logDate:document.getElementById('f-test-log-date').value.trim(), dueDate:document.getElementById('f-due').value || '', }; }
 function upsertDraftTestRow(){ const row = getDraftTestRowFromForm();
 if(!row) return; modalDraftTestRows.push(row); resetDraftTestForm(); renderDraftTests(); }
-function openTestSelectorModal(){ if(!modalDraftTestRows.length){ alert('No test rows available to edit.'); return; } const sel = document.getElementById('test-select-list'); sel.innerHTML = modalDraftTestRows.map((r, idx) => `<option value="${r.id}">${idx+1}. Sample ${esc(r.sampleId||'')} | ${TEST_LABEL[r.type] || r.type} | ${esc(r.testCode||'')}</option>` ).join(''); sel.selectedIndex = 0; document.getElementById('test-select-overlay').classList.add('open'); }
+function openTestSelectorModal(){ if(!modalDraftTestRows.length){ alert('No test rows available to edit.'); return; } const sel = document.getElementById('test-select-list'); sel.innerHTML = modalDraftTestRows.map((r, idx) => `<option value="${r.id}">${idx+1}. Sample ${esc(r.sampleId||'')} | ${esc(getTestLabel(r.type) || r.type)} | ${esc(r.testCode||'')}</option>` ).join(''); sel.selectedIndex = 0; document.getElementById('test-select-overlay').classList.add('open'); }
 function closeTestSelectorModal(){ document.getElementById('test-select-overlay').classList.remove('open'); }
 function deleteSelectedTestRow(){ const sel = document.getElementById('test-select-list');
 const id = sel.value;
@@ -506,30 +582,28 @@ function openEditTestModalFromSelector(){ const sel = document.getElementById('t
 const id = sel.value;
 if(!id) return;
 const row = modalDraftTestRows.find(r=>r.id===id);
-if(!row) return; selectedTestRowId = id; document.getElementById('e-test-type').value = normalizeTestCode(row.type || row.testCode) || 'AS-BFV_DENSITY'; document.getElementById('e-test-code').value = row.testCode || ''; document.getElementById('e-test-sample').value = row.sampleId || ''; document.getElementById('e-test-cylinder').value = row.cylinderNumber || ''; document.getElementById('e-test-matrix').value = row.matrix || ''; document.getElementById('e-test-hydrocarbon').value = normalizeHydrocarbonCode(row.hydrocarbon); document.getElementById('e-test-container').value = row.containerType || ''; document.getElementById('e-test-received').value = row.received || ''; document.getElementById('e-test-log-date').value = row.logDate || ''; closeTestSelectorModal(); document.getElementById('test-edit-overlay').classList.add('open'); }
+if(!row) return; selectedTestRowId = id; document.getElementById('e-test-type').value = normalizeTestCode(row.type || row.testCode) || getDefaultTestKey(); document.getElementById('e-test-code').value = row.testCode || ''; document.getElementById('e-test-sample').value = row.sampleId || ''; document.getElementById('e-test-cylinder').value = row.cylinderNumber || ''; document.getElementById('e-test-matrix').value = row.matrix || ''; document.getElementById('e-test-hydrocarbon').value = normalizeHydrocarbonCode(row.hydrocarbon); document.getElementById('e-test-container').value = row.containerType || ''; document.getElementById('e-test-received').value = row.received || ''; document.getElementById('e-test-log-date').value = row.logDate || ''; closeTestSelectorModal(); document.getElementById('test-edit-overlay').classList.add('open'); }
 function closeTestEditModal(){ document.getElementById('test-edit-overlay').classList.remove('open'); selectedTestRowId = null; }
 function saveEditedTestRow(){ if(!selectedTestRowId) return;
 const sampleId = document.getElementById('e-test-sample').value.trim();
 if(!sampleId){ alert('Sample # is required.'); return; } const type = document.getElementById('e-test-type').value;
 const idx = modalDraftTestRows.findIndex(r=>r.id===selectedTestRowId);
-if(idx<0) return; modalDraftTestRows[idx] = { ...modalDraftTestRows[idx], type, testCode:document.getElementById('e-test-code').value.trim() || TEST_LABEL[type], sampleId, cylinderNumber:document.getElementById('e-test-cylinder').value.trim(), matrix:document.getElementById('e-test-matrix').value.trim(), hydrocarbon:normalizeHydrocarbonCode(document.getElementById('e-test-hydrocarbon').value), containerType:document.getElementById('e-test-container').value.trim(), received:document.getElementById('e-test-received').value.trim(), logDate:document.getElementById('e-test-log-date').value.trim(), dueDate:document.getElementById('f-due').value || '', }; closeTestEditModal(); renderDraftTests(); }
+if(idx<0) return; modalDraftTestRows[idx] = { ...modalDraftTestRows[idx], type, testCode:document.getElementById('e-test-code').value.trim() || getTestLabel(type), sampleId, cylinderNumber:document.getElementById('e-test-cylinder').value.trim(), matrix:document.getElementById('e-test-matrix').value.trim(), hydrocarbon:normalizeHydrocarbonCode(document.getElementById('e-test-hydrocarbon').value), containerType:document.getElementById('e-test-container').value.trim(), received:document.getElementById('e-test-received').value.trim(), logDate:document.getElementById('e-test-log-date').value.trim(), dueDate:document.getElementById('f-due').value || '', }; closeTestEditModal(); renderDraftTests(); }
 function deriveCountsAndSamplesFromRows(rows){ const counts = blankCounts();
 const sampleMap = new Map();
-const sampleCodeSets = new Map();
 for(const r of rows){ const sid = r.sampleId || 'UNASSIGNED';
-const canonical = normalizeTestCode(r.testCode || r.type);
-if(!sampleCodeSets.has(sid)) sampleCodeSets.set(sid, new Set());
-if(canonical) sampleCodeSets.get(sid).add(canonical);
 if(!sampleMap.has(sid)){ sampleMap.set(sid,{ sampleId:sid, testCodes:[], matrix:r.matrix || '', hydrocarbon:normalizeHydrocarbonCode(r.hydrocarbon), containerType:r.containerType || '', cylinderNumber:r.cylinderNumber || '', received:r.received || '', logDate:r.logDate || '', dueDate:r.dueDate || '', }); } const s = sampleMap.get(sid);
-if(r.testCode && !s.testCodes.includes(r.testCode)) s.testCodes.push(r.testCode);
+const storedCode = r.testCode || getTestLabel(r.type);
+if(storedCode && !s.testCodes.includes(storedCode)) s.testCodes.push(storedCode);
 if(!s.matrix) s.matrix = r.matrix || '';
 if(!s.hydrocarbon) s.hydrocarbon = normalizeHydrocarbonCode(r.hydrocarbon);
 if(!s.containerType) s.containerType = r.containerType || '';
 if(!s.cylinderNumber) s.cylinderNumber = r.cylinderNumber || '';
 if(!s.received) s.received = r.received || '';
 if(!s.logDate) s.logDate = r.logDate || '';
-if(!s.dueDate) s.dueDate = r.dueDate || ''; } for(const codeSet of sampleCodeSets.values()){ const maxGC = codeSet.has('GC-BFVC10MZ') ? 'GC-BFVC10MZ' : codeSet.has('GC-BFVC7MZ') ? 'GC-BFVC7MZ' : codeSet.has('GC-BFVC6MZ') ? 'GC-BFVC6MZ' : '';
-if(maxGC) counts[maxGC] += 1; ['AS-BFV_DENSITY','AS-BFV_MW','C6GAS','GC-2103-C10MZ','C6LIQ','C10LIQ'].forEach(code => { if(codeSet.has(code)) counts[code] += 1; }); } return {counts, samples:[...sampleMap.values()], testRows:rows};
+if(!s.dueDate) s.dueDate = r.dueDate || ''; }
+Object.assign(counts, calculateCountsFromRows(rows).counts);
+return {counts, samples:[...sampleMap.values()], testRows:rows};
 }
 function renderDraftTests(){ const container = document.getElementById('test-draft-list');
 if(!modalDraftTestRows.length){ container.innerHTML = '<div style="margin-top:6px;">No tests added yet.</div>'; return; } const sampleCount = new Set(modalDraftTestRows.map(r=>r.sampleId || 'UNASSIGNED')).size;
@@ -541,12 +615,19 @@ const rows = modalSampleGroupKeys.map((sampleId, idx)=>{ const tests = grouped.g
 const isOpen = expandedSampleGroups.has(sampleId);
 const byType = blankCounts();
 for(const t of tests){ const code = normalizeTestCode(t.testCode || t.type);
-if(code) byType[code] += 1; } const summary = `${tests.length} rows DENS ${byType['AS-BFV_DENSITY']} MW ${byType['AS-BFV_MW']} C6GAS ${byType['C6GAS']} BFVC6 ${byType['GC-BFVC6MZ']} BFVC7 ${byType['GC-BFVC7MZ']} BFVC10 ${byType['GC-BFVC10MZ']} GC2103 ${byType['GC-2103-C10MZ']} C6LIQ ${byType['C6LIQ']} C10LIQ ${byType['C10LIQ']}`;
-const details = isOpen ? tests.map((r, i)=>` <div style="display:grid;grid-template-columns:46px 120px 1fr 1fr 90px;gap:8px;align-items:center;margin:4px 0 0 26px;"> <span>${i+1}</span> <span style="color:var(--accent)">${esc(TEST_LABEL[r.type] || r.type || '')}</span> <span>${esc(r.testCode || '')}</span> <span>${esc(r.cylinderNumber || '')}</span> <span>${esc(normalizeHydrocarbonCode(r.hydrocarbon) || '')}</span> </div> `).join('') : '';
-return ` <div style="margin-top:8px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);"> <div style="display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:center;"> <button type="button" class="act-btn" onclick="toggleSampleGroup(${idx})" style="padding:2px 6px;">${isOpen?'-':'+'}</button> <div><span style="color:var(--text)">Sample ${esc(sampleId)}</span></div> <div style="color:var(--muted);font-size:11px;">${summary}</div> </div> ${details} </div> `; }).join(''); container.innerHTML = `${header}${rows}`; }
+if(code) byType[code] += 1; }
+const summaryParts = getTestDefinitions().map(def => ({ label:getTestShortLabel(def.key), value:Number(byType[def.key] || 0) })).filter(item => item.value > 0).map(item => `${item.label} ${item.value}`);
+const summaryText = summaryParts.length ? summaryParts.join(' | ') : 'No recognized tests';
+const details = isOpen ? tests.map((r, i)=>` <div style="display:grid;grid-template-columns:46px 120px 1fr 1fr 90px;gap:8px;align-items:center;margin:4px 0 0 26px;"> <span>${i+1}</span> <span style="color:var(--accent)">${esc(getTestLabel(r.type) || r.type || '')}</span> <span>${esc(r.testCode || '')}</span> <span>${esc(r.cylinderNumber || '')}</span> <span>${esc(normalizeHydrocarbonCode(r.hydrocarbon) || '')}</span> </div> `).join('') : '';
+return ` <div style="margin-top:8px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);"> <div style="display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:center;"> <button type="button" class="act-btn" onclick="toggleSampleGroup(${idx})" style="padding:2px 6px;">${isOpen?'-':'+'}</button> <div><span style="color:var(--text)">Sample ${esc(sampleId)}</span></div> <div style="color:var(--muted);font-size:11px;">${summaryText}</div> </div> ${details} </div> `; }).join(''); container.innerHTML = `${header}${rows}`; }
 function toggleSampleGroup(index){ const sampleId = modalSampleGroupKeys[index];
 if(!sampleId) return;
 if(expandedSampleGroups.has(sampleId)) expandedSampleGroups.delete(sampleId); else expandedSampleGroups.add(sampleId); renderDraftTests(); }
+function openTestCatalogModal(){ resetTestCatalogForm(); renderTestCatalogList(); document.getElementById('test-catalog-overlay').classList.add('open'); }
+function closeTestCatalogModal(){ document.getElementById('test-catalog-overlay').classList.remove('open'); editingTestDefinitionId = null; }
+function resetTestCatalogForm(id = null){ const target = id ? getTestDefinitions().find(def => def.id === id || def.key === normalizeCatalogKey(id)) : null; editingTestDefinitionId = target?.id || null; document.getElementById('tc-key').value = target?.key || ''; document.getElementById('tc-label').value = target?.label || ''; document.getElementById('tc-short-label').value = target?.shortLabel || ''; document.getElementById('tc-minutes').value = target ? String(target.minutes) : '15'; document.getElementById('tc-count-mode').value = target?.countMode || 'perSample'; document.getElementById('tc-group-key').value = target?.groupKey || ''; document.getElementById('tc-group-rank').value = target?.groupRank ? String(target.groupRank) : ''; document.getElementById('tc-aliases').value = target?.aliases?.filter(alias => alias !== target.key && alias !== target.label).join(', ') || ''; }
+function editTestCatalogEntry(id){ resetTestCatalogForm(id); }
+function saveTestCatalogEntry(){ const keyInput = document.getElementById('tc-key').value.trim(); if(!keyInput){ alert('Test code is required.'); return; } const key = normalizeCatalogKey(keyInput); const label = document.getElementById('tc-label').value.trim() || key; const shortLabel = document.getElementById('tc-short-label').value.trim() || label; const minutes = Math.max(0, Number(document.getElementById('tc-minutes').value || 0)); const countMode = document.getElementById('tc-count-mode').value === 'perRow' ? 'perRow' : 'perSample'; const groupKey = normalizeCatalogKey(document.getElementById('tc-group-key').value.trim()); const groupRank = Math.max(0, Number(document.getElementById('tc-group-rank').value || 0)); const aliasValues = uniqueList(String(document.getElementById('tc-aliases').value || '').split(',').map(value => value.trim())); const defs = [...getTestDefinitions()]; const existingIndex = defs.findIndex(def => def.id === editingTestDefinitionId); const duplicate = defs.find((def, index) => def.key === key && index !== existingIndex); if(duplicate){ alert(`A test type named ${key} already exists.`); return; } const previous = existingIndex >= 0 ? defs[existingIndex] : null; const aliases = previous && previous.key !== key ? uniqueList([previous.key, ...previous.aliases, ...aliasValues]) : aliasValues; const nextDef = normalizeTestDefinition({ id:previous?.id || key, key, label, shortLabel, minutes, countMode, groupKey, groupRank, aliases, sortOrder:previous?.sortOrder ?? defs.length }); if(existingIndex >= 0) defs[existingIndex] = nextDef; else defs.push(nextDef); setTestDefinitions(defs); renderDynamicTestUI(); renderDraftTests(); render(); renderSchedule(); resetTestCatalogForm(nextDef.id); scheduleSave(); }
 function saveWO(){ const num=document.getElementById('f-num').value.trim();
 if(!num){alert('Work Order number is required.');
 return false;} const derived = deriveCountsAndSamplesFromRows(modalDraftTestRows);
@@ -557,6 +638,7 @@ return true; }
 function deleteWO(){/* overridden by storage wrapper below */}
 function selPri(el){ document.querySelectorAll('#pri-grid .pri-opt').forEach(e=>e.classList.remove('sel')); el.classList.add('sel'); }
 function selPriVal(v){ document.querySelectorAll('#pri-grid .pri-opt').forEach(e=>e.classList.toggle('sel',e.dataset.p===v)); } document.getElementById('modal-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('modal-overlay'))closeModal(); }); document.getElementById('samples-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('samples-overlay'))closeSamplesModal(); }); document.getElementById('actions-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('actions-overlay'))closeActionsModal(); }); document.getElementById('test-select-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('test-select-overlay'))closeTestSelectorModal(); }); document.getElementById('test-edit-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('test-edit-overlay'))closeTestEditModal();
+}); document.getElementById('test-catalog-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('test-catalog-overlay'))closeTestCatalogModal();
 });
 document.getElementById('employee-input').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); addEmployee(); }
 });
@@ -574,15 +656,16 @@ let autoRefreshTimer = null;
 let autoRefreshInFlight = false;
 let lastLoadedWorkOrdersRaw = '';
 let lastLoadedScheduleRaw = '';
+let lastLoadedTestDefinitionsRaw = '';
 function getStorageAdapter() { return ( window.storage && typeof window.storage.get === 'function' && typeof window.storage.set === 'function' ) ? window.storage : { get: async (key) => ({ value: localStorage.getItem(key) }), set: async (key, value) => { localStorage.setItem(key, value); } }; }
 function showSaveStatus(state, msg) { const el = document.getElementById('save-indicator'); el.style.visibility = 'visible'; el.className = 'save-indicator ' + state; el.textContent = msg; }
 function hideSaveStatusSoon(delay = 3000) { setTimeout(() => { const el = document.getElementById('save-indicator'); if(el) el.style.visibility = 'hidden'; }, delay); }
 function isRemoteStorageMode(){ return !!(window.appAuth && typeof window.appAuth.getMode === 'function' && window.appAuth.getMode() === 'remote'); }
-function isInteractionOverlayOpen(){ return ['modal-overlay','samples-overlay','actions-overlay','test-select-overlay','test-edit-overlay'].some(id => document.getElementById(id)?.classList.contains('open')); }
-function rememberLoadedState(woRaw, scheduleRaw){ lastLoadedWorkOrdersRaw = typeof woRaw === 'string' ? woRaw : ''; lastLoadedScheduleRaw = typeof scheduleRaw === 'string' ? scheduleRaw : ''; }
-async function saveData() { const storageAdapter = getStorageAdapter(); clearTimeout(saveTimer); saveTimer = null; showSaveStatus('saving', 'SAVING...'); try { normalizeScheduleState(); const woRaw = JSON.stringify(WOs); const scheduleRaw = JSON.stringify(scheduleState); await Promise.all([ storageAdapter.set(STORAGE_KEY, woRaw), storageAdapter.set(SCHEDULE_STORAGE_KEY, scheduleRaw) ]); rememberLoadedState(woRaw, scheduleRaw); showSaveStatus('saved', 'SAVED'); hideSaveStatusSoon(); } catch (e) { showSaveStatus('error', 'SAVE FAILED'); console.error('Storage save error:', e); } }
+function isInteractionOverlayOpen(){ return ['modal-overlay','samples-overlay','actions-overlay','test-select-overlay','test-edit-overlay','test-catalog-overlay'].some(id => document.getElementById(id)?.classList.contains('open')); }
+function rememberLoadedState(woRaw, scheduleRaw, testDefinitionsRaw){ lastLoadedWorkOrdersRaw = typeof woRaw === 'string' ? woRaw : ''; lastLoadedScheduleRaw = typeof scheduleRaw === 'string' ? scheduleRaw : ''; lastLoadedTestDefinitionsRaw = typeof testDefinitionsRaw === 'string' ? testDefinitionsRaw : ''; }
+async function saveData() { const storageAdapter = getStorageAdapter(); clearTimeout(saveTimer); saveTimer = null; showSaveStatus('saving', 'SAVING...'); try { normalizeScheduleState(); const woRaw = JSON.stringify(WOs); const scheduleRaw = JSON.stringify(scheduleState); const testDefinitionsRaw = JSON.stringify(getTestDefinitions()); await Promise.all([ storageAdapter.set(STORAGE_KEY, woRaw), storageAdapter.set(SCHEDULE_STORAGE_KEY, scheduleRaw), storageAdapter.set(TEST_DEFINITION_STORAGE_KEY, testDefinitionsRaw) ]); rememberLoadedState(woRaw, scheduleRaw, testDefinitionsRaw); showSaveStatus('saved', 'SAVED'); hideSaveStatusSoon(); } catch (e) { showSaveStatus('error', 'SAVE FAILED'); console.error('Storage save error:', e); } }
 function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(saveData, 600); }
-async function loadData(options = {}) { const silent = !!options.silent; let loadedWOs = false; let loadedSchedule = false; let changed = false; try { const storageAdapter = getStorageAdapter(); const [woResult, scheduleResult] = await Promise.all([ storageAdapter.get(STORAGE_KEY), storageAdapter.get(SCHEDULE_STORAGE_KEY) ]); const woRaw = typeof woResult?.value === 'string' ? woResult.value : ''; const scheduleRaw = typeof scheduleResult?.value === 'string' ? scheduleResult.value : ''; if(woRaw === lastLoadedWorkOrdersRaw && scheduleRaw === lastLoadedScheduleRaw) return false; if(woRaw) { const parsed = JSON.parse(woRaw); if (Array.isArray(parsed)) { WOs = normalizeWorkOrders(parsed); loadedWOs = true; changed = true; } else if(parsed && Array.isArray(parsed.workOrders)) { WOs = normalizeWorkOrders(parsed.workOrders); loadedWOs = true; changed = true; } } else if(lastLoadedWorkOrdersRaw !== '') { WOs = []; changed = true; } if (scheduleRaw) { const parsedSchedule = JSON.parse(scheduleRaw); if(parsedSchedule && typeof parsedSchedule === 'object') { scheduleState = { date: parsedSchedule.date || todayISO(), employees: Array.isArray(parsedSchedule.employees) ? parsedSchedule.employees : [], entries: Array.isArray(parsedSchedule.entries) ? parsedSchedule.entries : [], tasks: Array.isArray(parsedSchedule.tasks) ? parsedSchedule.tasks : [] }; loadedSchedule = true; changed = true; } } else if(lastLoadedScheduleRaw !== '') { scheduleState = {date:todayISO(),employees:[],entries:[],tasks:[]}; changed = true; } normalizeScheduleState(); rememberLoadedState(woRaw, scheduleRaw); if (changed) { render(); renderSchedule(); if (!silent) { showSaveStatus('loaded', `${WOs.length} WOs | ${scheduleState.entries.length} scheduled`); hideSaveStatusSoon(); } } } catch (e) { console.log('No saved data found.'); } return changed || loadedWOs || loadedSchedule; }
+async function loadData(options = {}) { const silent = !!options.silent; let loadedWOs = false; let loadedSchedule = false; let loadedTestDefinitions = false; let changed = false; try { const storageAdapter = getStorageAdapter(); const [woResult, scheduleResult, testDefinitionsResult] = await Promise.all([ storageAdapter.get(STORAGE_KEY), storageAdapter.get(SCHEDULE_STORAGE_KEY), storageAdapter.get(TEST_DEFINITION_STORAGE_KEY) ]); const woRaw = typeof woResult?.value === 'string' ? woResult.value : ''; const scheduleRaw = typeof scheduleResult?.value === 'string' ? scheduleResult.value : ''; const testDefinitionsRaw = typeof testDefinitionsResult?.value === 'string' ? testDefinitionsResult.value : ''; if(woRaw === lastLoadedWorkOrdersRaw && scheduleRaw === lastLoadedScheduleRaw && testDefinitionsRaw === lastLoadedTestDefinitionsRaw) return false; if(testDefinitionsRaw) { const parsedTestDefinitions = JSON.parse(testDefinitionsRaw); if(Array.isArray(parsedTestDefinitions) && parsedTestDefinitions.length) { setTestDefinitions(parsedTestDefinitions); loadedTestDefinitions = true; changed = true; } } else if(lastLoadedTestDefinitionsRaw !== '') { setTestDefinitions(getDefaultTestDefinitions()); changed = true; } if(woRaw) { const parsed = JSON.parse(woRaw); if (Array.isArray(parsed)) { WOs = normalizeWorkOrders(parsed); loadedWOs = true; changed = true; } else if(parsed && Array.isArray(parsed.workOrders)) { WOs = normalizeWorkOrders(parsed.workOrders); loadedWOs = true; changed = true; } } else if(lastLoadedWorkOrdersRaw !== '') { WOs = []; changed = true; } if (scheduleRaw) { const parsedSchedule = JSON.parse(scheduleRaw); if(parsedSchedule && typeof parsedSchedule === 'object') { scheduleState = { date: parsedSchedule.date || todayISO(), employees: Array.isArray(parsedSchedule.employees) ? parsedSchedule.employees : [], entries: Array.isArray(parsedSchedule.entries) ? parsedSchedule.entries : [], tasks: Array.isArray(parsedSchedule.tasks) ? parsedSchedule.tasks : [] }; loadedSchedule = true; changed = true; } } else if(lastLoadedScheduleRaw !== '') { scheduleState = {date:todayISO(),employees:[],entries:[],tasks:[]}; changed = true; } normalizeScheduleState(); renderDynamicTestUI(); rememberLoadedState(woRaw, scheduleRaw, testDefinitionsRaw); if (changed) { render(); renderSchedule(); if (!silent) { showSaveStatus('loaded', `${WOs.length} WOs | ${scheduleState.entries.length} scheduled`); hideSaveStatusSoon(); } } } catch (e) { console.log('No saved data found.'); } return changed || loadedWOs || loadedSchedule || loadedTestDefinitions; }
 async function refreshFromSharedStorage(){ if(!isRemoteStorageMode() || document.hidden || saveTimer || isInteractionOverlayOpen() || autoRefreshInFlight) return; autoRefreshInFlight = true; try { const changed = await loadData({ silent:true }); if(changed){ showSaveStatus('loaded', 'SYNCED'); hideSaveStatusSoon(1800); } } finally { autoRefreshInFlight = false; } }
 function stopAutoRefresh(){ if(autoRefreshTimer){ clearInterval(autoRefreshTimer); autoRefreshTimer = null; } }
 function startAutoRefresh(){ stopAutoRefresh(); if(!isRemoteStorageMode()) return; autoRefreshTimer = setInterval(() => { refreshFromSharedStorage(); }, AUTO_REFRESH_MS); }
@@ -591,6 +674,6 @@ const _origToggleDone = toggleDone; toggleDone = function(id) { _origToggleDone(
 const _origSaveWO = saveWO; saveWO = function() { if(_origSaveWO()) scheduleSave(); };
 const _origDeleteWO = deleteWO; deleteWO = function() { if(!editId)return;
 if(!confirm('Delete this work order? This cannot be undone.'))return; WOs=WOs.filter(w=>w.id!==editId); closeModal();render(); scheduleSave(); };
-(async function init() { initColumnVisibility(); renderColumnSelector(); await (window.authReadyPromise || Promise.resolve()); await loadData(); render(); renderSchedule(); switchView('queue'); startAutoRefresh(); refreshFromSharedStorage();
+(async function init() { initColumnVisibility(); renderDynamicTestUI(); await (window.authReadyPromise || Promise.resolve()); await loadData(); renderDynamicTestUI(); render(); renderSchedule(); switchView('queue'); startAutoRefresh(); refreshFromSharedStorage();
 })();
 
