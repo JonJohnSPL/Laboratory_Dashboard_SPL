@@ -6,6 +6,7 @@ let standards = [];
 let currentFilter = 'all';
 let currentView = 'inventory';
 let searchTerm = '';
+let logsSortState = { field:'receivedOn', dir:'desc' };
 let selectedStandardId = null;
 let editStandardId = null;
 let modalComponentRows = [];
@@ -514,6 +515,85 @@ function renderViewButtons(){
   document.getElementById('logs-screen')?.classList.toggle('active', currentView === 'logs');
 }
 
+function getDefaultLogsSortDir(field){
+  return ['receivedOn', 'certifiedOn', 'expiresOn'].includes(field) ? 'desc' : 'asc';
+}
+
+function getStandardLogSortValue(standard, field){
+  switch (field){
+    case 'receivedOn':
+      return parseDate(standard.receivedOn)?.getTime() ?? -1;
+    case 'certifiedOn':
+      return parseDate(standard.certifiedOn)?.getTime() ?? -1;
+    case 'expiresOn':
+      return parseDate(standard.expiresOn)?.getTime() ?? -1;
+    case 'standardIdentifier':
+      return String(standard.standardIdentifier || '');
+    case 'standardName':
+      return String(standard.standardName || '');
+    case 'qcNumber':
+      return String(standard.qcNumber || '');
+    case 'cylinderNumber':
+      return String(standard.cylinderNumber || '');
+    case 'status':
+      return String(getStatusInfo(standard).label || '');
+    case 'mix':
+      return String(componentSummary(standard) || '');
+    default:
+      return String(standard.standardIdentifier || standard.cylinderNumber || '');
+  }
+}
+
+function compareLogSortValues(valueA, valueB){
+  if(typeof valueA === 'number' && typeof valueB === 'number'){
+    return valueA - valueB;
+  }
+  return String(valueA || '').localeCompare(String(valueB || ''), undefined, { numeric:true, sensitivity:'base' });
+}
+
+function getSortedVisibleStandards(){
+  return [...getVisibleStandards()].sort((a, b) => {
+    const primary = compareLogSortValues(
+      getStandardLogSortValue(a, logsSortState.field),
+      getStandardLogSortValue(b, logsSortState.field)
+    );
+    if(primary !== 0){
+      return logsSortState.dir === 'asc' ? primary : -primary;
+    }
+    const fallback = (a.standardIdentifier || a.cylinderNumber || '').localeCompare(
+      b.standardIdentifier || b.cylinderNumber || '',
+      undefined,
+      { numeric:true, sensitivity:'base' }
+    );
+    if(fallback !== 0){
+      return fallback;
+    }
+    return String(a.id || '').localeCompare(String(b.id || ''));
+  });
+}
+
+function renderLogsSortButtons(){
+  document.querySelectorAll('.logs-sort-btn').forEach((button) => {
+    const field = button.id.replace('logs-sort-', '');
+    const baseLabel = button.dataset.label || button.textContent.replace(/\s+\((?:asc|desc)\)$/i, '').trim();
+    button.dataset.label = baseLabel;
+    const isActive = field === logsSortState.field;
+    button.classList.toggle('active', isActive);
+    button.textContent = isActive
+      ? `${baseLabel} (${logsSortState.dir})`
+      : baseLabel;
+  });
+}
+
+function setLogsSort(field){
+  if(logsSortState.field === field){
+    logsSortState.dir = logsSortState.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    logsSortState = { field, dir:getDefaultLogsSortDir(field) };
+  }
+  renderLogs();
+}
+
 function renderTable(){
   const tbody = document.getElementById('standards-tbody');
   const visible = getVisibleStandards();
@@ -668,13 +748,10 @@ function renderLogs(){
   const tbody = document.getElementById('logs-tbody');
   const summary = document.getElementById('logs-summary');
   if(!tbody || !summary) return;
-  const visible = [...getVisibleStandards()].sort((a, b) => {
-    const receivedA = parseDate(a.receivedOn)?.getTime() ?? 0;
-    const receivedB = parseDate(b.receivedOn)?.getTime() ?? 0;
-    if(receivedA !== receivedB) return receivedB - receivedA;
-    return (a.standardIdentifier || a.cylinderNumber).localeCompare(b.standardIdentifier || b.cylinderNumber);
-  });
-  summary.textContent = `${visible.length} record(s) ready to print`;
+  const visible = getSortedVisibleStandards();
+  renderLogsSortButtons();
+  const sortLabel = document.querySelector(`#logs-sort-${logsSortState.field}`)?.dataset.label || 'Received';
+  summary.textContent = `${visible.length} record(s) | Sorted by ${sortLabel} ${logsSortState.dir === 'asc' ? 'ascending' : 'descending'}`;
   if(!visible.length){
     tbody.innerHTML = `
       <tr>
@@ -707,12 +784,7 @@ function renderLogs(){
 }
 
 function printLogs(){
-  const visible = [...getVisibleStandards()].sort((a, b) => {
-    const receivedA = parseDate(a.receivedOn)?.getTime() ?? 0;
-    const receivedB = parseDate(b.receivedOn)?.getTime() ?? 0;
-    if(receivedA !== receivedB) return receivedB - receivedA;
-    return (a.standardIdentifier || a.cylinderNumber).localeCompare(b.standardIdentifier || b.cylinderNumber);
-  });
+  const visible = getSortedVisibleStandards();
   if(!visible.length){
     alert('No standards are available to print.');
     return;
@@ -1594,3 +1666,4 @@ window.addEventListener('beforeunload', () => {
   render();
   startAutoRefresh();
 })();
+

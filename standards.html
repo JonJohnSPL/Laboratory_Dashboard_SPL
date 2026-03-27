@@ -125,15 +125,15 @@
     <table>
       <thead>
         <tr>
-          <th>Received</th>
-          <th>ID #</th>
-          <th>Name</th>
-          <th>Lot/QC #</th>
-          <th>Cylinder</th>
-          <th>Certified</th>
-          <th>Expires</th>
-          <th>Status</th>
-          <th>Mix</th>
+          <th><button class="logs-sort-btn" id="logs-sort-receivedOn" type="button" onclick="setLogsSort('receivedOn')">Received</button></th>
+          <th><button class="logs-sort-btn" id="logs-sort-standardIdentifier" type="button" onclick="setLogsSort('standardIdentifier')">ID #</button></th>
+          <th><button class="logs-sort-btn" id="logs-sort-standardName" type="button" onclick="setLogsSort('standardName')">Name</button></th>
+          <th><button class="logs-sort-btn" id="logs-sort-qcNumber" type="button" onclick="setLogsSort('qcNumber')">Lot/QC #</button></th>
+          <th><button class="logs-sort-btn" id="logs-sort-cylinderNumber" type="button" onclick="setLogsSort('cylinderNumber')">Cylinder</button></th>
+          <th><button class="logs-sort-btn" id="logs-sort-certifiedOn" type="button" onclick="setLogsSort('certifiedOn')">Certified</button></th>
+          <th><button class="logs-sort-btn" id="logs-sort-expiresOn" type="button" onclick="setLogsSort('expiresOn')">Expires</button></th>
+          <th><button class="logs-sort-btn" id="logs-sort-status" type="button" onclick="setLogsSort('status')">Status</button></th>
+          <th><button class="logs-sort-btn" id="logs-sort-mix" type="button" onclick="setLogsSort('mix')">Mix</button></th>
         </tr>
       </thead>
       <tbody id="logs-tbody">

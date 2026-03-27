@@ -216,6 +216,21 @@ thead th{
   letter-spacing:2px;
   text-transform:uppercase;
 }
+.logs-sort-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  border:none;
+  background:transparent;
+  color:inherit;
+  cursor:pointer;
+  font:inherit;
+  letter-spacing:inherit;
+  text-transform:inherit;
+  padding:0;
+}
+.logs-sort-btn:hover{color:var(--accent);}
+.logs-sort-btn.active{color:var(--accent);}
 tbody tr{border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;}
 tbody tr:last-child{border-bottom:none;}
 tbody tr:hover{background:rgba(255,255,255,.025);}
