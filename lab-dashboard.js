@@ -104,7 +104,8 @@ totalTests += count;
 minutes += count * TEST_MINS[key]; });
 return {counts,minutes,totalTests};
 }
-function buildScheduleTaskKey(woId, sampleId, testType){ return testType ? `${String(woId || '')}::${String(sampleId || 'UNASSIGNED')}::${String(testType || '')}` : `${String(woId || '')}::__WO__`; }
+const WO_FALLBACK_ASSIGNMENT_KEY = '__WO_TASK__';
+function buildScheduleAssignmentKey(testType){ return testType ? String(testType || '') : WO_FALLBACK_ASSIGNMENT_KEY; }
 function getScheduleTaskRowsForWO(w){
 const testRows = Array.isArray(w?.testRows) ? w.testRows : [];
 if(testRows.length){
@@ -119,30 +120,10 @@ return rows;
 return [];
 }
 function getSchedulableTasksForWO(w){
-const rows = getScheduleTaskRowsForWO(w);
-if(!rows.length){
-const hasStructuredDetail = (Array.isArray(w?.testRows) && w.testRows.length) || (Array.isArray(w?.samples) && w.samples.some(sample => Array.isArray(sample?.testCodes) ? sample.testCodes.some(code => !!String(code || '').trim()) : !!String(sample?.testCodes || '').trim()));
-if(hasStructuredDetail) return [];
-return [{ taskKey:buildScheduleTaskKey(w?.id, '', ''), woId:String(w?.id || ''), sampleId:'', testType:'', label:'WO Task', quantity:1, taskMinutes:calcM(w), matrixType:getPrimaryMatrixGroup(w), matrix:'', hydrocarbon:'', containerType:'', cylinderNumber:'', received:'', logDate:'', sortOrder:99999, sourceIndex:0, isFallback:true }];
-}
-const definitions = getTestDefinitions();
-const defMap = new Map(definitions.map(def => [def.key, def]));
-const sampleMap = new Map();
-rows.forEach((row, index) => { const sampleKey = String(row?.sampleId || `UNASSIGNED-${index + 1}`); if(!sampleMap.has(sampleKey)) sampleMap.set(sampleKey, []); sampleMap.get(sampleKey).push(row); });
-const tasks = [];
-for(const [sampleId, sampleRows] of sampleMap.entries()){
-const rowCodes = sampleRows.map(row => row.testType).filter(Boolean);
-if(!rowCodes.length) continue;
-const codeSet = new Set(rowCodes);
-const rowCounts = rowCodes.reduce((acc, key) => { acc[key] = (acc[key] || 0) + 1; return acc; }, {});
-const sampleMeta = sampleRows.reduce((acc, row) => ({ matrix:acc.matrix || row.matrix || '', hydrocarbon:acc.hydrocarbon || normalizeHydrocarbonCode(row.hydrocarbon), containerType:acc.containerType || row.containerType || '', cylinderNumber:acc.cylinderNumber || row.cylinderNumber || '', received:acc.received || row.received || '', logDate:acc.logDate || row.logDate || '', sourceIndex:Math.min(acc.sourceIndex, Number(row.rawIndex || 0)), }), { matrix:'', hydrocarbon:'', containerType:'', cylinderNumber:'', received:'', logDate:'', sourceIndex:Number.MAX_SAFE_INTEGER });
-const groupedSelections = new Map();
-codeSet.forEach(key => { const def = defMap.get(key); if(!def?.groupKey) return; const current = groupedSelections.get(def.groupKey); if(!current || Number(def.groupRank || 0) > Number(current.groupRank || 0)) groupedSelections.set(def.groupKey, def); });
-const pushTask = (def, quantity) => { if(!def || !quantity) return; tasks.push({ taskKey:buildScheduleTaskKey(w?.id, sampleId, def.key), woId:String(w?.id || ''), sampleId, testType:def.key, label:def.label, quantity:Number(quantity || 0), taskMinutes:Number(quantity || 0) * Number(def.minutes || 0), matrixType:def.matrixType || normalizeMatrixBucket(sampleMeta.matrix) || getPrimaryMatrixGroup(w), matrix:sampleMeta.matrix || '', hydrocarbon:sampleMeta.hydrocarbon || '', containerType:sampleMeta.containerType || '', cylinderNumber:sampleMeta.cylinderNumber || '', received:sampleMeta.received || '', logDate:sampleMeta.logDate || '', sortOrder:Number(def.sortOrder || 0), sourceIndex:sampleMeta.sourceIndex === Number.MAX_SAFE_INTEGER ? 0 : sampleMeta.sourceIndex, isFallback:false, }); };
-groupedSelections.forEach(def => pushTask(def, 1));
-definitions.forEach(def => { if(def.groupKey) return; if(def.countMode === 'perRow'){ const rowCount = Number(rowCounts[def.key] || 0); if(!rowCount) return; pushTask(def, rowCount); return; } if(codeSet.has(def.key)) pushTask(def, 1); });
-}
-return tasks.sort((a, b) => { if(a.sourceIndex !== b.sourceIndex) return a.sourceIndex - b.sourceIndex; if(a.sampleId !== b.sampleId) return a.sampleId.localeCompare(b.sampleId); if(a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder; return a.label.localeCompare(b.label); });
+const counts = getWOCounts(w);
+const assignments = getTestDefinitions().map(def => { const quantity = Number(counts[def.key] || 0); if(!quantity) return null; return { assignmentKey:buildScheduleAssignmentKey(def.key), testType:def.key, label:def.label, quantity, taskMinutes:quantity * Number(def.minutes || 0), matrixType:def.matrixType || '', sortOrder:Number(def.sortOrder || 0), isFallback:false }; }).filter(Boolean).sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label));
+if(assignments.length) return assignments;
+return [{ assignmentKey:WO_FALLBACK_ASSIGNMENT_KEY, testType:'', label:'WO Task', quantity:1, taskMinutes:calcM(w), matrixType:getPrimaryMatrixGroup(w), sortOrder:99999, isFallback:true }];
 }
 function aggregateTaskCounts(tasks){ const totals = blankCounts(); (Array.isArray(tasks) ? tasks : []).forEach(task => { if(!task?.testType || totals[task.testType] === undefined) return; totals[task.testType] += Number(task.quantity || 0); }); return totals; }
 function normalizePdfAttachment(a){ if(!a || typeof a !== 'object') return null;
@@ -209,7 +190,32 @@ if(dif===0)return{label:'DUE TODAY',cls:'sb-warn',overdue:false,dl:'Due today'};
 function switchView(view){ appView = view === 'schedule' ? 'schedule' : view === 'pending' ? 'pending' : 'queue'; document.getElementById('queue-screen').classList.toggle('active', appView === 'queue'); document.getElementById('pending-screen').classList.toggle('active', appView === 'pending'); document.getElementById('schedule-screen').classList.toggle('active', appView === 'schedule'); document.getElementById('view-queue-btn').classList.toggle('active', appView === 'queue'); document.getElementById('view-pending-btn').classList.toggle('active', appView === 'pending'); document.getElementById('view-schedule-btn').classList.toggle('active', appView === 'schedule');
 if(appView === 'schedule') renderSchedule(); else render();
 }
-function getOpenScheduleTaskMap(){ const map = new Map(); getOpenWOsSorted().forEach(wo => { getSchedulableTasksForWO(wo).forEach(task => { map.set(task.taskKey, task); }); }); return map; }
+function getOpenScheduleTaskMap(){ const map = new Map(); getOpenWOsSorted().forEach(wo => { map.set(wo.id, wo); }); return map; }
+function normalizeScheduleAssignmentsForWO(wo, assignments, employeeSet){
+const validKeys = new Set(getSchedulableTasksForWO(wo).map(item => item.assignmentKey));
+const normalized = {};
+Object.entries(assignments && typeof assignments === 'object' ? assignments : {}).forEach(([key, value]) => {
+const assignmentKey = String(key || '').trim();
+const tech = String(value || '').trim();
+if(!assignmentKey || !tech || !validKeys.has(assignmentKey) || !employeeSet.has(tech)) return;
+normalized[assignmentKey] = tech;
+});
+return normalized;
+}
+function getScheduleAssignmentsForWO(wo, assignments = {}){
+return getSchedulableTasksForWO(wo).map(item => ({ ...item, tech:String(assignments?.[item.assignmentKey] || '').trim() }));
+}
+function collectAssignmentTechs(items){
+return [...new Set((Array.isArray(items) ? items : []).map(item => String(item?.tech || '').trim()).filter(Boolean))];
+}
+function buildAssignmentSummary(items, includeTech = true){
+const parts = (Array.isArray(items) ? items : []).map(item => {
+const quantity = Number(item?.quantity || 0);
+const label = `${item?.label || 'WO Task'}${quantity > 1 ? ` x${quantity}` : ''}`;
+return includeTech ? `${label} -> ${item?.tech || 'Unassigned'}` : label;
+}).filter(Boolean);
+return parts.length ? parts.join(' | ') : 'No test assignments';
+}
 function normalizeScheduleState(){ if(!scheduleState || typeof scheduleState !== 'object') scheduleState = {};
 if(!scheduleState.date) scheduleState.date = todayISO();
 if(!Array.isArray(scheduleState.employees)) scheduleState.employees = [];
@@ -217,26 +223,65 @@ if(!Array.isArray(scheduleState.entries)) scheduleState.entries = [];
 if(!Array.isArray(scheduleState.tasks)) scheduleState.tasks = [];
 scheduleState.employees = [...new Set(scheduleState.employees.map(name => String(name || '').trim()).filter(Boolean))];
 const employeeSet = new Set(scheduleState.employees);
-const taskMap = getOpenScheduleTaskMap();
+const runningWOs = getOpenWOsSorted();
+const woMap = new Map(runningWOs.map(wo => [wo.id, wo]));
 const normalizedEntries = [];
-const seenTaskKeys = new Set();
+const groupedLegacyEntries = new Map();
+const groupedLegacyOrder = [];
+const seenWOIds = new Set();
+const ensureLegacyGroup = (woId, mode) => {
+if(groupedLegacyEntries.has(woId)) return groupedLegacyEntries.get(woId);
+const group = { woId, mode, items:[] };
+groupedLegacyEntries.set(woId, group);
+groupedLegacyOrder.push(group);
+return group;
+};
 scheduleState.entries.forEach((entry) => {
-if(entry && typeof entry === 'object' && entry.taskKey){
-const task = taskMap.get(String(entry.taskKey || ''));
-if(!task || seenTaskKeys.has(task.taskKey)) return;
-const tech = String(entry.tech || '').trim();
-normalizedEntries.push({ taskKey:task.taskKey, woId:task.woId, sampleId:task.sampleId || '', testType:task.testType || '', tech:employeeSet.has(tech) ? tech : '', notes:String(entry.notes || ''), });
-seenTaskKeys.add(task.taskKey);
+const woId = String(entry?.woId || '').trim();
+if(!woId || !woMap.has(woId)) return;
+const wo = woMap.get(woId);
+const isCurrentShape = entry && typeof entry === 'object' && !entry.taskKey && !Array.isArray(entry.assignees) && entry.assignments && typeof entry.assignments === 'object';
+if(isCurrentShape){
+if(seenWOIds.has(woId)) return;
+normalizedEntries.push({ woId, assignments:normalizeScheduleAssignmentsForWO(wo, entry.assignments, employeeSet), notes:String(entry.notes || '') });
+seenWOIds.add(woId);
 return;
 }
-const woId = String(entry?.woId || '').trim();
-if(!woId) return;
-const wo = WOs.find(item => item.id === woId && item.stage === WO_STAGE.RUNNING);
+if(entry && typeof entry === 'object' && Array.isArray(entry.assignees)){
+const group = ensureLegacyGroup(woId, 'assignees');
+group.items.push(entry);
+return;
+}
+if(entry && typeof entry === 'object'){
+const group = ensureLegacyGroup(woId, 'tasks');
+group.items.push(entry);
+}
+});
+groupedLegacyOrder.forEach(group => {
+if(seenWOIds.has(group.woId)) return;
+const wo = woMap.get(group.woId);
 if(!wo) return;
-const legacyAssignees = [...new Set((Array.isArray(entry?.assignees) ? entry.assignees : []).map(name => String(name || '').trim()).filter(name => employeeSet.has(name)))];
-const legacyNotes = String(entry?.notes || '');
-const derivedTasks = getSchedulableTasksForWO(wo).filter(task => !seenTaskKeys.has(task.taskKey));
-derivedTasks.forEach((task, index) => { normalizedEntries.push({ taskKey:task.taskKey, woId:task.woId, sampleId:task.sampleId || '', testType:task.testType || '', tech:legacyAssignees.length ? legacyAssignees[index % legacyAssignees.length] : '', notes:legacyNotes, }); seenTaskKeys.add(task.taskKey); });
+let notes = '';
+let assignments = {};
+if(group.mode === 'assignees'){
+const legacyAssignees = [...new Set(group.items.flatMap(item => Array.isArray(item?.assignees) ? item.assignees : []).map(name => String(name || '').trim()).filter(name => employeeSet.has(name)))];
+notes = group.items.map(item => String(item?.notes || '')).find(Boolean) || '';
+assignments = {};
+getSchedulableTasksForWO(wo).forEach((item, index) => {
+const tech = legacyAssignees.length ? legacyAssignees[index % legacyAssignees.length] : '';
+if(tech) assignments[item.assignmentKey] = tech;
+});
+} else {
+notes = group.items.map(item => String(item?.notes || '')).find(Boolean) || '';
+assignments = {};
+group.items.forEach(item => {
+const assignmentKey = buildScheduleAssignmentKey(item?.testType || '');
+const tech = String(item?.tech || '').trim();
+if(!assignments[assignmentKey] && tech) assignments[assignmentKey] = tech;
+});
+}
+normalizedEntries.push({ woId:group.woId, assignments:normalizeScheduleAssignmentsForWO(wo, assignments, employeeSet), notes });
+seenWOIds.add(group.woId);
 });
 scheduleState.entries = normalizedEntries;
 scheduleState.tasks = scheduleState.tasks.map(task => ({ id: String(task?.id || uid()), employee: String(task?.employee || '').trim(), name: String(task?.name || '').trim(), minutes: Number(task?.minutes || 0) })).filter(task => task.employee && employeeSet.has(task.employee) && task.name).map(task => ({ ...task, minutes: task.minutes > 0 ? task.minutes : 0 }));
@@ -254,17 +299,33 @@ return String(a.number || '').localeCompare(String(b.number || '')); });
 return arr;
 }
 function getScheduleRows(){ normalizeScheduleState();
-const taskMap = getOpenScheduleTaskMap();
-return scheduleState.entries.map((entry, index) => { const task = taskMap.get(entry.taskKey); const wo = task ? WOs.find(w => w.id === task.woId) : null; if(!task || !wo || wo.stage !== WO_STAGE.RUNNING) return null; return { entry, task, wo, order:index + 1, taskMinutes:Number(task.taskMinutes || 0), tech:String(entry.tech || '').trim(), displayTestType:task.isFallback ? 'WO Task' : getTestLabel(task.testType), matrixType:task.matrixType || getPrimaryMatrixGroup(wo), }; }).filter(Boolean);
+return scheduleState.entries.map((entry, index) => {
+const wo = WOs.find(w => w.id === entry.woId && w.stage === WO_STAGE.RUNNING);
+if(!wo) return null;
+const assignmentItems = getScheduleAssignmentsForWO(wo, entry.assignments);
+const assignedTechs = collectAssignmentTechs(assignmentItems);
+const totalMinutes = assignmentItems.reduce((sum, item) => sum + Number(item.taskMinutes || 0), 0);
+const assignedMinutes = assignmentItems.reduce((sum, item) => sum + (item.tech ? Number(item.taskMinutes || 0) : 0), 0);
+return { entry, wo, order:index + 1, assignmentItems, assignmentMap:{ ...(entry.assignments || {}) }, assignedTechs, totalMinutes, assignedMinutes, unassignedMinutes:Math.max(0, totalMinutes - assignedMinutes), matrixType:getPrimaryMatrixGroup(wo) };
+}).filter(Boolean);
 }
 function buildEmployeePlan(rows){ const plan = new Map(scheduleState.employees.map(name => [name, {name, minutes:0, items:[]}]));
 const unassigned = {name:'Unassigned', minutes:0, items:[]};
-for(const row of rows){ const owner = row.tech; if(owner){ if(!plan.has(owner)) plan.set(owner, {name:owner, minutes:0, items:[]}); const p = plan.get(owner); p.minutes += row.taskMinutes; p.items.push({ order:row.order, woNumber:row.wo.number, sampleId:row.task.sampleId || '', testType:row.displayTestType, minutes:row.taskMinutes }); } else { unassigned.minutes += row.taskMinutes; unassigned.items.push({ order:row.order, woNumber:row.wo.number, sampleId:row.task.sampleId || '', testType:row.displayTestType, minutes:row.taskMinutes }); } } const out = [...plan.values()].filter(p => p.minutes > 0 || scheduleState.employees.includes(p.name));
+for(const row of rows){
+row.assignmentItems.forEach(item => {
+const owner = String(item.tech || '').trim();
+const target = owner ? (plan.get(owner) || {name:owner, minutes:0, items:[]}) : unassigned;
+if(owner && !plan.has(owner)) plan.set(owner, target);
+target.minutes += Number(item.taskMinutes || 0);
+target.items.push({ order:row.order, woNumber:row.wo.number, testType:item.label, quantity:Number(item.quantity || 0), minutes:Number(item.taskMinutes || 0) });
+});
+}
+const out = [...plan.values()].filter(p => p.minutes > 0 || scheduleState.employees.includes(p.name));
 if(unassigned.minutes > 0) out.push(unassigned); out.sort((a,b) => b.minutes - a.minutes);
 return out;
 }
 function getEmployeeTasks(employeeName){ return scheduleState.tasks.filter(task => task.employee === employeeName); }
-function getWOAssigneeList(w){ return [...new Set(scheduleState.entries.filter(entry => entry.woId === w?.id).map(entry => String(entry.tech || '').trim()).filter(Boolean))]; }
+function getWOAssigneeList(w){ const entry = scheduleState.entries.find(item => item.woId === w?.id); if(!entry) return []; const wo = WOs.find(item => item.id === w?.id); if(!wo) return []; return collectAssignmentTechs(getScheduleAssignmentsForWO(wo, entry.assignments)); }
 function getWOAssigneeLabel(w){ const assignees = getWOAssigneeList(w); return assignees.length ? assignees.join(' | ') : 'Unassigned'; }
 function getFilteredWorkOrders(){ const showDone = document.getElementById('show-done').checked;
 let sorted = getSorted();
@@ -297,10 +358,16 @@ openModal(editId);
 function buildReportData(scope = '__master__'){ const rows = getScheduleRows().map(row => ({ ...row, matrixType:row.matrixType || getPrimaryMatrixGroup(row.wo) }));
 const isMaster = !scope || scope === '__master__';
 const employeeName = isMaster ? 'Master Report' : scope;
-const filteredRows = isMaster ? rows : rows.filter(row => row.tech === scope);
-const laneSource = isMaster ? rows : filteredRows;
-const gasRows = laneSource.filter(row => row.matrixType === 'Gas');
-const liquidSampleRows = getLiquidLaneRows(laneSource);
+const filteredRows = rows.map(row => {
+const reportAssignmentItems = isMaster ? row.assignmentItems : row.assignmentItems.filter(item => item.tech === scope);
+return { ...row, reportAssignmentItems, reportTechs:collectAssignmentTechs(reportAssignmentItems), reportMinutes:reportAssignmentItems.reduce((sum, item) => sum + Number(item.taskMinutes || 0), 0) };
+}).filter(row => isMaster ? true : row.reportAssignmentItems.length > 0);
+const gasRows = filteredRows.map(row => {
+const gasAssignmentItems = row.reportAssignmentItems.filter(item => normalizeMatrixBucket(item.matrixType) === 'Gas');
+if(!gasAssignmentItems.length) return null;
+return { ...row, reportAssignmentItems:gasAssignmentItems, reportTechs:collectAssignmentTechs(gasAssignmentItems), reportMinutes:gasAssignmentItems.reduce((sum, item) => sum + Number(item.taskMinutes || 0), 0) };
+}).filter(Boolean);
+const liquidSampleRows = getLiquidLaneRows(filteredRows, isMaster ? '' : scope);
 const plan = buildEmployeePlan(rows);
 const filteredPlan = isMaster ? plan : plan.filter(p => p.name === scope);
 const reportEmployees = isMaster ? scheduleState.employees : [scope];
@@ -396,9 +463,9 @@ if(m.includes('gas')) return 'Gas';
 if(m.includes('oil') || m.includes('liq')) return 'Liquid';
 return ''; }
 function isLiquidSampleRecord(sample){ return normalizeMatrixBucket(sample?.matrix) === 'Liquid'; }
-function isLiquidScheduleTask(task){ if(!task || task.isFallback) return false; if(task.matrixType === 'Liquid') return true; if(normalizeMatrixBucket(task.matrix) === 'Liquid') return true; return !!task.testType && isLiquidTestCode(task.testType); }
+function isLiquidScheduleTask(task){ if(!task || task.isFallback) return false; if(task.matrixType === 'Liquid') return true; if(normalizeMatrixBucket(task.matrixType) === 'Liquid') return true; if(normalizeMatrixBucket(task.matrix) === 'Liquid') return true; return !!task.testType && isLiquidTestCode(task.testType); }
 function getLiquidSamplesForWO(w){ const samples = Array.isArray(w?.samples) ? w.samples : []; if(samples.length){ return samples.map((sample, sampleIndex) => ({ sampleId:String(sample?.sampleId || `UNASSIGNED-${sampleIndex + 1}`), matrix:String(sample?.matrix || ''), hydrocarbon:normalizeHydrocarbonCode(sample?.hydrocarbon), sourceIndex:sampleIndex })).filter(sample => isLiquidSampleRecord(sample)); } const rows = Array.isArray(w?.testRows) ? w.testRows : []; const grouped = new Map(); rows.forEach((row, rowIndex) => { const sampleId = String(row?.sampleId || `UNASSIGNED-${rowIndex + 1}`); if(!grouped.has(sampleId)) grouped.set(sampleId, { sampleId, matrix:String(row?.matrix || ''), hydrocarbon:normalizeHydrocarbonCode(row?.hydrocarbon), sourceIndex:rowIndex, hasLiquidTest:false }); const sample = grouped.get(sampleId); if(!sample.matrix) sample.matrix = String(row?.matrix || ''); if(!sample.hydrocarbon) sample.hydrocarbon = normalizeHydrocarbonCode(row?.hydrocarbon); if(isLiquidTestCode(row?.testCode || row?.type)) sample.hasLiquidTest = true; }); return [...grouped.values()].filter(sample => isLiquidSampleRecord(sample) || sample.hasLiquidTest); }
-function getLiquidLaneRows(scheduleRows){ const grouped = new Map(); scheduleRows.forEach(row => { if(!isLiquidScheduleTask(row.task)) return; const sampleId = String(row.task.sampleId || 'UNASSIGNED'); const key = `${row.wo.id}::${sampleId}`; if(!grouped.has(key)) grouped.set(key, { wo:row.wo, scheduleOrder:row.order, sampleId, hydrocarbon:row.task.hydrocarbon || '', hydrocarbonRank:getHydrocarbonRank(row.task.hydrocarbon), sourceIndex:Number(row.task.sourceIndex || 0), techs:new Set(), }); const lane = grouped.get(key); lane.scheduleOrder = Math.min(lane.scheduleOrder, row.order); if(!lane.hydrocarbon && row.task.hydrocarbon) lane.hydrocarbon = row.task.hydrocarbon; lane.hydrocarbonRank = getHydrocarbonRank(lane.hydrocarbon); lane.sourceIndex = Math.min(lane.sourceIndex, Number(row.task.sourceIndex || 0)); if(row.tech) lane.techs.add(row.tech); }); const laneRows = [...grouped.values()]; laneRows.sort((a,b) => { if(a.hydrocarbonRank !== b.hydrocarbonRank) return a.hydrocarbonRank - b.hydrocarbonRank; if(a.scheduleOrder !== b.scheduleOrder) return a.scheduleOrder - b.scheduleOrder; if(a.sourceIndex !== b.sourceIndex) return a.sourceIndex - b.sourceIndex; return a.sampleId.localeCompare(b.sampleId); }); return laneRows.map((row, index) => ({ ...row, assignees:[...row.techs], laneOrder:index + 1 })); }
+function getLiquidLaneRows(scheduleRows, techScope = ''){ const grouped = new Map(); scheduleRows.forEach(row => { const taskRows = getScheduleTaskRowsForWO(row.wo); const liquidSamples = getLiquidSamplesForWO(row.wo); liquidSamples.forEach(sample => { const liquidTypes = [...new Set(taskRows.filter(task => String(task.sampleId || '') === String(sample.sampleId || '') && isLiquidScheduleTask(task)).map(task => task.testType).filter(Boolean))]; const techs = new Set(); liquidTypes.forEach(testType => { const tech = String(row.assignmentMap?.[buildScheduleAssignmentKey(testType)] || '').trim(); if(tech && (!techScope || tech === techScope)) techs.add(tech); }); if(techScope && !techs.size) return; const key = `${row.wo.id}::${sample.sampleId}`; if(!grouped.has(key)) grouped.set(key, { wo:row.wo, scheduleOrder:row.order, sampleId:String(sample.sampleId || 'UNASSIGNED'), hydrocarbon:sample.hydrocarbon || '', hydrocarbonRank:getHydrocarbonRank(sample.hydrocarbon), sourceIndex:Number(sample.sourceIndex || 0), techs:new Set(), }); const lane = grouped.get(key); lane.scheduleOrder = Math.min(lane.scheduleOrder, row.order); if(!lane.hydrocarbon && sample.hydrocarbon) lane.hydrocarbon = sample.hydrocarbon; lane.hydrocarbonRank = getHydrocarbonRank(lane.hydrocarbon); lane.sourceIndex = Math.min(lane.sourceIndex, Number(sample.sourceIndex || 0)); techs.forEach(name => lane.techs.add(name)); }); }); const laneRows = [...grouped.values()]; laneRows.sort((a,b) => { if(a.hydrocarbonRank !== b.hydrocarbonRank) return a.hydrocarbonRank - b.hydrocarbonRank; if(a.scheduleOrder !== b.scheduleOrder) return a.scheduleOrder - b.scheduleOrder; if(a.sourceIndex !== b.sourceIndex) return a.sourceIndex - b.sourceIndex; return a.sampleId.localeCompare(b.sampleId); }); return laneRows.map((row, index) => ({ ...row, assignees:[...row.techs], laneOrder:index + 1 })); }
 function updateSampleHydrocarbon(woId, sampleId, hydrocarbon){ const wo = WOs.find(item => item.id === woId); if(!wo) return; const nextCode = normalizeHydrocarbonCode(hydrocarbon); if(Array.isArray(wo.samples)){ wo.samples.forEach(sample => { if(String(sample?.sampleId || '') === String(sampleId || '')) sample.hydrocarbon = nextCode; }); } if(Array.isArray(wo.testRows)){ wo.testRows.forEach(row => { if(String(row?.sampleId || '') === String(sampleId || '')) row.hydrocarbon = nextCode; }); } render(); scheduleSave(); }
 function getPrimaryMatrixGroup(w){ let gas = 0;
 let liquid = 0;
@@ -414,25 +481,51 @@ if(schedDate) schedDate.value = scheduleState.date || todayISO();
 renderPrintTargetOptions();
 renderTaskEmployeeOptions();
 const employeeList = document.getElementById('employee-list');
-if(!scheduleState.employees.length){ employeeList.innerHTML = '<span class="split-hint">No employees added yet.</span>'; } else { employeeList.innerHTML = scheduleState.employees.map((name, idx) => ` <span class="employee-chip">${esc(name)} <button title="Remove employee" onclick="removeEmployee(${idx})">x</button></span> `).join(''); } const openWOs = getOpenWOsSorted();
+if(!scheduleState.employees.length){ employeeList.innerHTML = '<span class="split-hint">No employees added yet.</span>'; } else { employeeList.innerHTML = scheduleState.employees.map((name, idx) => ` <span class="employee-chip">${esc(name)} <button title="Remove employee" onclick="removeEmployee(${idx})">x</button></span> `).join(''); }
+const openWOs = getOpenWOsSorted();
 const rows = getScheduleRows();
-const allOpenTasks = openWOs.flatMap(wo => getSchedulableTasksForWO(wo));
-const scheduledTaskKeys = new Set(rows.map(r => r.task.taskKey));
-const unscheduledTasks = allOpenTasks.filter(task => !scheduledTaskKeys.has(task.taskKey));
-const scheduledCounts = aggregateTaskCounts(rows.map(r => r.task));
-const unscheduledCounts = aggregateTaskCounts(unscheduledTasks); document.getElementById('sch-wo').textContent = rows.length; document.getElementById('sch-unscheduled').textContent = unscheduledTasks.length; document.getElementById('sch-time').textContent = fmtMOrZero(rows.reduce((sum, r) => sum + r.taskMinutes, 0)); document.getElementById('sch-employees').textContent = scheduleState.employees.length;
+const scheduledWOIds = new Set(rows.map(row => row.wo.id));
+const unscheduledWOs = openWOs.filter(wo => !scheduledWOIds.has(wo.id));
+const scheduledCounts = aggregateTaskCounts(rows.flatMap(row => row.assignmentItems));
+const unscheduledCounts = aggregateTaskCounts(unscheduledWOs.flatMap(wo => getSchedulableTasksForWO(wo)));
+document.getElementById('sch-wo').textContent = rows.length;
+document.getElementById('sch-unscheduled').textContent = unscheduledWOs.length;
+document.getElementById('sch-time').textContent = fmtMOrZero(rows.reduce((sum, row) => sum + row.totalMinutes, 0));
+document.getElementById('sch-employees').textContent = scheduleState.employees.length;
 const testSummaryEl = document.getElementById('schedule-test-summary');
-if(testSummaryEl){ testSummaryEl.innerHTML = ` <div><strong>Scheduled:</strong> ${formatCountsSummary(scheduledCounts)}</div> <div class="test-summary-line"><strong>Remaining:</strong> ${formatCountsSummary(unscheduledCounts)}</div> `; } const unscheduledList = document.getElementById('unscheduled-list');
-if(!unscheduledTasks.length){ unscheduledList.innerHTML = '<div class="schedule-empty">All open schedulable test tasks are already on the run order.</div>'; } else { const groups = new Map(); unscheduledTasks.forEach(task => { if(!groups.has(task.woId)) groups.set(task.woId, { wo:openWOs.find(wo => wo.id === task.woId), tasks:[] }); groups.get(task.woId).tasks.push(task); }); unscheduledList.innerHTML = [...groups.values()].map(group => { const wo = group.wo; if(!wo) return ''; return ` <div class="schedule-item task-group-item"> <div class="schedule-item-main"> <div class="run-rank">WO</div> <div> <div class="schedule-title">${esc(wo.number)}</div> <div class="schedule-sub">${esc(wo.client || 'Unassigned client')} | Priority ${esc(wo.priority || 'NONE')} | ${fmtDate(wo.dueDate) || 'No due date'}</div> <div class="schedule-sub">${fmtMOrZero(calcM(wo))} total | ${getWOTestTotal(wo)} total test units</div> </div> </div> <div class="schedule-task-list"> ${group.tasks.map(task => ` <div class="schedule-task-row"> <div> <div class="schedule-task-name">${esc(task.sampleId ? `Sample ${task.sampleId}` : 'WO-level fallback')} | ${esc(task.label)}${task.quantity > 1 ? ` | Qty ${task.quantity}` : ''}</div> <div class="schedule-sub">${fmtMOrZero(task.taskMinutes)} | ${esc(task.matrixType || 'Unknown Matrix')}</div> </div> <button class="act-btn" onclick="addTaskToSchedule('${esc(task.taskKey)}')">Schedule</button> </div> `).join('')} </div> </div> `; }).join(''); } const scheduledList = document.getElementById('scheduled-list');
- if(!rows.length){ scheduledList.innerHTML = '<div class="schedule-empty">No run order set yet. Add tasks from the left panel.</div>'; } else { scheduledList.innerHTML = rows.map((row, index) => { const techButtons = scheduleState.employees.length ? scheduleState.employees.map((name, empIndex) => { const active = row.tech === name;
-return `<button type="button" class="assignee-btn ${active ? 'on' : ''}" onclick="assignTaskTech(${index}, ${empIndex})">${esc(name)}</button>`; }).join('') : '<span class="split-hint">Add employees above to assign this task.</span>';
-const taskLabel = `${row.task.sampleId ? `Sample ${row.task.sampleId}` : 'WO-level fallback'} | ${row.displayTestType}${row.task.quantity > 1 ? ` | Qty ${row.task.quantity}` : ''}`;
-const ownerLabel = row.tech ? `Assigned to ${row.tech}` : 'Unassigned';
-return ` <div class="schedule-item run-item" draggable="true" data-index="${index}" ondragstart="onScheduleDragStart(event)" ondragover="onScheduleDragOver(event)" ondrop="onScheduleDrop(event)" ondragend="onScheduleDragEnd()"> <div class="schedule-item-main"> <div class="run-rank">#${row.order}</div> <div> <div class="schedule-title">${esc(row.wo.number)} | ${esc(row.wo.client || 'Unassigned client')}</div> <div class="schedule-sub">${esc(taskLabel)}</div> <div class="schedule-sub">Priority ${esc(row.wo.priority || 'NONE')} | Due ${fmtDate(row.wo.dueDate) || 'Not set'} | ${fmtMOrZero(row.taskMinutes)}</div> <div class="schedule-sub">${esc(ownerLabel)} | ${esc(row.matrixType || 'Unknown Matrix')}</div> </div> <button class="act-btn" onclick="removeFromSchedule(${index})">Remove</button> </div> <div class="schedule-assignees">${techButtons}</div> <div class="schedule-notes"> <textarea placeholder="Task notes..." oninput="updateScheduleNotes(${index}, this.value)">${esc(row.entry.notes || '')}</textarea> </div> </div> `; }).join(''); }
- const liquidLaneList = document.getElementById('liquid-lane-list'); if(liquidLaneList){ const liquidLaneRows = getLiquidLaneRows(rows); if(!liquidLaneRows.length){ liquidLaneList.innerHTML = '<div class="schedule-empty">No scheduled liquid samples yet.</div>'; } else { liquidLaneList.innerHTML = liquidLaneRows.map(row => { const options = ['<option value="">Set hydrocarbon...</option>', ...HYDROCARBON_OPTIONS.map(code => `<option value="${code}" ${row.hydrocarbon === code ? 'selected' : ''}>${code === 'UNKNOWN' ? 'Unknown' : code}</option>`)].join(''); const rankLabel = row.hydrocarbon === 'UNKNOWN' ? 'Unknown' : (row.hydrocarbon || 'Unset'); const assigneeLabel = row.assignees.length ? row.assignees.join(', ') : 'Unassigned'; return ` <div class="schedule-item liquid-lane-item ${row.hydrocarbon ? '' : 'missing-hydrocarbon'}"> <div class="schedule-item-main"> <div class="run-rank">L${row.laneOrder}</div> <div> <div class="schedule-title">${esc(row.wo.number)} | Sample ${esc(row.sampleId)}</div> <div class="schedule-sub">${esc(row.wo.client || 'Unassigned client')} | Queue #${row.scheduleOrder} | ${esc(assigneeLabel)}</div> <div class="schedule-sub">Hydrocarbon ${esc(rankLabel)} | Liquid lane sorted lightest to heaviest</div> </div> <select class="form-input hydrocarbon-select" onchange="updateSampleHydrocarbon('${esc(row.wo.id)}','${esc(row.sampleId)}', this.value)">${options}</select> </div> </div> `; }).join(''); } } const plan = buildEmployeePlan(rows);
+if(testSummaryEl){ testSummaryEl.innerHTML = ` <div><strong>Scheduled:</strong> ${formatCountsSummary(scheduledCounts)}</div> <div class="test-summary-line"><strong>Remaining:</strong> ${formatCountsSummary(unscheduledCounts)}</div> `; }
+const unscheduledList = document.getElementById('unscheduled-list');
+if(!unscheduledWOs.length){
+unscheduledList.innerHTML = '<div class="schedule-empty">All open work orders are already on the run order.</div>';
+} else {
+unscheduledList.innerHTML = unscheduledWOs.map(wo => {
+const assignments = getSchedulableTasksForWO(wo);
+return ` <div class="schedule-item task-group-item"> <div class="schedule-item-main"> <div class="run-rank">WO</div> <div> <div class="schedule-title">${esc(wo.number)}</div> <div class="schedule-sub">${esc(wo.client || 'Unassigned client')} | Priority ${esc(wo.priority || 'NONE')} | ${fmtDate(wo.dueDate) || 'No due date'}</div> <div class="schedule-sub">${fmtMOrZero(calcM(wo))} total | ${getWOTestTotal(wo)} total test units</div> </div> <button class="act-btn" onclick="addToSchedule('${esc(wo.id)}')">Schedule WO</button> </div> <div class="schedule-task-list"> ${assignments.map(item => ` <div class="schedule-task-row"> <div> <div class="schedule-task-name">${esc(item.label)}${item.quantity > 1 ? ` | Qty ${item.quantity}` : ''}</div> <div class="schedule-sub">${fmtMOrZero(item.taskMinutes)} | ${esc(item.matrixType || 'Unknown Matrix')}</div> </div> </div> `).join('')} </div> </div> `;
+}).join('');
+}
+const scheduledList = document.getElementById('scheduled-list');
+if(!rows.length){
+scheduledList.innerHTML = '<div class="schedule-empty">No run order set yet. Add work orders from the left panel.</div>';
+} else {
+scheduledList.innerHTML = rows.map((row, index) => {
+const assigneeLabel = row.assignedTechs.length ? row.assignedTechs.join(', ') : 'Unassigned';
+const assignmentRows = row.assignmentItems.map(item => {
+const techButtons = scheduleState.employees.length ? scheduleState.employees.map((name, empIndex) => {
+const active = item.tech === name;
+return `<button type="button" class="assignee-btn ${active ? 'on' : ''}" onclick="assignWorkOrderTest(${index}, '${esc(item.assignmentKey)}', ${empIndex})">${esc(name)}</button>`;
+}).join('') : '<span class="split-hint">Add employees above to assign this test type.</span>';
+return ` <div class="schedule-task-row"> <div> <div class="schedule-task-name">${esc(item.label)}${item.quantity > 1 ? ` | Qty ${item.quantity}` : ''}</div> <div class="schedule-sub">${fmtMOrZero(item.taskMinutes)} | ${esc(item.tech || 'Unassigned')} | ${esc(item.matrixType || 'Unknown Matrix')}</div> </div> <div class="schedule-assignees">${techButtons}</div> </div> `;
+}).join('');
+return ` <div class="schedule-item run-item" draggable="true" data-index="${index}" ondragstart="onScheduleDragStart(event)" ondragover="onScheduleDragOver(event)" ondrop="onScheduleDrop(event)" ondragend="onScheduleDragEnd()"> <div class="schedule-item-main"> <div class="run-rank">#${row.order}</div> <div> <div class="schedule-title">${esc(row.wo.number)} | ${esc(row.wo.client || 'Unassigned client')}</div> <div class="schedule-sub">Priority ${esc(row.wo.priority || 'NONE')} | Due ${fmtDate(row.wo.dueDate) || 'Not set'} | ${fmtMOrZero(row.totalMinutes)}</div> <div class="schedule-sub">${esc(assigneeLabel)} | ${esc(buildAssignmentSummary(row.assignmentItems, false))}</div> </div> <button class="act-btn" onclick="removeFromSchedule(${index})">Remove</button> </div> <div class="schedule-task-list">${assignmentRows}</div> <div class="schedule-notes"> <textarea placeholder="Work order notes..." oninput="updateScheduleNotes(${index}, this.value)">${esc(row.entry.notes || '')}</textarea> </div> </div> `;
+}).join('');
+}
+const liquidLaneList = document.getElementById('liquid-lane-list');
+if(liquidLaneList){ const liquidLaneRows = getLiquidLaneRows(rows); if(!liquidLaneRows.length){ liquidLaneList.innerHTML = '<div class="schedule-empty">No scheduled liquid samples yet.</div>'; } else { liquidLaneList.innerHTML = liquidLaneRows.map(row => { const options = ['<option value="">Set hydrocarbon...</option>', ...HYDROCARBON_OPTIONS.map(code => `<option value="${code}" ${row.hydrocarbon === code ? 'selected' : ''}>${code === 'UNKNOWN' ? 'Unknown' : code}</option>`)].join(''); const rankLabel = row.hydrocarbon === 'UNKNOWN' ? 'Unknown' : (row.hydrocarbon || 'Unset'); const assigneeLabel = row.assignees.length ? row.assignees.join(', ') : 'Unassigned'; return ` <div class="schedule-item liquid-lane-item ${row.hydrocarbon ? '' : 'missing-hydrocarbon'}"> <div class="schedule-item-main"> <div class="run-rank">L${row.laneOrder}</div> <div> <div class="schedule-title">${esc(row.wo.number)} | Sample ${esc(row.sampleId)}</div> <div class="schedule-sub">${esc(row.wo.client || 'Unassigned client')} | Queue #${row.scheduleOrder} | ${esc(assigneeLabel)}</div> <div class="schedule-sub">Hydrocarbon ${esc(rankLabel)} | Liquid lane sorted lightest to heaviest</div> </div> <select class="form-input hydrocarbon-select" onchange="updateSampleHydrocarbon('${esc(row.wo.id)}','${esc(row.sampleId)}', this.value)">${options}</select> </div> </div> `; }).join(''); } }
+const plan = buildEmployeePlan(rows);
 const planNode = document.getElementById('employee-plan');
 const planSummary = document.getElementById('employee-plan-summary');
- if(planSummary){ const totalPlan = plan.reduce((sum, p) => sum + p.minutes, 0); planSummary.textContent = `${plan.length} workload bucket(s) | ${fmtMOrZero(totalPlan)}`; } if(!plan.length){ planNode.innerHTML = '<div class="schedule-empty">Add employees and assign test tasks to build workloads.</div>'; } else { planNode.innerHTML = plan.map(p => ` <div class="plan-card"> <div class="plan-name">${esc(p.name)}</div> <div class="plan-total">${fmtMOrZero(Math.round(p.minutes))}</div> <div class="plan-lines"> ${p.items.length ? p.items.map(item => `<div>#${item.order} WO ${esc(item.woNumber)}${item.sampleId ? ` | ${esc(item.sampleId)}` : ''} | ${esc(item.testType)} (${fmtMOrZero(Math.round(item.minutes))})</div>`).join('') : '<div>No assigned test tasks.</div>'} </div> </div> `).join(''); }
+if(planSummary){ const totalPlan = plan.reduce((sum, p) => sum + p.minutes, 0); planSummary.textContent = `${plan.length} workload bucket(s) | ${fmtMOrZero(totalPlan)}`; }
+if(!plan.length){ planNode.innerHTML = '<div class="schedule-empty">Add employees and assign test types to build workloads.</div>'; } else { planNode.innerHTML = plan.map(p => ` <div class="plan-card"> <div class="plan-name">${esc(p.name)}</div> <div class="plan-total">${fmtMOrZero(Math.round(p.minutes))}</div> <div class="plan-lines"> ${p.items.length ? p.items.map(item => `<div>#${item.order} WO ${esc(item.woNumber)} | ${esc(item.testType)}${item.quantity > 1 ? ` x${item.quantity}` : ''} (${fmtMOrZero(Math.round(item.minutes))})</div>`).join('') : '<div>No assigned test work.</div>'} </div> </div> `).join(''); }
 renderTaskList();
 }
 function changeScheduleDate(value){ scheduleState.date = value || todayISO(); renderSchedule(); scheduleSave();
@@ -462,14 +555,19 @@ if(idx < 0) return;
 scheduleState.tasks.splice(idx, 1);
 renderSchedule(); scheduleSave();
 }
-function addTaskToSchedule(taskKey){ normalizeScheduleState(); const task = getOpenScheduleTaskMap().get(String(taskKey || '')); if(!task) return; if(scheduleState.entries.some(entry => entry.taskKey === task.taskKey)) return; scheduleState.entries.push({ taskKey:task.taskKey, woId:task.woId, sampleId:task.sampleId || '', testType:task.testType || '', tech:'', notes:'' }); render(); scheduleSave();
+function addToSchedule(woId){ normalizeScheduleState(); const workOrderId = String(woId || '').trim(); const wo = WOs.find(item => item.id === workOrderId && item.stage === WO_STAGE.RUNNING); if(!wo) return; if(scheduleState.entries.some(entry => entry.woId === workOrderId)) return; scheduleState.entries.push({ woId:workOrderId, assignments:{}, notes:'' }); render(); scheduleSave();
 }
 function removeFromSchedule(index){ if(index < 0 || index >= scheduleState.entries.length) return; scheduleState.entries.splice(index, 1); render(); scheduleSave();
 }
-function assignTaskTech(scheduleIndex, employeeIndex){ const entry = scheduleState.entries[scheduleIndex];
+function assignWorkOrderTest(scheduleIndex, assignmentKey, employeeIndex){ const entry = scheduleState.entries[scheduleIndex];
 const name = scheduleState.employees[employeeIndex];
 if(!entry || !name) return;
-entry.tech = entry.tech === name ? '' : name; normalizeScheduleState(); render(); scheduleSave();
+if(!entry.assignments || typeof entry.assignments !== 'object') entry.assignments = {};
+const key = String(assignmentKey || '').trim();
+if(!key) return;
+entry.assignments[key] = entry.assignments[key] === name ? '' : name;
+if(!entry.assignments[key]) delete entry.assignments[key];
+normalizeScheduleState(); render(); scheduleSave();
 }
 function updateScheduleNotes(index, notes){ if(index < 0 || index >= scheduleState.entries.length) return; scheduleState.entries[index].notes = String(notes || ''); scheduleSave();
 }
@@ -493,30 +591,30 @@ function onScheduleDragEnd(){ scheduleDragIndex = null; document.querySelectorAl
 function clearSchedule(){ if(!confirm('Clear this daily run order?')) return; scheduleState.entries = []; render(); scheduleSave();
 }
 function autofillScheduleFromQueue(){ normalizeScheduleState();
-const existing = new Map(scheduleState.entries.map(entry => [entry.taskKey, entry]));
-scheduleState.entries = getOpenWOsSorted().flatMap(wo => getSchedulableTasksForWO(wo).map(task => { const prior = existing.get(task.taskKey); return prior ? { ...prior, woId:task.woId, sampleId:task.sampleId || '', testType:task.testType || '' } : { taskKey:task.taskKey, woId:task.woId, sampleId:task.sampleId || '', testType:task.testType || '', tech:'', notes:'' }; })); render(); scheduleSave();
+const existing = new Map(scheduleState.entries.map(entry => [entry.woId, entry]));
+scheduleState.entries = getOpenWOsSorted().map(wo => { const prior = existing.get(wo.id); return { woId:wo.id, assignments:{ ...(prior?.assignments && typeof prior.assignments === 'object' ? prior.assignments : {}) }, notes:String(prior?.notes || '') }; }); render(); scheduleSave();
 }
 function csvEsc(value){ return `"${String(value ?? '').replace(/"/g, '""')}"`;
 }
 function exportRunOrderCsv(){ const rows = getScheduleRows();
-if(!rows.length){ alert('No scheduled work to export.'); return; } const lines = [ ['Schedule Date','Run Order','WO Number','Client','Sample ID','Test Type','Quantity','Priority','Due Date','Task Minutes','Tech','Notes'].map(csvEsc).join(',') ];
-for(const row of rows){ lines.push([ scheduleState.date || todayISO(), row.order, row.wo.number || '', row.wo.client || '', row.task.sampleId || '', row.displayTestType, row.task.quantity || 1, row.wo.priority || 'NONE', row.wo.dueDate || '', row.taskMinutes, row.tech || 'Unassigned', row.entry.notes || '' ].map(csvEsc).join(',')); } const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
+if(!rows.length){ alert('No scheduled work to export.'); return; } const lines = [ ['Schedule Date','Run Order','WO Number','Client','Priority','Due Date','Total Minutes','Assigned Techs','Test Assignments','Notes'].map(csvEsc).join(',') ];
+for(const row of rows){ lines.push([ scheduleState.date || todayISO(), row.order, row.wo.number || '', row.wo.client || '', row.wo.priority || 'NONE', row.wo.dueDate || '', row.totalMinutes, row.assignedTechs.join(' | ') || 'Unassigned', buildAssignmentSummary(row.assignmentItems, true), row.entry.notes || '' ].map(csvEsc).join(',')); } const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
 const url = URL.createObjectURL(blob);
 const a = document.createElement('a'); a.href = url; a.download = `run-order-${scheduleState.date || todayISO()}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
 function printRunOrder(){ const scope = document.getElementById('print-report-target')?.value || '__master__';
 const report = buildReportData(scope);
 if(!report.rows.length && !report.hasTasks){ alert('No scheduled work or tasks to print.'); return; }
-if(!report.isMaster && !report.filteredRows.length && !report.hasTasks){ alert('No scheduled test tasks or additional tasks are assigned to that employee.'); return; }
+if(!report.isMaster && !report.filteredRows.length && !report.hasTasks){ alert('No scheduled work or additional tasks are assigned to that employee.'); return; }
 const win = window.open('', '_blank');
 if(!win){ alert('Unable to open print window. Please allow pop-ups.'); return; }
-const runRows = report.filteredRows.length ? report.filteredRows.map(row => ` <tr> <td>${row.order}</td> <td>${esc(row.wo.number || '')}</td> <td>${esc(row.wo.client || '')}</td> <td>${esc(row.task.sampleId || '')}</td> <td>${esc(row.displayTestType)}</td> <td>${esc(row.task.quantity || 1)}</td> <td>${esc(row.wo.priority || 'NONE')}</td> <td>${esc(row.wo.dueDate || '')}</td> <td>${esc(row.matrixType || 'Unknown Matrix')}</td> <td>${fmtMOrZero(row.taskMinutes)}</td> <td>${esc(row.tech || 'Unassigned')}</td> <td>${esc(row.entry.notes || '')}</td> </tr> `).join('') : '<tr><td colspan="12">No scheduled test tasks in this report.</td></tr>';
-const laneRows = laneList => laneList.length ? laneList.map(row => ` <tr> <td>${row.order}</td> <td>${esc(row.wo.number || '')}</td> <td>${esc(row.wo.client || '')}</td> <td>${esc(row.task.sampleId || '')}</td> <td>${esc(row.displayTestType)}</td> <td>${fmtMOrZero(row.taskMinutes)}</td> <td>${esc(row.tech || 'Unassigned')}</td> </tr> `).join('') : '<tr><td colspan="7">No gas test tasks assigned.</td></tr>';
+const runRows = report.filteredRows.length ? report.filteredRows.map(row => ` <tr> <td>${row.order}</td> <td>${esc(row.wo.number || '')}</td> <td>${esc(row.wo.client || '')}</td> <td>${esc(row.wo.priority || 'NONE')}</td> <td>${esc(row.wo.dueDate || '')}</td> <td>${fmtMOrZero(row.reportMinutes)}</td> <td>${esc(row.reportTechs.join(', ') || 'Unassigned')}</td> <td>${esc(buildAssignmentSummary(row.reportAssignmentItems, true))}</td> <td>${esc(row.entry.notes || '')}</td> </tr> `).join('') : '<tr><td colspan="9">No scheduled work orders in this report.</td></tr>';
+const laneRows = laneList => laneList.length ? laneList.map(row => ` <tr> <td>${row.order}</td> <td>${esc(row.wo.number || '')}</td> <td>${esc(row.wo.client || '')}</td> <td>${fmtMOrZero(row.reportMinutes)}</td> <td>${esc(row.reportTechs.join(', ') || 'Unassigned')}</td> <td>${esc(buildAssignmentSummary(row.reportAssignmentItems, true))}</td> </tr> `).join('') : '<tr><td colspan="6">No gas work assigned.</td></tr>';
 const liquidSampleRows = report.liquidSampleRows.length ? report.liquidSampleRows.map(row => ` <tr> <td>${row.laneOrder}</td> <td>${esc(row.wo.number || '')}</td> <td>${esc(row.wo.client || '')}</td> <td>${esc(row.sampleId || '')}</td> <td>${esc(row.hydrocarbon || 'Unset')}</td> <td>${esc(row.assignees.length ? row.assignees.join(', ') : 'Unassigned')}</td> </tr> `).join('') : '<tr><td colspan="6">No liquid samples scheduled.</td></tr>';
-const planRows = report.plan.length ? report.plan.map(p => ` <tr> <td>${esc(p.name)}</td> <td>${fmtMOrZero(Math.round(p.minutes))}</td> <td>${esc(p.items.map(item => `#${item.order} ${item.woNumber}${item.sampleId ? ` ${item.sampleId}` : ''} ${item.testType}`.trim()).join(' | ')) || 'No assigned test tasks'}</td> </tr> `).join('') : '<tr><td colspan="3">No workload assigned.</td></tr>';
+const planRows = report.plan.length ? report.plan.map(p => ` <tr> <td>${esc(p.name)}</td> <td>${fmtMOrZero(Math.round(p.minutes))}</td> <td>${esc(p.items.map(item => `#${item.order} ${item.woNumber} ${item.testType}${item.quantity > 1 ? ` x${item.quantity}` : ''}`.trim()).join(' | ')) || 'No assigned test work'}</td> </tr> `).join('') : '<tr><td colspan="3">No workload assigned.</td></tr>';
 const taskRows = report.taskBuckets.length ? report.taskBuckets.map(bucket => bucket.tasks.length ? bucket.tasks.map((task, index) => ` <tr> <td>${index === 0 ? esc(bucket.name) : ''}</td> <td>${esc(task.name)}</td> <td>${task.minutes ? fmtMOrZero(task.minutes) : 'Not set'}</td> </tr> `).join('') : ` <tr><td>${esc(bucket.name)}</td><td>No additional tasks</td><td>Not set</td></tr> `).join('') : '<tr><td colspan="3">No additional tasks assigned.</td></tr>';
 const reportTitle = report.isMaster ? 'Daily Run Order - Master Report' : `Daily Run Order - ${report.employeeName}`;
-const html = `<!doctype html> <html> <head> <meta charset="utf-8"> <title>${esc(reportTitle)} ${esc(scheduleState.date || todayISO())}</title> <style> body{font-family:Arial,sans-serif;padding:20px;color:#111;} h1{margin:0 0 4px 0;font-size:24px;} .meta{color:#444;margin-bottom:16px;} table{width:100%;border-collapse:collapse;margin-top:8px;margin-bottom:20px;} th,td{border:1px solid #bbb;padding:6px 8px;font-size:12px;vertical-align:top;text-align:left;} th{background:#f2f2f2;} h2{margin:18px 0 6px 0;font-size:16px;} h3{margin:10px 0 6px 0;font-size:14px;} </style> </head> <body> <h1>${esc(reportTitle)}</h1> <div class="meta">Schedule Date: ${esc(scheduleState.date || todayISO())}</div> <table> <thead> <tr><th>Run</th><th>WO</th><th>Client</th><th>Sample</th><th>Test Type</th><th>Qty</th><th>Priority</th><th>Due Date</th><th>Matrix Type</th><th>Task Minutes</th><th>Tech</th><th>Notes</th></tr> </thead> <tbody>${runRows}</tbody> </table> <h2>Lane Split</h2> <h3>1. Gas Lane</h3> <table> <thead> <tr><th>Run</th><th>WO</th><th>Client</th><th>Sample</th><th>Test Type</th><th>Task Minutes</th><th>Tech</th></tr> </thead> <tbody>${laneRows(report.gasRows)}</tbody> </table> <h3>2. Liquid Lane</h3> <table> <thead> <tr><th>Lane</th><th>WO</th><th>Client</th><th>Sample</th><th>Hydrocarbon</th><th>Assignees</th></tr> </thead> <tbody>${liquidSampleRows}</tbody> </table> <h2>Employee Workload</h2> <table> <thead> <tr><th>Employee</th><th>Total Time</th><th>Assigned Run Steps</th></tr> </thead> <tbody>${planRows}</tbody> </table> <h2>Additional Tasks</h2> <table> <thead> <tr><th>Employee</th><th>Task</th><th>Time</th></tr> </thead> <tbody>${taskRows}</tbody> </table> </body> </html>`; win.document.open(); win.document.write(html); win.document.close(); win.focus(); win.print();}
+const html = `<!doctype html> <html> <head> <meta charset="utf-8"> <title>${esc(reportTitle)} ${esc(scheduleState.date || todayISO())}</title> <style> body{font-family:Arial,sans-serif;padding:20px;color:#111;} h1{margin:0 0 4px 0;font-size:24px;} .meta{color:#444;margin-bottom:16px;} table{width:100%;border-collapse:collapse;margin-top:8px;margin-bottom:20px;} th,td{border:1px solid #bbb;padding:6px 8px;font-size:12px;vertical-align:top;text-align:left;} th{background:#f2f2f2;} h2{margin:18px 0 6px 0;font-size:16px;} h3{margin:10px 0 6px 0;font-size:14px;} </style> </head> <body> <h1>${esc(reportTitle)}</h1> <div class="meta">Schedule Date: ${esc(scheduleState.date || todayISO())}</div> <table> <thead> <tr><th>Run</th><th>WO</th><th>Client</th><th>Priority</th><th>Due Date</th><th>Minutes</th><th>Assigned Techs</th><th>Test Assignments</th><th>Notes</th></tr> </thead> <tbody>${runRows}</tbody> </table> <h2>Lane Split</h2> <h3>1. Gas Lane</h3> <table> <thead> <tr><th>Run</th><th>WO</th><th>Client</th><th>Minutes</th><th>Assigned Techs</th><th>Gas Assignments</th></tr> </thead> <tbody>${laneRows(report.gasRows)}</tbody> </table> <h3>2. Liquid Lane</h3> <table> <thead> <tr><th>Lane</th><th>WO</th><th>Client</th><th>Sample</th><th>Hydrocarbon</th><th>Assignees</th></tr> </thead> <tbody>${liquidSampleRows}</tbody> </table> <h2>Employee Workload</h2> <table> <thead> <tr><th>Employee</th><th>Total Time</th><th>Assigned Run Steps</th></tr> </thead> <tbody>${planRows}</tbody> </table> <h2>Additional Tasks</h2> <table> <thead> <tr><th>Employee</th><th>Task</th><th>Time</th></tr> </thead> <tbody>${taskRows}</tbody> </table> </body> </html>`; win.document.open(); win.document.write(html); win.document.close(); win.focus(); win.print();}
 function render(){ const visibleCols = getVisibleColumnCount();
 const grpBy=document.getElementById('grp-by').value;
 const search=document.getElementById('search').value.toLowerCase().trim(); document.querySelectorAll('thead th').forEach(th=>{ th.classList.remove('sorted-asc','sorted-desc'); });
