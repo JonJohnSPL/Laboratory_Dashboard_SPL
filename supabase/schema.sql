@@ -58,6 +58,7 @@ create table if not exists public.standards (
   received_on date not null,
   certified_on date,
   expires_on date,
+  receiving_analyst_initials text not null default '',
   pressure_psia numeric,
   is_active boolean not null default true,
   notes text not null default '',
@@ -70,6 +71,7 @@ create table if not exists public.standards (
 
 alter table public.standards add column if not exists standard_identifier text not null default '';
 alter table public.standards add column if not exists standard_name text not null default '';
+alter table public.standards add column if not exists receiving_analyst_initials text not null default '';
 
 update public.standards
 set standard_identifier = coalesce(nullif(standard_identifier, ''), cylinder_number)

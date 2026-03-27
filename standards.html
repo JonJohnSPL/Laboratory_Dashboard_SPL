@@ -125,20 +125,19 @@
     <table>
       <thead>
         <tr>
-          <th><button class="logs-sort-btn" id="logs-sort-receivedOn" type="button" onclick="setLogsSort('receivedOn')">Received</button></th>
-          <th><button class="logs-sort-btn" id="logs-sort-standardIdentifier" type="button" onclick="setLogsSort('standardIdentifier')">ID #</button></th>
-          <th><button class="logs-sort-btn" id="logs-sort-standardName" type="button" onclick="setLogsSort('standardName')">Name</button></th>
-          <th><button class="logs-sort-btn" id="logs-sort-qcNumber" type="button" onclick="setLogsSort('qcNumber')">Lot/QC #</button></th>
-          <th><button class="logs-sort-btn" id="logs-sort-cylinderNumber" type="button" onclick="setLogsSort('cylinderNumber')">Cylinder</button></th>
-          <th><button class="logs-sort-btn" id="logs-sort-certifiedOn" type="button" onclick="setLogsSort('certifiedOn')">Certified</button></th>
-          <th><button class="logs-sort-btn" id="logs-sort-expiresOn" type="button" onclick="setLogsSort('expiresOn')">Expires</button></th>
-          <th><button class="logs-sort-btn" id="logs-sort-status" type="button" onclick="setLogsSort('status')">Status</button></th>
-          <th><button class="logs-sort-btn" id="logs-sort-mix" type="button" onclick="setLogsSort('mix')">Mix</button></th>
+          <th><button class="logs-sort-btn" id="logs-sort-standardIdentifier" type="button" onclick="setLogsSort('standardIdentifier')">ID Number</button></th>
+          <th><button class="logs-sort-btn" id="logs-sort-receivedOn" type="button" onclick="setLogsSort('receivedOn')">Date Receive</button></th>
+          <th><button class="logs-sort-btn" id="logs-sort-standardName" type="button" onclick="setLogsSort('standardName')">Name of Standard</button></th>
+          <th><button class="logs-sort-btn" id="logs-sort-concentrationSummary" type="button" onclick="setLogsSort('concentrationSummary')">Conc</button></th>
+          <th><button class="logs-sort-btn" id="logs-sort-vendorName" type="button" onclick="setLogsSort('vendorName')">Vendor</button></th>
+          <th><button class="logs-sort-btn" id="logs-sort-qcNumber" type="button" onclick="setLogsSort('qcNumber')">Lot Number</button></th>
+          <th><button class="logs-sort-btn" id="logs-sort-expiresOn" type="button" onclick="setLogsSort('expiresOn')">Exp Date</button></th>
+          <th><button class="logs-sort-btn" id="logs-sort-receivingAnalystInitials" type="button" onclick="setLogsSort('receivingAnalystInitials')">Receiving Analyst Initials</button></th>
         </tr>
       </thead>
       <tbody id="logs-tbody">
         <tr>
-          <td colspan="9">
+          <td colspan="8">
             <div class="empty-state">
               <div class="big">[]</div>
               Loading standards log...
@@ -193,6 +192,10 @@
         <div class="form-group">
           <label class="form-label" for="std-expires">Expires On</label>
           <input class="form-input" id="std-expires" type="date" oninput="markExpiryTouched()">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="std-analyst-initials">Receiving Analyst Initials</label>
+          <input class="form-input" id="std-analyst-initials" type="text" maxlength="8" placeholder="Required for new entries">
         </div>
         <div class="form-group toggle-group">
           <label class="form-label" for="std-active">Status</label>

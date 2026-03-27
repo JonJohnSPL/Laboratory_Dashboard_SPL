@@ -332,6 +332,7 @@ function normalizeStandard(raw){
     receivedOn: toInputDate(raw?.receivedOn ?? raw?.received_on ?? ''),
     certifiedOn: toInputDate(raw?.certifiedOn ?? raw?.certified_on ?? ''),
     expiresOn: toInputDate(raw?.expiresOn ?? raw?.expires_on ?? ''),
+    receivingAnalystInitials: String(raw?.receivingAnalystInitials ?? raw?.receiving_analyst_initials ?? '').trim().toUpperCase(),
     pressurePsia: normalizeNumber(raw?.pressurePsia ?? raw?.pressure_psia ?? null),
     isActive: raw?.isActive ?? raw?.is_active ?? true,
     notes: String(raw?.notes ?? '').trim(),
@@ -372,6 +373,7 @@ function buildSnapshot(list){
     receivedOn: standard.receivedOn,
     certifiedOn: standard.certifiedOn,
     expiresOn: standard.expiresOn,
+    receivingAnalystInitials: standard.receivingAnalystInitials,
     pressurePsia: standard.pressurePsia,
     isActive: standard.isActive,
     notes: standard.notes,
@@ -464,6 +466,34 @@ function componentSummary(standard){
   return `${first.join(' | ')}${suffix}`;
 }
 
+function abbreviateComponentName(name){
+  const cleaned = String(name || '').trim().replace(/\s+/g, ' ');
+  if(!cleaned) return '';
+  const tokens = cleaned.split(' ');
+  if(tokens.length > 1){
+    return tokens.map((token) => token[0]).join('').toUpperCase();
+  }
+  if(/^[A-Z0-9-]+$/.test(cleaned)){
+    return cleaned;
+  }
+  return cleaned.slice(0, 4).toUpperCase();
+}
+
+function concentrationSummary(standard){
+  const ranked = [...(standard?.components || [])]
+    .map((component) => ({
+      component,
+      numericValue: normalizeNumber(component.concentrationValue) ?? -1
+    }))
+    .filter((entry) => entry.component.componentName && entry.numericValue >= 0)
+    .sort((a, b) => b.numericValue - a.numericValue);
+  const top = ranked[0];
+  if(!top){
+    return 'Not set';
+  }
+  return `${abbreviateComponentName(top.component.componentName)} ${formatNumber(top.numericValue)}${top.component.concentrationUnit || '%'}`;
+}
+
 function showSaveStatus(state, message){
   const el = document.getElementById('save-indicator');
   if(!el) return;
@@ -531,14 +561,14 @@ function getStandardLogSortValue(standard, field){
       return String(standard.standardIdentifier || '');
     case 'standardName':
       return String(standard.standardName || '');
+    case 'vendorName':
+      return String(standard.vendorName || '');
     case 'qcNumber':
       return String(standard.qcNumber || '');
-    case 'cylinderNumber':
-      return String(standard.cylinderNumber || '');
-    case 'status':
-      return String(getStatusInfo(standard).label || '');
-    case 'mix':
-      return String(componentSummary(standard) || '');
+    case 'receivingAnalystInitials':
+      return String(standard.receivingAnalystInitials || '');
+    case 'concentrationSummary':
+      return String(concentrationSummary(standard) || '');
     default:
       return String(standard.standardIdentifier || standard.cylinderNumber || '');
   }
@@ -755,7 +785,7 @@ function renderLogs(){
   if(!visible.length){
     tbody.innerHTML = `
       <tr>
-        <td colspan="9">
+        <td colspan="8">
           <div class="empty-state">
             <div class="big">[]</div>
             No standards match the current log filter.
@@ -766,18 +796,16 @@ function renderLogs(){
     return;
   }
   tbody.innerHTML = visible.map((standard) => {
-    const status = getStatusInfo(standard);
     return `
       <tr>
-        <td>${esc(fmtDate(standard.receivedOn))}</td>
         <td>${esc(standard.standardIdentifier || 'Not set')}</td>
+        <td>${esc(fmtDate(standard.receivedOn))}</td>
         <td>${esc(standard.standardName || 'Unnamed Standard')}</td>
+        <td>${esc(concentrationSummary(standard))}</td>
+        <td>${esc(standard.vendorName || 'Not set')}</td>
         <td>${esc(standard.qcNumber || 'Not set')}</td>
-        <td>${esc(standard.cylinderNumber || 'Not set')}</td>
-        <td>${esc(fmtDate(standard.certifiedOn))}</td>
         <td>${esc(fmtDate(standard.expiresOn))}</td>
-        <td><span class="status-pill ${esc(status.key)}">${esc(status.label)}</span></td>
-        <td><div class="mix-preview">${esc(componentSummary(standard))}</div></td>
+        <td>${esc(standard.receivingAnalystInitials || 'Not set')}</td>
       </tr>
     `;
   }).join('');
@@ -803,18 +831,16 @@ function printLogs(){
       minute:'2-digit'
     });
     const rows = visible.map((standard) => {
-      const status = getStatusInfo(standard).label;
       return `
         <tr>
-          <td>${esc(fmtDate(standard.receivedOn))}</td>
           <td>${esc(standard.standardIdentifier || 'Not set')}</td>
+          <td>${esc(fmtDate(standard.receivedOn))}</td>
           <td>${esc(standard.standardName || 'Unnamed Standard')}</td>
+          <td>${esc(concentrationSummary(standard))}</td>
+          <td>${esc(standard.vendorName || 'Not set')}</td>
           <td>${esc(standard.qcNumber || 'Not set')}</td>
-          <td>${esc(standard.cylinderNumber || 'Not set')}</td>
-          <td>${esc(fmtDate(standard.certifiedOn))}</td>
           <td>${esc(fmtDate(standard.expiresOn))}</td>
-          <td>${esc(status)}</td>
-          <td>${esc(componentSummary(standard))}</td>
+          <td>${esc(standard.receivingAnalystInitials || 'Not set')}</td>
         </tr>
       `;
     }).join('');
@@ -842,15 +868,14 @@ th{background:#efefef;text-transform:uppercase;letter-spacing:.08em;font-size:10
 <table>
 <thead>
 <tr>
-<th>Received</th>
-<th>ID #</th>
-<th>Name</th>
-<th>Lot/QC #</th>
-<th>Cylinder</th>
-<th>Certified</th>
-<th>Expires</th>
-<th>Status</th>
-<th>Mix</th>
+<th>ID Number</th>
+<th>Date Receive</th>
+<th>Name of Standard</th>
+<th>Conc</th>
+<th>Vendor</th>
+<th>Lot Number</th>
+<th>Exp Date</th>
+<th>Receiving Analyst Initials</th>
 </tr>
 </thead>
 <tbody>${rows}</tbody>
@@ -1034,6 +1059,7 @@ function openStandardModal(id = ''){
   document.getElementById('std-received').value = standard?.receivedOn || '';
   document.getElementById('std-certified').value = standard?.certifiedOn || '';
   document.getElementById('std-expires').value = standard?.expiresOn || '';
+  document.getElementById('std-analyst-initials').value = standard?.receivingAnalystInitials || '';
   document.getElementById('std-active').checked = standard?.isActive ?? true;
   document.getElementById('std-notes').value = standard?.notes || '';
   document.getElementById('std-tag-image').value = '';
@@ -1238,6 +1264,10 @@ function buildDraftFromModal(){
   if(!receivedOn){
     throw new Error('Received date is required.');
   }
+  const receivingAnalystInitials = document.getElementById('std-analyst-initials').value.trim().toUpperCase();
+  if(!editStandardId && !receivingAnalystInitials){
+    throw new Error('Receiving analyst initials are required for new entries.');
+  }
   const components = modalComponentRows
     .map((component, index) => ({
       id: component.id || uid('cmp'),
@@ -1261,6 +1291,7 @@ function buildDraftFromModal(){
     vendorName: document.getElementById('std-vendor').value.trim(),
     qcNumber: document.getElementById('std-qc').value.trim(),
     cylinderNumber,
+    receivingAnalystInitials,
     pressurePsia: normalizeNumber(document.getElementById('std-pressure').value),
     receivedOn,
     certifiedOn,
@@ -1365,7 +1396,7 @@ const localRepository = {
 
 const remoteRepository = {
   async list(){
-    return window.appAuth.requestJson('/rest/v1/standards?select=id,standard_identifier,standard_name,vendor_name,qc_number,cylinder_number,received_on,certified_on,expires_on,pressure_psia,is_active,notes,tag_image_path,created_at,updated_at,components:standard_components(id,component_name,concentration_value,concentration_unit,sort_order)');
+    return window.appAuth.requestJson('/rest/v1/standards?select=id,standard_identifier,standard_name,vendor_name,qc_number,cylinder_number,received_on,certified_on,expires_on,receiving_analyst_initials,pressure_psia,is_active,notes,tag_image_path,created_at,updated_at,components:standard_components(id,component_name,concentration_value,concentration_unit,sort_order)');
   },
 
   async save(draft, existing){
@@ -1380,6 +1411,7 @@ const remoteRepository = {
       received_on: draft.receivedOn,
       certified_on: draft.certifiedOn || null,
       expires_on: draft.expiresOn || null,
+      receiving_analyst_initials: draft.receivingAnalystInitials || '',
       pressure_psia: draft.pressurePsia,
       is_active: !!draft.isActive,
       notes: draft.notes,
