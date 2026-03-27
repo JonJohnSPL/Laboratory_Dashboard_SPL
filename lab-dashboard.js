@@ -322,6 +322,7 @@ function renderColumnSelector(){ const grid = document.getElementById('column-gr
 if(!grid) return; grid.innerHTML = COLUMN_DEFS.filter(col => !col.fixed).map(col => ` <label class="column-opt"> <input type="checkbox" ${columnVisibility[col.key] === false ? '' : 'checked'} onchange="setColumnVisibility('${col.key}', this.checked)"> <span>${col.label}</span> </label> `).join('');
 }
 function showAllColumns(){ COLUMN_DEFS.forEach(col => { if(!col.fixed) columnVisibility[col.key] = true; }); applyColumnVisibility(); persistColumnVisibility(); render(); renderColumnSelector(); }
+function showColumnsWithData(){ const visibleWorkOrders = getFilteredWorkOrders(); const testColumnsWithData = new Set(); visibleWorkOrders.forEach(w => { const counts = getWOCounts(w); TEST_CODES.forEach(code => { if(Number(counts?.[code] || 0) > 0) testColumnsWithData.add(code); }); }); COLUMN_DEFS.forEach(col => { if(col.fixed) return; columnVisibility[col.key] = TEST_CODES.includes(col.key) ? testColumnsWithData.has(col.key) : true; }); applyColumnVisibility(); persistColumnVisibility(); render(); renderColumnSelector(); }
 function toggleColumnSelector(){ const panel = document.getElementById('column-panel'); panel.classList.toggle('open');
 }
 function setColumnVisibility(code, isVisible){ const colDef = COLUMN_DEFS.find(col => col.key === code);
