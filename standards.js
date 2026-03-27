@@ -6,6 +6,7 @@ let standards = [];
 let currentFilter = 'all';
 let currentView = 'inventory';
 let searchTerm = '';
+let inventorySortState = { field:'receivedOn', dir:'desc' };
 let logsSortState = { field:'receivedOn', dir:'desc' };
 let selectedStandardId = null;
 let editStandardId = null;
@@ -550,6 +551,10 @@ function getDefaultLogsSortDir(field){
   return ['receivedOn', 'certifiedOn', 'expiresOn'].includes(field) ? 'desc' : 'asc';
 }
 
+function getDefaultInventorySortDir(field){
+  return ['receivedOn', 'expiresOn'].includes(field) ? 'desc' : 'asc';
+}
+
 function getStandardLogSortValue(standard, field){
   switch (field){
     case 'receivedOn':
@@ -570,6 +575,25 @@ function getStandardLogSortValue(standard, field){
       return String(standard.receivingAnalystInitials || '');
     case 'concentrationSummary':
       return String(concentrationSummary(standard) || '');
+    default:
+      return String(standard.standardIdentifier || standard.cylinderNumber || '');
+  }
+}
+
+function getStandardInventorySortValue(standard, field){
+  switch (field){
+    case 'receivedOn':
+      return parseDate(standard.receivedOn)?.getTime() ?? -1;
+    case 'expiresOn':
+      return parseDate(standard.expiresOn)?.getTime() ?? -1;
+    case 'standardIdentifier':
+      return String(standard.standardIdentifier || '');
+    case 'standardName':
+      return `${standard.standardName || ''} ${standard.qcNumber || ''}`;
+    case 'mix':
+      return String(componentSummary(standard) || '');
+    case 'status':
+      return String(getStatusInfo(standard).label || '');
     default:
       return String(standard.standardIdentifier || standard.cylinderNumber || '');
   }
@@ -603,6 +627,49 @@ function getSortedVisibleStandards(){
   });
 }
 
+function getSortedInventoryStandards(){
+  return [...getVisibleStandards()].sort((a, b) => {
+    const primary = compareLogSortValues(
+      getStandardInventorySortValue(a, inventorySortState.field),
+      getStandardInventorySortValue(b, inventorySortState.field)
+    );
+    if(primary !== 0){
+      return inventorySortState.dir === 'asc' ? primary : -primary;
+    }
+    const fallback = (a.standardIdentifier || a.cylinderNumber || '').localeCompare(
+      b.standardIdentifier || b.cylinderNumber || '',
+      undefined,
+      { numeric:true, sensitivity:'base' }
+    );
+    if(fallback !== 0){
+      return fallback;
+    }
+    return String(a.id || '').localeCompare(String(b.id || ''));
+  });
+}
+
+function renderInventorySortButtons(){
+  document.querySelectorAll('[id^="inventory-sort-"]').forEach((button) => {
+    const field = button.id.replace('inventory-sort-', '');
+    const baseLabel = button.dataset.label || button.textContent.replace(/\s+\((?:asc|desc)\)$/i, '').trim();
+    button.dataset.label = baseLabel;
+    const isActive = field === inventorySortState.field;
+    button.classList.toggle('active', isActive);
+    button.textContent = isActive
+      ? `${baseLabel} (${inventorySortState.dir})`
+      : baseLabel;
+  });
+}
+
+function setInventorySort(field){
+  if(inventorySortState.field === field){
+    inventorySortState.dir = inventorySortState.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    inventorySortState = { field, dir:getDefaultInventorySortDir(field) };
+  }
+  renderTable();
+}
+
 function renderLogsSortButtons(){
   document.querySelectorAll('.logs-sort-btn').forEach((button) => {
     const field = button.id.replace('logs-sort-', '');
@@ -627,8 +694,9 @@ function setLogsSort(field){
 
 function renderTable(){
   const tbody = document.getElementById('standards-tbody');
-  const visible = getVisibleStandards();
+  const visible = getSortedInventoryStandards();
   ensureSelectedStandard();
+  renderInventorySortButtons();
   if(!visible.length){
     tbody.innerHTML = `
       <tr>

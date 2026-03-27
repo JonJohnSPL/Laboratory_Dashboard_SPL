@@ -83,12 +83,12 @@
       <table>
         <thead>
           <tr>
-            <th>ID #</th>
-            <th>Name / Lot-QC #</th>
-            <th>Received</th>
-            <th>Expires</th>
-            <th>Mix</th>
-            <th>Status</th>
+            <th><button class="logs-sort-btn" id="inventory-sort-standardIdentifier" type="button" onclick="setInventorySort('standardIdentifier')">ID #</button></th>
+            <th><button class="logs-sort-btn" id="inventory-sort-standardName" type="button" onclick="setInventorySort('standardName')">Name / Lot-QC #</button></th>
+            <th><button class="logs-sort-btn" id="inventory-sort-receivedOn" type="button" onclick="setInventorySort('receivedOn')">Received</button></th>
+            <th><button class="logs-sort-btn" id="inventory-sort-expiresOn" type="button" onclick="setInventorySort('expiresOn')">Expires</button></th>
+            <th><button class="logs-sort-btn" id="inventory-sort-mix" type="button" onclick="setInventorySort('mix')">Mix</button></th>
+            <th><button class="logs-sort-btn" id="inventory-sort-status" type="button" onclick="setInventorySort('status')">Status</button></th>
           </tr>
         </thead>
         <tbody id="standards-tbody">
