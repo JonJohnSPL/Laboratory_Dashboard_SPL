@@ -417,8 +417,11 @@
 </div>
 </div>
 <div class="form-group full">
-<label class="form-label">Test Rows</label>
-<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;">
+<label class="form-label">Imported Sample / Test Rows</label>
+<div class="form-label" style="font-size:11px;margin-bottom:8px;text-transform:none;letter-spacing:1px;">
+Sample and test detail is now import-only. Test Type is the canonical mapped test, and Test Code is the raw imported code.
+</div>
+<div style="display:none;">
 <select class="form-input" id="f-test-type">
 </select>
 <input class="form-input" id="f-test-code" type="text" placeholder="Test Code (e.g. GC-BFVC10MZ)">
@@ -444,8 +447,6 @@
 <input class="form-input" id="f-test-log-date" type="text" placeholder="Log Date (optional)">
 </div>
 <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
-<button type="button" class="btn-save" id="test-add-btn" onclick="upsertDraftTestRow()" style="padding:8px 14px;">Add Test</button>
-<button type="button" class="sec-btn" onclick="openTestSelectorModal()" style="padding:8px 14px;">Edit Test(s)</button>
 <button type="button" class="sec-btn" onclick="window.location.href='test-types.html'" style="padding:8px 14px;">Open Test Types</button>
 </div>
 <div id="test-draft-list" style="margin-top:10px;font-family:var(--mono);font-size:12px;color:var(--muted);">

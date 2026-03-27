@@ -71,7 +71,19 @@ h1{font-size:28px;letter-spacing:3px;text-transform:uppercase;color:var(--accent
 <script src="cloud-auth.js"></script>
 <script>
 const STORAGE_KEY = 'lab-wip-workorders';
+const TEST_DEFINITION_STORAGE_KEY = 'lab-wip-test-definitions';
 const PRI = {CRITICAL:0,HIGH:1,MEDIUM:2,LOW:3,NONE:4};
+const DEFAULT_TEST_DEFS = [
+  { key:'AS-BFV_DENSITY', label:'AS-BFV_DENSITY', aliases:['AS-BFV_DENSITY','ASBFVDENSITY'] },
+  { key:'AS-BFV_MW', label:'AS-BFV_MW', aliases:['AS-BFV_MW','ASBFVMW'] },
+  { key:'C6GAS', label:'C6GAS', aliases:['C6GAS','C6-GAS','GAS','GC-C6GAS'] },
+  { key:'GC-BFVC6MZ', label:'GC-BFVC6MZ', aliases:['GC-BFVC6MZ','BFVC6MZ','BFVC6'] },
+  { key:'GC-BFVC7MZ', label:'GC-BFVC7MZ', aliases:['GC-BFVC7MZ','BFVC7MZ','BFVC7'] },
+  { key:'GC-BFVC10MZ', label:'GC-BFVC10MZ', aliases:['GC-BFVC10MZ','BFVC10MZ','BFVC10','GC'] },
+  { key:'GC-2103-C10MZ', label:'GC-2103-C10MZ', aliases:['GC-2103-C10MZ','2103C10MZ'] },
+  { key:'C6LIQ', label:'C6LIQ', aliases:['C6LIQ','C6-LIQ','LIQ'] },
+  { key:'C10LIQ', label:'C10LIQ', aliases:['C10LIQ','C10-LIQ'] },
+];
 function getStorageAdapter(){
   return (
     window.storage &&
@@ -88,6 +100,14 @@ const parseDate = s => { if(!s) return null; const raw = String(s).trim(); const
 const toInputDate = s => { const d=parseDate(s); if(!d) return null; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 let importMode = 'replace';
 const woKey = n => (n || '').toString().trim().toUpperCase();
+function normalizeCatalogKey(raw){ return String(raw || '').trim().toUpperCase().replace(/\s+/g,'_').replace(/[^A-Z0-9_-]/g,''); }
+function normalizeAliasToken(raw){ return String(raw || '').trim().toUpperCase().replace(/[^A-Z0-9]/g,''); }
+function uniqueList(list){ return [...new Set((Array.isArray(list) ? list : []).map(v => String(v || '').trim()).filter(Boolean))]; }
+function normalizeTestDefinition(def, index = 0){ const key = normalizeCatalogKey(def?.key || def?.label || `TEST_${index + 1}`); if(!key) return null; const aliasSource = Array.isArray(def?.aliases) ? def.aliases : String(def?.aliases || '').split(','); return { key, aliases:uniqueList([key, def?.label || key, ...aliasSource]), matrixType:String(def?.matrixType || '').trim() || '' }; }
+async function loadTestDefinitions(){ const storageAdapter = getStorageAdapter(); try { const raw = await storageAdapter.get(TEST_DEFINITION_STORAGE_KEY); const value = typeof raw?.value === 'string' ? raw.value : ''; const parsed = value ? JSON.parse(value) : DEFAULT_TEST_DEFS; const defs = (Array.isArray(parsed) && parsed.length ? parsed : DEFAULT_TEST_DEFS).map((def, index) => normalizeTestDefinition(def, index)).filter(Boolean); return defs.length ? defs : DEFAULT_TEST_DEFS.map((def, index) => normalizeTestDefinition(def, index)).filter(Boolean); } catch { return DEFAULT_TEST_DEFS.map((def, index) => normalizeTestDefinition(def, index)).filter(Boolean); } }
+function resolveImportedTestCode(rawCode, defs){ const raw = String(rawCode || '').trim(); if(!raw) return ''; const normalizedKey = normalizeCatalogKey(raw); if(defs.some(def => def.key === normalizedKey)) return normalizedKey; const token = normalizeAliasToken(raw); if(!token) return ''; for(const def of defs){ for(const alias of def.aliases){ if(normalizeAliasToken(alias) === token) return def.key; } } return ''; }
+function getDefinitionByKey(defs, key){ const normalized = normalizeCatalogKey(key); return defs.find(def => def.key === normalized) || null; }
+function getLegacyBucketForCanonical(defs, canonicalKey){ const def = getDefinitionByKey(defs, canonicalKey); if(!def) return ''; if(String(canonicalKey || '').startsWith('GC-')) return 'gc'; if(def.matrixType === 'Gas') return 'gas'; if(def.matrixType === 'Liquid') return 'liq'; return ''; }
 
 function showStatus(msg, ok){
   const el = document.getElementById('status');
@@ -136,27 +156,23 @@ function mapPriority(raw){
   return 'NONE';
 }
 
-function mapTestCode(code){
-  const c=(code||'').toUpperCase();
-  if(c.includes('C6GAS') || c.includes('C6-GAS')) return 'gas';
-  if(c.includes('C6LIQ') || c.includes('C6-LIQ')) return 'liq';
-  return 'gc';
-}
-
 function parseBool(v){
   const s=(v||'').toString().trim().toLowerCase();
   return s==='true' || s==='1' || s==='yes' || s==='y';
 }
 
-function buildWOsFromSureChemCSV(text){
+async function buildWOsFromSureChemCSV(text){
   const parsed = parseCSV(text);
   if(!parsed.rows.length) throw new Error('CSV file appears empty.');
   const required = ['Work Order','Test Code','Sample'];
   const missing = required.filter(h=>!parsed.headers.includes(h));
   if(missing.length) throw new Error(`Missing required CSV columns: ${missing.join(', ')}`);
+  const defs = await loadTestDefinitions();
 
   const woMap = new Map();
   const sampleMapByWO = new Map();
+  const unmappedCodes = new Set();
+  let unmappedRowCount = 0;
 
   for(const row of parsed.rows){
     const woNum = (row['Work Order'] || '').trim();
@@ -189,13 +205,17 @@ function buildWOsFromSureChemCSV(text){
     if(!wo.dueDate && dueDate) wo.dueDate = dueDate;
     if((PRI[pri] ?? 99) < (PRI[wo.priority] ?? 99)) wo.priority = pri;
 
-    const bucket = mapTestCode(testCode);
-    wo[bucket] += 1;
+    const canonicalType = resolveImportedTestCode(testCode, defs);
+    const mappingStatus = !testCode ? 'missing' : canonicalType ? (normalizeCatalogKey(testCode) === canonicalType ? 'mapped' : 'alias') : 'unmapped';
+    const bucket = canonicalType ? getLegacyBucketForCanonical(defs, canonicalType) : '';
+    if(bucket) wo[bucket] += 1;
     wo.complete = wo.complete && parseBool(row['Column 1']);
     wo.testRows.push({
       id:uid(),
-      type:bucket,
+      type:canonicalType || '',
       testCode:testCode || '',
+      mappingStatus,
+      mappingError: mappingStatus === 'unmapped' ? `Unknown test code: ${testCode}` : mappingStatus === 'missing' ? 'Missing test code' : '',
       sampleId:sampleId || '',
       cylinderNumber:(row['Cylinder #'] || '').trim(),
       matrix:(row['Matrix'] || '').trim(),
@@ -204,6 +224,10 @@ function buildWOsFromSureChemCSV(text){
       logDate:(row['Log Date'] || '').trim(),
       dueDate:(row['Due Date'] || '').trim(),
     });
+    if(mappingStatus === 'unmapped' && testCode){
+      unmappedCodes.add(testCode);
+      unmappedRowCount += 1;
+    }
 
     if(sampleId){
       const sampleMap = sampleMapByWO.get(woNum);
@@ -211,6 +235,7 @@ function buildWOsFromSureChemCSV(text){
         sampleMap.set(sampleId,{
           sampleId,
           testCodes:[],
+          unmappedTestCodes:[],
           matrix:(row['Matrix'] || '').trim(),
           containerType:(row['Container Type'] || '').trim(),
           cylinderNumber:(row['Cylinder #'] || '').trim(),
@@ -221,6 +246,7 @@ function buildWOsFromSureChemCSV(text){
       }
       const s = sampleMap.get(sampleId);
       if(testCode && !s.testCodes.includes(testCode)) s.testCodes.push(testCode);
+      if(mappingStatus === 'unmapped' && testCode && !s.unmappedTestCodes.includes(testCode)) s.unmappedTestCodes.push(testCode);
     }
   }
 
@@ -230,7 +256,7 @@ function buildWOsFromSureChemCSV(text){
     wo.samples = [...sm.values()].sort((a,b)=>a.sampleId.localeCompare(b.sampleId));
     imported.push(wo);
   }
-  return imported;
+  return { workOrders:imported, unmappedCodes:[...unmappedCodes].sort(), unmappedRowCount };
 }
 
 function appendWithoutDuplicates(existingWOs, importedWOs){
@@ -261,7 +287,8 @@ async function onCSVSelected(event){
   const reader = new FileReader();
   reader.onload = async () => {
     try {
-      const importedWOs = buildWOsFromSureChemCSV(String(reader.result || ''));
+      const importResult = await buildWOsFromSureChemCSV(String(reader.result || ''));
+      const importedWOs = importResult.workOrders;
       if(!importedWOs.length) throw new Error('No valid work orders found in CSV.');
 
       const storageAdapter = getStorageAdapter();
@@ -293,7 +320,7 @@ async function onCSVSelected(event){
         : '';
       showStatus(`${modeLabel} ${importedWOs.length} work orders from ${file.name}. Total in dashboard: ${finalWOs.length}.${statusTail}`, true);
       const sampleCount = importedWOs.reduce((n,w)=>n + (Array.isArray(w.samples) ? w.samples.length : 0), 0);
-      const testCount = importedWOs.reduce((n,w)=>n + (w.gas||0) + (w.liq||0) + (w.gc||0), 0);
+      const mappedTestCount = importedWOs.reduce((n,w)=>n + (Array.isArray(w.testRows) ? w.testRows.filter(r => r.type).length : 0), 0);
       document.getElementById('summary').style.display = 'block';
       document.getElementById('summary-text').textContent =
 `Mode: ${importMode === 'append' ? 'Add Data (No Wipe)' : 'Import & Replace (Wipes Existing)'}
@@ -302,10 +329,12 @@ Added Work Orders: ${addedCount}
 Skipped Duplicates: ${skippedCount}
 Dashboard Total Work Orders: ${finalWOs.length}
 Samples: ${sampleCount}
-Test Rows: ${testCount}
+Mapped Test Rows: ${mappedTestCount}
+Unmapped Test Rows: ${importResult.unmappedRowCount}
+${importResult.unmappedCodes.length ? `Unmapped Test Codes: ${importResult.unmappedCodes.join(', ')}` : 'Unmapped Test Codes: None'}
 
 Top Imported WOs:
-${importedWOs.slice(0,10).map(w=>`${w.number} | ${w.client || 'Unassigned'} | gas:${w.gas} liq:${w.liq} gc:${w.gc}`).join('\n')}`;
+${importedWOs.slice(0,10).map(w=>`${w.number} | ${w.client || 'Unassigned'} | mapped:${Array.isArray(w.testRows) ? w.testRows.filter(r => r.type).length : 0} unmapped:${Array.isArray(w.testRows) ? w.testRows.filter(r => !r.type && r.testCode).length : 0}`).join('\n')}`;
     } catch (e) {
       showStatus(e.message || 'Import failed.', false);
       document.getElementById('summary').style.display = 'none';
