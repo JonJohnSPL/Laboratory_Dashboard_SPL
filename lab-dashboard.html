@@ -240,18 +240,18 @@
 <div class="schedule-row">
 <input type="text" id="employee-input" class="form-input" placeholder="Add employee..." style="width:220px">
 <button class="add-wo-btn" onclick="addEmployee()">+ Add Employee</button>
-<span class="split-hint">Assign one or more employees per WO. Time split is even.</span>
+<span class="split-hint">Assign one tech per scheduled sample/test task.</span>
 </div>
 <div id="employee-list" class="employee-list">
 </div>
 </div>
 <div class="schedule-stats">
 <div class="stat-card">
-<div class="stat-label">Scheduled WOs</div>
+<div class="stat-label">Scheduled Tasks</div>
 <div class="stat-value" id="sch-wo">0</div>
 </div>
 <div class="stat-card warn">
-<div class="stat-label">Unscheduled WOs</div>
+<div class="stat-label">Unscheduled Tasks</div>
 <div class="stat-value warn" id="sch-unscheduled">0</div>
 </div>
 <div class="stat-card ok">
@@ -274,8 +274,8 @@
 <div class="schedule-grid">
 <div class="schedule-panel">
 <div class="table-header">
-<h2>Available Work Orders</h2>
-<div class="refresh-time">Open and not yet scheduled</div>
+<h2>Available Work</h2>
+<div class="refresh-time">Open tasks grouped by work order</div>
 </div>
 <div id="unscheduled-list" class="schedule-list">
 </div>
@@ -283,7 +283,7 @@
 <div class="schedule-panel">
 <div class="table-header">
 <h2>Run Order</h2>
-<div class="refresh-time">Drag rows to reorder</div>
+<div class="refresh-time">Drag scheduled test tasks to reorder</div>
 </div>
 <div id="scheduled-list" class="schedule-list">
 </div>
