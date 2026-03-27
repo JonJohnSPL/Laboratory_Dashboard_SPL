@@ -1,4 +1,5 @@
 const STANDARDS_STORAGE_KEY = 'lab-standards-records';
+const STANDARDS_ANALYST_SHADOW_KEY = 'lab-standards-analyst-initials';
 const AUTO_REFRESH_MS = 15000;
 const SCAN_STATUS_DEFAULT = 'Scan Tag uses OCR to pull concentration rows from the uploaded image.';
 
@@ -362,6 +363,64 @@ function normalizeStandards(list){
       if(updatedA !== updatedB) return updatedB - updatedA;
       return (a.standardIdentifier || a.cylinderNumber).localeCompare(b.standardIdentifier || b.cylinderNumber);
     });
+}
+
+function getAnalystInitialsShadowMap(){
+  try {
+    const raw = localStorage.getItem(STANDARDS_ANALYST_SHADOW_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveAnalystInitialsShadowMap(map){
+  try {
+    localStorage.setItem(STANDARDS_ANALYST_SHADOW_KEY, JSON.stringify(map && typeof map === 'object' ? map : {}));
+  } catch {}
+}
+
+function setShadowInitialsForStandard(id, initials){
+  const key = String(id || '').trim();
+  if(!key) return;
+  const next = getAnalystInitialsShadowMap();
+  const value = String(initials || '').trim().toUpperCase();
+  if(value){
+    next[key] = value;
+  } else {
+    delete next[key];
+  }
+  saveAnalystInitialsShadowMap(next);
+}
+
+function removeShadowInitialsForStandard(id){
+  const key = String(id || '').trim();
+  if(!key) return;
+  const next = getAnalystInitialsShadowMap();
+  if(Object.prototype.hasOwnProperty.call(next, key)){
+    delete next[key];
+    saveAnalystInitialsShadowMap(next);
+  }
+}
+
+function mergeShadowInitials(records){
+  const shadow = getAnalystInitialsShadowMap();
+  let changed = false;
+  const merged = (Array.isArray(records) ? records : []).map((record) => {
+    const id = String(record?.id || '').trim();
+    const remote = String(record?.receivingAnalystInitials || '').trim().toUpperCase();
+    const stored = id ? String(shadow[id] || '').trim().toUpperCase() : '';
+    if(id && remote && shadow[id] !== remote){
+      shadow[id] = remote;
+      changed = true;
+    }
+    return remote || !stored ? record : { ...record, receivingAnalystInitials:stored };
+  });
+  if(changed){
+    saveAnalystInitialsShadowMap(shadow);
+  }
+  return merged.map(normalizeStandard);
 }
 
 function buildSnapshot(list){
@@ -1379,9 +1438,28 @@ async function saveStandardFromModal(){
     showSaveStatus('saving', 'SAVING...');
     saveInFlight = true;
     const savedId = await getRepository().save(draft, existing);
+    setShadowInitialsForStandard(savedId, draft.receivingAnalystInitials);
     selectedStandardId = savedId;
     closeStandardModal();
-    await loadStandards({ silent:true, force:true, preferredId:savedId });
+    const loaded = await loadStandards({ silent:true, force:true, preferredId:savedId });
+    if(!loaded){
+      const now = new Date().toISOString();
+      const optimistic = normalizeStandard({
+        ...existing,
+        ...draft,
+        id: savedId,
+        createdAt: existing?.createdAt || now,
+        updatedAt: now,
+        tagImagePath: existing?.tagImagePath || ''
+      });
+      standards = normalizeStandards([
+        optimistic,
+        ...standards.filter((standard) => standard.id !== savedId)
+      ]);
+      lastLoadedSnapshot = buildSnapshot(standards);
+      ensureSelectedStandard(savedId);
+      render();
+    }
     showSaveStatus('saved', 'SAVED');
     hideSaveStatusSoon();
   } catch (error){
@@ -1406,6 +1484,7 @@ async function deleteCurrentStandard(id = ''){
     showSaveStatus('saving', 'DELETING...');
     saveInFlight = true;
     await getRepository().delete(existing);
+    removeShadowInitialsForStandard(existing.id);
     if(editStandardId === existing.id){
       closeStandardModal();
     }
@@ -1738,7 +1817,7 @@ async function removeRemoteTagImage(path){
 
 async function loadStandards(options = {}){
   try {
-    const loaded = normalizeStandards(await getRepository().list());
+    const loaded = mergeShadowInitials(normalizeStandards(await getRepository().list()));
     const snapshot = buildSnapshot(loaded);
     if(!options.force && snapshot === lastLoadedSnapshot){
       return false;
