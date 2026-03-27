@@ -789,36 +789,37 @@ function printLogs(){
     alert('No standards are available to print.');
     return;
   }
-  const popup = window.open('', '_blank', 'noopener,noreferrer,width=1100,height=800');
-  if(!popup){
+  const popup = window.open('', '_blank', 'width=1100,height=800');
+  if(!popup || popup.closed){
     alert('Unable to open the print window. Please allow pop-ups and try again.');
     return;
   }
-  const printedAt = new Date().toLocaleString('en-US', {
-    month:'short',
-    day:'numeric',
-    year:'numeric',
-    hour:'numeric',
-    minute:'2-digit'
-  });
-  const rows = visible.map((standard) => {
-    const status = getStatusInfo(standard).label;
-    return `
-      <tr>
-        <td>${esc(fmtDate(standard.receivedOn))}</td>
-        <td>${esc(standard.standardIdentifier || 'Not set')}</td>
-        <td>${esc(standard.standardName || 'Unnamed Standard')}</td>
-        <td>${esc(standard.qcNumber || 'Not set')}</td>
-        <td>${esc(standard.cylinderNumber || 'Not set')}</td>
-        <td>${esc(fmtDate(standard.certifiedOn))}</td>
-        <td>${esc(fmtDate(standard.expiresOn))}</td>
-        <td>${esc(status)}</td>
-        <td>${esc(componentSummary(standard))}</td>
-      </tr>
-    `;
-  }).join('');
-  popup.document.open();
-  popup.document.write(`<!DOCTYPE html>
+  try {
+    const printedAt = new Date().toLocaleString('en-US', {
+      month:'short',
+      day:'numeric',
+      year:'numeric',
+      hour:'numeric',
+      minute:'2-digit'
+    });
+    const rows = visible.map((standard) => {
+      const status = getStatusInfo(standard).label;
+      return `
+        <tr>
+          <td>${esc(fmtDate(standard.receivedOn))}</td>
+          <td>${esc(standard.standardIdentifier || 'Not set')}</td>
+          <td>${esc(standard.standardName || 'Unnamed Standard')}</td>
+          <td>${esc(standard.qcNumber || 'Not set')}</td>
+          <td>${esc(standard.cylinderNumber || 'Not set')}</td>
+          <td>${esc(fmtDate(standard.certifiedOn))}</td>
+          <td>${esc(fmtDate(standard.expiresOn))}</td>
+          <td>${esc(status)}</td>
+          <td>${esc(componentSummary(standard))}</td>
+        </tr>
+      `;
+    }).join('');
+    popup.document.open();
+    popup.document.write(`<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -867,7 +868,14 @@ window.addEventListener('afterprint', function(){
 </script>
 </body>
 </html>`);
-  popup.document.close();
+    popup.document.close();
+  } catch (error){
+    console.error('Unable to prepare the print window:', error);
+    try {
+      popup.close();
+    } catch (_error) {}
+    alert('Unable to prepare the print window. Please try again.');
+  }
 }
 
 async function renderStandardImagePreview(containerId, standard, guardId = ''){
