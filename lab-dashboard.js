@@ -121,9 +121,9 @@ return [];
 }
 function getSchedulableTasksForWO(w){
 const counts = getWOCounts(w);
-const assignments = getTestDefinitions().map(def => { const quantity = Number(counts[def.key] || 0); if(!quantity) return null; return { assignmentKey:buildScheduleAssignmentKey(def.key), testType:def.key, label:def.label, quantity, taskMinutes:quantity * Number(def.minutes || 0), matrixType:def.matrixType || '', sortOrder:Number(def.sortOrder || 0), isFallback:false }; }).filter(Boolean).sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label));
+const assignments = getTestDefinitions().map(def => { const quantity = Number(counts[def.key] || 0); if(!quantity) return null; const isAutoCalculated = def.matrixType === 'Calculated'; return { assignmentKey:buildScheduleAssignmentKey(def.key), testType:def.key, label:def.label, quantity, taskMinutes:quantity * Number(def.minutes || 0), matrixType:def.matrixType || '', sortOrder:Number(def.sortOrder || 0), isFallback:false, assignable:!isAutoCalculated, isAutoCalculated }; }).filter(Boolean).sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label));
 if(assignments.length) return assignments;
-return [{ assignmentKey:WO_FALLBACK_ASSIGNMENT_KEY, testType:'', label:'WO Task', quantity:1, taskMinutes:calcM(w), matrixType:getPrimaryMatrixGroup(w), sortOrder:99999, isFallback:true }];
+return [{ assignmentKey:WO_FALLBACK_ASSIGNMENT_KEY, testType:'', label:'WO Task', quantity:1, taskMinutes:calcM(w), matrixType:getPrimaryMatrixGroup(w), sortOrder:99999, isFallback:true, assignable:true, isAutoCalculated:false }];
 }
 function aggregateTaskCounts(tasks){ const totals = blankCounts(); (Array.isArray(tasks) ? tasks : []).forEach(task => { if(!task?.testType || totals[task.testType] === undefined) return; totals[task.testType] += Number(task.quantity || 0); }); return totals; }
 function normalizePdfAttachment(a){ if(!a || typeof a !== 'object') return null;
@@ -192,7 +192,7 @@ if(appView === 'schedule') renderSchedule(); else render();
 }
 function getOpenScheduleTaskMap(){ const map = new Map(); getOpenWOsSorted().forEach(wo => { map.set(wo.id, wo); }); return map; }
 function normalizeScheduleAssignmentsForWO(wo, assignments, employeeSet){
-const validKeys = new Set(getSchedulableTasksForWO(wo).map(item => item.assignmentKey));
+const validKeys = new Set(getSchedulableTasksForWO(wo).filter(item => item.assignable !== false).map(item => item.assignmentKey));
 const normalized = {};
 Object.entries(assignments && typeof assignments === 'object' ? assignments : {}).forEach(([key, value]) => {
 const assignmentKey = String(key || '').trim();
@@ -203,15 +203,16 @@ normalized[assignmentKey] = tech;
 return normalized;
 }
 function getScheduleAssignmentsForWO(wo, assignments = {}){
-return getSchedulableTasksForWO(wo).map(item => ({ ...item, tech:String(assignments?.[item.assignmentKey] || '').trim() }));
+return getSchedulableTasksForWO(wo).map(item => ({ ...item, tech:item.assignable === false ? '' : String(assignments?.[item.assignmentKey] || '').trim() }));
 }
 function collectAssignmentTechs(items){
-return [...new Set((Array.isArray(items) ? items : []).map(item => String(item?.tech || '').trim()).filter(Boolean))];
+return [...new Set((Array.isArray(items) ? items : []).filter(item => item?.assignable !== false).map(item => String(item?.tech || '').trim()).filter(Boolean))];
 }
 function buildAssignmentSummary(items, includeTech = true){
 const parts = (Array.isArray(items) ? items : []).map(item => {
 const quantity = Number(item?.quantity || 0);
 const label = `${item?.label || 'WO Task'}${quantity > 1 ? ` x${quantity}` : ''}`;
+if(item?.assignable === false) return includeTech ? `${label} -> Auto-calculated` : `${label} (Auto)`;
 return includeTech ? `${label} -> ${item?.tech || 'Unassigned'}` : label;
 }).filter(Boolean);
 return parts.length ? parts.join(' | ') : 'No test assignments';
@@ -313,6 +314,7 @@ function buildEmployeePlan(rows){ const plan = new Map(scheduleState.employees.m
 const unassigned = {name:'Unassigned', minutes:0, items:[]};
 for(const row of rows){
 row.assignmentItems.forEach(item => {
+if(item.assignable === false) return;
 const owner = String(item.tech || '').trim();
 const target = owner ? (plan.get(owner) || {name:owner, minutes:0, items:[]}) : unassigned;
 if(owner && !plan.has(owner)) plan.set(owner, target);
@@ -510,6 +512,9 @@ scheduledList.innerHTML = '<div class="schedule-empty">No run order set yet. Add
 scheduledList.innerHTML = rows.map((row, index) => {
 const assigneeLabel = row.assignedTechs.length ? row.assignedTechs.join(', ') : 'Unassigned';
 const assignmentRows = row.assignmentItems.map(item => {
+if(item.assignable === false){
+return ` <div class="schedule-task-row"> <div> <div class="schedule-task-name">${esc(item.label)}${item.quantity > 1 ? ` | Qty ${item.quantity}` : ''}</div> <div class="schedule-sub">${fmtMOrZero(item.taskMinutes)} | Auto-calculated | ${esc(item.matrixType || 'Unknown Matrix')}</div> </div> <div class="schedule-assignees"><span class="split-hint">Automatic</span></div> </div> `;
+}
 const techButtons = scheduleState.employees.length ? scheduleState.employees.map((name, empIndex) => {
 const active = item.tech === name;
 return `<button type="button" class="assignee-btn ${active ? 'on' : ''}" onclick="assignWorkOrderTest(${index}, '${esc(item.assignmentKey)}', ${empIndex})">${esc(name)}</button>`;
@@ -565,6 +570,10 @@ if(!entry || !name) return;
 if(!entry.assignments || typeof entry.assignments !== 'object') entry.assignments = {};
 const key = String(assignmentKey || '').trim();
 if(!key) return;
+const wo = WOs.find(item => item.id === entry.woId && item.stage === WO_STAGE.RUNNING);
+if(!wo) return;
+const assignableKeys = new Set(getSchedulableTasksForWO(wo).filter(item => item.assignable !== false).map(item => item.assignmentKey));
+if(!assignableKeys.has(key)) return;
 entry.assignments[key] = entry.assignments[key] === name ? '' : name;
 if(!entry.assignments[key]) delete entry.assignments[key];
 normalizeScheduleState(); render(); scheduleSave();
