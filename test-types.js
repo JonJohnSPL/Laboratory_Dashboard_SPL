@@ -1,15 +1,15 @@
 const TEST_DEFINITION_STORAGE_KEY = 'lab-wip-test-definitions';
 const AUTO_REFRESH_MS = 15000;
 const DEFAULT_TEST_DEFS = [
-  { key:'AS-BFV_DENSITY', label:'AS-BFV_DENSITY', shortLabel:'DENS', minutes:15, countMode:'perSample', aliases:['AS-BFV_DENSITY','ASBFVDENSITY'] },
-  { key:'AS-BFV_MW', label:'AS-BFV_MW', shortLabel:'MW', minutes:15, countMode:'perSample', aliases:['AS-BFV_MW','ASBFVMW'] },
-  { key:'C6GAS', label:'C6GAS', shortLabel:'C6GAS', minutes:15, countMode:'perSample', aliases:['C6GAS','C6-GAS','GAS','GC-C6GAS'] },
-  { key:'GC-BFVC6MZ', label:'GC-BFVC6MZ', shortLabel:'BFVC6', minutes:40, countMode:'perSample', groupKey:'GC-BFVC', groupRank:6, aliases:['GC-BFVC6MZ','BFVC6MZ','BFVC6'] },
-  { key:'GC-BFVC7MZ', label:'GC-BFVC7MZ', shortLabel:'BFVC7', minutes:40, countMode:'perSample', groupKey:'GC-BFVC', groupRank:7, aliases:['GC-BFVC7MZ','BFVC7MZ','BFVC7'] },
-  { key:'GC-BFVC10MZ', label:'GC-BFVC10MZ', shortLabel:'BFVC10', minutes:40, countMode:'perSample', groupKey:'GC-BFVC', groupRank:10, aliases:['GC-BFVC10MZ','BFVC10MZ','BFVC10','GC'] },
-  { key:'GC-2103-C10MZ', label:'GC-2103-C10MZ', shortLabel:'GC2103', minutes:90, countMode:'perSample', aliases:['GC-2103-C10MZ','2103C10MZ'] },
-  { key:'C6LIQ', label:'C6LIQ', shortLabel:'C6LIQ', minutes:40, countMode:'perSample', aliases:['C6LIQ','C6-LIQ','LIQ'] },
-  { key:'C10LIQ', label:'C10LIQ', shortLabel:'C10LIQ', minutes:40, countMode:'perSample', aliases:['C10LIQ','C10-LIQ'] },
+  { key:'AS-BFV_DENSITY', label:'AS-BFV_DENSITY', shortLabel:'DENS', minutes:15, countMode:'perSample', matrixType:'Liquid', aliases:['AS-BFV_DENSITY','ASBFVDENSITY'] },
+  { key:'AS-BFV_MW', label:'AS-BFV_MW', shortLabel:'MW', minutes:15, countMode:'perSample', matrixType:'Liquid', aliases:['AS-BFV_MW','ASBFVMW'] },
+  { key:'C6GAS', label:'C6GAS', shortLabel:'C6GAS', minutes:15, countMode:'perSample', matrixType:'Gas', aliases:['C6GAS','C6-GAS','GAS','GC-C6GAS'] },
+  { key:'GC-BFVC6MZ', label:'GC-BFVC6MZ', shortLabel:'BFVC6', minutes:40, countMode:'perSample', matrixType:'Liquid', groupKey:'GC-BFVC', groupRank:6, aliases:['GC-BFVC6MZ','BFVC6MZ','BFVC6'] },
+  { key:'GC-BFVC7MZ', label:'GC-BFVC7MZ', shortLabel:'BFVC7', minutes:40, countMode:'perSample', matrixType:'Liquid', groupKey:'GC-BFVC', groupRank:7, aliases:['GC-BFVC7MZ','BFVC7MZ','BFVC7'] },
+  { key:'GC-BFVC10MZ', label:'GC-BFVC10MZ', shortLabel:'BFVC10', minutes:40, countMode:'perSample', matrixType:'Liquid', groupKey:'GC-BFVC', groupRank:10, aliases:['GC-BFVC10MZ','BFVC10MZ','BFVC10','GC'] },
+  { key:'GC-2103-C10MZ', label:'GC-2103-C10MZ', shortLabel:'GC2103', minutes:90, countMode:'perSample', matrixType:'Gas', aliases:['GC-2103-C10MZ','2103C10MZ'] },
+  { key:'C6LIQ', label:'C6LIQ', shortLabel:'C6LIQ', minutes:40, countMode:'perSample', matrixType:'Liquid', aliases:['C6LIQ','C6-LIQ','LIQ'] },
+  { key:'C10LIQ', label:'C10LIQ', shortLabel:'C10LIQ', minutes:40, countMode:'perSample', matrixType:'Liquid', aliases:['C10LIQ','C10-LIQ'] },
 ];
 
 let testDefinitions = [];
@@ -74,6 +74,16 @@ function inferTone(definition){
   return 'standard';
 }
 
+function inferMatrixType(definition){
+  const key = String(definition?.key || definition?.label || '').toUpperCase();
+  const explicit = String(definition?.matrixType || '').trim().toLowerCase();
+  if(explicit === 'gas') return 'Gas';
+  if(explicit === 'liquid') return 'Liquid';
+  if(key.includes('LIQ') || key.includes('DENS')) return 'Liquid';
+  if(key.includes('GAS') || key.includes('2103')) return 'Gas';
+  return '';
+}
+
 function normalizeTestDefinition(definition, index = 0){
   const key = normalizeCatalogKey(definition?.key || definition?.code || definition?.label || `TEST_${index + 1}`);
   if(!key) return null;
@@ -88,6 +98,7 @@ function normalizeTestDefinition(definition, index = 0){
     shortLabel: String(definition?.shortLabel || label).trim() || label,
     minutes: Math.max(0, Number(definition?.minutes || 0)),
     countMode: definition?.countMode === 'perRow' ? 'perRow' : 'perSample',
+    matrixType: inferMatrixType(definition),
     groupKey: normalizeCatalogKey(definition?.groupKey || ''),
     groupRank: Math.max(0, Number(definition?.groupRank || 0)),
     aliases: uniqueList([key, label, ...aliasSource]),
@@ -112,6 +123,7 @@ function serializeDefinitions(list){
     shortLabel: definition.shortLabel,
     minutes: definition.minutes,
     countMode: definition.countMode,
+    matrixType: definition.matrixType,
     groupKey: definition.groupKey,
     groupRank: definition.groupRank,
     aliases: definition.aliases,
@@ -205,7 +217,7 @@ function renderTable(){
   if(!visible.length){
     tbody.innerHTML = `
       <tr>
-        <td colspan="5">
+        <td colspan="6">
           <div class="empty-state">
             <div class="big">[]</div>
             No test types match the current search.
@@ -225,6 +237,7 @@ function renderTable(){
         <div>${esc(definition.label)}</div>
         <div class="record-sub">${esc(definition.aliases.length)} alias(es)</div>
       </td>
+      <td>${esc(definition.matrixType || 'Unspecified')}</td>
       <td>${esc(definition.minutes)} min</td>
       <td>${esc(definition.countMode === 'perRow' ? 'Per Row' : 'Per Sample')}</td>
       <td>${esc(definition.groupKey ? `${definition.groupKey} / ${definition.groupRank}` : 'Standalone')}</td>
@@ -282,6 +295,10 @@ function renderDetail(){
         <div class="detail-item-value">${esc(definition.countMode === 'perRow' ? 'Every matching row' : 'Once per sample')}</div>
       </div>
       <div class="detail-item">
+        <div class="detail-item-label">Matrix Type</div>
+        <div class="detail-item-value">${esc(definition.matrixType || 'Unspecified')}</div>
+      </div>
+      <div class="detail-item">
         <div class="detail-item-label">Group Family</div>
         <div class="detail-item-value">${esc(definition.groupKey || 'Standalone')}</div>
       </div>
@@ -296,6 +313,11 @@ function renderDetail(){
     </div>
     <div class="component-card">
       <h2>Behavior</h2>
+      <div class="image-meta">
+        ${definition.matrixType
+          ? `This is configured as a ${esc(definition.matrixType.toLowerCase())} test.`
+          : 'This test does not have a matrix type selected yet.'}
+      </div>
       <div class="image-meta">
         ${definition.groupKey
           ? `This test belongs to grouped family ${esc(definition.groupKey)} and only the highest rank present in a sample is counted in the dashboard.`
@@ -324,6 +346,7 @@ function openTestTypeModal(id = ''){
   document.getElementById('type-short-label').value = definition?.shortLabel || '';
   document.getElementById('type-minutes').value = definition ? String(definition.minutes) : '15';
   document.getElementById('type-count-mode').value = definition?.countMode || 'perSample';
+  document.getElementById('type-matrix-type').value = definition?.matrixType || inferMatrixType(definition) || '';
   document.getElementById('type-group-key').value = definition?.groupKey || '';
   document.getElementById('type-group-rank').value = definition?.groupKey ? String(definition.groupRank) : '';
   document.getElementById('type-aliases').value = definition
@@ -348,6 +371,7 @@ async function saveTestTypeFromModal(){
   const shortLabel = document.getElementById('type-short-label').value.trim() || label;
   const minutes = Math.max(0, Number(document.getElementById('type-minutes').value || 0));
   const countMode = document.getElementById('type-count-mode').value === 'perRow' ? 'perRow' : 'perSample';
+  const matrixType = inferMatrixType({ matrixType:document.getElementById('type-matrix-type').value, key, label });
   const groupKey = normalizeCatalogKey(document.getElementById('type-group-key').value.trim());
   const groupRank = Math.max(0, Number(document.getElementById('type-group-rank').value || 0));
   const aliasValues = uniqueList(String(document.getElementById('type-aliases').value || '').split(',').map((value) => value.trim()));
@@ -370,6 +394,7 @@ async function saveTestTypeFromModal(){
     shortLabel,
     minutes,
     countMode,
+    matrixType,
     groupKey,
     groupRank,
     aliases,

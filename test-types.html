@@ -72,6 +72,7 @@
         <tr>
           <th>Code</th>
           <th>Label</th>
+          <th>Matrix</th>
           <th>Minutes</th>
           <th>Counting</th>
           <th>Group</th>
@@ -79,7 +80,7 @@
       </thead>
       <tbody id="test-types-tbody">
         <tr>
-          <td colspan="5">
+          <td colspan="6">
             <div class="empty-state">
               <div class="big">[]</div>
               Loading test type catalog...
@@ -127,6 +128,14 @@
           <select class="form-input" id="type-count-mode">
             <option value="perSample">Once Per Sample</option>
             <option value="perRow">Every Matching Row</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="type-matrix-type">Matrix Type</label>
+          <select class="form-input" id="type-matrix-type">
+            <option value="">Unspecified</option>
+            <option value="Gas">Gas Test</option>
+            <option value="Liquid">Liquid Test</option>
           </select>
         </div>
         <div class="form-group">
