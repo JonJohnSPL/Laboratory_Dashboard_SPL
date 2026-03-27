@@ -79,9 +79,15 @@ function inferMatrixType(definition){
   const explicit = String(definition?.matrixType || '').trim().toLowerCase();
   if(explicit === 'gas') return 'Gas';
   if(explicit === 'liquid') return 'Liquid';
+  if(explicit === 'calculated') return 'Calculated';
   if(key.includes('LIQ') || key.includes('DENS')) return 'Liquid';
   if(key.includes('GAS') || key.includes('2103')) return 'Gas';
   return '';
+}
+
+function normalizeMinutesForMatrixType(matrixType, minutes){
+  if(matrixType === 'Calculated') return 0;
+  return Math.max(0, Number(minutes || 0));
 }
 
 function normalizeTestDefinition(definition, index = 0){
@@ -91,14 +97,15 @@ function normalizeTestDefinition(definition, index = 0){
   const aliasSource = Array.isArray(definition?.aliases)
     ? definition.aliases
     : String(definition?.aliases || '').split(',');
+  const matrixType = inferMatrixType(definition);
   return {
     id: String(definition?.id || key),
     key,
     label,
     shortLabel: String(definition?.shortLabel || label).trim() || label,
-    minutes: Math.max(0, Number(definition?.minutes || 0)),
+    minutes: normalizeMinutesForMatrixType(matrixType, definition?.minutes),
     countMode: definition?.countMode === 'perRow' ? 'perRow' : 'perSample',
-    matrixType: inferMatrixType(definition),
+    matrixType,
     groupKey: normalizeCatalogKey(definition?.groupKey || ''),
     groupRank: Math.max(0, Number(definition?.groupRank || 0)),
     aliases: uniqueList([key, label, ...aliasSource]),
@@ -352,6 +359,7 @@ function openTestTypeModal(id = ''){
   document.getElementById('type-aliases').value = definition
     ? definition.aliases.filter((alias) => alias !== definition.key && alias !== definition.label).join(', ')
     : '';
+  applyTestTypeFormMatrixDefaults(false);
   document.getElementById('test-type-modal-overlay').classList.add('open');
 }
 
@@ -369,9 +377,9 @@ async function saveTestTypeFromModal(){
   const key = normalizeCatalogKey(keyInput);
   const label = document.getElementById('type-label').value.trim() || key;
   const shortLabel = document.getElementById('type-short-label').value.trim() || label;
-  const minutes = Math.max(0, Number(document.getElementById('type-minutes').value || 0));
-  const countMode = document.getElementById('type-count-mode').value === 'perRow' ? 'perRow' : 'perSample';
   const matrixType = inferMatrixType({ matrixType:document.getElementById('type-matrix-type').value, key, label });
+  const minutes = normalizeMinutesForMatrixType(matrixType, document.getElementById('type-minutes').value);
+  const countMode = document.getElementById('type-count-mode').value === 'perRow' ? 'perRow' : 'perSample';
   const groupKey = normalizeCatalogKey(document.getElementById('type-group-key').value.trim());
   const groupRank = Math.max(0, Number(document.getElementById('type-group-rank').value || 0));
   const aliasValues = uniqueList(String(document.getElementById('type-aliases').value || '').split(',').map((value) => value.trim()));
@@ -427,6 +435,17 @@ async function saveTestTypeFromModal(){
     alert(error.message || 'Unable to save the test type catalog.');
   } finally {
     saveInFlight = false;
+  }
+}
+
+function applyTestTypeFormMatrixDefaults(forceZero = true){
+  const matrixSelect = document.getElementById('type-matrix-type');
+  const minutesInput = document.getElementById('type-minutes');
+  if(!matrixSelect || !minutesInput) return;
+  if(matrixSelect.value === 'Calculated'){
+    minutesInput.value = '0';
+  } else if(forceZero && minutesInput.value === '' && matrixSelect.value){
+    minutesInput.value = '15';
   }
 }
 

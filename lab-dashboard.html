@@ -599,10 +599,11 @@ Sample and test detail is now import-only. Test Type is the canonical mapped tes
 </div>
 <div class="form-group">
 <label class="form-label">Matrix Type</label>
-<select class="form-input" id="tc-matrix-type">
+<select class="form-input" id="tc-matrix-type" onchange="applyTestCatalogMatrixDefaults()">
 <option value="">Unspecified</option>
 <option value="Gas">Gas Test</option>
 <option value="Liquid">Liquid Test</option>
+<option value="Calculated">Calculated Test</option>
 </select>
 </div>
 <div class="form-group">
