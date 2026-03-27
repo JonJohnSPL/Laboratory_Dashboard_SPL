@@ -19,6 +19,7 @@ let scanInFlight = false;
 let activeScanToken = 0;
 let hideSaveStatusTimer = null;
 let lastLoadedSnapshot = '';
+let supportsReceivingAnalystInitials = true;
 
 const remoteImageUrlCache = new Map();
 const remoteImageLoadPromises = new Map();
@@ -1396,7 +1397,19 @@ const localRepository = {
 
 const remoteRepository = {
   async list(){
-    return window.appAuth.requestJson('/rest/v1/standards?select=id,standard_identifier,standard_name,vendor_name,qc_number,cylinder_number,received_on,certified_on,expires_on,receiving_analyst_initials,pressure_psia,is_active,notes,tag_image_path,created_at,updated_at,components:standard_components(id,component_name,concentration_value,concentration_unit,sort_order)');
+    const fallbackSelect = 'id,standard_identifier,standard_name,vendor_name,qc_number,cylinder_number,received_on,certified_on,expires_on,pressure_psia,is_active,notes,tag_image_path,created_at,updated_at,components:standard_components(id,component_name,concentration_value,concentration_unit,sort_order)';
+    if(!supportsReceivingAnalystInitials){
+      return window.appAuth.requestJson(`/rest/v1/standards?select=${fallbackSelect}`);
+    }
+    try {
+      return await window.appAuth.requestJson('/rest/v1/standards?select=id,standard_identifier,standard_name,vendor_name,qc_number,cylinder_number,received_on,certified_on,expires_on,receiving_analyst_initials,pressure_psia,is_active,notes,tag_image_path,created_at,updated_at,components:standard_components(id,component_name,concentration_value,concentration_unit,sort_order)');
+    } catch (error){
+      if(!isMissingReceivingAnalystColumnError(error)){
+        throw error;
+      }
+      supportsReceivingAnalystInitials = false;
+      return window.appAuth.requestJson(`/rest/v1/standards?select=${fallbackSelect}`);
+    }
   },
 
   async save(draft, existing){
@@ -1411,35 +1424,69 @@ const remoteRepository = {
       received_on: draft.receivedOn,
       certified_on: draft.certifiedOn || null,
       expires_on: draft.expiresOn || null,
-      receiving_analyst_initials: draft.receivingAnalystInitials || '',
       pressure_psia: draft.pressurePsia,
       is_active: !!draft.isActive,
       notes: draft.notes,
       tag_image_path: imageState.mode === 'removed' ? null : currentPath || null
     };
-    const row = draft.id
-      ? firstRow(await window.appAuth.requestJson(
-          `/rest/v1/standards?id=eq.${encodeURIComponent(draft.id)}&select=id,tag_image_path`,
-          {
-            method:'PATCH',
-            headers:{
-              'Content-Type':'application/json',
-              'Prefer':'return=representation'
-            },
-            body:JSON.stringify(payload)
-          }
-        ))
-      : firstRow(await window.appAuth.requestJson(
-          '/rest/v1/standards?select=id,tag_image_path',
-          {
-            method:'POST',
-            headers:{
-              'Content-Type':'application/json',
-              'Prefer':'return=representation'
-            },
-            body:JSON.stringify(payload)
-          }
-        ));
+    if(supportsReceivingAnalystInitials){
+      payload.receiving_analyst_initials = draft.receivingAnalystInitials || '';
+    }
+    let row;
+    try {
+      row = draft.id
+        ? firstRow(await window.appAuth.requestJson(
+            `/rest/v1/standards?id=eq.${encodeURIComponent(draft.id)}&select=id,tag_image_path`,
+            {
+              method:'PATCH',
+              headers:{
+                'Content-Type':'application/json',
+                'Prefer':'return=representation'
+              },
+              body:JSON.stringify(payload)
+            }
+          ))
+        : firstRow(await window.appAuth.requestJson(
+            '/rest/v1/standards?select=id,tag_image_path',
+            {
+              method:'POST',
+              headers:{
+                'Content-Type':'application/json',
+                'Prefer':'return=representation'
+              },
+              body:JSON.stringify(payload)
+            }
+          ));
+    } catch (error){
+      if(!supportsReceivingAnalystInitials || !isMissingReceivingAnalystColumnError(error)){
+        throw error;
+      }
+      supportsReceivingAnalystInitials = false;
+      delete payload.receiving_analyst_initials;
+      row = draft.id
+        ? firstRow(await window.appAuth.requestJson(
+            `/rest/v1/standards?id=eq.${encodeURIComponent(draft.id)}&select=id,tag_image_path`,
+            {
+              method:'PATCH',
+              headers:{
+                'Content-Type':'application/json',
+                'Prefer':'return=representation'
+              },
+              body:JSON.stringify(payload)
+            }
+          ))
+        : firstRow(await window.appAuth.requestJson(
+            '/rest/v1/standards?select=id,tag_image_path',
+            {
+              method:'POST',
+              headers:{
+                'Content-Type':'application/json',
+                'Prefer':'return=representation'
+              },
+              body:JSON.stringify(payload)
+            }
+          ));
+    }
     if(!row?.id){
       throw new Error('Supabase did not return the saved record.');
     }
@@ -1551,6 +1598,15 @@ function resolveLocalImageType(imageState, existing){
 
 function firstRow(payload){
   return Array.isArray(payload) ? payload[0] || null : payload;
+}
+
+function isMissingReceivingAnalystColumnError(error){
+  const message = String(error?.message || error || '').toLowerCase();
+  return message.includes('receiving_analyst_initials') && (
+    message.includes('column') ||
+    message.includes('schema cache') ||
+    message.includes('does not exist')
+  );
 }
 
 function buildStorageObjectPath(standardId, fileName){
