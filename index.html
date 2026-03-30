@@ -180,6 +180,7 @@
     .launch-card.tests:hover{border-color:rgba(255,140,66,.38);}
     .launch-card.standards:hover{border-color:rgba(255,209,102,.36);}
     .launch-card.import:hover{border-color:rgba(255,56,96,.3);}
+    .launch-card.map:hover{border-color:rgba(91,140,245,.36);}
     .launch-eyebrow{
       font-family:var(--mono);
       font-size:10px;
@@ -198,6 +199,7 @@
     .launch-card.tests h3{color:var(--tests);}
     .launch-card.standards h3{color:var(--warn);}
     .launch-card.import h3{color:#ff93ac;}
+    .launch-card.map h3{color:#8db3ff;}
     .launch-copy{
       margin-top:12px;
       color:#c0cedf;
@@ -237,7 +239,7 @@
         <div>
           <div class="kicker">Shared Operations Workspace</div>
           <h1>SPL Dashboard Launchpad</h1>
-          <p class="header-copy">Choose the operational workspace you need right now. Lab WIP, Field Ops, Test Types, Standards, and Import all stay inside the same static app shell with the shared authenticated access pattern already in this repo.</p>
+          <p class="header-copy">Choose the operational workspace you need right now. Lab WIP, Field Ops, SureMap, Test Types, Standards, and Import all stay inside the same static app shell with the shared authenticated access pattern already in this repo.</p>
         </div>
       </div>
       <div class="header-right">
@@ -266,6 +268,10 @@
             <strong>Shared</strong>
             <span>Supabase auth, static hosting, team access, low-overhead rollout</span>
           </div>
+          <div class="hero-stat">
+            <strong>SureMap</strong>
+            <span>Client directory, mapping, site locations, and address-based setup</span>
+          </div>
         </div>
       </div>
       <div class="status-panel">
@@ -281,7 +287,7 @@
           </div>
           <div class="status-item warn">
             <div class="status-dot"></div>
-            <div>Existing Lab WIP, Standards, and Import functionality stays intact while navigation is now shared across pages.</div>
+            <div>Existing Lab WIP, Standards, Import, and the new SureMap client directory stay connected through shared navigation across pages.</div>
           </div>
         </div>
       </div>
@@ -306,6 +312,16 @@
           <span class="meta-pill">Queue</span>
           <span class="meta-pill">Pending</span>
           <span class="meta-pill">Scheduling</span>
+        </div>
+      </a>
+      <a class="launch-card map" href="SureMap/SPLClientMap.HTML">
+        <div class="launch-eyebrow">Client Mapping</div>
+        <h3>SureMap</h3>
+        <p class="launch-copy">Manage mapped client accounts, contact details, sub-locations, and site geography used to organize customer information.</p>
+        <div class="launch-meta">
+          <span class="meta-pill">Clients</span>
+          <span class="meta-pill">Sites</span>
+          <span class="meta-pill">Mapping</span>
         </div>
       </a>
       <a class="launch-card standards" href="standards.html">
