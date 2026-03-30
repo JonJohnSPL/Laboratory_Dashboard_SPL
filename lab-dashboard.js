@@ -335,12 +335,12 @@ if(appView === 'pending') return sorted.filter(w => w.stage === WO_STAGE.PENDING
 if(showDone) return sorted.filter(w => w.stage !== WO_STAGE.PENDING);
 return sorted.filter(w => w.stage === WO_STAGE.RUNNING);
 }
-function updateMoveButton(){ const btn = document.getElementById('btn-move');
-if(!btn) return;
-const w = editId ? WOs.find(x => x.id === editId) : null;
-if(!w || w.stage === WO_STAGE.DONE){ btn.style.display = 'none'; return; }
-btn.style.display = 'inline-block';
-btn.textContent = w.stage === WO_STAGE.PENDING ? 'Move to Running Queue' : 'Move to Results Pending';
+function updateActionsMoveButton(id){ const btn = document.getElementById('actions-move-btn');
+ if(!btn) return;
+ const w = id ? WOs.find(x => x.id === id) : null;
+ if(!w || w.stage === WO_STAGE.DONE){ btn.style.display = 'none'; return; }
+ btn.style.display = 'inline-block';
+ btn.textContent = w.stage === WO_STAGE.PENDING ? 'Move to Running Queue' : 'Move to Results Pending';
 }
 function moveWorkOrderStage(id, nextStage){ const w = WOs.find(x => x.id === id);
 if(!w) return;
@@ -350,12 +350,13 @@ normalizeScheduleState();
 render();
 scheduleSave();
 }
-function moveWorkOrderStageFromModal(){ if(!editId) return;
-const w = WOs.find(x => x.id === editId);
-if(!w || w.stage === WO_STAGE.DONE) return;
-const nextStage = w.stage === WO_STAGE.PENDING ? WO_STAGE.RUNNING : WO_STAGE.PENDING;
-moveWorkOrderStage(editId, nextStage);
-openModal(editId);
+function moveWorkOrderStageFromActions(){ if(!activeActionWO) return;
+ const id = activeActionWO;
+ const w = WOs.find(x => x.id === id);
+ if(!w || w.stage === WO_STAGE.DONE) return;
+ const nextStage = w.stage === WO_STAGE.PENDING ? WO_STAGE.RUNNING : WO_STAGE.PENDING;
+ closeActionsModal();
+ moveWorkOrderStage(id, nextStage);
 }
 function buildReportData(scope = '__master__'){ const rows = getScheduleRows().map(row => ({ ...row, matrixType:row.matrixType || getPrimaryMatrixGroup(row.wo) }));
 const isMaster = !scope || scope === '__master__';
@@ -696,7 +697,7 @@ function openModal(id){ editId=id;
 const isNew=id===null; document.getElementById('modal-title').textContent=isNew?'Add Work Order':'Edit Work Order'; document.getElementById('btn-del').style.display=isNew?'none':'inline-block';
 const clients=[...new Set(WOs.map(w=>w.client).filter(Boolean))]; document.getElementById('client-dl').innerHTML=clients.map(c=>`<option value="${esc(c)}">`).join('');
  if(isNew){ document.getElementById('f-num').value=''; document.getElementById('f-client').value=''; document.getElementById('f-loc').value='Pittsburgh'; document.getElementById('f-due').value=''; document.getElementById('f-notes').value=''; modalPdfAttachment = null; document.getElementById('f-pdf').value=''; renderPdfAttachmentInfo(); modalDraftTestRows = []; selectedTestRowId = null; modalSampleGroupKeys = []; expandedSampleGroups = new Set(); resetDraftTestForm(); renderDraftTests(); selPriVal('NONE'); } else { const w=WOs.find(x=>x.id===id);
- if(!w)return; document.getElementById('f-num').value=w.number; document.getElementById('f-client').value=w.client||''; document.getElementById('f-loc').value=w.location||''; document.getElementById('f-due').value=toInputDate(w.dueDate)||''; modalPdfAttachment = w.pdfAttachment || null; document.getElementById('f-pdf').value=''; renderPdfAttachmentInfo(); modalDraftTestRows = getDraftRowsFromWO(w); selectedTestRowId = null; modalSampleGroupKeys = []; expandedSampleGroups = new Set(); resetDraftTestForm(); renderDraftTests(); document.getElementById('f-notes').value=w.notes||''; selPriVal(w.priority||'NONE'); } updateMoveButton(); document.getElementById('modal-overlay').classList.add('open'); }
+if(!w)return; document.getElementById('f-num').value=w.number; document.getElementById('f-client').value=w.client||''; document.getElementById('f-loc').value=w.location||''; document.getElementById('f-due').value=toInputDate(w.dueDate)||''; modalPdfAttachment = w.pdfAttachment || null; document.getElementById('f-pdf').value=''; renderPdfAttachmentInfo(); modalDraftTestRows = getDraftRowsFromWO(w); selectedTestRowId = null; modalSampleGroupKeys = []; expandedSampleGroups = new Set(); resetDraftTestForm(); renderDraftTests(); document.getElementById('f-notes').value=w.notes||''; selPriVal(w.priority||'NONE'); } document.getElementById('modal-overlay').classList.add('open'); }
 function closeModal(){document.getElementById('modal-overlay').classList.remove('open');editId=null;modalPdfAttachment=null;
 const input = document.getElementById('f-pdf');
 if(input) input.value='';}
@@ -714,7 +715,7 @@ const testRows = Array.isArray(w.testRows) ? w.testRows.length : getWOTestTotal(
 if(!samples.length){ document.getElementById('samples-tbody').innerHTML = '<tr><td colspan="9" style="color:var(--muted)">No sample-level data available for this work order.</td></tr>'; } else { document.getElementById('samples-tbody').innerHTML = samples.map(s=>{ const rawCodes = Array.isArray(s.testCodes) ? s.testCodes : []; const unmappedCodes = rawCodes.filter(code => code && !normalizeTestCode(code)); const testsLabel = rawCodes.length ? rawCodes.join(', ') : ''; const testsDisplay = unmappedCodes.length ? `${testsLabel}${testsLabel ? ' | ' : ''}UNMAPPED: ${unmappedCodes.join(', ')}` : (testsLabel || 'No test codes'); return ` <tr> <td>${esc(s.sampleId)}</td> <td>${esc(testsDisplay)}</td> <td>${esc(s.matrix || '')}</td> <td>${esc(normalizeHydrocarbonCode(s.hydrocarbon) || '')}</td> <td>${esc(s.containerType || '')}</td> <td>${esc(s.cylinderNumber || '')}</td> <td>${esc(s.received || '')}</td> <td>${esc(s.logDate || '')}</td> <td>${esc(s.dueDate || '')}</td> </tr> `; }).join(''); } document.getElementById('samples-overlay').classList.add('open'); }
 function closeSamplesModal(){ document.getElementById('samples-overlay').classList.remove('open'); }
 function openActionsModal(id){ const w = WOs.find(x=>x.id===id);
-if(!w) return; activeActionWO = id; document.getElementById('actions-title').textContent = `WO ${w.number} Actions`; document.getElementById('actions-summary').textContent = `${w.client || 'Unassigned client'} Priority ${w.priority || 'NONE'}`; document.getElementById('actions-done-btn').textContent = w.stage === WO_STAGE.DONE ? 'Reopen' : 'Done'; document.getElementById('actions-done-btn').classList.toggle('done-active', w.stage === WO_STAGE.DONE);
+if(!w) return; activeActionWO = id; document.getElementById('actions-title').textContent = `WO ${w.number} Actions`; document.getElementById('actions-summary').textContent = `${w.client || 'Unassigned client'} Priority ${w.priority || 'NONE'}`; document.getElementById('actions-done-btn').textContent = w.stage === WO_STAGE.DONE ? 'Reopen' : 'Done'; document.getElementById('actions-done-btn').classList.toggle('done-active', w.stage === WO_STAGE.DONE); updateActionsMoveButton(id);
 const pdfBtn = document.getElementById('actions-pdf-btn');
 if(pdfBtn) pdfBtn.style.display = (w.pdfAttachment && w.pdfAttachment.dataUrl) ? '' : 'none'; document.getElementById('actions-overlay').classList.add('open'); }
 function closeActionsModal(){ document.getElementById('actions-overlay').classList.remove('open'); activeActionWO = null; }

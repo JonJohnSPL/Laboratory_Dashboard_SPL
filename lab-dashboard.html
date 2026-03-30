@@ -371,6 +371,7 @@
 <button class="act-btn done-btn" id="actions-done-btn" onclick="toggleDoneFromActions()">Done</button>
 <button class="act-btn" onclick="openSamplesFromActions()">Samples</button>
 <button class="act-btn" id="actions-pdf-btn" onclick="openPdfFromActions()">Open PDF</button>
+<button class="act-btn" id="actions-move-btn" onclick="moveWorkOrderStageFromActions()">Move to Results Pending</button>
 <button class="act-btn" onclick="openEditFromActions()">Edit</button>
 </div>
 </div>
@@ -466,7 +467,6 @@ Sample and test detail is now import-only. Test Type is the canonical mapped tes
 </div>
 </div>
 <div class="modal-footer">
-<button class="btn-cancel" id="btn-move" type="button" onclick="moveWorkOrderStageFromModal()" style="display:none">Move to Results Pending</button>
 <button class="btn-del" id="btn-del" onclick="deleteWO()"> Delete</button>
 <button class="btn-cancel" onclick="closeModal()">Cancel</button>
 <button class="btn-save" onclick="saveWO()">Save</button>
