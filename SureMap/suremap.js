@@ -1033,7 +1033,7 @@
       if(!coords){
         coords = await geocodeAddress(street, city, stateCode, zip);
       }
-      if(!coords) throw new Error('Unable to geocode that HQ address. Use address search or verify the address details.');
+      if(!hasCoords(coords?.lat, coords?.lng)) throw new Error('Unable to geocode that HQ address. Use address search or verify the address details.');
       const record = {
         ...(existing || {
           billingNotes: '', operationalNotes: '', salesforceAccountId: '', defaultServiceArea: ''
@@ -1089,7 +1089,7 @@
       if(!hasCoords(lat, lng)){
         const picked = getAutocompleteCoords(els['site-address-search']);
         const coords = picked || (street && city ? await geocodeAddress(street, city, stateCode, zip) : null);
-        if(!coords) throw new Error('Enter site coordinates directly or provide an address that can be geocoded.');
+        if(!hasCoords(coords?.lat, coords?.lng)) throw new Error('Enter site coordinates directly or provide an address that can be geocoded.');
         lat = coords.lat;
         lng = coords.lng;
       }
@@ -1326,25 +1326,27 @@
       timer = setTimeout(async () => {
         const current = ++seq;
         try {
-          const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&countrycodes=us&q=${encodeURIComponent(query)}`;
-          const response = await fetch(url);
-          const rows = await response.json();
+          const rows = await lookupAddressSuggestions(query);
           if(current !== seq) return;
           config.results.innerHTML = (Array.isArray(rows) ? rows : []).map((item, index) => `<div class="suremap-autocomplete-item" data-index="${index}"><strong>${esc(item.display_name)}</strong><span>${esc(item.type || 'address')}</span></div>`).join('');
+          if(!config.results.innerHTML){
+            config.results.innerHTML = '<div class="suremap-autocomplete-item"><strong>No matches found</strong><span>Keep typing or enter the address manually.</span></div>';
+          }
           config.results.classList.toggle('open', !!config.results.innerHTML);
           config.results.querySelectorAll('[data-index]').forEach((row) => {
             row.addEventListener('mousedown', (event) => {
               event.preventDefault();
               const item = rows[Number(row.dataset.index)];
+              if(!item) return;
               config.onPick(item);
-              config.input.dataset.selLat = String(item.lat || '');
-              config.input.dataset.selLng = String(item.lon || '');
+              setAutocompleteCoords(config.input, item.lat, item.lon);
               config.input.value = item.display_name;
               config.results.classList.remove('open');
             });
           });
         } catch (_error){
-          config.results.classList.remove('open');
+          config.results.innerHTML = '<div class="suremap-autocomplete-item"><strong>Lookup unavailable</strong><span>Enter the address manually and SureMap will geocode it on save.</span></div>';
+          config.results.classList.add('open');
         }
       }, 220);
     });
@@ -1352,6 +1354,7 @@
   }
 
   function applyAddressPick(item, ids){
+    if(!item) return;
     const address = item.address || {};
     document.getElementById(ids.street).value = buildStreet(address);
     document.getElementById(ids.city).value = address.city || address.town || address.village || address.hamlet || '';
@@ -1359,8 +1362,7 @@
     document.getElementById(ids.zip).value = address.postcode || '';
     if(ids.lat) document.getElementById(ids.lat).value = item.lat || '';
     if(ids.lng) document.getElementById(ids.lng).value = item.lon || '';
-    document.getElementById(ids.input).dataset.selLat = String(item.lat || '');
-    document.getElementById(ids.input).dataset.selLng = String(item.lon || '');
+    setAutocompleteCoords(document.getElementById(ids.input), item.lat, item.lon);
   }
 
   function buildStreet(address){
@@ -1375,27 +1377,106 @@
   }
 
   function clearAutocompleteSelection(input){
+    if(!input) return;
     input.dataset.selLat = '';
     input.dataset.selLng = '';
   }
 
+  function setAutocompleteCoords(input, lat, lng){
+    if(!input) return;
+    input.dataset.selLat = String(lat || '');
+    input.dataset.selLng = String(lng || '');
+  }
+
   function getAutocompleteCoords(input){
+    if(!input) return null;
     const lat = normalizeNumber(input.dataset.selLat);
     const lng = normalizeNumber(input.dataset.selLng);
     return hasCoords(lat, lng) ? { lat, lng } : null;
   }
 
+  async function lookupAddressSuggestions(query){
+    const candidates = await requestCensusAddressMatches(query);
+    return candidates.slice(0, 5);
+  }
+
   async function geocodeAddress(street, city, stateCode, zip){
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(formatAddress(street, city, stateCode, zip))}&format=jsonv2&limit=1&countrycodes=us`);
-      const rows = await response.json();
-      if(!Array.isArray(rows) || !rows.length) return null;
-      const lat = Number(rows[0].lat);
-      const lng = Number(rows[0].lon);
+      const query = formatAddress(street, city, stateCode, zip);
+      const rows = await requestCensusAddressMatches(query);
+      if(!rows.length) return null;
+      const lat = normalizeNumber(rows[0].lat);
+      const lng = normalizeNumber(rows[0].lon);
       return hasCoords(lat, lng) ? { lat, lng } : null;
     } catch (_error){
       return null;
     }
+  }
+
+  async function requestCensusAddressMatches(query){
+    const payload = await requestJsonp(`https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=${encodeURIComponent(query)}&benchmark=4&format=jsonp`);
+    return parseCensusAddressMatches(payload);
+  }
+
+  function parseCensusAddressMatches(payload){
+    const matches = Array.isArray(payload?.result?.addressMatches) ? payload.result.addressMatches : [];
+    return matches.map((match) => {
+      const lat = normalizeNumber(match?.coordinates?.y);
+      const lon = normalizeNumber(match?.coordinates?.x);
+      const components = match?.addressComponents || {};
+      const address = buildCensusAddressObject(components);
+      return {
+        display_name: String(match?.matchedAddress || formatAddress(address.road, address.city, address.state_code, address.postcode) || '').trim(),
+        type: 'census match',
+        lat: lat ?? '',
+        lon: lon ?? '',
+        address
+      };
+    }).filter((item) => hasCoords(item.lat, item.lon));
+  }
+
+  function buildCensusAddressObject(components){
+    const streetParts = [
+      components.preDirection,
+      components.preType,
+      components.streetName,
+      components.suffixType,
+      components.suffixDirection
+    ].filter(Boolean);
+    return {
+      house_number: components.fromAddress || '',
+      road: streetParts.join(' ').trim(),
+      city: components.city || '',
+      state_code: components.state || '',
+      postcode: components.zip || ''
+    };
+  }
+
+  function requestJsonp(url){
+    return new Promise((resolve, reject) => {
+      const callbackName = `sureMapJsonp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const script = document.createElement('script');
+      const cleanup = () => {
+        delete window[callbackName];
+        script.remove();
+      };
+      const timer = setTimeout(() => {
+        cleanup();
+        reject(new Error('Address lookup timed out.'));
+      }, 8000);
+      window[callbackName] = (payload) => {
+        clearTimeout(timer);
+        cleanup();
+        resolve(payload);
+      };
+      script.onerror = () => {
+        clearTimeout(timer);
+        cleanup();
+        reject(new Error('Address lookup failed to load.'));
+      };
+      script.src = `${url}&callback=${encodeURIComponent(callbackName)}`;
+      document.head.appendChild(script);
+    });
   }
 
   async function copyToClipboard(value, message){
