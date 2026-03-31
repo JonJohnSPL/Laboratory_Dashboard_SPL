@@ -260,7 +260,8 @@ $$;
 create table if not exists public.field_clients (
   id uuid primary key default gen_random_uuid(),
   client_name text not null default '',
-  account_status text not null default 'Active' check (account_status in ('Active', 'On Hold', 'Inactive')),
+  account_status text not null default 'Active' check (account_status in ('Active', 'Pending', 'On Hold', 'Inactive')),
+  sector text not null default 'Upstream',
   primary_contact text not null default '',
   contact_phone text not null default '',
   contact_email text not null default '',
@@ -268,17 +269,33 @@ create table if not exists public.field_clients (
   operational_notes text not null default '',
   salesforce_account_id text not null default '',
   default_service_area text not null default '',
+  hq_street text not null default '',
+  hq_city text not null default '',
+  hq_state text not null default '',
+  hq_zip text not null default '',
+  hq_latitude numeric,
+  hq_longitude numeric,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
   created_by uuid,
   updated_by uuid
 );
 
+alter table public.field_clients add column if not exists sector text not null default 'Upstream';
+alter table public.field_clients add column if not exists hq_street text not null default '';
+alter table public.field_clients add column if not exists hq_city text not null default '';
+alter table public.field_clients add column if not exists hq_state text not null default '';
+alter table public.field_clients add column if not exists hq_zip text not null default '';
+alter table public.field_clients add column if not exists hq_latitude numeric;
+alter table public.field_clients add column if not exists hq_longitude numeric;
+alter table public.field_clients drop constraint if exists field_clients_account_status_check;
+alter table public.field_clients add constraint field_clients_account_status_check check (account_status in ('Active', 'Pending', 'On Hold', 'Inactive'));
+
 create table if not exists public.field_sites (
   id uuid primary key default gen_random_uuid(),
   client_id uuid not null references public.field_clients(id) on delete cascade,
   site_name text not null default '',
-  site_type text not null default 'Other' check (site_type in ('Well Pad', 'LACT Unit', 'Facility', 'Pipeline Location', 'Office / Yard', 'Other')),
+  site_type text not null default 'Other' check (site_type in ('Well Site', 'Meter Station', 'Field Site', 'Well Pad', 'LACT Unit', 'Facility', 'Pipeline Location', 'Office / Yard', 'Other')),
   physical_address text not null default '',
   county_state text not null default '',
   gps_coordinates text not null default '',
@@ -294,6 +311,9 @@ create table if not exists public.field_sites (
   created_by uuid,
   updated_by uuid
 );
+
+alter table public.field_sites drop constraint if exists field_sites_site_type_check;
+alter table public.field_sites add constraint field_sites_site_type_check check (site_type in ('Well Site', 'Meter Station', 'Field Site', 'Well Pad', 'LACT Unit', 'Facility', 'Pipeline Location', 'Office / Yard', 'Other'));
 
 create table if not exists public.field_jobs (
   id uuid primary key default gen_random_uuid(),

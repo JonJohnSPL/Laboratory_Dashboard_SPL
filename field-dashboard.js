@@ -4,8 +4,9 @@ const ENTITY_ORDER = ['clients', 'sites', 'jobs', 'jobAssignments', 'technicians
 const FIELD_ASSET_BUCKET = 'field-assets';
 const ASSET_PHOTO_ENTITY_KEYS = ['trucks', 'trailers', 'equipment'];
 
-const ACCOUNT_STATUS_OPTIONS = ['Active', 'On Hold', 'Inactive'];
-const SITE_TYPE_OPTIONS = ['Well Pad', 'LACT Unit', 'Facility', 'Pipeline Location', 'Office / Yard', 'Other'];
+const ACCOUNT_STATUS_OPTIONS = ['Active', 'Pending', 'On Hold', 'Inactive'];
+const CLIENT_SECTOR_OPTIONS = ['Upstream', 'Midstream', 'Downstream', 'Other'];
+const SITE_TYPE_OPTIONS = ['Well Site', 'Meter Station', 'Field Site', 'Well Pad', 'LACT Unit', 'Facility', 'Pipeline Location', 'Office / Yard', 'Other'];
 const SITE_STATUS_OPTIONS = ['Active', 'Restricted', 'Inactive'];
 const JOB_TYPE_OPTIONS = ['Allocation Proving', 'LACT Proving', 'Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service'];
 const JOB_STATUS_OPTIONS = ['New', 'Scheduled', 'Dispatched', 'In Progress', 'Waiting', 'Complete', 'Closed', 'Canceled'];
@@ -40,7 +41,7 @@ const REQUIRED_ASSIGNMENTS_BY_JOB_TYPE = {
 };
 
 const ENTITY_CONFIG = {
-  clients:{ table:'field_clients', label:'Client', idPrefix:'client', defaults:{ clientName:'', accountStatus:'Active', primaryContact:'', contactPhone:'', contactEmail:'', billingNotes:'', operationalNotes:'', salesforceAccountId:'', defaultServiceArea:'' }, fieldMap:{ clientName:'client_name', accountStatus:'account_status', primaryContact:'primary_contact', contactPhone:'contact_phone', contactEmail:'contact_email', billingNotes:'billing_notes', operationalNotes:'operational_notes', salesforceAccountId:'salesforce_account_id', defaultServiceArea:'default_service_area' } },
+  clients:{ table:'field_clients', label:'Client', idPrefix:'client', defaults:{ clientName:'', accountStatus:'Active', sector:'Upstream', primaryContact:'', contactPhone:'', contactEmail:'', billingNotes:'', operationalNotes:'', salesforceAccountId:'', defaultServiceArea:'', hqStreet:'', hqCity:'', hqState:'', hqZip:'', hqLatitude:null, hqLongitude:null }, fieldMap:{ clientName:'client_name', accountStatus:'account_status', sector:'sector', primaryContact:'primary_contact', contactPhone:'contact_phone', contactEmail:'contact_email', billingNotes:'billing_notes', operationalNotes:'operational_notes', salesforceAccountId:'salesforce_account_id', defaultServiceArea:'default_service_area', hqStreet:'hq_street', hqCity:'hq_city', hqState:'hq_state', hqZip:'hq_zip', hqLatitude:'hq_latitude', hqLongitude:'hq_longitude' }, numberFields:['hqLatitude', 'hqLongitude'] },
   sites:{ table:'field_sites', label:'Site', idPrefix:'site', defaults:{ clientId:'', siteName:'', siteType:'Other', physicalAddress:'', countyState:'', gpsCoordinates:'', accessInstructions:'', safetyPpeNotes:'', gateCodeEntryRequirements:'', clientSiteContact:'', siteStatus:'Active', standardJobTypes:'', notes:'' }, fieldMap:{ clientId:'client_id', siteName:'site_name', siteType:'site_type', physicalAddress:'physical_address', countyState:'county_state', gpsCoordinates:'gps_coordinates', accessInstructions:'access_instructions', safetyPpeNotes:'safety_ppe_notes', gateCodeEntryRequirements:'gate_code_entry_requirements', clientSiteContact:'client_site_contact', siteStatus:'site_status', standardJobTypes:'standard_job_types', notes:'notes' } },
   jobs:{ table:'field_jobs', label:'Job', idPrefix:'job', defaults:{ fieldfxTicketId:'', clientId:'', siteId:'', jobType:'', jobStatus:'New', priority:'Normal', requestedDate:'', scheduledStart:'', scheduledEnd:'', actualStart:'', actualEnd:'', durationPlanned:null, durationActual:null, scopeSummary:'', workInstructions:'', apiStandardReference:'', custodyAllocation:'Allocation', samplesRequired:false, meterUnitId:'', provingRequired:false, maintenanceRequired:false, clientContactForJob:'', dispatchNotes:'', completionNotes:'', followUpRequired:false, followUpNotes:'' }, fieldMap:{ fieldfxTicketId:'fieldfx_ticket_id', clientId:'client_id', siteId:'site_id', jobType:'job_type', jobStatus:'job_status', priority:'priority', requestedDate:'requested_date', scheduledStart:'scheduled_start', scheduledEnd:'scheduled_end', actualStart:'actual_start', actualEnd:'actual_end', durationPlanned:'duration_planned_minutes', durationActual:'duration_actual_minutes', scopeSummary:'scope_summary', workInstructions:'work_instructions', apiStandardReference:'api_standard_reference', custodyAllocation:'custody_allocation', samplesRequired:'samples_required', meterUnitId:'meter_unit_id', provingRequired:'proving_required', maintenanceRequired:'maintenance_required', clientContactForJob:'client_contact_for_job', dispatchNotes:'dispatch_notes', completionNotes:'completion_notes', followUpRequired:'follow_up_required', followUpNotes:'follow_up_notes' }, numberFields:['durationPlanned', 'durationActual'], booleanFields:['samplesRequired', 'provingRequired', 'maintenanceRequired', 'followUpRequired'] },
   jobAssignments:{ table:'field_job_assignments', label:'Assignment', idPrefix:'asg', defaults:{ jobId:'', assignmentType:'Technician', resourceId:'', assignedStart:'', assignedEnd:'', assignmentStatus:'Assigned', assignmentNotes:'' }, fieldMap:{ jobId:'job_id', assignmentType:'assignment_type', resourceId:'resource_id', assignedStart:'assigned_start', assignedEnd:'assigned_end', assignmentStatus:'assignment_status', assignmentNotes:'assignment_notes' } },
@@ -227,6 +228,24 @@ function getJob(id){ return state.data.jobs.find((row) => row.id === id) || null
 function getAssignmentsForJob(jobId){ return state.data.jobAssignments.filter((row) => row.jobId === jobId); }
 function getClientLabel(clientId){ return getClient(clientId)?.clientName || 'Unknown client'; }
 function getSiteLabel(siteId){ return getSite(siteId)?.siteName || 'Unknown site'; }
+function getSiteIdsForClient(clientId){ return state.data.sites.filter((row) => row.clientId === clientId).map((row) => row.id); }
+function getJobsForClientOrSites(clientId, siteIds = getSiteIdsForClient(clientId)){ return state.data.jobs.filter((row) => row.clientId === clientId || siteIds.includes(row.siteId)); }
+function getSamplesForClientOrSites(clientId, siteIds = getSiteIdsForClient(clientId), jobIds = getJobsForClientOrSites(clientId, siteIds).map((row) => row.id)){ return state.data.samples.filter((row) => row.clientId === clientId || siteIds.includes(row.siteId) || jobIds.includes(row.jobId)); }
+function getJobsForSite(siteId){ return state.data.jobs.filter((row) => row.siteId === siteId); }
+function getSamplesForSite(siteId, jobIds = getJobsForSite(siteId).map((row) => row.id)){ return state.data.samples.filter((row) => row.siteId === siteId || jobIds.includes(row.jobId)); }
+function getClientDeleteBlockMessage(clientId){
+  const siteIds = getSiteIdsForClient(clientId);
+  const jobs = getJobsForClientOrSites(clientId, siteIds);
+  const samples = getSamplesForClientOrSites(clientId, siteIds, jobs.map((row) => row.id));
+  if(!jobs.length && !samples.length) return '';
+  return `This client cannot be deleted because it still has ${jobs.length} linked job${jobs.length === 1 ? '' : 's'} and ${samples.length} linked sample${samples.length === 1 ? '' : 's'}. Clear those records first.`;
+}
+function getSiteDeleteBlockMessage(siteId){
+  const jobs = getJobsForSite(siteId);
+  const samples = getSamplesForSite(siteId, jobs.map((row) => row.id));
+  if(!jobs.length && !samples.length) return '';
+  return `This site cannot be deleted because it still has ${jobs.length} linked job${jobs.length === 1 ? '' : 's'} and ${samples.length} linked sample${samples.length === 1 ? '' : 's'}. Clear those records first.`;
+}
 
 function getResourceRecord(assignmentType, resourceId){
   const entityKey = RESOURCE_ENTITY_BY_TYPE[assignmentType];
@@ -347,11 +366,19 @@ const FORM_DEFINITIONS = {
     { kind:'section', label:'Account' },
     { key:'clientName', label:'Client Name', type:'text', required:true },
     { key:'accountStatus', label:'Account Status', type:'select', options:ACCOUNT_STATUS_OPTIONS },
+    { key:'sector', label:'Sector', type:'select', options:CLIENT_SECTOR_OPTIONS },
     { key:'primaryContact', label:'Primary Contact', type:'text' },
     { key:'contactPhone', label:'Contact Phone', type:'text' },
     { key:'contactEmail', label:'Contact Email', type:'email' },
     { key:'salesforceAccountId', label:'Salesforce Account ID', type:'text' },
     { key:'defaultServiceArea', label:'Default Service Area / Region', type:'text' },
+    { kind:'section', label:'HQ / Mapping' },
+    { key:'hqStreet', label:'HQ Street', type:'text', full:true },
+    { key:'hqCity', label:'HQ City', type:'text' },
+    { key:'hqState', label:'HQ State', type:'text' },
+    { key:'hqZip', label:'HQ ZIP', type:'text' },
+    { key:'hqLatitude', label:'HQ Latitude', type:'number' },
+    { key:'hqLongitude', label:'HQ Longitude', type:'number' },
     { key:'billingNotes', label:'Billing Notes', type:'textarea', full:true },
     { key:'operationalNotes', label:'Operational Notes', type:'textarea', full:true }
   ],
@@ -1037,8 +1064,8 @@ async function saveEntityFromModal(){
 
 function buildLocalDeleteResult(entityKey, id){
   const next = clone(state.data);
-  if(entityKey === 'clients'){ const siteIds = next.sites.filter((site) => site.clientId === id).map((site) => site.id); const jobIds = next.jobs.filter((job) => job.clientId === id || siteIds.includes(job.siteId)).map((job) => job.id); next.clients = next.clients.filter((row) => row.id !== id); next.sites = next.sites.filter((row) => row.clientId !== id); next.jobs = next.jobs.filter((row) => row.clientId !== id && !siteIds.includes(row.siteId)); next.jobAssignments = next.jobAssignments.filter((row) => !jobIds.includes(row.jobId)); next.samples = next.samples.filter((row) => row.clientId !== id && !siteIds.includes(row.siteId) && !jobIds.includes(row.jobId)); }
-  else if(entityKey === 'sites'){ const jobIds = next.jobs.filter((job) => job.siteId === id).map((job) => job.id); next.sites = next.sites.filter((row) => row.id !== id); next.jobs = next.jobs.filter((row) => row.siteId !== id); next.jobAssignments = next.jobAssignments.filter((row) => !jobIds.includes(row.jobId)); next.samples = next.samples.filter((row) => row.siteId !== id && !jobIds.includes(row.jobId)); }
+  if(entityKey === 'clients'){ next.clients = next.clients.filter((row) => row.id !== id); next.sites = next.sites.filter((row) => row.clientId !== id); }
+  else if(entityKey === 'sites'){ next.sites = next.sites.filter((row) => row.id !== id); }
   else if(entityKey === 'jobs'){ next.jobs = next.jobs.filter((row) => row.id !== id); next.jobAssignments = next.jobAssignments.filter((row) => row.jobId !== id); next.samples = next.samples.filter((row) => row.jobId !== id); }
   else if(entityKey === 'technicians'){ next.technicians = next.technicians.filter((row) => row.id !== id); next.trucks = next.trucks.map((row) => row.assignedTechnicianId === id ? { ...row, assignedTechnicianId:'', assignedTo:'', currentDriver:'' } : row); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Technician' && row.resourceId === id)); }
   else if(entityKey === 'trucks'){ next.trucks = next.trucks.filter((row) => row.id !== id); next.trailers = next.trailers.map((row) => row.assignedTruckId === id ? { ...row, assignedTruckId:'' } : row); next.equipment = next.equipment.map((row) => row.assignedTruckId === id ? { ...row, assignedTruckId:'', assignedTrailerTruck:row.assignedTrailerId ? getTrailerLabel(row.assignedTrailerId) : '' } : row); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Truck' && row.resourceId === id)); next.maintenanceRecords = next.maintenanceRecords.filter((row) => !(row.assetType === 'Truck' && row.assetId === id)); }
@@ -1049,6 +1076,14 @@ function buildLocalDeleteResult(entityKey, id){
 }
 
 async function deleteEntityRecord(entityKey, id){
+  if(entityKey === 'clients'){
+    const blockMessage = getClientDeleteBlockMessage(id);
+    if(blockMessage){ alert(blockMessage); return; }
+  }
+  if(entityKey === 'sites'){
+    const blockMessage = getSiteDeleteBlockMessage(id);
+    if(blockMessage){ alert(blockMessage); return; }
+  }
   if(!confirm(`Delete this ${ENTITY_CONFIG[entityKey].label.toLowerCase()}? This cannot be undone.`)) return;
   state.saveInFlight = true;
   showSaveStatus('saving', 'DELETING');

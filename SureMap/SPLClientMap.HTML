@@ -253,6 +253,7 @@
     </div>
     <div class="header-actions">
       <button type="button" class="btn btn-ghost" onclick="openAddClientModal()">+ Add Client</button>
+      <button type="button" class="btn btn-danger" id="btn-reset-shared" onclick="resetSharedClientSiteData()">Reset Shared Data</button>
     <button type="button" class="btn btn-ghost" id="btn-modify-client" onclick="openModifyClientModal()" disabled>✏️ Modify Client</button>
   </div>
     </div>
@@ -310,7 +311,7 @@
         <select id="f-sector"><option>Upstream</option><option>Midstream</option><option>Downstream</option></select>
       </div>
       <div class="form-group"><label>Status</label>
-        <select id="f-status"><option value="active">Active</option><option value="pending">Pending</option><option value="inactive">Inactive</option></select>
+        <select id="f-status"><option value="Active">Active</option><option value="Pending">Pending</option><option value="On Hold">On Hold</option><option value="Inactive">Inactive</option></select>
       </div>
     </div>
     <div class="form-group"><label>Contact Name</label><input type="text" id="f-contact" placeholder="Jane Smith" /></div>
@@ -340,7 +341,7 @@
         <select id="ef-sector"><option>Upstream</option><option>Midstream</option><option>Downstream</option></select>
       </div>
       <div class="form-group"><label>Status</label>
-        <select id="ef-status"><option value="active">Active</option><option value="pending">Pending</option><option value="inactive">Inactive</option></select>
+        <select id="ef-status"><option value="Active">Active</option><option value="Pending">Pending</option><option value="On Hold">On Hold</option><option value="Inactive">Inactive</option></select>
       </div>
     </div>
     <div class="form-group"><label>Contact Name</label><input type="text" id="ef-contact" /></div>
@@ -373,6 +374,13 @@
         <option value="facility">🏭 Facility</option>
         <option value="field">🌾 Field Site</option>
         <option value="other">📌 Other</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Site Status</label>
+      <select id="sl-status">
+        <option value="Active">Active</option>
+        <option value="Restricted">Restricted</option>
+        <option value="Inactive">Inactive</option>
       </select>
     </div>
     <div class="modal-section">Location</div>
@@ -431,21 +439,7 @@ const HOME_BASE = {
   lng:-80.130022,
 };
 
-let clients = [
-  { id:1, name:'Consolidated Energy LLC', sector:'Upstream', status:'active', contact:'Mark Harding', email:'mark@coenergy.com', phone:'(412) 555-0101', street:'500 Grant St', city:'Pittsburgh', state:'PA', zip:'15219', lat:40.4412, lng:-79.9959,
-    sublocations:[
-      { id:101, name:'Chartiers Well Site', desc:'Primary production well', type:'well', lat:40.3710, lng:-80.0988 },
-      { id:102, name:'Steubenville Meter Sta.', desc:'Interstate measurement', type:'meter', lat:40.3664, lng:-80.6340 },
-    ]},
-  { id:2, name:'Allegheny Steel Works', sector:'Midstream', status:'active', contact:'Sarah Monroe', email:'sarah@asw.com', phone:'(412) 555-0202', street:'1 Oliver Plaza', city:'Pittsburgh', state:'PA', zip:'15222', lat:40.4440, lng:-79.9985, sublocations:[] },
-  { id:3, name:'KeystoneBank Corp', sector:'Downstream', status:'pending', contact:'Tom Birch', email:'tom@kbc.com', phone:'(412) 555-0303', street:'600 Penn Ave', city:'Pittsburgh', state:'PA', zip:'15222', lat:40.4458, lng:-79.9945, sublocations:[] },
-  { id:4, name:'Pittsburgh BioTech', sector:'Downstream', status:'active', contact:'Dr. Lisa Park', email:'lpark@pbt.com', phone:'(412) 555-0404', street:'3600 Fifth Ave', city:'Pittsburgh', state:'PA', zip:'15213', lat:40.4395, lng:-79.9618, sublocations:[] },
-  { id:5, name:'Clearfield Gas Corp', sector:'Upstream', status:'inactive', contact:'Dan Kowalski', email:'dan@cleargas.com', phone:'(814) 555-0505', street:'100 State St', city:'Clearfield', state:'PA', zip:'16830', lat:41.0245, lng:-78.4388,
-    sublocations:[
-      { id:501, name:'Karthaus Field Site', desc:'Remote sampling point', type:'field', lat:41.1011, lng:-78.1217 },
-    ]},
-  { id:6, name:'TechNova Systems', sector:'Midstream', status:'active', contact:'Amy Chen', email:'amy@technova.io', phone:'(412) 555-0606', street:'6000 Forbes Ave', city:'Pittsburgh', state:'PA', zip:'15213', lat:40.4416, lng:-79.9566, sublocations:[] },
-];
+let clients = [];
 
 let nextClientId = 7;
 let nextSublocId = 600;
@@ -1131,6 +1125,1066 @@ function deleteSubloc(clientId, subId) {
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────
+const SHARED_FIELD_STORAGE_KEY = 'field-ops-dashboard-data';
+const LEGACY_SUREMAP_STORAGE_KEY = 'spl-client-map-v1';
+const SHARED_CLIENT_STATUS_OPTIONS = ['Active', 'Pending', 'On Hold', 'Inactive'];
+const SHARED_CLIENT_SECTOR_OPTIONS = ['Upstream', 'Midstream', 'Downstream', 'Other'];
+const SHARED_SITE_TYPE_OPTIONS = ['Well Site', 'Meter Station', 'Field Site', 'Well Pad', 'LACT Unit', 'Facility', 'Pipeline Location', 'Office / Yard', 'Other'];
+const SHARED_SITE_STATUS_OPTIONS = ['Active', 'Restricted', 'Inactive'];
+
+let sharedFieldData = createSharedFieldData();
+let sharedListenersBound = false;
+
+function createSharedFieldData() {
+  return { clients: [], sites: [], jobs: [], jobAssignments: [], samples: [] };
+}
+
+function cloneShared(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function jsq(value) {
+  return JSON.stringify(String(value ?? ''));
+}
+
+function sharedEsc(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
+}
+
+function sharedUid(prefix) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function isSharedRemoteMode() {
+  return !!(window.appAuth && typeof window.appAuth.getMode === 'function' && window.appAuth.getMode() === 'remote');
+}
+
+function normalizeNumberValue(value) {
+  if (value === '' || value === null || value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeOptionValue(value, options, fallback) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return fallback;
+  const exact = options.find((option) => option === raw);
+  if (exact) return exact;
+  const match = options.find((option) => option.toLowerCase() === raw.toLowerCase());
+  return match || fallback;
+}
+
+function normalizeStatusValue(value) {
+  return normalizeOptionValue(value, SHARED_CLIENT_STATUS_OPTIONS, 'Active');
+}
+
+function normalizeSectorValue(value) {
+  return normalizeOptionValue(value, SHARED_CLIENT_SECTOR_OPTIONS, 'Upstream');
+}
+
+function normalizeSiteTypeValue(value) {
+  const legacyMap = { well:'Well Site', meter:'Meter Station', facility:'Facility', field:'Field Site', other:'Other' };
+  const raw = String(value ?? '').trim();
+  return normalizeOptionValue(legacyMap[raw] || raw, SHARED_SITE_TYPE_OPTIONS, 'Other');
+}
+
+function normalizeSiteStatusValue(value) {
+  return normalizeOptionValue(value, SHARED_SITE_STATUS_OPTIONS, 'Active');
+}
+
+function sharedStatusClass(status) {
+  const normalized = normalizeStatusValue(status);
+  if (normalized === 'Active') return 'active';
+  if (normalized === 'Pending' || normalized === 'On Hold') return 'pending';
+  return 'inactive';
+}
+
+function sharedStatusTone(status) {
+  const normalized = normalizeStatusValue(status);
+  if (normalized === 'Active') return 'var(--green)';
+  if (normalized === 'Pending' || normalized === 'On Hold') return 'var(--orange)';
+  return 'var(--muted)';
+}
+
+function sharedColor(id) {
+  const key = String(id ?? '');
+  let hash = 0;
+  for (let i = 0; i < key.length; i += 1) {
+    hash = ((hash << 5) - hash) + key.charCodeAt(i);
+    hash |= 0;
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+function getColor(id) {
+  return sharedColor(id);
+}
+
+function getSharedSiteIcon(type) {
+  const normalized = normalizeSiteTypeValue(type);
+  if (normalized === 'Well Site' || normalized === 'Well Pad') return '⛽';
+  if (normalized === 'Meter Station') return '📊';
+  if (normalized === 'Facility' || normalized === 'LACT Unit') return '🏭';
+  if (normalized === 'Field Site' || normalized === 'Pipeline Location') return '📍';
+  if (normalized === 'Office / Yard') return '🏢';
+  return '📌';
+}
+
+function formatFullAddress(street, city, state, zip) {
+  const parts = [String(street || '').trim(), String(city || '').trim()].filter(Boolean);
+  const stateZip = [String(state || '').trim(), String(zip || '').trim()].filter(Boolean).join(' ');
+  if (stateZip) parts.push(stateZip);
+  return parts.join(', ');
+}
+
+function splitAddressParts(address) {
+  const raw = String(address || '').trim();
+  if (!raw) return { street:'', city:'', state:'', zip:'' };
+  const parts = raw.split(',').map((part) => part.trim()).filter(Boolean);
+  const street = parts[0] || '';
+  const city = parts[1] || '';
+  const stateZip = parts.slice(2).join(' ');
+  const match = stateZip.match(/^([A-Za-z]{2})\s*(.*)$/);
+  return { street, city, state: match ? match[1].toUpperCase() : '', zip: match ? match[2].trim() : '' };
+}
+
+function parseGpsValue(value) {
+  if (!value) return null;
+  if (typeof value === 'object' && value) {
+    const lat = normalizeNumberValue(value.lat);
+    const lng = normalizeNumberValue(value.lng);
+    return lat === null || lng === null ? null : { lat, lng };
+  }
+  const match = String(value).match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
+  if (!match) return null;
+  const lat = Number(match[1]);
+  const lng = Number(match[2]);
+  return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+}
+
+function formatGpsValue(lat, lng) {
+  if (!hasCoords(lat, lng)) return '';
+  return `${Number(lat).toFixed(6)}, ${Number(lng).toFixed(6)}`;
+}
+
+function normalizeSharedClient(source, fromRemote = false) {
+  return {
+    id: String(source?.id || ''),
+    clientName: String((fromRemote ? source?.client_name : source?.clientName) || '').trim(),
+    accountStatus: normalizeStatusValue(fromRemote ? source?.account_status : source?.accountStatus),
+    sector: normalizeSectorValue(fromRemote ? source?.sector : source?.sector),
+    primaryContact: String((fromRemote ? source?.primary_contact : source?.primaryContact) || '').trim(),
+    contactPhone: String((fromRemote ? source?.contact_phone : source?.contactPhone) || '').trim(),
+    contactEmail: String((fromRemote ? source?.contact_email : source?.contactEmail) || '').trim(),
+    billingNotes: String((fromRemote ? source?.billing_notes : source?.billingNotes) || '').trim(),
+    operationalNotes: String((fromRemote ? source?.operational_notes : source?.operationalNotes) || '').trim(),
+    salesforceAccountId: String((fromRemote ? source?.salesforce_account_id : source?.salesforceAccountId) || '').trim(),
+    defaultServiceArea: String((fromRemote ? source?.default_service_area : source?.defaultServiceArea) || '').trim(),
+    hqStreet: String((fromRemote ? source?.hq_street : source?.hqStreet) || '').trim(),
+    hqCity: String((fromRemote ? source?.hq_city : source?.hqCity) || '').trim(),
+    hqState: String((fromRemote ? source?.hq_state : source?.hqState) || '').trim().toUpperCase(),
+    hqZip: String((fromRemote ? source?.hq_zip : source?.hqZip) || '').trim(),
+    hqLatitude: normalizeNumberValue(fromRemote ? source?.hq_latitude : source?.hqLatitude),
+    hqLongitude: normalizeNumberValue(fromRemote ? source?.hq_longitude : source?.hqLongitude)
+  };
+}
+
+function normalizeSharedSite(source, fromRemote = false) {
+  const normalized = {
+    id: String(source?.id || ''),
+    clientId: String((fromRemote ? source?.client_id : source?.clientId) || ''),
+    siteName: String((fromRemote ? source?.site_name : source?.siteName) || '').trim(),
+    siteType: normalizeSiteTypeValue(fromRemote ? source?.site_type : source?.siteType),
+    physicalAddress: String((fromRemote ? source?.physical_address : source?.physicalAddress) || '').trim(),
+    countyState: String((fromRemote ? source?.county_state : source?.countyState) || '').trim(),
+    gpsCoordinates: String((fromRemote ? source?.gps_coordinates : source?.gpsCoordinates) || '').trim(),
+    accessInstructions: String((fromRemote ? source?.access_instructions : source?.accessInstructions) || '').trim(),
+    safetyPpeNotes: String((fromRemote ? source?.safety_ppe_notes : source?.safetyPpeNotes) || '').trim(),
+    gateCodeEntryRequirements: String((fromRemote ? source?.gate_code_entry_requirements : source?.gateCodeEntryRequirements) || '').trim(),
+    clientSiteContact: String((fromRemote ? source?.client_site_contact : source?.clientSiteContact) || '').trim(),
+    siteStatus: normalizeSiteStatusValue(fromRemote ? source?.site_status : source?.siteStatus),
+    standardJobTypes: String((fromRemote ? source?.standard_job_types : source?.standardJobTypes) || '').trim(),
+    notes: String((fromRemote ? source?.notes : source?.notes) || '').trim()
+  };
+  const coords = parseGpsValue(normalized.gpsCoordinates);
+  if (coords) normalized.gpsCoordinates = formatGpsValue(coords.lat, coords.lng);
+  return normalized;
+}
+
+function normalizeSharedLocalData(raw) {
+  const normalized = createSharedFieldData();
+  normalized.clients = Array.isArray(raw?.clients) ? raw.clients.map((row) => normalizeSharedClient(row, false)).sort((a, b) => a.clientName.localeCompare(b.clientName)) : [];
+  normalized.sites = Array.isArray(raw?.sites) ? raw.sites.map((row) => normalizeSharedSite(row, false)).sort((a, b) => a.siteName.localeCompare(b.siteName)) : [];
+  normalized.jobs = Array.isArray(raw?.jobs) ? raw.jobs.map((row) => ({ ...row, id:String(row?.id || ''), clientId:String(row?.clientId || ''), siteId:String(row?.siteId || '') })) : [];
+  normalized.jobAssignments = Array.isArray(raw?.jobAssignments) ? raw.jobAssignments.map((row) => ({ ...row, id:String(row?.id || ''), jobId:String(row?.jobId || '') })) : [];
+  normalized.samples = Array.isArray(raw?.samples) ? raw.samples.map((row) => ({ ...row, id:String(row?.id || ''), jobId:String(row?.jobId || ''), clientId:String(row?.clientId || ''), siteId:String(row?.siteId || '') })) : [];
+  return normalized;
+}
+
+function normalizeSharedRemoteData(payload) {
+  return {
+    clients: Array.isArray(payload?.clients) ? payload.clients.map((row) => normalizeSharedClient(row, true)).sort((a, b) => a.clientName.localeCompare(b.clientName)) : [],
+    sites: Array.isArray(payload?.sites) ? payload.sites.map((row) => normalizeSharedSite(row, true)).sort((a, b) => a.siteName.localeCompare(b.siteName)) : [],
+    jobs: Array.isArray(payload?.jobs) ? payload.jobs.map((row) => ({ id:String(row?.id || ''), clientId:String(row?.client_id || ''), siteId:String(row?.site_id || '') })) : [],
+    jobAssignments: Array.isArray(payload?.jobAssignments) ? payload.jobAssignments.map((row) => ({ id:String(row?.id || ''), jobId:String(row?.job_id || '') })) : [],
+    samples: Array.isArray(payload?.samples) ? payload.samples.map((row) => ({ id:String(row?.id || ''), jobId:String(row?.job_id || ''), clientId:String(row?.client_id || ''), siteId:String(row?.site_id || '') })) : []
+  };
+}
+
+function buildSharedClientView(data) {
+  const sitesByClient = new Map();
+  data.sites.forEach((site) => {
+    const list = sitesByClient.get(site.clientId) || [];
+    const coords = parseGpsValue(site.gpsCoordinates);
+    list.push({
+      id: site.id,
+      name: site.siteName || 'Unnamed Site',
+      desc: site.notes || '',
+      type: site.siteType,
+      siteStatus: site.siteStatus,
+      lat: coords?.lat ?? null,
+      lng: coords?.lng ?? null,
+      address: site.physicalAddress || '',
+      gpsCoordinates: site.gpsCoordinates || ''
+    });
+    sitesByClient.set(site.clientId, list);
+  });
+  return data.clients.map((client) => ({
+    id: client.id,
+    name: client.clientName || 'Unnamed Client',
+    sector: client.sector,
+    accountStatus: client.accountStatus,
+    statusClass: sharedStatusClass(client.accountStatus),
+    contact: client.primaryContact || 'Not set',
+    email: client.contactEmail || 'Not set',
+    phone: client.contactPhone || 'Not set',
+    street: client.hqStreet,
+    city: client.hqCity,
+    state: client.hqState,
+    zip: client.hqZip,
+    lat: client.hqLatitude,
+    lng: client.hqLongitude,
+    sublocations: (sitesByClient.get(client.id) || []).sort((a, b) => a.name.localeCompare(b.name))
+  })).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function readSharedLocalPayload() {
+  try {
+    const raw = localStorage.getItem(SHARED_FIELD_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (error) {
+    console.warn('Unable to read shared local data.', error);
+    return {};
+  }
+}
+
+function readSharedLocalData() {
+  return normalizeSharedLocalData(readSharedLocalPayload());
+}
+
+function persistSharedLocalData(data) {
+  const raw = readSharedLocalPayload();
+  raw.clients = cloneShared(data.clients);
+  raw.sites = cloneShared(data.sites);
+  raw.jobs = cloneShared(data.jobs);
+  raw.jobAssignments = cloneShared(data.jobAssignments);
+  raw.samples = cloneShared(data.samples);
+  localStorage.setItem(SHARED_FIELD_STORAGE_KEY, JSON.stringify(raw));
+  localStorage.removeItem(LEGACY_SUREMAP_STORAGE_KEY);
+}
+
+async function fetchSharedRemoteData() {
+  const [clientRows, siteRows, jobRows, assignmentRows, sampleRows] = await Promise.all([
+    window.appAuth.requestJson('/rest/v1/field_clients?select=*'),
+    window.appAuth.requestJson('/rest/v1/field_sites?select=*'),
+    window.appAuth.requestJson('/rest/v1/field_jobs?select=id,client_id,site_id'),
+    window.appAuth.requestJson('/rest/v1/field_job_assignments?select=id,job_id'),
+    window.appAuth.requestJson('/rest/v1/field_samples?select=id,job_id,client_id,site_id')
+  ]);
+  return normalizeSharedRemoteData({
+    clients: clientRows,
+    sites: siteRows,
+    jobs: jobRows,
+    jobAssignments: assignmentRows,
+    samples: sampleRows
+  });
+}
+
+function findSharedClientRecord(id) {
+  return sharedFieldData.clients.find((row) => row.id === String(id)) || null;
+}
+
+function findSharedSiteRecord(id) {
+  return sharedFieldData.sites.find((row) => row.id === String(id)) || null;
+}
+
+function getSharedSiteIdsForClient(clientId) {
+  return sharedFieldData.sites.filter((row) => row.clientId === String(clientId)).map((row) => row.id);
+}
+
+function getSharedJobsForClientOrSites(clientId, siteIds = getSharedSiteIdsForClient(clientId)) {
+  return sharedFieldData.jobs.filter((row) => row.clientId === String(clientId) || siteIds.includes(row.siteId));
+}
+
+function getSharedSamplesForClientOrSites(clientId, siteIds = getSharedSiteIdsForClient(clientId), jobIds = getSharedJobsForClientOrSites(clientId, siteIds).map((row) => row.id)) {
+  return sharedFieldData.samples.filter((row) => row.clientId === String(clientId) || siteIds.includes(row.siteId) || jobIds.includes(row.jobId));
+}
+
+function getSharedJobsForSite(siteId) {
+  return sharedFieldData.jobs.filter((row) => row.siteId === String(siteId));
+}
+
+function getSharedSamplesForSite(siteId, jobIds = getSharedJobsForSite(siteId).map((row) => row.id)) {
+  return sharedFieldData.samples.filter((row) => row.siteId === String(siteId) || jobIds.includes(row.jobId));
+}
+
+function getSharedClientDeleteBlockMessage(clientId) {
+  const jobs = getSharedJobsForClientOrSites(clientId);
+  const samples = getSharedSamplesForClientOrSites(clientId);
+  if (!jobs.length && !samples.length) return '';
+  return `This client cannot be deleted because it still has ${jobs.length} linked job${jobs.length === 1 ? '' : 's'} and ${samples.length} linked sample${samples.length === 1 ? '' : 's'}. Clear those records first.`;
+}
+
+function getSharedSiteDeleteBlockMessage(siteId) {
+  const jobs = getSharedJobsForSite(siteId);
+  const samples = getSharedSamplesForSite(siteId);
+  if (!jobs.length && !samples.length) return '';
+  return `This site cannot be deleted because it still has ${jobs.length} linked job${jobs.length === 1 ? '' : 's'} and ${samples.length} linked sample${samples.length === 1 ? '' : 's'}. Clear those records first.`;
+}
+
+function hydrateSharedFormOptions() {
+  const renderOptions = (values) => values.map((value) => `<option value="${sharedEsc(value)}">${sharedEsc(value)}</option>`).join('');
+  const sectorMarkup = renderOptions(SHARED_CLIENT_SECTOR_OPTIONS);
+  const statusMarkup = renderOptions(SHARED_CLIENT_STATUS_OPTIONS);
+  const siteTypeMarkup = renderOptions(SHARED_SITE_TYPE_OPTIONS);
+  const siteStatusMarkup = renderOptions(SHARED_SITE_STATUS_OPTIONS);
+  const ids = {
+    fSector: document.getElementById('f-sector'),
+    efSector: document.getElementById('ef-sector'),
+    fStatus: document.getElementById('f-status'),
+    efStatus: document.getElementById('ef-status'),
+    slType: document.getElementById('sl-type'),
+    slStatus: document.getElementById('sl-status')
+  };
+  if (ids.fSector) ids.fSector.innerHTML = sectorMarkup;
+  if (ids.efSector) ids.efSector.innerHTML = sectorMarkup;
+  if (ids.fStatus) ids.fStatus.innerHTML = statusMarkup;
+  if (ids.efStatus) ids.efStatus.innerHTML = statusMarkup;
+  if (ids.slType) ids.slType.innerHTML = siteTypeMarkup;
+  if (ids.slStatus) ids.slStatus.innerHTML = siteStatusMarkup;
+}
+
+function findClient(id) {
+  return clients.find((client) => client.id === String(id)) || null;
+}
+
+function findSubloc(clientId, subId) {
+  return findClient(clientId)?.sublocations?.find((site) => site.id === String(subId)) || null;
+}
+
+function setEmptySelectionState() {
+  activeClientId = null;
+  activeSublocId = null;
+  hideDetailPopout();
+  const placeholder = document.getElementById('map-placeholder');
+  const toolbar = document.getElementById('toolbar-content');
+  if (placeholder) placeholder.style.display = '';
+  if (toolbar) toolbar.innerHTML = `<span class="client-title" style="color:var(--muted);">Select a client</span>`;
+  updateModifyButton();
+}
+
+function updateModifyButton() {
+  const btn = document.getElementById('btn-modify-client');
+  if (!btn) return;
+  btn.disabled = !activeClientId;
+  btn.textContent = activeSublocId ? '✏️ Modify Site' : '✏️ Modify Client';
+}
+
+async function refreshSharedData(options = {}) {
+  const preserveSelection = options.preserveSelection !== false;
+  const targetClientId = options.clientId != null ? String(options.clientId) : null;
+  const targetSiteId = options.siteId != null ? String(options.siteId) : null;
+  sharedFieldData = isSharedRemoteMode() ? await fetchSharedRemoteData() : readSharedLocalData();
+  localStorage.removeItem(LEGACY_SUREMAP_STORAGE_KEY);
+  clients = buildSharedClientView(sharedFieldData);
+  renderFilters();
+  renderList();
+  renderMarkers();
+  updateModifyButton();
+  if (targetSiteId) {
+    const owner = clients.find((client) => client.sublocations.some((site) => site.id === targetSiteId));
+    if (owner) {
+      selectSubloc(owner.id, targetSiteId);
+      return;
+    }
+  }
+  if (targetClientId && findClient(targetClientId)) {
+    selectClient(targetClientId);
+    return;
+  }
+  if (preserveSelection && activeSublocId) {
+    const owner = clients.find((client) => client.sublocations.some((site) => site.id === activeSublocId));
+    if (owner) {
+      selectSubloc(owner.id, activeSublocId);
+      return;
+    }
+  }
+  if (preserveSelection && activeClientId && findClient(activeClientId)) {
+    selectClient(activeClientId);
+    return;
+  }
+  setEmptySelectionState();
+}
+
+function bindSharedRefreshListeners() {
+  if (sharedListenersBound) return;
+  sharedListenersBound = true;
+  window.addEventListener('storage', (event) => {
+    if (!isSharedRemoteMode() && event.key === SHARED_FIELD_STORAGE_KEY) {
+      refreshSharedData({ preserveSelection:true }).catch((error) => console.error('SureMap refresh failed:', error));
+    }
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      refreshSharedData({ preserveSelection:true }).catch((error) => console.error('SureMap refresh failed:', error));
+    }
+  });
+}
+
+function loadPersistentState() {
+  hydrateSharedFormOptions();
+  bindSharedRefreshListeners();
+  clients = [];
+  sharedFieldData = createSharedFieldData();
+  setEmptySelectionState();
+  const readyPromise = window.authReadyPromise instanceof Promise ? window.authReadyPromise : Promise.resolve();
+  readyPromise.then(() => refreshSharedData({ preserveSelection:false })).catch((error) => {
+    console.error('Unable to load shared client/site data.', error);
+    alert(`SureMap could not load the shared client/site data. ${error.message || error}`);
+  });
+}
+
+function savePersistentState() {
+  if (!isSharedRemoteMode()) persistSharedLocalData(sharedFieldData);
+}
+
+function getFiltered() {
+  const query = String(document.getElementById('search-input')?.value || '').trim().toLowerCase();
+  return clients.filter((client) => {
+    const matchesTag = filterTag === 'All' || client.sector === filterTag || client.accountStatus === filterTag;
+    if (!matchesTag) return false;
+    if (!query) return true;
+    const haystack = [
+      client.name,
+      client.sector,
+      client.accountStatus,
+      client.contact,
+      client.email,
+      client.phone,
+      formatFullAddress(client.street, client.city, client.state, client.zip),
+      ...client.sublocations.flatMap((site) => [site.name, site.type, site.address, site.desc, site.siteStatus])
+    ].join(' ').toLowerCase();
+    return haystack.includes(query);
+  });
+}
+
+function renderMarkers() {
+  Object.values(allMarkers).forEach((marker) => map.removeLayer(marker));
+  allMarkers = {};
+  if (hasCoords(HOME_BASE.lat, HOME_BASE.lng)) {
+    allMarkers.home = L.marker([HOME_BASE.lat, HOME_BASE.lng], { icon:makeHomeIcon() })
+      .bindPopup(`<div class="popup-sub">Home Base</div><div class="popup-name">${sharedEsc(HOME_BASE.name)}</div><div class="popup-addr">${sharedEsc(getHomeBaseAddress())}</div>`, { autoPan:false })
+      .addTo(map);
+  }
+  getFiltered().forEach((client) => {
+    const color = getColor(client.id);
+    const clientAddress = formatFullAddress(client.street, client.city, client.state, client.zip);
+    if (hasCoords(client.lat, client.lng)) {
+      const marker = L.marker([client.lat, client.lng], { icon:makeParentIcon(color) })
+        .bindPopup(`<div class="popup-name">${sharedEsc(client.name)}</div><div class="popup-addr">${sharedEsc(clientAddress || 'No HQ address')}</div>`, { autoPan:false })
+        .addTo(map);
+      marker.on('click', () => selectClient(client.id, true));
+      allMarkers[`c${client.id}`] = marker;
+    }
+    client.sublocations.forEach((site) => {
+      if (!hasCoords(site.lat, site.lng)) return;
+      const marker = L.marker([site.lat, site.lng], { icon:makeSubIcon(color) })
+        .bindPopup(`<div class="popup-sub">${sharedEsc(getSharedSiteIcon(site.type))} ${sharedEsc(site.type)}</div><div class="popup-name">${sharedEsc(site.name)}</div><div class="popup-addr">${sharedEsc(site.address || site.desc || 'No address')}</div>`, { autoPan:false })
+        .addTo(map);
+      marker.on('click', () => selectSubloc(client.id, site.id, true));
+      allMarkers[`s${site.id}`] = marker;
+    });
+  });
+}
+
+function renderList() {
+  const list = document.getElementById('client-list');
+  const filtered = getFiltered();
+  document.getElementById('count-badge').textContent = `${clients.length} client${clients.length === 1 ? '' : 's'}`;
+  if (!clients.length) {
+    list.innerHTML = `<div class="empty-state">No shared clients yet. Add one here or from Field Ops.</div>`;
+    return;
+  }
+  if (!filtered.length) {
+    list.innerHTML = `<div class="empty-state">No clients match your current search.</div>`;
+    return;
+  }
+  list.innerHTML = filtered.map((client) => {
+    const color = getColor(client.id);
+    const isOpen = expandedIds.has(client.id);
+    const isActiveClient = activeClientId === client.id && !activeSublocId;
+    const subRows = client.sublocations.map((site) => {
+      const isActiveSite = activeClientId === client.id && activeSublocId === site.id;
+      const coordsLabel = hasCoords(site.lat, site.lng) ? `${site.lat.toFixed(4)}, ${site.lng.toFixed(4)}` : (site.address || 'No coordinates');
+      return `<div class="subloc-item ${isActiveSite ? 'active' : ''}" onclick="selectSubloc(${jsq(client.id)}, ${jsq(site.id)});event.stopPropagation();"><div class="subloc-icon" style="background:${color}22;color:${color}">${sharedEsc(getSharedSiteIcon(site.type))}</div><div style="min-width:0"><div class="subloc-name">${sharedEsc(site.name)}</div><div class="subloc-coords">${sharedEsc(coordsLabel)}</div></div></div>`;
+    }).join('');
+    const toggleRow = client.sublocations.length
+      ? `<div class="subloc-toggle ${isOpen ? 'open' : ''}" onclick="toggleExpand(${jsq(client.id)});event.stopPropagation();"><span class="arrow">▶</span><span>${client.sublocations.length} site${client.sublocations.length === 1 ? '' : 's'}</span><span class="subloc-badge">${client.sublocations.length}</span></div>`
+      : `<div class="subloc-toggle" style="opacity:.55" onclick="openAddSublocModal(${jsq(client.id)});event.stopPropagation();"><span>＋ Add site</span></div>`;
+    return `<div class="client-row"><div class="client-card ${isActiveClient ? 'active' : ''}" onclick="selectClient(${jsq(client.id)})"><div class="card-row1"><div class="avatar" style="background:${color}22;color:${color}">${sharedEsc(initials(client.name || 'Client'))}</div><div style="flex:1;min-width:0"><div class="client-name">${sharedEsc(client.name)}</div><div class="client-meta"><span>${sharedEsc(client.sector)}</span><span style="color:var(--border)">•</span><span>${sharedEsc(client.contact || 'Not set')}</span></div></div><div class="status-dot ${client.statusClass}"></div></div><div class="client-address">📍 ${sharedEsc(formatFullAddress(client.street, client.city, client.state, client.zip) || 'No HQ address')}</div>${toggleRow}</div>${client.sublocations.length ? `<div class="subloc-list ${isOpen ? 'open' : ''}">${subRows}</div>` : ''}</div>`;
+  }).join('');
+}
+
+function renderFilters() {
+  const tags = ['All', ...new Set([...clients.map((client) => client.sector), ...clients.map((client) => client.accountStatus)].filter(Boolean))];
+  if (!tags.includes(filterTag)) filterTag = 'All';
+  document.getElementById('filter-row').innerHTML = tags.map((tag) => `<button class="chip ${filterTag === tag ? 'active' : ''}" onclick="setFilter(${jsq(tag)})">${sharedEsc(tag)}</button>`).join('');
+}
+
+function renderDetailClient(client) {
+  const siteCount = client.sublocations.length;
+  document.getElementById('detail-popout-body').innerHTML = `
+    <div class="info-panel-content">
+      <div class="info-panel-header">
+        <div>
+          <div class="info-panel-name">${sharedEsc(client.name)}</div>
+          <div class="info-panel-sub">${sharedEsc(client.sector)} · <span style="color:${sharedStatusTone(client.accountStatus)}">● ${sharedEsc(client.accountStatus)}</span></div>
+        </div>
+      </div>
+      <div class="info-panel-fields">
+        <div class="info-field"><label>Contact</label><span>${sharedEsc(client.contact || 'Not set')}</span></div>
+        <div class="info-field"><label>Phone</label><span>${sharedEsc(client.phone || 'Not set')}</span></div>
+        <div class="info-field full"><label>Email</label><span>${sharedEsc(client.email || 'Not set')}</span></div>
+        <div class="info-field full"><label>HQ Address</label><span>${sharedEsc(formatFullAddress(client.street, client.city, client.state, client.zip) || 'No HQ address')}</span></div>
+        <div class="info-field full"><label>Mapped Sites</label><span>${siteCount} site${siteCount === 1 ? '' : 's'}</span></div>
+      </div>
+      <div class="info-panel-actions">
+        <button type="button" class="btn btn-ghost" onclick="copyAddress(${jsq(client.id)})">Copy Addr</button>
+        <button type="button" class="btn btn-ghost" onclick="openAddSublocModal(${jsq(client.id)})">+ Add Site</button>
+        <button type="button" class="btn btn-primary" onclick="openMaps(${jsq(client.id)})">Directions</button>
+        <button type="button" class="btn btn-danger" onclick="deleteClientById(${jsq(client.id)})">Delete Client</button>
+      </div>
+    </div>`;
+  showDetailPopout('Client Details');
+}
+
+function renderDetailSubloc(client, site) {
+  document.getElementById('detail-popout-body').innerHTML = `
+    <div class="info-panel-content">
+      <div class="info-panel-header">
+        <div>
+          <div style="margin-bottom:4px"><span class="subloc-tag">${sharedEsc(getSharedSiteIcon(site.type))} ${sharedEsc(site.type)}</span></div>
+          <div class="info-panel-name">${sharedEsc(site.name)}</div>
+          <div class="info-panel-sub" style="cursor:pointer;color:var(--accent)" onclick="selectClient(${jsq(client.id)})">↑ ${sharedEsc(client.name)}</div>
+        </div>
+      </div>
+      <div class="info-panel-fields">
+        <div class="info-field"><label>Status</label><span>${sharedEsc(site.siteStatus || 'Active')}</span></div>
+        <div class="info-field"><label>Type</label><span>${sharedEsc(site.type)}</span></div>
+        <div class="info-field full"><label>Coordinates</label><span>${sharedEsc(site.gpsCoordinates || formatGpsValue(site.lat, site.lng) || 'Not mapped')}</span></div>
+        <div class="info-field full"><label>Address</label><span>${sharedEsc(site.address || 'No address')}</span></div>
+        <div class="info-field full"><label>Notes</label><span>${sharedEsc(site.desc || 'None')}</span></div>
+      </div>
+      <div class="info-panel-actions">
+        <button type="button" class="btn btn-ghost" onclick="copyCoords(${jsq(client.id)}, ${jsq(site.id)})">Copy Coords</button>
+        <button type="button" class="btn btn-primary" onclick="openSiteMaps(${jsq(client.id)}, ${jsq(site.id)})">Directions</button>
+        <button type="button" class="btn btn-ghost" onclick="openEditSublocModal(${jsq(client.id)}, ${jsq(site.id)})">Edit Site</button>
+        <button type="button" class="btn btn-danger" onclick="deleteSubloc(${jsq(client.id)}, ${jsq(site.id)})">Delete</button>
+      </div>
+    </div>`;
+  showDetailPopout('Site Details');
+}
+
+function selectClient(id, fromMap = false) {
+  if (fromMap && isModalOpen()) return;
+  const client = findClient(id);
+  if (!client) {
+    setEmptySelectionState();
+    return;
+  }
+  activeClientId = client.id;
+  activeSublocId = null;
+  updateModifyButton();
+  document.getElementById('toolbar-content').innerHTML = `<span class="client-title" style="font-family:'DM Serif Display',serif;font-size:1.05rem;">${sharedEsc(client.name)}</span><span class="tag">${sharedEsc(client.sector)}</span><span class="tag">${sharedEsc(client.accountStatus)}</span>`;
+  document.getElementById('map-placeholder').style.display = 'none';
+  if (hasCoords(client.lat, client.lng)) {
+    map.flyTo([client.lat, client.lng], 13, { animate:true, duration:.9 });
+    allMarkers[`c${client.id}`]?.openPopup();
+  }
+  renderDetailClient(client);
+  renderList();
+}
+
+function selectSubloc(clientId, subId, fromMap = false) {
+  if (fromMap && isModalOpen()) return;
+  const client = findClient(clientId);
+  const site = findSubloc(clientId, subId);
+  if (!client || !site) {
+    setEmptySelectionState();
+    return;
+  }
+  activeClientId = client.id;
+  activeSublocId = site.id;
+  expandedIds.add(client.id);
+  updateModifyButton();
+  document.getElementById('toolbar-content').innerHTML = `<div class="breadcrumb"><span class="bc-parent" onclick="selectClient(${jsq(client.id)})">${sharedEsc(client.name)}</span><span class="bc-sep">›</span><span class="bc-child">${sharedEsc(site.name)}</span></div>`;
+  document.getElementById('map-placeholder').style.display = 'none';
+  if (hasCoords(site.lat, site.lng)) {
+    map.flyTo([site.lat, site.lng], 15, { animate:true, duration:.9 });
+    allMarkers[`s${site.id}`]?.openPopup();
+  }
+  renderDetailSubloc(client, site);
+  renderList();
+}
+
+function toggleExpand(id) {
+  const key = String(id);
+  if (expandedIds.has(key)) expandedIds.delete(key);
+  else expandedIds.add(key);
+  renderList();
+}
+
+async function writeClipboard(text, successMessage) {
+  try {
+    await navigator.clipboard.writeText(String(text || ''));
+    alert(successMessage);
+  } catch (error) {
+    console.warn('Clipboard write failed.', error);
+    alert(String(text || ''));
+  }
+}
+
+function copyAddress(id) {
+  const client = findClient(id);
+  if (!client) return;
+  writeClipboard(formatFullAddress(client.street, client.city, client.state, client.zip), 'Address copied!');
+}
+
+function copyCoords(clientId, siteId) {
+  const site = findSubloc(clientId, siteId);
+  if (!site) return;
+  writeClipboard(site.gpsCoordinates || formatGpsValue(site.lat, site.lng), 'Coordinates copied!');
+}
+
+function openMaps(id) {
+  const client = findClient(id);
+  if (!client) return;
+  const destination = formatFullAddress(client.street, client.city, client.state, client.zip) || formatGpsValue(client.lat, client.lng);
+  if (!destination) return;
+  window.open(`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(getHomeBaseAddress())}&destination=${encodeURIComponent(destination)}`, '_blank');
+}
+
+function openSiteMaps(clientId, siteId) {
+  const site = findSubloc(clientId, siteId);
+  if (!site) return;
+  const destination = site.address || site.gpsCoordinates || formatGpsValue(site.lat, site.lng);
+  if (!destination) return;
+  window.open(`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(getHomeBaseAddress())}&destination=${encodeURIComponent(destination)}`, '_blank');
+}
+
+function toRemoteClientPayload(client) {
+  return {
+    client_name: client.clientName,
+    account_status: client.accountStatus,
+    sector: client.sector,
+    primary_contact: client.primaryContact,
+    contact_phone: client.contactPhone,
+    contact_email: client.contactEmail,
+    billing_notes: client.billingNotes,
+    operational_notes: client.operationalNotes,
+    salesforce_account_id: client.salesforceAccountId,
+    default_service_area: client.defaultServiceArea,
+    hq_street: client.hqStreet,
+    hq_city: client.hqCity,
+    hq_state: client.hqState,
+    hq_zip: client.hqZip,
+    hq_latitude: normalizeNumberValue(client.hqLatitude),
+    hq_longitude: normalizeNumberValue(client.hqLongitude)
+  };
+}
+
+function toRemoteSitePayload(site) {
+  return {
+    client_id: site.clientId,
+    site_name: site.siteName,
+    site_type: site.siteType,
+    physical_address: site.physicalAddress,
+    county_state: site.countyState,
+    gps_coordinates: site.gpsCoordinates,
+    access_instructions: site.accessInstructions,
+    safety_ppe_notes: site.safetyPpeNotes,
+    gate_code_entry_requirements: site.gateCodeEntryRequirements,
+    client_site_contact: site.clientSiteContact,
+    site_status: site.siteStatus,
+    standard_job_types: site.standardJobTypes,
+    notes: site.notes
+  };
+}
+
+async function saveSharedClient(record) {
+  const normalized = normalizeSharedClient(record, false);
+  if (isSharedRemoteMode()) {
+    const url = normalized.id ? `/rest/v1/field_clients?id=eq.${encodeURIComponent(normalized.id)}&select=*` : '/rest/v1/field_clients?select=*';
+    const payload = await window.appAuth.requestJson(url, {
+      method: normalized.id ? 'PATCH' : 'POST',
+      headers: { 'Content-Type':'application/json', 'Prefer':'return=representation' },
+      body: JSON.stringify(toRemoteClientPayload(normalized))
+    });
+    const row = Array.isArray(payload) ? payload[0] : payload;
+    return String(row?.id || normalized.id);
+  }
+  const data = readSharedLocalData();
+  const nextRecord = { ...normalized, id: normalized.id || sharedUid('client') };
+  const index = data.clients.findIndex((row) => row.id === nextRecord.id);
+  if (index >= 0) data.clients[index] = nextRecord;
+  else data.clients.push(nextRecord);
+  persistSharedLocalData(data);
+  return nextRecord.id;
+}
+
+async function saveSharedSite(record) {
+  const normalized = normalizeSharedSite(record, false);
+  if (isSharedRemoteMode()) {
+    const url = normalized.id ? `/rest/v1/field_sites?id=eq.${encodeURIComponent(normalized.id)}&select=*` : '/rest/v1/field_sites?select=*';
+    const payload = await window.appAuth.requestJson(url, {
+      method: normalized.id ? 'PATCH' : 'POST',
+      headers: { 'Content-Type':'application/json', 'Prefer':'return=representation' },
+      body: JSON.stringify(toRemoteSitePayload(normalized))
+    });
+    const row = Array.isArray(payload) ? payload[0] : payload;
+    return String(row?.id || normalized.id);
+  }
+  const data = readSharedLocalData();
+  const nextRecord = { ...normalized, id: normalized.id || sharedUid('site') };
+  const index = data.sites.findIndex((row) => row.id === nextRecord.id);
+  if (index >= 0) data.sites[index] = nextRecord;
+  else data.sites.push(nextRecord);
+  persistSharedLocalData(data);
+  return nextRecord.id;
+}
+
+async function deleteSharedClient(clientId) {
+  if (isSharedRemoteMode()) {
+    await window.appAuth.requestJson(`/rest/v1/field_clients?id=eq.${encodeURIComponent(clientId)}`, { method:'DELETE' });
+    return;
+  }
+  const data = readSharedLocalData();
+  data.clients = data.clients.filter((row) => row.id !== String(clientId));
+  data.sites = data.sites.filter((row) => row.clientId !== String(clientId));
+  persistSharedLocalData(data);
+}
+
+async function deleteSharedSite(siteId) {
+  if (isSharedRemoteMode()) {
+    await window.appAuth.requestJson(`/rest/v1/field_sites?id=eq.${encodeURIComponent(siteId)}`, { method:'DELETE' });
+    return;
+  }
+  const data = readSharedLocalData();
+  data.sites = data.sites.filter((row) => row.id !== String(siteId));
+  persistSharedLocalData(data);
+}
+
+function openAddClientModal() {
+  ['f-name', 'f-contact', 'f-email', 'f-phone', 'f-street', 'f-city', 'f-state', 'f-zip', 'f-address-search'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  clearAddressSelection('f-address-search');
+  document.getElementById('f-sector').value = 'Upstream';
+  document.getElementById('f-status').value = 'Active';
+  openModal('modal-add-client');
+}
+
+async function submitAddClient() {
+  const name = document.getElementById('f-name').value.trim();
+  const street = document.getElementById('f-street').value.trim();
+  const city = document.getElementById('f-city').value.trim();
+  const state = document.getElementById('f-state').value.trim().toUpperCase();
+  const zip = document.getElementById('f-zip').value.trim();
+  if (!name || !street || !city) {
+    alert('Name, street, and city are required.');
+    return;
+  }
+  const btn = document.getElementById('btn-add-client');
+  btn.disabled = true;
+  btn.textContent = 'Locating...';
+  try {
+    let coords = getSelectedCoords('f-address-search');
+    if (!coords) coords = await geocode(street, city, state, zip);
+    if (!coords) throw new Error('Unable to geocode that address. Use Address Search and pick one of the suggested addresses.');
+    const clientId = await saveSharedClient({
+      clientName: name,
+      accountStatus: document.getElementById('f-status').value,
+      sector: document.getElementById('f-sector').value,
+      primaryContact: document.getElementById('f-contact').value.trim(),
+      contactEmail: document.getElementById('f-email').value.trim(),
+      contactPhone: document.getElementById('f-phone').value.trim(),
+      billingNotes: '',
+      operationalNotes: '',
+      salesforceAccountId: '',
+      defaultServiceArea: '',
+      hqStreet: street,
+      hqCity: city,
+      hqState: state,
+      hqZip: zip,
+      hqLatitude: coords.lat,
+      hqLongitude: coords.lng
+    });
+    closeModal('modal-add-client');
+    await refreshSharedData({ preserveSelection:false, clientId });
+  } catch (error) {
+    alert(error.message || String(error));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Add Client';
+  }
+}
+
+function openEditClientModal(id) {
+  const client = findSharedClientRecord(id);
+  if (!client) return;
+  document.getElementById('ef-id').value = client.id;
+  document.getElementById('ef-name').value = client.clientName;
+  document.getElementById('ef-contact').value = client.primaryContact;
+  document.getElementById('ef-email').value = client.contactEmail;
+  document.getElementById('ef-phone').value = client.contactPhone;
+  document.getElementById('ef-street').value = client.hqStreet;
+  document.getElementById('ef-city').value = client.hqCity;
+  document.getElementById('ef-state').value = client.hqState;
+  document.getElementById('ef-zip').value = client.hqZip;
+  document.getElementById('ef-sector').value = client.sector;
+  document.getElementById('ef-status').value = client.accountStatus;
+  openModal('modal-edit-client');
+}
+
+async function submitEditClient() {
+  const id = document.getElementById('ef-id').value;
+  const existing = findSharedClientRecord(id);
+  if (!existing) return;
+  const street = document.getElementById('ef-street').value.trim();
+  const city = document.getElementById('ef-city').value.trim();
+  const state = document.getElementById('ef-state').value.trim().toUpperCase();
+  const zip = document.getElementById('ef-zip').value.trim();
+  if (!document.getElementById('ef-name').value.trim() || !street || !city) {
+    alert('Name, street, and city are required.');
+    return;
+  }
+  try {
+    let coords = { lat: existing.hqLatitude, lng: existing.hqLongitude };
+    const addressChanged = street !== existing.hqStreet || city !== existing.hqCity || state !== existing.hqState || zip !== existing.hqZip;
+    if (addressChanged) {
+      const geocoded = await geocode(street, city, state, zip);
+      if (!geocoded) throw new Error('Unable to geocode that HQ address. Please verify it and try again.');
+      coords = geocoded;
+    }
+    await saveSharedClient({
+      ...existing,
+      id,
+      clientName: document.getElementById('ef-name').value.trim(),
+      accountStatus: document.getElementById('ef-status').value,
+      sector: document.getElementById('ef-sector').value,
+      primaryContact: document.getElementById('ef-contact').value.trim(),
+      contactEmail: document.getElementById('ef-email').value.trim(),
+      contactPhone: document.getElementById('ef-phone').value.trim(),
+      hqStreet: street,
+      hqCity: city,
+      hqState: state,
+      hqZip: zip,
+      hqLatitude: coords.lat,
+      hqLongitude: coords.lng
+    });
+    closeModal('modal-edit-client');
+    await refreshSharedData({ preserveSelection:false, clientId:id });
+  } catch (error) {
+    alert(error.message || String(error));
+  }
+}
+
+function deleteClient() {
+  deleteClientById(document.getElementById('ef-id').value);
+}
+
+async function deleteClientById(id) {
+  const clientId = String(id);
+  const blockMessage = getSharedClientDeleteBlockMessage(clientId);
+  if (blockMessage) {
+    alert(blockMessage);
+    return;
+  }
+  const siteCount = getSharedSiteIdsForClient(clientId).length;
+  if (!confirm(`Delete this client${siteCount ? ` and ${siteCount} mapped site${siteCount === 1 ? '' : 's'}` : ''}?`)) return;
+  try {
+    await deleteSharedClient(clientId);
+    closeModal('modal-edit-client');
+    await refreshSharedData({ preserveSelection:false });
+  } catch (error) {
+    alert(error.message || String(error));
+  }
+}
+
+function openAddSublocModal(clientId) {
+  sublocMode = 'add';
+  sublocClientId = String(clientId);
+  sublocEditId = null;
+  ['sl-name', 'sl-desc', 'sl-lat', 'sl-lng', 'sl-street', 'sl-city', 'sl-state', 'sl-zip', 'sl-address-search'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  clearAddressSelection('sl-address-search');
+  document.getElementById('sl-type').value = 'Well Site';
+  document.getElementById('sl-status').value = 'Active';
+  document.getElementById('subloc-modal-title').textContent = 'Add Site';
+  document.getElementById('btn-subloc-submit').textContent = 'Add Site';
+  switchTab('coords');
+  openModal('modal-subloc');
+}
+
+function openEditSublocModal(clientId, subId) {
+  const site = findSharedSiteRecord(subId);
+  if (!site) return;
+  sublocMode = 'edit';
+  sublocClientId = String(clientId);
+  sublocEditId = String(subId);
+  const coords = parseGpsValue(site.gpsCoordinates);
+  const addressParts = splitAddressParts(site.physicalAddress);
+  document.getElementById('sl-name').value = site.siteName;
+  document.getElementById('sl-desc').value = site.notes || '';
+  document.getElementById('sl-type').value = site.siteType;
+  document.getElementById('sl-status').value = site.siteStatus;
+  document.getElementById('sl-lat').value = coords?.lat ?? '';
+  document.getElementById('sl-lng').value = coords?.lng ?? '';
+  document.getElementById('sl-street').value = addressParts.street;
+  document.getElementById('sl-city').value = addressParts.city;
+  document.getElementById('sl-state').value = addressParts.state;
+  document.getElementById('sl-zip').value = addressParts.zip;
+  document.getElementById('sl-address-search').value = site.physicalAddress || '';
+  document.getElementById('subloc-modal-title').textContent = 'Edit Site';
+  document.getElementById('btn-subloc-submit').textContent = 'Save Changes';
+  switchTab(coords ? 'coords' : 'address');
+  openModal('modal-subloc');
+}
+
+async function submitSubloc() {
+  const siteName = document.getElementById('sl-name').value.trim();
+  if (!siteName) {
+    alert('Site name is required.');
+    return;
+  }
+  const existing = sublocMode === 'edit' ? findSharedSiteRecord(sublocEditId) : null;
+  const btn = document.getElementById('btn-subloc-submit');
+  const street = document.getElementById('sl-street').value.trim();
+  const city = document.getElementById('sl-city').value.trim();
+  const state = document.getElementById('sl-state').value.trim().toUpperCase();
+  const zip = document.getElementById('sl-zip').value.trim();
+  let lat = null;
+  let lng = null;
+  let address = formatFullAddress(street, city, state, zip) || existing?.physicalAddress || '';
+  try {
+    if (sublocInputTab === 'coords') {
+      lat = normalizeNumberValue(document.getElementById('sl-lat').value);
+      lng = normalizeNumberValue(document.getElementById('sl-lng').value);
+      if (lat === null || lng === null) throw new Error('Please enter valid latitude and longitude.');
+    } else {
+      if (!street || !city) throw new Error('Street and city are required when adding a site by address.');
+      btn.disabled = true;
+      btn.textContent = 'Locating...';
+      let coords = getSelectedCoords('sl-address-search');
+      if (!coords) coords = await geocode(street, city, state, zip);
+      if (!coords) throw new Error('Unable to geocode that site address. Use Address Search and pick one of the suggested addresses, or use coordinates.');
+      lat = coords.lat;
+      lng = coords.lng;
+    }
+    const siteId = await saveSharedSite({
+      ...(existing || { clientId:String(sublocClientId), accessInstructions:'', safetyPpeNotes:'', gateCodeEntryRequirements:'', clientSiteContact:'', standardJobTypes:'' }),
+      id: existing?.id || '',
+      clientId: String(sublocClientId),
+      siteName,
+      siteType: document.getElementById('sl-type').value,
+      physicalAddress: address,
+      countyState: [city, state].filter(Boolean).join(', '),
+      gpsCoordinates: formatGpsValue(lat, lng),
+      siteStatus: document.getElementById('sl-status').value,
+      notes: document.getElementById('sl-desc').value.trim()
+    });
+    closeModal('modal-subloc');
+    expandedIds.add(String(sublocClientId));
+    await refreshSharedData({ preserveSelection:false, siteId });
+  } catch (error) {
+    alert(error.message || String(error));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = sublocMode === 'add' ? 'Add Site' : 'Save Changes';
+  }
+}
+
+async function deleteSubloc(clientId, subId) {
+  const siteId = String(subId);
+  const blockMessage = getSharedSiteDeleteBlockMessage(siteId);
+  if (blockMessage) {
+    alert(blockMessage);
+    return;
+  }
+  if (!confirm('Remove this site from the shared client directory?')) return;
+  try {
+    await deleteSharedSite(siteId);
+    await refreshSharedData({ preserveSelection:false, clientId:String(clientId) });
+  } catch (error) {
+    alert(error.message || String(error));
+  }
+}
+
+async function resetSharedClientSiteData() {
+  if (!confirm('This will permanently clear shared clients, sites, jobs, job assignments, and samples. Continue?')) return;
+  const confirmation = window.prompt('Type RESET to confirm clearing the shared client/site data.', '');
+  if (confirmation !== 'RESET') {
+    alert('Reset canceled.');
+    return;
+  }
+  const btn = document.getElementById('btn-reset-shared');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Resetting...';
+  }
+  try {
+    if (isSharedRemoteMode()) {
+      for (const table of ['field_job_assignments', 'field_samples', 'field_jobs', 'field_sites', 'field_clients']) {
+        await window.appAuth.requestJson(`/rest/v1/${table}?id=not.is.null`, { method:'DELETE' });
+      }
+    } else {
+      const raw = readSharedLocalPayload();
+      raw.clients = [];
+      raw.sites = [];
+      raw.jobs = [];
+      raw.jobAssignments = [];
+      raw.samples = [];
+      localStorage.setItem(SHARED_FIELD_STORAGE_KEY, JSON.stringify(raw));
+      localStorage.removeItem(LEGACY_SUREMAP_STORAGE_KEY);
+    }
+    closeModal('modal-add-client');
+    closeModal('modal-edit-client');
+    closeModal('modal-subloc');
+    await refreshSharedData({ preserveSelection:false });
+    alert('Shared client/site data has been reset.');
+  } catch (error) {
+    alert(error.message || String(error));
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Reset Shared Data';
+    }
+  }
+}
+
 function tickClock() {
   const now = new Date();
   const clock = document.getElementById('clock');
