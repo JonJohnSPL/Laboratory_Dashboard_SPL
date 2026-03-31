@@ -28,12 +28,14 @@
     activeSiteId: '',
     expandedIds: new Set(),
     map: null,
+    baseLayer: null,
     homeMarker: null,
     markerCache: new Map(),
     booted: false,
     searchTimer: null,
     hideSaveTimer: null,
-    mapResizeTimer: null
+    mapResizeTimer: null,
+    tileErrorNotified: false
   };
 
   const els = {};
@@ -334,13 +336,10 @@
 
   function initMap(){
     state.map = L.map(els.map, { zoomControl:true }).setView([40.44, -79.99], 10);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap',
-      maxZoom: 19
-    }).addTo(state.map);
     state.map.options.closePopupOnClick = false;
     window.addEventListener('resize', scheduleMapResize);
     scheduleMapResize();
+    replaceBasemapLayer();
   }
 
   async function loadData(options = {}){
@@ -358,9 +357,51 @@
     clearTimeout(state.mapResizeTimer);
     state.mapResizeTimer = setTimeout(() => {
       state.map.invalidateSize(false);
-      const attribution = document.querySelector('.leaflet-control-attribution');
-      if(attribution) attribution.textContent = '(c) OpenStreetMap';
     }, 90);
+  }
+
+  function replaceBasemapLayer(){
+    if(!state.map || typeof L === 'undefined' || typeof L.TileLayer === 'undefined') return;
+    state.tileErrorNotified = false;
+    state.map.eachLayer((layer) => {
+      if(layer instanceof L.TileLayer){
+        state.map.removeLayer(layer);
+      }
+    });
+    const basemap = getBasemapConfig();
+    state.baseLayer = L.tileLayer(basemap.url, basemap.options).addTo(state.map);
+    state.baseLayer.on('tileerror', handleBasemapTileError);
+    scheduleMapResize();
+  }
+
+  function getBasemapConfig(){
+    const configured = window.APP_CONFIG?.sureMapTileLayer;
+    if(configured?.url){
+      return {
+        url: configured.url,
+        options: {
+          attribution: configured.attribution || '&copy; OpenStreetMap contributors',
+          maxZoom: configured.maxZoom || 20,
+          subdomains: configured.subdomains || undefined
+        }
+      };
+    }
+    return {
+      url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+      options: {
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+        maxZoom: 20,
+        subdomains: 'abcd'
+      }
+    };
+  }
+
+  function handleBasemapTileError(){
+    if(state.tileErrorNotified) return;
+    state.tileErrorNotified = true;
+    console.warn('SureMap basemap tiles failed to load.');
+    els['map-summary'].textContent = 'Basemap unavailable. Markers are still active.';
+    showSaveStatus('error', 'MAP TILE ERROR');
   }
 
   function handleLoadError(error){
