@@ -30,7 +30,6 @@ let modalDraftTestRows = [];
 let selectedTestRowId = null;
 let modalSampleGroupKeys = [];
 let expandedSampleGroups = new Set();
-let activeActionWO = null;
 let modalPdfAttachment = null;
 let appView = 'queue';
 let scheduleDragIndex = null;
@@ -335,12 +334,14 @@ if(appView === 'pending') return sorted.filter(w => w.stage === WO_STAGE.PENDING
 if(showDone) return sorted.filter(w => w.stage !== WO_STAGE.PENDING);
 return sorted.filter(w => w.stage === WO_STAGE.RUNNING);
 }
-function updateActionsMoveButton(id){ const btn = document.getElementById('actions-move-btn');
- if(!btn) return;
- const w = id ? WOs.find(x => x.id === id) : null;
- if(!w || w.stage === WO_STAGE.DONE){ btn.style.display = 'none'; return; }
- btn.style.display = 'inline-block';
- btn.textContent = w.stage === WO_STAGE.PENDING ? 'Move to Running Queue' : 'Move to Results Pending';
+function syncWorkOrderModalActions(id){ const w = id ? WOs.find(x => x.id === id) : null;
+const doneBtn = document.getElementById('modal-done-btn');
+const moveBtn = document.getElementById('modal-move-btn');
+if(doneBtn){ doneBtn.textContent = w?.stage === WO_STAGE.DONE ? 'Reopen' : 'Done'; doneBtn.classList.toggle('done-active', w?.stage === WO_STAGE.DONE); }
+if(!moveBtn) return;
+if(!w || w.stage === WO_STAGE.DONE){ moveBtn.style.display = 'none'; return; }
+moveBtn.style.display = 'inline-flex';
+moveBtn.textContent = w.stage === WO_STAGE.PENDING ? 'Move to Running Queue' : 'Move to Results Pending';
 }
 function moveWorkOrderStage(id, nextStage){ const w = WOs.find(x => x.id === id);
 if(!w) return;
@@ -350,13 +351,12 @@ normalizeScheduleState();
 render();
 scheduleSave();
 }
-function moveWorkOrderStageFromActions(){ if(!activeActionWO) return;
- const id = activeActionWO;
- const w = WOs.find(x => x.id === id);
- if(!w || w.stage === WO_STAGE.DONE) return;
- const nextStage = w.stage === WO_STAGE.PENDING ? WO_STAGE.RUNNING : WO_STAGE.PENDING;
- closeActionsModal();
- moveWorkOrderStage(id, nextStage);
+function moveWorkOrderStageFromModal(){ if(!editId) return;
+const w = WOs.find(x => x.id === editId);
+if(!w || w.stage === WO_STAGE.DONE) return;
+const nextStage = w.stage === WO_STAGE.PENDING ? WO_STAGE.RUNNING : WO_STAGE.PENDING;
+moveWorkOrderStage(editId, nextStage);
+syncWorkOrderModalActions(editId);
 }
 function buildReportData(scope = '__master__'){ const rows = getScheduleRows().map(row => ({ ...row, matrixType:row.matrixType || getPrimaryMatrixGroup(row.wo) }));
 const isMaster = !scope || scope === '__master__';
@@ -657,7 +657,7 @@ const counts = getWOCounts(w);
 const priBadge=(pri==='CRITICAL'||pri==='HIGH'||pri==='MEDIUM'||pri==='LOW') ?`<div class="pri-badge pb-${pri}">${pri==='CRITICAL'?'&#128680;':pri==='HIGH'?'&#128293;':pri==='MEDIUM'?'&#9888;&#65039;':'&#128998;'} ${pri}</div>`: `<span style="color:var(--muted);font-size:11px"></span>`;
 const testCell=(v,cls='')=>v?`<span class="tc ${cls}">${v}</span>`:`<span class="tc empty"></span>`;
  const testCells = getTestDefinitions().map(def => { const cls = def.matrixType === 'Calculated' ? 'calc' : def.tone === 'gc' ? 'gc' : def.tone === 'liq' ? 'liq' : ''; return `<td class="num col-${def.key}">${testCell(counts[def.key], cls)}</td>`; }).join('');
- const dueFmt=fmtDate(w.dueDate)||'<span style="color:var(--muted)">Not set</span>'; html+=` <tr class="p-${pri}${w.stage===WO_STAGE.DONE?' complete-row':''} wo-clickable-row" data-id="${w.id}" onclick="openActionsModal('${w.id}')" title="Click for actions"> <td class="col-number"><div class="wo-num">${safeNum}</div>${safeNotes?`<div class="wo-sub">${safeNotes}</div>`:''}${sampleCount?`<div class="wo-sub">${sampleCount} sample(s)</div>`:''}</td> <td class="col-priority">${priBadge}</td> <td class="col-client" style="font-family:var(--sans);font-size:14px">${safeClient||'<span style="color:var(--muted)"></span>'}</td> <td class="col-assignedTo" style="font-family:var(--mono);font-size:12px">${safeAssignedTo}</td> ${testCells} <td class="col-estTime"><div class="est-time">${fmtMOrZero(mins)}${mins?`<div class="est-mins">${mins} min</div>`:''}</div></td> <td class="col-dueDate"><div style="font-family:var(--mono);font-size:12px">${dueFmt}</div></td> <td class="col-status"><span class="sb ${st.cls}">${st.label}</span>${st.dl?`<span class="overdue-info">${st.dl}</span>`:''}</td> </tr>`; } } document.getElementById(tbodyId).innerHTML=html; applyColumnVisibility(); const stamp = `Updated ${new Date().toLocaleTimeString()}`; document.getElementById('last-update').textContent=stamp; const pendingStamp = document.getElementById('pending-last-update'); if(pendingStamp) pendingStamp.textContent=stamp; updateStats(); renderSchedule(); }
+ const dueFmt=fmtDate(w.dueDate)||'<span style="color:var(--muted)">Not set</span>'; html+=` <tr class="p-${pri}${w.stage===WO_STAGE.DONE?' complete-row':''} wo-clickable-row" data-id="${w.id}" onclick="openModal('${w.id}')" title="Click for work order details"> <td class="col-number"><div class="wo-num">${safeNum}</div>${safeNotes?`<div class="wo-sub">${safeNotes}</div>`:''}${sampleCount?`<div class="wo-sub">${sampleCount} sample(s)</div>`:''}</td> <td class="col-priority">${priBadge}</td> <td class="col-client" style="font-family:var(--sans);font-size:14px">${safeClient||'<span style="color:var(--muted)"></span>'}</td> <td class="col-assignedTo" style="font-family:var(--mono);font-size:12px">${safeAssignedTo}</td> ${testCells} <td class="col-estTime"><div class="est-time">${fmtMOrZero(mins)}${mins?`<div class="est-mins">${mins} min</div>`:''}</div></td> <td class="col-dueDate"><div style="font-family:var(--mono);font-size:12px">${dueFmt}</div></td> <td class="col-status"><span class="sb ${st.cls}">${st.label}</span>${st.dl?`<span class="overdue-info">${st.dl}</span>`:''}</td> </tr>`; } } document.getElementById(tbodyId).innerHTML=html; applyColumnVisibility(); const stamp = `Updated ${new Date().toLocaleTimeString()}`; document.getElementById('last-update').textContent=stamp; const pendingStamp = document.getElementById('pending-last-update'); if(pendingStamp) pendingStamp.textContent=stamp; updateStats(); renderSchedule(); }
 function renderPdfAttachmentInfo(){ const meta = document.getElementById('f-pdf-meta');
 if(!meta) return;
 if(modalPdfAttachment && modalPdfAttachment.name){ const sizeLabel = modalPdfAttachment.size ? ` (${Math.round(modalPdfAttachment.size/1024)} KB)` : ''; meta.innerHTML = `Attached: ${esc(modalPdfAttachment.name)}${sizeLabel} <button type="button" class="act-btn" style="margin-left:8px;padding:2px 6px;" onclick="openCurrentPdfAttachment()">Open</button> <button type="button" class="act-btn" style="margin-left:6px;padding:2px 6px;" onclick="clearCurrentPdfAttachment()">Remove</button>`; } else { meta.textContent = 'No PDF attached'; } }
@@ -694,10 +694,20 @@ if(pendingCount){ document.getElementById('p-wo').textContent=pending.length; do
 function toggleDone(id){ const w=WOs.find(x=>x.id===id);
 if(w){ w.stage = w.stage === WO_STAGE.DONE ? WO_STAGE.RUNNING : WO_STAGE.DONE; w.complete = w.stage === WO_STAGE.DONE; normalizeScheduleState(); render(); } }
 function openModal(id){ editId=id;
-const isNew=id===null; document.getElementById('modal-title').textContent=isNew?'Add Work Order':'Edit Work Order'; document.getElementById('btn-del').style.display=isNew?'none':'inline-block';
-const clients=[...new Set(WOs.map(w=>w.client).filter(Boolean))]; document.getElementById('client-dl').innerHTML=clients.map(c=>`<option value="${esc(c)}">`).join('');
- if(isNew){ document.getElementById('f-num').value=''; document.getElementById('f-client').value=''; document.getElementById('f-loc').value='Pittsburgh'; document.getElementById('f-due').value=''; document.getElementById('f-notes').value=''; modalPdfAttachment = null; document.getElementById('f-pdf').value=''; renderPdfAttachmentInfo(); modalDraftTestRows = []; selectedTestRowId = null; modalSampleGroupKeys = []; expandedSampleGroups = new Set(); resetDraftTestForm(); renderDraftTests(); selPriVal('NONE'); } else { const w=WOs.find(x=>x.id===id);
-if(!w)return; document.getElementById('f-num').value=w.number; document.getElementById('f-client').value=w.client||''; document.getElementById('f-loc').value=w.location||''; document.getElementById('f-due').value=toInputDate(w.dueDate)||''; modalPdfAttachment = w.pdfAttachment || null; document.getElementById('f-pdf').value=''; renderPdfAttachmentInfo(); modalDraftTestRows = getDraftRowsFromWO(w); selectedTestRowId = null; modalSampleGroupKeys = []; expandedSampleGroups = new Set(); resetDraftTestForm(); renderDraftTests(); document.getElementById('f-notes').value=w.notes||''; selPriVal(w.priority||'NONE'); } document.getElementById('modal-overlay').classList.add('open'); }
+const w = WOs.find(x=>x.id===id);
+if(!w)return;
+document.getElementById('modal-title').textContent=`WO ${w.number || 'Details'}`;
+document.getElementById('btn-del').style.display='inline-block';
+document.getElementById('f-num').textContent=w.number || 'Not available';
+document.getElementById('f-client').textContent=w.client || 'Unassigned client';
+document.getElementById('f-due').textContent=fmtDate(w.dueDate) || 'Not set';
+document.getElementById('f-notes').value=w.notes||'';
+modalPdfAttachment = w.pdfAttachment || null;
+document.getElementById('f-pdf').value='';
+renderPdfAttachmentInfo();
+selPriVal(w.priority||'NONE');
+syncWorkOrderModalActions(id);
+document.getElementById('modal-overlay').classList.add('open'); }
 function closeModal(){document.getElementById('modal-overlay').classList.remove('open');editId=null;modalPdfAttachment=null;
 const input = document.getElementById('f-pdf');
 if(input) input.value='';}
@@ -714,21 +724,15 @@ const samples = Array.isArray(w.samples) ? w.samples : [];
 const testRows = Array.isArray(w.testRows) ? w.testRows.length : getWOTestTotal(w); document.getElementById('samples-title').textContent = `Sample Details WO ${w.number}`; document.getElementById('samples-summary').textContent = `${samples.length} sample(s) ${testRows} test row(s)`;
 if(!samples.length){ document.getElementById('samples-tbody').innerHTML = '<tr><td colspan="9" style="color:var(--muted)">No sample-level data available for this work order.</td></tr>'; } else { document.getElementById('samples-tbody').innerHTML = samples.map(s=>{ const rawCodes = Array.isArray(s.testCodes) ? s.testCodes : []; const unmappedCodes = rawCodes.filter(code => code && !normalizeTestCode(code)); const testsLabel = rawCodes.length ? rawCodes.join(', ') : ''; const testsDisplay = unmappedCodes.length ? `${testsLabel}${testsLabel ? ' | ' : ''}UNMAPPED: ${unmappedCodes.join(', ')}` : (testsLabel || 'No test codes'); return ` <tr> <td>${esc(s.sampleId)}</td> <td>${esc(testsDisplay)}</td> <td>${esc(s.matrix || '')}</td> <td>${esc(normalizeHydrocarbonCode(s.hydrocarbon) || '')}</td> <td>${esc(s.containerType || '')}</td> <td>${esc(s.cylinderNumber || '')}</td> <td>${esc(s.received || '')}</td> <td>${esc(s.logDate || '')}</td> <td>${esc(s.dueDate || '')}</td> </tr> `; }).join(''); } document.getElementById('samples-overlay').classList.add('open'); }
 function closeSamplesModal(){ document.getElementById('samples-overlay').classList.remove('open'); }
-function openActionsModal(id){ const w = WOs.find(x=>x.id===id);
-if(!w) return; activeActionWO = id; document.getElementById('actions-title').textContent = `WO ${w.number} Actions`; document.getElementById('actions-summary').textContent = `${w.client || 'Unassigned client'} Priority ${w.priority || 'NONE'}`; document.getElementById('actions-done-btn').textContent = w.stage === WO_STAGE.DONE ? 'Reopen' : 'Done'; document.getElementById('actions-done-btn').classList.toggle('done-active', w.stage === WO_STAGE.DONE); updateActionsMoveButton(id);
-const pdfBtn = document.getElementById('actions-pdf-btn');
-if(pdfBtn) pdfBtn.style.display = (w.pdfAttachment && w.pdfAttachment.dataUrl) ? '' : 'none'; document.getElementById('actions-overlay').classList.add('open'); }
-function closeActionsModal(){ document.getElementById('actions-overlay').classList.remove('open'); activeActionWO = null; }
-function toggleDoneFromActions(){ if(!activeActionWO) return;
-const id = activeActionWO; closeActionsModal(); toggleDone(id); }
-function openSamplesFromActions(){ if(!activeActionWO) return;
-const id = activeActionWO; closeActionsModal(); openSamplesModal(id); }
-function openPdfFromActions(){ if(!activeActionWO) return;
-const w = WOs.find(x=>x.id===activeActionWO);
-if(!w || !w.pdfAttachment || !w.pdfAttachment.dataUrl){ alert('No PDF attached to this work order.'); return; } openPdfAttachment(w.pdfAttachment); }
-function openEditFromActions(){ if(!activeActionWO) return;
-const id = activeActionWO; closeActionsModal(); openModal(id); }
-function resetDraftTestForm(){ document.getElementById('f-test-type').value=getDefaultTestKey(); document.getElementById('f-test-code').value=''; document.getElementById('f-test-sample').value=''; document.getElementById('f-test-cylinder').value=''; document.getElementById('f-test-matrix').value=''; document.getElementById('f-test-hydrocarbon').value=''; document.getElementById('f-test-container').value=''; document.getElementById('f-test-received').value=''; document.getElementById('f-test-log-date').value=''; }
+function toggleDoneFromModal(){ if(!editId) return;
+toggleDone(editId);
+syncWorkOrderModalActions(editId); }
+function openSamplesFromModal(){ if(!editId) return;
+const id = editId;
+closeModal();
+openSamplesModal(id); }
+function resetDraftTestForm(){ const defaults = { 'f-test-type':getDefaultTestKey(), 'f-test-code':'', 'f-test-sample':'', 'f-test-cylinder':'', 'f-test-matrix':'', 'f-test-hydrocarbon':'', 'f-test-container':'', 'f-test-received':'', 'f-test-log-date':'' };
+Object.entries(defaults).forEach(([id, value]) => { const el = document.getElementById(id); if(el) el.value = value; }); }
 function showImportOnlyTestRowsAlert(){ alert('Sample and test rows are import-only. Re-import the CSV to change sample/test detail, or update Test Types separately.'); }
 function getDraftTestRowFromForm(){ showImportOnlyTestRowsAlert(); return null; }
 function upsertDraftTestRow(){ showImportOnlyTestRowsAlert(); }
@@ -758,6 +762,7 @@ Object.assign(counts, calculateCountsFromRows(normalizedRows).counts);
 return {counts, samples:[...sampleMap.values()], testRows:normalizedRows};
 }
 function renderDraftTests(){ const container = document.getElementById('test-draft-list');
+if(!container) return;
 if(!modalDraftTestRows.length){ container.innerHTML = '<div style="margin-top:6px;">No imported sample/test rows attached to this work order yet.</div>'; return; } const sampleCount = new Set(modalDraftTestRows.map(r=>r.sampleId || 'UNASSIGNED')).size;
 const header = `<div style="margin-bottom:6px;">${sampleCount} sample(s) ${modalDraftTestRows.length} imported test row(s)</div>`;
 const grouped = new Map();
@@ -785,16 +790,15 @@ function resetTestCatalogForm(id = null){ const target = id ? getTestDefinitions
 function applyTestCatalogMatrixDefaults(forceZero = true){ const matrixSelect = document.getElementById('tc-matrix-type'); const minutesInput = document.getElementById('tc-minutes'); if(!matrixSelect || !minutesInput) return; if(matrixSelect.value === 'Calculated'){ minutesInput.value = '0'; } else if(forceZero && minutesInput.value === '' && matrixSelect.value){ minutesInput.value = '15'; } }
 function editTestCatalogEntry(id){ resetTestCatalogForm(id); }
 function saveTestCatalogEntry(){ const keyInput = document.getElementById('tc-key').value.trim(); if(!keyInput){ alert('Test code is required.'); return; } const key = normalizeCatalogKey(keyInput); const label = document.getElementById('tc-label').value.trim() || key; const shortLabel = document.getElementById('tc-short-label').value.trim() || label; const matrixType = inferMatrixType({ matrixType:document.getElementById('tc-matrix-type').value, key, label }); const minutes = normalizeMinutesForMatrixType(matrixType, document.getElementById('tc-minutes').value); const countMode = document.getElementById('tc-count-mode').value === 'perRow' ? 'perRow' : 'perSample'; const groupKey = normalizeCatalogKey(document.getElementById('tc-group-key').value.trim()); const groupRank = Math.max(0, Number(document.getElementById('tc-group-rank').value || 0)); const aliasValues = uniqueList(String(document.getElementById('tc-aliases').value || '').split(',').map(value => value.trim())); const defs = [...getTestDefinitions()]; const existingIndex = defs.findIndex(def => def.id === editingTestDefinitionId); const duplicate = defs.find((def, index) => def.key === key && index !== existingIndex); if(duplicate){ alert(`A test type named ${key} already exists.`); return; } const previous = existingIndex >= 0 ? defs[existingIndex] : null; const aliases = previous && previous.key !== key ? uniqueList([previous.key, ...previous.aliases, ...aliasValues]) : aliasValues; const nextDef = normalizeTestDefinition({ id:previous?.id || key, key, label, shortLabel, minutes, countMode, matrixType, groupKey, groupRank, aliases, sortOrder:previous?.sortOrder ?? defs.length }); if(existingIndex >= 0) defs[existingIndex] = nextDef; else defs.push(nextDef); setTestDefinitions(defs); renderDynamicTestUI(); renderDraftTests(); render(); renderSchedule(); resetTestCatalogForm(nextDef.id); scheduleSave(); }
-function saveWO(){ const num=document.getElementById('f-num').value.trim();
-if(!num){alert('Work Order number is required.');
-return false;} const derived = deriveCountsAndSamplesFromRows(modalDraftTestRows);
-const vals={ number:num, client:document.getElementById('f-client').value.trim(), location:document.getElementById('f-loc').value.trim(), dueDate:document.getElementById('f-due').value||null, testCounts:derived.counts, gas:derived.counts['C6GAS'] || 0, liq:(derived.counts['C6LIQ'] || 0) + (derived.counts['C10LIQ'] || 0), gc:(derived.counts['GC-BFVC7MZ'] || 0) + (derived.counts['GC-BFVC10MZ'] || 0), samples:derived.samples, testRows:derived.testRows, notes:document.getElementById('f-notes').value.trim(), pdfAttachment:modalPdfAttachment ? {name:modalPdfAttachment.name || '', type:'application/pdf', size:Number(modalPdfAttachment.size || 0), dataUrl:modalPdfAttachment.dataUrl || ''} : null, priority:document.querySelector('#pri-grid .pri-opt.sel')?.dataset.p||'NONE', };
-if(editId===null){ WOs.push(normalizeWorkOrder({id:uid(),stage:WO_STAGE.RUNNING,complete:false,...vals})); } else { const w=WOs.find(x=>x.id===editId);
-if(w)Object.assign(w,vals); } closeModal();render();
+function saveWO(){ if(!editId) return false;
+const w=WOs.find(x=>x.id===editId);
+if(!w) return false;
+Object.assign(w,{ notes:document.getElementById('f-notes').value.trim(), pdfAttachment:modalPdfAttachment ? {name:modalPdfAttachment.name || '', type:'application/pdf', size:Number(modalPdfAttachment.size || 0), dataUrl:modalPdfAttachment.dataUrl || ''} : null, priority:document.querySelector('#pri-grid .pri-opt.sel')?.dataset.p||'NONE', });
+closeModal();render();
 return true; }
 function deleteWO(){/* overridden by storage wrapper below */}
 function selPri(el){ document.querySelectorAll('#pri-grid .pri-opt').forEach(e=>e.classList.remove('sel')); el.classList.add('sel'); }
-function selPriVal(v){ document.querySelectorAll('#pri-grid .pri-opt').forEach(e=>e.classList.toggle('sel',e.dataset.p===v)); } document.getElementById('modal-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('modal-overlay'))closeModal(); }); document.getElementById('samples-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('samples-overlay'))closeSamplesModal(); }); document.getElementById('actions-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('actions-overlay'))closeActionsModal(); }); document.getElementById('test-select-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('test-select-overlay'))closeTestSelectorModal(); }); document.getElementById('test-edit-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('test-edit-overlay'))closeTestEditModal();
+function selPriVal(v){ document.querySelectorAll('#pri-grid .pri-opt').forEach(e=>e.classList.toggle('sel',e.dataset.p===v)); } document.getElementById('modal-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('modal-overlay'))closeModal(); }); document.getElementById('samples-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('samples-overlay'))closeSamplesModal(); }); document.getElementById('test-select-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('test-select-overlay'))closeTestSelectorModal(); }); document.getElementById('test-edit-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('test-edit-overlay'))closeTestEditModal();
 }); document.getElementById('test-catalog-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('test-catalog-overlay'))closeTestCatalogModal();
 });
 document.getElementById('employee-input').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); addEmployee(); }
@@ -818,7 +822,7 @@ function getStorageAdapter() { return ( window.storage && typeof window.storage.
 function showSaveStatus(state, msg) { const el = document.getElementById('save-indicator'); el.style.visibility = 'visible'; el.className = 'save-indicator ' + state; el.textContent = msg; }
 function hideSaveStatusSoon(delay = 3000) { setTimeout(() => { const el = document.getElementById('save-indicator'); if(el) el.style.visibility = 'hidden'; }, delay); }
 function isRemoteStorageMode(){ return !!(window.appAuth && typeof window.appAuth.getMode === 'function' && window.appAuth.getMode() === 'remote'); }
-function isInteractionOverlayOpen(){ return ['modal-overlay','samples-overlay','actions-overlay','test-select-overlay','test-edit-overlay','test-catalog-overlay'].some(id => document.getElementById(id)?.classList.contains('open')); }
+function isInteractionOverlayOpen(){ return ['modal-overlay','samples-overlay','test-select-overlay','test-edit-overlay','test-catalog-overlay'].some(id => document.getElementById(id)?.classList.contains('open')); }
 function rememberLoadedState(woRaw, scheduleRaw, testDefinitionsRaw){ lastLoadedWorkOrdersRaw = typeof woRaw === 'string' ? woRaw : ''; lastLoadedScheduleRaw = typeof scheduleRaw === 'string' ? scheduleRaw : ''; lastLoadedTestDefinitionsRaw = typeof testDefinitionsRaw === 'string' ? testDefinitionsRaw : ''; }
 async function saveData() { const storageAdapter = getStorageAdapter(); clearTimeout(saveTimer); saveTimer = null; showSaveStatus('saving', 'SAVING...'); try { normalizeScheduleState(); const woRaw = JSON.stringify(WOs); const scheduleRaw = JSON.stringify(scheduleState); const testDefinitionsRaw = JSON.stringify(getTestDefinitions()); await Promise.all([ storageAdapter.set(STORAGE_KEY, woRaw), storageAdapter.set(SCHEDULE_STORAGE_KEY, scheduleRaw), storageAdapter.set(TEST_DEFINITION_STORAGE_KEY, testDefinitionsRaw) ]); rememberLoadedState(woRaw, scheduleRaw, testDefinitionsRaw); showSaveStatus('saved', 'SAVED'); hideSaveStatusSoon(); } catch (e) { showSaveStatus('error', 'SAVE FAILED'); console.error('Storage save error:', e); } }
 function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(saveData, 600); }

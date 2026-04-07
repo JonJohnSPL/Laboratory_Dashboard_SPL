@@ -108,9 +108,6 @@
 </div>
 </div>
 </div>
-<div style="margin-left:auto">
-<button class="add-wo-btn" onclick="openModal(null)">+ Add Work Order</button>
-</div>
 </div>
 <!-- TABLE -->
 <div class="table-container">
@@ -358,101 +355,48 @@
 </div>
 </div>
 </div>
-<!-- ACTIONS MODAL -->
-<div class="modal-overlay" id="actions-overlay">
-<div class="modal" style="width:420px;max-width:95vw;">
-<div class="modal-header">
-<h3 id="actions-title">Work Order Actions</h3>
-<button class="modal-close" onclick="closeActionsModal()">X</button>
-</div>
-<div class="modal-body">
-<div id="actions-summary" class="form-label" style="font-size:11px;">
-</div>
-<div class="action-btns" style="margin-top:12px;flex-wrap:wrap;">
-<button class="act-btn done-btn" id="actions-done-btn" onclick="toggleDoneFromActions()">Done</button>
-<button class="act-btn" onclick="openSamplesFromActions()">Samples</button>
-<button class="act-btn" id="actions-pdf-btn" onclick="openPdfFromActions()">Open PDF</button>
-<button class="act-btn" id="actions-move-btn" onclick="moveWorkOrderStageFromActions()">Move to Results Pending</button>
-<button class="act-btn" onclick="openEditFromActions()">Edit</button>
-</div>
-</div>
-<div class="modal-footer">
-<button class="btn-cancel" onclick="closeActionsModal()">Close</button>
-</div>
-</div>
-</div>
 <footer id="test-estimates-footer">TIME ESTIMATES:</footer>
 <!-- MODAL -->
 <div class="modal-overlay" id="modal-overlay">
 <div class="modal">
 <div class="modal-header">
-<h3 id="modal-title">Edit Work Order</h3>
+<h3 id="modal-title">Work Order Details</h3>
 <button class="modal-close" onclick="closeModal()">X</button>
 </div>
 <div class="modal-body">
 <div class="form-grid">
-<div class="form-group">
+<div class="form-group full">
+<label class="form-label">Actions</label>
+<div class="modal-action-row">
+<button type="button" class="act-btn done-btn" id="modal-done-btn" onclick="toggleDoneFromModal()">Done</button>
+<button type="button" class="act-btn" onclick="openSamplesFromModal()">Samples</button>
+<button type="button" class="act-btn" id="modal-move-btn" onclick="moveWorkOrderStageFromModal()">Move to Results Pending</button>
+</div>
+</div>
+<div class="form-group full">
+<div class="modal-summary-grid">
+<div>
 <label class="form-label">Work Order #</label>
-<input class="form-input" id="f-num" type="text" placeholder="e.g. 26021234">
+<div class="form-value" id="f-num"></div>
 </div>
-<div class="form-group">
+<div>
 <label class="form-label">Client Name</label>
-<input class="form-input" id="f-client" type="text" placeholder="e.g. Vistra Energy" list="client-dl">
-<datalist id="client-dl">
-</datalist>
+<div class="form-value" id="f-client"></div>
 </div>
-<div class="form-group">
-<label class="form-label">Location</label>
-<input class="form-input" id="f-loc" type="text" placeholder="e.g. Pittsburgh">
-</div>
-<div class="form-group">
+<div>
 <label class="form-label">Due Date</label>
-<input class="form-input" id="f-due" type="date">
+<div class="form-value" id="f-due"></div>
 </div>
-<div class="form-group">
+</div>
+</div>
+<div class="form-group full">
 <label class="form-label">Notes</label>
-<input class="form-input" id="f-notes" type="text" placeholder="Optional notes...">
+<textarea class="form-input form-notes" id="f-notes" placeholder="Optional notes..."></textarea>
 </div>
 <div class="form-group">
 <label class="form-label">PDF Attachment</label>
 <input class="form-input" id="f-pdf" type="file" accept="application/pdf" onchange="onPdfSelected(event)">
 <div id="f-pdf-meta" class="form-label" style="margin-top:6px;letter-spacing:1px;text-transform:none;">
-</div>
-</div>
-<div class="form-group full">
-<label class="form-label">Imported Sample / Test Rows</label>
-<div class="form-label" style="font-size:11px;margin-bottom:8px;text-transform:none;letter-spacing:1px;">
-Sample and test detail is now import-only. Test Type is the canonical mapped test, and Test Code is the raw imported code.
-</div>
-<div style="display:none;">
-<select class="form-input" id="f-test-type">
-</select>
-<input class="form-input" id="f-test-code" type="text" placeholder="Test Code (e.g. GC-BFVC10MZ)">
-<input class="form-input" id="f-test-sample" type="text" placeholder="Sample # (e.g. 006A)">
-<input class="form-input" id="f-test-cylinder" type="text" placeholder="Cylinder #">
-<input class="form-input" id="f-test-matrix" type="text" placeholder="Matrix">
-<select class="form-input" id="f-test-hydrocarbon">
-<option value="">Hydrocarbon (liquids only)</option>
-<option value="C1">C1</option>
-<option value="C2">C2</option>
-<option value="C3">C3</option>
-<option value="C4">C4</option>
-<option value="C5">C5</option>
-<option value="C6">C6</option>
-<option value="C7">C7</option>
-<option value="C8">C8</option>
-<option value="C9">C9</option>
-<option value="C10">C10</option>
-<option value="UNKNOWN">Unknown</option>
-</select>
-<input class="form-input" id="f-test-container" type="text" placeholder="Container Type">
-<input class="form-input" id="f-test-received" type="text" placeholder="Received (optional)">
-<input class="form-input" id="f-test-log-date" type="text" placeholder="Log Date (optional)">
-</div>
-<div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
-<button type="button" class="sec-btn" onclick="window.location.href='test-types.html'" style="padding:8px 14px;">Open Test Types</button>
-</div>
-<div id="test-draft-list" style="margin-top:10px;font-family:var(--mono);font-size:12px;color:var(--muted);">
 </div>
 </div>
 <div class="form-group full">
