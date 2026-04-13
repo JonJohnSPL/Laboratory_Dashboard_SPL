@@ -1,11 +1,16 @@
 const STORAGE_KEY = 'field-ops-dashboard-data';
 const AUTO_REFRESH_MS = 15000;
-const ENTITY_ORDER = ['clients', 'sites', 'jobs', 'jobAssignments', 'technicians', 'trucks', 'trailers', 'equipment', 'samples', 'maintenanceRecords'];
+const ENTITY_ORDER = ['clients', 'projects', 'contacts', 'billingProfiles', 'sites', 'jobs', 'jobAssignments', 'technicians', 'trucks', 'trailers', 'equipment', 'samples', 'maintenanceRecords'];
 const FIELD_ASSET_BUCKET = 'field-assets';
-const ASSET_PHOTO_ENTITY_KEYS = ['trucks', 'trailers', 'equipment'];
+const ASSET_PHOTO_ENTITY_KEYS = ['clients', 'trucks', 'trailers', 'equipment'];
+const FIELD_OPS_STANDALONE_MODE = String(window.FIELD_OPS_STANDALONE_MODE || '').toLowerCase();
+const IS_CLIENTS_STANDALONE = FIELD_OPS_STANDALONE_MODE === 'clients';
 
 const ACCOUNT_STATUS_OPTIONS = ['Active', 'Pending', 'On Hold', 'Inactive'];
 const CLIENT_SECTOR_OPTIONS = ['Upstream', 'Midstream', 'Downstream', 'Other'];
+const SERVICE_SCOPE_OPTIONS = ['Field', 'Lab', 'Both'];
+const PROJECT_STATUS_OPTIONS = ['Planning', 'Active', 'On Hold', 'Complete', 'Inactive'];
+const CONTACT_SCOPE_OPTIONS = ['Operations', 'Billing', 'Site', 'Field', 'Lab'];
 const SITE_TYPE_OPTIONS = ['Well Site', 'Meter Station', 'Field Site', 'Well Pad', 'LACT Unit', 'Facility', 'Pipeline Location', 'Office / Yard', 'Other'];
 const SITE_STATUS_OPTIONS = ['Active', 'Restricted', 'Inactive'];
 const JOB_TYPE_OPTIONS = ['Allocation Proving', 'LACT Proving', 'Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service'];
@@ -41,32 +46,36 @@ const REQUIRED_ASSIGNMENTS_BY_JOB_TYPE = {
 };
 
 const ENTITY_CONFIG = {
-  clients:{ table:'field_clients', label:'Client', idPrefix:'client', defaults:{ clientName:'', accountStatus:'Active', sector:'Upstream', primaryContact:'', contactPhone:'', contactEmail:'', billingNotes:'', operationalNotes:'', salesforceAccountId:'', defaultServiceArea:'', hqStreet:'', hqCity:'', hqState:'', hqZip:'', hqLatitude:null, hqLongitude:null }, fieldMap:{ clientName:'client_name', accountStatus:'account_status', sector:'sector', primaryContact:'primary_contact', contactPhone:'contact_phone', contactEmail:'contact_email', billingNotes:'billing_notes', operationalNotes:'operational_notes', salesforceAccountId:'salesforce_account_id', defaultServiceArea:'default_service_area', hqStreet:'hq_street', hqCity:'hq_city', hqState:'hq_state', hqZip:'hq_zip', hqLatitude:'hq_latitude', hqLongitude:'hq_longitude' }, numberFields:['hqLatitude', 'hqLongitude'] },
-  sites:{ table:'field_sites', label:'Site', idPrefix:'site', defaults:{ clientId:'', siteName:'', siteType:'Other', physicalAddress:'', countyState:'', gpsCoordinates:'', accessInstructions:'', safetyPpeNotes:'', gateCodeEntryRequirements:'', clientSiteContact:'', siteStatus:'Active', standardJobTypes:'', notes:'' }, fieldMap:{ clientId:'client_id', siteName:'site_name', siteType:'site_type', physicalAddress:'physical_address', countyState:'county_state', gpsCoordinates:'gps_coordinates', accessInstructions:'access_instructions', safetyPpeNotes:'safety_ppe_notes', gateCodeEntryRequirements:'gate_code_entry_requirements', clientSiteContact:'client_site_contact', siteStatus:'site_status', standardJobTypes:'standard_job_types', notes:'notes' } },
-  jobs:{ table:'field_jobs', label:'Job', idPrefix:'job', defaults:{ fieldfxTicketId:'', clientId:'', siteId:'', jobType:'', jobStatus:'New', priority:'Normal', requestedDate:'', scheduledStart:'', scheduledEnd:'', actualStart:'', actualEnd:'', durationPlanned:null, durationActual:null, scopeSummary:'', workInstructions:'', apiStandardReference:'', custodyAllocation:'Allocation', samplesRequired:false, meterUnitId:'', provingRequired:false, maintenanceRequired:false, clientContactForJob:'', dispatchNotes:'', completionNotes:'', followUpRequired:false, followUpNotes:'' }, fieldMap:{ fieldfxTicketId:'fieldfx_ticket_id', clientId:'client_id', siteId:'site_id', jobType:'job_type', jobStatus:'job_status', priority:'priority', requestedDate:'requested_date', scheduledStart:'scheduled_start', scheduledEnd:'scheduled_end', actualStart:'actual_start', actualEnd:'actual_end', durationPlanned:'duration_planned_minutes', durationActual:'duration_actual_minutes', scopeSummary:'scope_summary', workInstructions:'work_instructions', apiStandardReference:'api_standard_reference', custodyAllocation:'custody_allocation', samplesRequired:'samples_required', meterUnitId:'meter_unit_id', provingRequired:'proving_required', maintenanceRequired:'maintenance_required', clientContactForJob:'client_contact_for_job', dispatchNotes:'dispatch_notes', completionNotes:'completion_notes', followUpRequired:'follow_up_required', followUpNotes:'follow_up_notes' }, numberFields:['durationPlanned', 'durationActual'], booleanFields:['samplesRequired', 'provingRequired', 'maintenanceRequired', 'followUpRequired'] },
-  jobAssignments:{ table:'field_job_assignments', label:'Assignment', idPrefix:'asg', defaults:{ jobId:'', assignmentType:'Technician', resourceId:'', assignedStart:'', assignedEnd:'', assignmentStatus:'Assigned', assignmentNotes:'' }, fieldMap:{ jobId:'job_id', assignmentType:'assignment_type', resourceId:'resource_id', assignedStart:'assigned_start', assignedEnd:'assigned_end', assignmentStatus:'assignment_status', assignmentNotes:'assignment_notes' } },
-  technicians:{ table:'field_technicians', label:'Technician', idPrefix:'tech', defaults:{ employeeName:'', role:'Field Tech', phone:'', email:'', homeBase:'', certifications:'', apiSafetyTrainingStatus:'', availabilityStatus:'Available', skillTags:'', notes:'' }, fieldMap:{ employeeName:'employee_name', role:'role', phone:'phone', email:'email', homeBase:'home_base', certifications:'certifications', apiSafetyTrainingStatus:'api_safety_training_status', availabilityStatus:'availability_status', skillTags:'skill_tags', notes:'notes' } },
-  trucks:{ table:'field_trucks', label:'Truck', idPrefix:'truck', defaults:{ unitNumber:'', vehicleType:'Pickup', plateVin:'', assignedRegion:'', odometer:null, serviceStatus:'Available', lastServiceDate:'', nextServiceDue:'', truckWorkflow:'', gpsId:'', gpsStatus:'', gvwr:null, businessUnit:'', primaryUse:'', assignedTo:'', currentDriver:'', assignedTechnicianId:'', duty:'', model:'', vehicleInformation:'', leaseCompany:'', leaseBeginDate:'', deliveryDate:'', leaseEndDate:'', returnedDate:'', licensePlateNumber:'', make:'', color:'', ownership:'', registeredState:'', registrationExpirationDate:'', stateInsuranceExpirationDate:'', vin:'', vehicleId:'', vehicleYear:null, assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ unitNumber:'unit_number', vehicleType:'vehicle_type', plateVin:'plate_vin', assignedRegion:'assigned_region', odometer:'odometer', serviceStatus:'service_status', lastServiceDate:'last_service_date', nextServiceDue:'next_service_due', truckWorkflow:'workflow', gpsId:'gps_id', gpsStatus:'gps_status', gvwr:'gvwr', businessUnit:'business_unit', primaryUse:'primary_use', assignedTo:'assigned_to', currentDriver:'current_driver', assignedTechnicianId:'assigned_technician_id', duty:'duty', model:'model', vehicleInformation:'vehicle_information', leaseCompany:'lease_company', leaseBeginDate:'lease_begin_date', deliveryDate:'delivery_date', leaseEndDate:'lease_end_date', returnedDate:'returned_date', licensePlateNumber:'license_plate_number', make:'make', color:'color', ownership:'ownership', registeredState:'registered_state', registrationExpirationDate:'registration_expiration_date', stateInsuranceExpirationDate:'state_insurance_expiration_date', vin:'vin', vehicleId:'vehicle_id', vehicleYear:'vehicle_year', assetPhotoPath:'photo_path', notes:'notes' }, numberFields:['odometer', 'gvwr', 'vehicleYear'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
-  trailers:{ table:'field_trailers', label:'Trailer', idPrefix:'trailer', defaults:{ trailerNumber:'', trailerType:'', capacityConfiguration:'', serviceStatus:'Available', assignedTruckId:'', lastInspectionDate:'', nextInspectionDue:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ trailerNumber:'trailer_number', trailerType:'trailer_type', capacityConfiguration:'capacity_configuration', serviceStatus:'service_status', assignedTruckId:'assigned_truck_id', lastInspectionDate:'last_inspection_date', nextInspectionDue:'next_inspection_due', assetPhotoPath:'photo_path', notes:'notes' }, localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
-  equipment:{ table:'field_equipment', label:'Equipment', idPrefix:'equip', defaults:{ equipmentName:'', equipmentType:'Small Volume Prover', serialNumber:'', calibrationStatus:'Current', lastCalibrationDate:'', nextCalibrationDue:'', maintenanceStatus:'Available', storageLocation:'', assignedTrailerTruck:'', assignedTruckId:'', assignedTrailerId:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ equipmentName:'equipment_name', equipmentType:'equipment_type', serialNumber:'serial_number', calibrationStatus:'calibration_status', lastCalibrationDate:'last_calibration_date', nextCalibrationDue:'next_calibration_due', maintenanceStatus:'maintenance_status', storageLocation:'storage_location', assignedTrailerTruck:'assigned_trailer_truck', assignedTruckId:'assigned_truck_id', assignedTrailerId:'assigned_trailer_id', assetPhotoPath:'photo_path', notes:'notes' }, localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
-  samples:{ table:'field_samples', label:'Sample', idPrefix:'sample', defaults:{ jobId:'', clientId:'', siteId:'', sampleType:'Gas', containerType:'Cylinder', collectionDateTime:'', pickedUpBy:'', dropOffLocation:'', chainOfCustodyStatus:'Requested', labReceiptStatus:'Requested', priorityTat:'', notes:'' }, fieldMap:{ jobId:'job_id', clientId:'client_id', siteId:'site_id', sampleType:'sample_type', containerType:'container_type', collectionDateTime:'collection_date_time', pickedUpBy:'picked_up_by', dropOffLocation:'drop_off_location', chainOfCustodyStatus:'chain_of_custody_status', labReceiptStatus:'lab_receipt_status', priorityTat:'priority_tat', notes:'notes' } },
-  maintenanceRecords:{ table:'field_maintenance_records', label:'Maintenance Record', idPrefix:'maint', defaults:{ assetType:'Equipment', assetId:'', maintenanceType:'Preventive', openDate:'', dueDate:'', completedDate:'', status:'Open', issueDescription:'', resolution:'', vendorInternal:'Internal', cost:null, assignedPerson:'', notes:'' }, fieldMap:{ assetType:'asset_type', assetId:'asset_id', maintenanceType:'maintenance_type', openDate:'open_date', dueDate:'due_date', completedDate:'completed_date', status:'status', issueDescription:'issue_description', resolution:'resolution', vendorInternal:'vendor_internal', cost:'cost', assignedPerson:'assigned_person', notes:'notes' }, numberFields:['cost'] }
+  clients:{ table:'field_clients', label:'Client', idPrefix:'client', defaults:{ clientName:'', clientCode:'', accountStatus:'Active', sector:'Upstream', serviceScope:'Field', primaryContact:'', contactPhone:'', contactEmail:'', billingNotes:'', operationalNotes:'', salesforceAccountId:'', defaultServiceArea:'', hqStreet:'', hqCity:'', hqState:'', hqZip:'', hqLatitude:null, hqLongitude:null, assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'' }, fieldMap:{ clientName:'client_name', clientCode:'client_code', accountStatus:'account_status', sector:'sector', serviceScope:'service_scope', primaryContact:'primary_contact', contactPhone:'contact_phone', contactEmail:'contact_email', billingNotes:'billing_notes', operationalNotes:'operational_notes', salesforceAccountId:'salesforce_account_id', defaultServiceArea:'default_service_area', hqStreet:'hq_street', hqCity:'hq_city', hqState:'hq_state', hqZip:'hq_zip', hqLatitude:'hq_latitude', hqLongitude:'hq_longitude', assetPhotoPath:'logo_path' }, numberFields:['hqLatitude', 'hqLongitude'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
+  projects:{ table:'field_projects', label:'Project', idPrefix:'proj', defaults:{ clientId:'', projectName:'', serviceScope:'Field', projectStatus:'Active', startDate:'', endDate:'', notes:'' }, fieldMap:{ clientId:'client_id', projectName:'project_name', serviceScope:'service_scope', projectStatus:'project_status', startDate:'start_date', endDate:'end_date', notes:'notes' }, idFields:['clientId'] },
+  contacts:{ table:'field_contacts', label:'Contact', idPrefix:'contact', defaults:{ clientId:'', projectId:'', siteId:'', contactName:'', contactRole:'', phone:'', email:'', contactScope:'Operations', isPrimary:false, notes:'' }, fieldMap:{ clientId:'client_id', projectId:'project_id', siteId:'site_id', contactName:'contact_name', contactRole:'contact_role', phone:'phone', email:'email', contactScope:'contact_scope', isPrimary:'is_primary', notes:'notes' }, idFields:['clientId', 'projectId', 'siteId'], booleanFields:['isPrimary'] },
+  billingProfiles:{ table:'field_billing_profiles', label:'Billing Profile', idPrefix:'bill', defaults:{ clientId:'', projectId:'', billingName:'', billingAddress:'', billingEmail:'', billingPhone:'', poNumber:'', referenceNumber:'', invoiceNotes:'', fieldBillingNotes:'', labBillingNotes:'', isDefault:false }, fieldMap:{ clientId:'client_id', projectId:'project_id', billingName:'billing_name', billingAddress:'billing_address', billingEmail:'billing_email', billingPhone:'billing_phone', poNumber:'po_number', referenceNumber:'reference_number', invoiceNotes:'invoice_notes', fieldBillingNotes:'field_billing_notes', labBillingNotes:'lab_billing_notes', isDefault:'is_default' }, idFields:['clientId', 'projectId'], booleanFields:['isDefault'] },
+  sites:{ table:'field_sites', label:'Site', idPrefix:'site', defaults:{ clientId:'', projectId:'', siteName:'', siteType:'Other', physicalAddress:'', countyState:'', gpsCoordinates:'', accessInstructions:'', safetyPpeNotes:'', gateCodeEntryRequirements:'', clientSiteContact:'', siteStatus:'Active', standardJobTypes:'', notes:'' }, fieldMap:{ clientId:'client_id', projectId:'project_id', siteName:'site_name', siteType:'site_type', physicalAddress:'physical_address', countyState:'county_state', gpsCoordinates:'gps_coordinates', accessInstructions:'access_instructions', safetyPpeNotes:'safety_ppe_notes', gateCodeEntryRequirements:'gate_code_entry_requirements', clientSiteContact:'client_site_contact', siteStatus:'site_status', standardJobTypes:'standard_job_types', notes:'notes' }, idFields:['clientId', 'projectId'] },
+  jobs:{ table:'field_jobs', label:'Job', idPrefix:'job', defaults:{ fieldfxTicketId:'', clientId:'', projectId:'', siteId:'', jobType:'', jobStatus:'New', priority:'Normal', requestedDate:'', scheduledStart:'', scheduledEnd:'', actualStart:'', actualEnd:'', durationPlanned:null, durationActual:null, scopeSummary:'', workInstructions:'', apiStandardReference:'', custodyAllocation:'Allocation', samplesRequired:false, meterUnitId:'', provingRequired:false, maintenanceRequired:false, clientContactForJob:'', dispatchNotes:'', completionNotes:'', followUpRequired:false, followUpNotes:'' }, fieldMap:{ fieldfxTicketId:'fieldfx_ticket_id', clientId:'client_id', projectId:'project_id', siteId:'site_id', jobType:'job_type', jobStatus:'job_status', priority:'priority', requestedDate:'requested_date', scheduledStart:'scheduled_start', scheduledEnd:'scheduled_end', actualStart:'actual_start', actualEnd:'actual_end', durationPlanned:'duration_planned_minutes', durationActual:'duration_actual_minutes', scopeSummary:'scope_summary', workInstructions:'work_instructions', apiStandardReference:'api_standard_reference', custodyAllocation:'custody_allocation', samplesRequired:'samples_required', meterUnitId:'meter_unit_id', provingRequired:'proving_required', maintenanceRequired:'maintenance_required', clientContactForJob:'client_contact_for_job', dispatchNotes:'dispatch_notes', completionNotes:'completion_notes', followUpRequired:'follow_up_required', followUpNotes:'follow_up_notes' }, idFields:['clientId', 'projectId', 'siteId'], numberFields:['durationPlanned', 'durationActual'], booleanFields:['samplesRequired', 'provingRequired', 'maintenanceRequired', 'followUpRequired'] },
+  jobAssignments:{ table:'field_job_assignments', label:'Assignment', idPrefix:'asg', defaults:{ jobId:'', assignmentType:'Technician', resourceId:'', assignedStart:'', assignedEnd:'', assignmentStatus:'Assigned', assignmentNotes:'' }, fieldMap:{ jobId:'job_id', assignmentType:'assignment_type', resourceId:'resource_id', assignedStart:'assigned_start', assignedEnd:'assigned_end', assignmentStatus:'assignment_status', assignmentNotes:'assignment_notes' }, idFields:['jobId', 'resourceId'] },
+  technicians:{ table:'field_technicians', label:'Technician', idPrefix:'tech', defaults:{ employeeName:'', role:'Field Tech', phone:'', email:'', homeBase:'', certifications:'', apiSafetyTrainingStatus:'', availabilityStatus:'Available', skillTags:'', defaultTruckId:'', notes:'' }, fieldMap:{ employeeName:'employee_name', role:'role', phone:'phone', email:'email', homeBase:'home_base', certifications:'certifications', apiSafetyTrainingStatus:'api_safety_training_status', availabilityStatus:'availability_status', skillTags:'skill_tags', notes:'notes' }, localOnlyFields:['defaultTruckId'] },
+  trucks:{ table:'field_trucks', label:'Truck', idPrefix:'truck', defaults:{ unitNumber:'', vehicleType:'Pickup', plateVin:'', assignedRegion:'', odometer:null, serviceStatus:'Available', lastServiceDate:'', nextServiceDue:'', truckWorkflow:'', gpsId:'', gpsStatus:'', gvwr:null, businessUnit:'', primaryUse:'', assignedTo:'', currentDriver:'', assignedTechnicianId:'', duty:'', model:'', vehicleInformation:'', leaseCompany:'', leaseBeginDate:'', deliveryDate:'', leaseEndDate:'', returnedDate:'', licensePlateNumber:'', make:'', color:'', ownership:'', registeredState:'', registrationExpirationDate:'', stateInsuranceExpirationDate:'', vin:'', vehicleId:'', vehicleYear:null, assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ unitNumber:'unit_number', vehicleType:'vehicle_type', plateVin:'plate_vin', assignedRegion:'assigned_region', odometer:'odometer', serviceStatus:'service_status', lastServiceDate:'last_service_date', nextServiceDue:'next_service_due', truckWorkflow:'workflow', gpsId:'gps_id', gpsStatus:'gps_status', gvwr:'gvwr', businessUnit:'business_unit', primaryUse:'primary_use', assignedTo:'assigned_to', currentDriver:'current_driver', assignedTechnicianId:'assigned_technician_id', duty:'duty', model:'model', vehicleInformation:'vehicle_information', leaseCompany:'lease_company', leaseBeginDate:'lease_begin_date', deliveryDate:'delivery_date', leaseEndDate:'lease_end_date', returnedDate:'returned_date', licensePlateNumber:'license_plate_number', make:'make', color:'color', ownership:'ownership', registeredState:'registered_state', registrationExpirationDate:'registration_expiration_date', stateInsuranceExpirationDate:'state_insurance_expiration_date', vin:'vin', vehicleId:'vehicle_id', vehicleYear:'vehicle_year', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTechnicianId'], numberFields:['odometer', 'gvwr', 'vehicleYear'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
+  trailers:{ table:'field_trailers', label:'Trailer', idPrefix:'trailer', defaults:{ trailerNumber:'', trailerType:'', capacityConfiguration:'', serviceStatus:'Available', assignedTruckId:'', lastInspectionDate:'', nextInspectionDue:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ trailerNumber:'trailer_number', trailerType:'trailer_type', capacityConfiguration:'capacity_configuration', serviceStatus:'service_status', assignedTruckId:'assigned_truck_id', lastInspectionDate:'last_inspection_date', nextInspectionDue:'next_inspection_due', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTruckId'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
+  equipment:{ table:'field_equipment', label:'Equipment', idPrefix:'equip', defaults:{ equipmentName:'', equipmentType:'Small Volume Prover', serialNumber:'', calibrationStatus:'Current', lastCalibrationDate:'', nextCalibrationDue:'', maintenanceStatus:'Available', storageLocation:'', assignedTrailerTruck:'', assignedTruckId:'', assignedTrailerId:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ equipmentName:'equipment_name', equipmentType:'equipment_type', serialNumber:'serial_number', calibrationStatus:'calibration_status', lastCalibrationDate:'last_calibration_date', nextCalibrationDue:'next_calibration_due', maintenanceStatus:'maintenance_status', storageLocation:'storage_location', assignedTrailerTruck:'assigned_trailer_truck', assignedTruckId:'assigned_truck_id', assignedTrailerId:'assigned_trailer_id', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTruckId', 'assignedTrailerId'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
+  samples:{ table:'field_samples', label:'Sample', idPrefix:'sample', defaults:{ jobId:'', clientId:'', siteId:'', sampleType:'Gas', containerType:'Cylinder', collectionDateTime:'', pickedUpBy:'', dropOffLocation:'', chainOfCustodyStatus:'Requested', labReceiptStatus:'Requested', priorityTat:'', notes:'' }, fieldMap:{ jobId:'job_id', clientId:'client_id', siteId:'site_id', sampleType:'sample_type', containerType:'container_type', collectionDateTime:'collection_date_time', pickedUpBy:'picked_up_by', dropOffLocation:'drop_off_location', chainOfCustodyStatus:'chain_of_custody_status', labReceiptStatus:'lab_receipt_status', priorityTat:'priority_tat', notes:'notes' }, idFields:['jobId', 'clientId', 'siteId'] },
+  maintenanceRecords:{ table:'field_maintenance_records', label:'Maintenance Record', idPrefix:'maint', defaults:{ assetType:'Equipment', assetId:'', maintenanceType:'Preventive', openDate:'', dueDate:'', completedDate:'', status:'Open', issueDescription:'', resolution:'', vendorInternal:'Internal', cost:null, assignedPerson:'', notes:'' }, fieldMap:{ assetType:'asset_type', assetId:'asset_id', maintenanceType:'maintenance_type', openDate:'open_date', dueDate:'due_date', completedDate:'completed_date', status:'status', issueDescription:'issue_description', resolution:'resolution', vendorInternal:'vendor_internal', cost:'cost', assignedPerson:'assigned_person', notes:'notes' }, idFields:['assetId'], numberFields:['cost'] }
 };
 
-let state = { activeView:'overview', scheduleAnchorDate:getStartOfWeekISO(new Date()), filters:{ dispatchSearch:'', dispatchStatus:'all', dispatchPriority:'all', dispatchJobType:'all', directoryClient:'all' }, data:createEmptyData(), saveInFlight:false, autoRefreshInFlight:false, autoRefreshTimer:null };
+let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'overview', scheduleAnchorDate:getStartOfWeekISO(new Date()), filters:{ dispatchSearch:'', dispatchStatus:'all', dispatchPriority:'all', dispatchJobType:'all', directoryClient:'all', directoryProject:'all', directorySection:'overview' }, data:createEmptyData(), saveInFlight:false, autoRefreshInFlight:false, autoRefreshTimer:null };
 let modalState = createClosedModalState();
 let lastLoadedSnapshot = '';
 let hideSaveStatusTimer = null;
 const remoteAssetPhotoUrlCache = new Map();
 const remoteAssetPhotoLoadPromises = new Map();
 
-function createEmptyData(){ return { clients:[], sites:[], jobs:[], jobAssignments:[], technicians:[], trucks:[], trailers:[], equipment:[], samples:[], maintenanceRecords:[] }; }
+function createEmptyData(){ return { clients:[], projects:[], contacts:[], billingProfiles:[], sites:[], jobs:[], jobAssignments:[], technicians:[], trucks:[], trailers:[], equipment:[], samples:[], maintenanceRecords:[] }; }
 function createClosedModalState(){ return { open:false, entity:'', id:'', formData:{}, assignments:[] }; }
 function uid(prefix = 'fld'){ return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
 function clone(value){ return JSON.parse(JSON.stringify(value)); }
 function firstRow(payload){ return Array.isArray(payload) ? payload[0] || null : payload; }
 function normalizeBoolean(value){ return value === true || value === 'true' || value === 1 || value === '1'; }
 function normalizeNumber(value){ if(value === '' || value === null || value === undefined) return null; const parsed = Number(value); return Number.isFinite(parsed) ? parsed : null; }
+function normalizeClientCode(value){ return String(value || '').trim().toUpperCase(); }
 function compareStrings(a, b){ return String(a || '').localeCompare(String(b || ''), undefined, { sensitivity:'base' }); }
 function compareOptionalDates(left, right){ if(!left && !right) return 0; if(!left) return 1; if(!right) return -1; return left - right; }
 function isRemoteMode(){ return !!(window.appAuth && typeof window.appAuth.getMode === 'function' && window.appAuth.getMode() === 'remote'); }
@@ -143,6 +152,9 @@ function getJobSecondaryDate(job){ return parseDateTime(job?.scheduledEnd) || ge
 function getEntitySorter(entityKey){
   switch(entityKey){
     case 'clients': return (a, b) => compareStrings(a.clientName, b.clientName);
+    case 'projects': return (a, b) => compareStrings(a.projectName, b.projectName);
+    case 'contacts': return (a, b) => compareStrings(a.contactName, b.contactName);
+    case 'billingProfiles': return (a, b) => Number(b.isDefault) - Number(a.isDefault) || compareStrings(a.billingName, b.billingName);
     case 'sites': return (a, b) => compareStrings(a.siteName, b.siteName);
     case 'jobs': return (a, b) => compareOptionalDates(getJobPrimaryDate(a), getJobPrimaryDate(b)) || ((PRIORITY_RANK[a.priority] ?? 99) - (PRIORITY_RANK[b.priority] ?? 99)) || compareStrings(a.fieldfxTicketId || a.id, b.fieldfxTicketId || b.id);
     case 'jobAssignments': return (a, b) => compareStrings(a.assignmentType, b.assignmentType) || compareStrings(a.resourceId, b.resourceId);
@@ -165,6 +177,7 @@ function normalizeRecord(entityKey, source, options = {}){
     const raw = fromRemote ? source?.[remoteKey] : source?.[key];
     if((cfg.booleanFields || []).includes(key)) record[key] = normalizeBoolean(raw);
     else if((cfg.numberFields || []).includes(key)) record[key] = normalizeNumber(raw);
+    else if((cfg.idFields || []).includes(key)) record[key] = raw ? String(raw) : '';
     else if(remoteKey.endsWith('_date') || key.toLowerCase().endsWith('Date')) record[key] = toInputDate(raw);
     else if(remoteKey.endsWith('_time') || key.toLowerCase().endsWith('DateTime') || key.toLowerCase().endsWith('Start') || key.toLowerCase().endsWith('End')) record[key] = toInputDateTime(raw);
     else record[key] = raw === null || raw === undefined ? cfg.defaults[key] : String(raw);
@@ -178,7 +191,68 @@ function normalizeData(source, fromRemote = false){
     const rows = Array.isArray(source?.[entityKey]) ? source[entityKey] : [];
     normalized[entityKey] = rows.map((row) => normalizeRecord(entityKey, row, { fromRemote })).sort(getEntitySorter(entityKey));
   });
+  repairDataRelationships(normalized);
   return normalized;
+}
+
+function ensureLegacyProject(data, clientId){
+  if(!clientId) return '';
+  const existing = data.projects.find((row) => row.clientId === clientId && row.projectName === 'General / Legacy') || data.projects.find((row) => row.clientId === clientId);
+  if(existing) return existing.id;
+  const client = data.clients.find((row) => row.id === clientId) || null;
+  const record = normalizeRecord('projects', {
+    id:uid(ENTITY_CONFIG.projects.idPrefix),
+    clientId,
+    projectName:'General / Legacy',
+    serviceScope:client?.serviceScope || 'Field',
+    projectStatus:'Active',
+    notes:'Auto-created to preserve existing client data during project migration.'
+  });
+  data.projects.unshift(record);
+  data.projects.sort(getEntitySorter('projects'));
+  return record.id;
+}
+
+function repairDataRelationships(data){
+  if(!data || typeof data !== 'object') return data;
+  data.projects.forEach((project) => {
+    if(!project.clientId && data.clients.length) project.clientId = data.clients[0].id;
+    if(!project.serviceScope) project.serviceScope = 'Field';
+    if(!project.projectStatus) project.projectStatus = 'Active';
+  });
+  data.clients.forEach((client) => {
+    client.clientCode = normalizeClientCode(client.clientCode);
+  });
+  data.sites.forEach((site) => {
+    if(site.clientId && !site.projectId) site.projectId = ensureLegacyProject(data, site.clientId);
+  });
+  data.jobs.forEach((job) => {
+    if(job.clientId && !job.projectId) job.projectId = ensureLegacyProject(data, job.clientId);
+    if(job.projectId && !job.clientId){
+      const project = data.projects.find((row) => row.id === job.projectId) || null;
+      if(project) job.clientId = project.clientId;
+    }
+  });
+  data.contacts.forEach((contact) => {
+    if(contact.projectId && !contact.clientId){
+      const project = data.projects.find((row) => row.id === contact.projectId) || null;
+      if(project) contact.clientId = project.clientId;
+    }
+    if(contact.siteId && !contact.projectId){
+      const site = data.sites.find((row) => row.id === contact.siteId) || null;
+      if(site){
+        contact.projectId = site.projectId;
+        if(!contact.clientId) contact.clientId = site.clientId;
+      }
+    }
+  });
+  data.billingProfiles.forEach((profile) => {
+    if(profile.projectId && !profile.clientId){
+      const project = data.projects.find((row) => row.id === profile.projectId) || null;
+      if(project) profile.clientId = project.clientId;
+    }
+  });
+  return data;
 }
 
 function toRemotePayload(entityKey, draft){
@@ -190,6 +264,7 @@ function toRemotePayload(entityKey, draft){
     const value = draft[key];
     if((cfg.booleanFields || []).includes(key)) payload[remoteKey] = !!value;
     else if((cfg.numberFields || []).includes(key)) payload[remoteKey] = normalizeNumber(value);
+    else if((cfg.idFields || []).includes(key)) payload[remoteKey] = value ? String(value) : null;
     else if(remoteKey.endsWith('_date') || key.toLowerCase().endsWith('Date')) payload[remoteKey] = toRemoteDate(value);
     else if(remoteKey.endsWith('_time') || key.toLowerCase().endsWith('DateTime') || key.toLowerCase().endsWith('Start') || key.toLowerCase().endsWith('End')) payload[remoteKey] = toRemoteDateTime(value);
     else payload[remoteKey] = value === null || value === undefined ? '' : String(value);
@@ -219,17 +294,33 @@ const remoteRepository = {
   async deleteRecord(entityKey, id){ await window.appAuth.requestJson(`/rest/v1/${ENTITY_CONFIG[entityKey].table}?id=eq.${encodeURIComponent(id)}`, { method:'DELETE' }); },
   async deleteWhere(table, filters){ if(!filters.length) return; const query = filters.map((filter) => `${filter.column}=eq.${encodeURIComponent(filter.value)}`).join('&'); await window.appAuth.requestJson(`/rest/v1/${table}?${query}`, { method:'DELETE' }); },
   async updateWhere(table, filters, payload){ if(!filters.length) return; const query = filters.map((filter) => `${filter.column}=eq.${encodeURIComponent(filter.value)}`).join('&'); await window.appAuth.requestJson(`/rest/v1/${table}?${query}`, { method:'PATCH', headers:{ 'Content-Type':'application/json', 'Prefer':'return=minimal' }, body:JSON.stringify(payload) }); },
+  async patchByQuery(table, query, payload){ if(!query) return; await window.appAuth.requestJson(`/rest/v1/${table}?${query}`, { method:'PATCH', headers:{ 'Content-Type':'application/json', 'Prefer':'return=minimal' }, body:JSON.stringify(payload) }); },
   async insertRows(table, rows){ if(!rows.length) return; await window.appAuth.requestJson(`/rest/v1/${table}`, { method:'POST', headers:{ 'Content-Type':'application/json', 'Prefer':'return=minimal' }, body:JSON.stringify(rows) }); }
 };
 
 function getClient(id){ return state.data.clients.find((row) => row.id === id) || null; }
+function getProject(id){ return state.data.projects.find((row) => row.id === id) || null; }
+function getContact(id){ return state.data.contacts.find((row) => row.id === id) || null; }
+function getBillingProfile(id){ return state.data.billingProfiles.find((row) => row.id === id) || null; }
 function getSite(id){ return state.data.sites.find((row) => row.id === id) || null; }
 function getJob(id){ return state.data.jobs.find((row) => row.id === id) || null; }
 function getAssignmentsForJob(jobId){ return state.data.jobAssignments.filter((row) => row.jobId === jobId); }
 function getClientLabel(clientId){ return getClient(clientId)?.clientName || 'Unknown client'; }
+function getProjectLabel(projectId){ return getProject(projectId)?.projectName || 'Unknown project'; }
 function getSiteLabel(siteId){ return getSite(siteId)?.siteName || 'Unknown site'; }
+function getDefaultTruckForTechnician(technicianId){
+  const assignedTruck = state.data.trucks.find((row) => row.assignedTechnicianId === technicianId) || null;
+  if(assignedTruck) return assignedTruck;
+  const technician = state.data.technicians.find((row) => row.id === technicianId) || null;
+  return technician?.defaultTruckId ? (state.data.trucks.find((row) => row.id === technician.defaultTruckId) || null) : null;
+}
+function getProjectIdsForClient(clientId){ return state.data.projects.filter((row) => row.clientId === clientId).map((row) => row.id); }
 function getSiteIdsForClient(clientId){ return state.data.sites.filter((row) => row.clientId === clientId).map((row) => row.id); }
-function getJobsForClientOrSites(clientId, siteIds = getSiteIdsForClient(clientId)){ return state.data.jobs.filter((row) => row.clientId === clientId || siteIds.includes(row.siteId)); }
+function getSitesForProject(projectId){ return state.data.sites.filter((row) => row.projectId === projectId); }
+function getJobsForProject(projectId){ return state.data.jobs.filter((row) => row.projectId === projectId); }
+function getContactsForClient(clientId){ return state.data.contacts.filter((row) => row.clientId === clientId); }
+function getBillingProfilesForClient(clientId){ return state.data.billingProfiles.filter((row) => row.clientId === clientId); }
+function getJobsForClientOrSites(clientId, siteIds = getSiteIdsForClient(clientId), projectIds = getProjectIdsForClient(clientId)){ return state.data.jobs.filter((row) => row.clientId === clientId || projectIds.includes(row.projectId) || siteIds.includes(row.siteId)); }
 function getSamplesForClientOrSites(clientId, siteIds = getSiteIdsForClient(clientId), jobIds = getJobsForClientOrSites(clientId, siteIds).map((row) => row.id)){ return state.data.samples.filter((row) => row.clientId === clientId || siteIds.includes(row.siteId) || jobIds.includes(row.jobId)); }
 function getJobsForSite(siteId){ return state.data.jobs.filter((row) => row.siteId === siteId); }
 function getSamplesForSite(siteId, jobIds = getJobsForSite(siteId).map((row) => row.id)){ return state.data.samples.filter((row) => row.siteId === siteId || jobIds.includes(row.jobId)); }
@@ -239,6 +330,12 @@ function getClientDeleteBlockMessage(clientId){
   const samples = getSamplesForClientOrSites(clientId, siteIds, jobs.map((row) => row.id));
   if(!jobs.length && !samples.length) return '';
   return `This client cannot be deleted because it still has ${jobs.length} linked job${jobs.length === 1 ? '' : 's'} and ${samples.length} linked sample${samples.length === 1 ? '' : 's'}. Clear those records first.`;
+}
+function getProjectDeleteBlockMessage(projectId){
+  const sites = getSitesForProject(projectId);
+  const jobs = getJobsForProject(projectId);
+  if(!sites.length && !jobs.length) return '';
+  return `This project cannot be deleted because it still has ${sites.length} linked site${sites.length === 1 ? '' : 's'} and ${jobs.length} linked job${jobs.length === 1 ? '' : 's'}. Clear or move those records first.`;
 }
 function getSiteDeleteBlockMessage(siteId){
   const jobs = getJobsForSite(siteId);
@@ -365,8 +462,11 @@ const FORM_DEFINITIONS = {
   clients:[
     { kind:'section', label:'Account' },
     { key:'clientName', label:'Client Name', type:'text', required:true },
+    { key:'clientCode', label:'Client Code', type:'text', required:true },
+    { key:'assetPhotoPath', label:'Client Logo', type:'image', full:true },
     { key:'accountStatus', label:'Account Status', type:'select', options:ACCOUNT_STATUS_OPTIONS },
     { key:'sector', label:'Sector', type:'select', options:CLIENT_SECTOR_OPTIONS },
+    { key:'serviceScope', label:'Service Scope', type:'select', options:SERVICE_SCOPE_OPTIONS },
     { key:'primaryContact', label:'Primary Contact', type:'text' },
     { key:'contactPhone', label:'Contact Phone', type:'text' },
     { key:'contactEmail', label:'Contact Email', type:'email' },
@@ -382,9 +482,48 @@ const FORM_DEFINITIONS = {
     { key:'billingNotes', label:'Billing Notes', type:'textarea', full:true },
     { key:'operationalNotes', label:'Operational Notes', type:'textarea', full:true }
   ],
+  projects:[
+    { kind:'section', label:'Project Setup' },
+    { key:'clientId', label:'Client', type:'select', options:() => buildClientOptions() },
+    { key:'projectName', label:'Project Name', type:'text', required:true },
+    { key:'serviceScope', label:'Service Scope', type:'select', options:SERVICE_SCOPE_OPTIONS },
+    { key:'projectStatus', label:'Project Status', type:'select', options:PROJECT_STATUS_OPTIONS },
+    { key:'startDate', label:'Start Date', type:'date' },
+    { key:'endDate', label:'End Date', type:'date' },
+    { key:'notes', label:'Project Notes', type:'textarea', full:true }
+  ],
+  contacts:[
+    { kind:'section', label:'Contact Details' },
+    { key:'clientId', label:'Client', type:'select', options:() => buildClientOptions(), handler:'changeContactClient' },
+    { key:'projectId', label:'Project', type:'select', options:() => buildProjectOptions(modalState.formData.clientId), handler:'changeContactProject' },
+    { key:'siteId', label:'Site', type:'select', options:() => buildSiteOptions(modalState.formData.clientId, modalState.formData.projectId) },
+    { key:'contactName', label:'Contact Name', type:'text', required:true },
+    { key:'contactRole', label:'Role / Title', type:'text' },
+    { key:'contactScope', label:'Contact Scope', type:'select', options:CONTACT_SCOPE_OPTIONS },
+    { key:'phone', label:'Phone', type:'text' },
+    { key:'email', label:'Email', type:'email' },
+    { key:'isPrimary', label:'Primary Contact', type:'checkbox' },
+    { key:'notes', label:'Notes', type:'textarea', full:true }
+  ],
+  billingProfiles:[
+    { kind:'section', label:'Billing Profile' },
+    { key:'clientId', label:'Client', type:'select', options:() => buildClientOptions(), handler:'changeBillingClient' },
+    { key:'projectId', label:'Project', type:'select', options:() => buildProjectOptions(modalState.formData.clientId), handler:'changeBillingProject' },
+    { key:'billingName', label:'Billing Name', type:'text', required:true },
+    { key:'billingAddress', label:'Billing Address', type:'textarea', full:true },
+    { key:'billingEmail', label:'Billing Email', type:'email' },
+    { key:'billingPhone', label:'Billing Phone', type:'text' },
+    { key:'poNumber', label:'PO Number', type:'text' },
+    { key:'referenceNumber', label:'Reference Number', type:'text' },
+    { key:'isDefault', label:'Default Billing Profile', type:'checkbox' },
+    { key:'invoiceNotes', label:'Invoice Notes', type:'textarea', full:true },
+    { key:'fieldBillingNotes', label:'Field Billing Notes', type:'textarea', full:true },
+    { key:'labBillingNotes', label:'Lab Billing Notes', type:'textarea', full:true }
+  ],
   sites:[
     { kind:'section', label:'Location' },
-    { key:'clientId', label:'Client', type:'select', options:() => buildClientOptions() },
+    { key:'clientId', label:'Client', type:'select', options:() => buildClientOptions(), handler:'changeSiteClient' },
+    { key:'projectId', label:'Project', type:'select', options:() => buildProjectOptions(modalState.formData.clientId), handler:'changeSiteProject' },
     { key:'siteName', label:'Site Name', type:'text', required:true },
     { key:'siteType', label:'Site Type', type:'select', options:SITE_TYPE_OPTIONS },
     { key:'physicalAddress', label:'Physical Address', type:'text', full:true },
@@ -401,7 +540,8 @@ const FORM_DEFINITIONS = {
   jobs:[
     { kind:'section', label:'Basics' },
     { key:'clientId', label:'Client', type:'select', options:() => buildClientOptions(), handler:'changeJobClient' },
-    { key:'siteId', label:'Site', type:'select', options:() => buildSiteOptions(modalState.formData.clientId) },
+    { key:'projectId', label:'Project', type:'select', options:() => buildProjectOptions(modalState.formData.clientId), handler:'changeJobProject' },
+    { key:'siteId', label:'Site', type:'select', options:() => buildSiteOptions(modalState.formData.clientId, modalState.formData.projectId) },
     { key:'fieldfxTicketId', label:'FieldFX / Salesforce Ticket ID', type:'text' },
     { key:'jobType', label:'Job Type', type:'select', options:JOB_TYPE_OPTIONS, handler:'changeJobType' },
     { key:'jobStatus', label:'Job Status', type:'select', options:JOB_STATUS_OPTIONS },
@@ -414,26 +554,30 @@ const FORM_DEFINITIONS = {
     { key:'actualEnd', label:'Actual End', type:'datetime-local' },
     { key:'durationPlanned', label:'Duration Planned (min)', type:'number' },
     { key:'durationActual', label:'Duration Actual (min)', type:'number' },
-    { kind:'section', label:'Execution' },
-    { key:'meterUnitId', label:'Meter / Unit ID', type:'text' },
-    { key:'apiStandardReference', label:'API Standard Reference', type:'text' },
-    { key:'custodyAllocation', label:'Custody vs Allocation', type:'select', options:CUSTODY_OPTIONS },
-    { key:'clientContactForJob', label:'Client Contact For Job', type:'text' },
-    { key:'samplesRequired', label:'Samples Required', type:'checkbox' },
-    { key:'provingRequired', label:'Proving Required', type:'checkbox' },
-    { key:'maintenanceRequired', label:'Maintenance Required', type:'checkbox' },
-    { key:'followUpRequired', label:'Follow-Up Required', type:'checkbox' },
-    { key:'scopeSummary', label:'Scope Summary', type:'textarea', full:true },
-    { key:'workInstructions', label:'Work Instructions', type:'textarea', full:true },
-    { key:'dispatchNotes', label:'Dispatch Notes', type:'textarea', full:true },
-    { key:'completionNotes', label:'Completion Notes', type:'textarea', full:true },
-    { key:'followUpNotes', label:'Follow-Up Notes', type:'textarea', full:true }
+    { kind:'section', label:'Proving Details', jobTypes:['Allocation Proving', 'LACT Proving', 'Multi-Service'] },
+    { key:'meterUnitId', label:'Meter / Unit ID', type:'text', jobTypes:['Allocation Proving', 'LACT Proving', 'Maintenance', 'Multi-Service'] },
+    { key:'apiStandardReference', label:'API Standard Reference', type:'text', jobTypes:['Allocation Proving', 'LACT Proving', 'Multi-Service'] },
+    { key:'custodyAllocation', label:'Custody vs Allocation', type:'select', options:CUSTODY_OPTIONS, jobTypes:['Allocation Proving', 'LACT Proving', 'Multi-Service'] },
+    { key:'provingRequired', label:'Proving Required', type:'checkbox', jobTypes:['Allocation Proving', 'LACT Proving', 'Multi-Service'] },
+    { kind:'section', label:'Sample Logistics', jobTypes:['Sample Pickup', 'Sample Drop-Off', 'Multi-Service'] },
+    { key:'samplesRequired', label:'Samples Required', type:'checkbox', jobTypes:['Sample Pickup', 'Sample Drop-Off', 'Multi-Service'] },
+    { kind:'section', label:'Maintenance Details', jobTypes:['Maintenance', 'Multi-Service'] },
+    { key:'maintenanceRequired', label:'Maintenance Required', type:'checkbox', jobTypes:['Maintenance', 'Multi-Service'] },
+    { kind:'section', label:'Execution', jobTypes:['Allocation Proving', 'LACT Proving', 'Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service'] },
+    { key:'clientContactForJob', label:'Client Contact For Job', type:'select', options:() => buildJobContactOptions(modalState.formData.clientId, modalState.formData.projectId), jobTypes:['Allocation Proving', 'LACT Proving', 'Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service'] },
+    { key:'followUpRequired', label:'Follow-Up Required', type:'checkbox', jobTypes:['Allocation Proving', 'LACT Proving', 'Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service'] },
+    { key:'scopeSummary', label:'Scope Summary', type:'textarea', full:true, jobTypes:['Allocation Proving', 'LACT Proving', 'Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service'] },
+    { key:'workInstructions', label:'Work Instructions', type:'textarea', full:true, jobTypes:['Allocation Proving', 'LACT Proving', 'Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service'] },
+    { key:'dispatchNotes', label:'Dispatch Notes', type:'textarea', full:true, jobTypes:['Allocation Proving', 'LACT Proving', 'Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service'] },
+    { key:'completionNotes', label:'Completion Notes', type:'textarea', full:true, jobTypes:['Allocation Proving', 'LACT Proving', 'Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service'] },
+    { key:'followUpNotes', label:'Follow-Up Notes', type:'textarea', full:true, jobTypes:['Allocation Proving', 'LACT Proving', 'Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service'] }
   ],
   technicians:[
     { kind:'section', label:'Personnel' },
     { key:'employeeName', label:'Employee Name', type:'text', required:true },
     { key:'role', label:'Role', type:'select', options:TECH_ROLE_OPTIONS },
     { key:'availabilityStatus', label:'Availability Status', type:'select', options:TECH_AVAILABILITY_OPTIONS },
+    { key:'defaultTruckId', label:'Default Truck', type:'select', options:() => buildTruckAssignmentOptions(), placeholderLabel:'Pool / Unassigned' },
     { key:'homeBase', label:'Home Base', type:'text' },
     { key:'phone', label:'Phone', type:'text' },
     { key:'email', label:'Email', type:'email' },
@@ -557,13 +701,26 @@ function hideSaveStatusSoon(delay = 2600){
   }, delay);
 }
 
-function buildClientOptions(){ return state.data.clients.map((row) => ({ value:row.id, label:row.clientName || 'Unnamed client' })); }
-function buildSiteOptions(clientId = ''){ return state.data.sites.filter((row) => !clientId || row.clientId === clientId).map((row) => ({ value:row.id, label:`${row.siteName || 'Unnamed site'} | ${getClientLabel(row.clientId)}` })); }
+function buildClientOptions(){ return state.data.clients.map((row) => ({ value:row.id, label:`${normalizeClientCode(row.clientCode) ? `${normalizeClientCode(row.clientCode)} | ` : ''}${row.clientName || 'Unnamed client'}` })); }
+function buildProjectOptions(clientId = ''){ return state.data.projects.filter((row) => !clientId || row.clientId === clientId).map((row) => ({ value:row.id, label:`${row.projectName || 'Unnamed project'} | ${getClientLabel(row.clientId)}` })); }
+function buildSiteOptions(clientId = '', projectId = ''){ return state.data.sites.filter((row) => (!clientId || row.clientId === clientId) && (!projectId || row.projectId === projectId)).map((row) => ({ value:row.id, label:`${row.siteName || 'Unnamed site'} | ${getProjectLabel(row.projectId)}` })); }
 function buildJobOptions(){ return state.data.jobs.map((row) => ({ value:row.id, label:`${row.fieldfxTicketId || row.jobType || 'Job'} | ${getSiteLabel(row.siteId)}` })); }
+function matchesProjectScope(recordProjectId, projectId){ return !projectId || recordProjectId === projectId || !recordProjectId; }
+function buildContactOptions(clientId = '', projectId = ''){
+  return state.data.contacts
+    .filter((row) => (!clientId || row.clientId === clientId) && matchesProjectScope(row.projectId, projectId))
+    .map((row) => ({ value:row.id, label:`${row.contactName || 'Unnamed contact'} | ${row.contactRole || row.contactScope || 'Contact'}` }));
+}
+function buildJobContactOptions(clientId = '', projectId = ''){
+  return state.data.contacts
+    .filter((row) => (!clientId || row.clientId === clientId) && matchesProjectScope(row.projectId, projectId))
+    .map((row) => ({ value:[row.contactName, row.contactRole].filter(Boolean).join(' | ') || row.contactName || 'Unnamed contact', label:`${row.contactName || 'Unnamed contact'} | ${row.contactRole || row.contactScope || 'Contact'}` }));
+}
 function buildAssetOptions(assetType = ''){ if(assetType === 'Truck') return state.data.trucks.map((row) => ({ value:row.id, label:row.unitNumber || 'Unnamed truck' })); if(assetType === 'Trailer') return state.data.trailers.map((row) => ({ value:row.id, label:row.trailerNumber || 'Unnamed trailer' })); return state.data.equipment.map((row) => ({ value:row.id, label:row.equipmentName || 'Unnamed equipment' })); }
 function buildResourceOptions(assignmentType = 'Technician'){ const entityKey = RESOURCE_ENTITY_BY_TYPE[assignmentType]; return entityKey ? state.data[entityKey].map((row) => ({ value:row.id, label:getResourceLabel(assignmentType, row.id) })) : []; }
 function buildTechnicianOptions(){ return state.data.technicians.map((row) => ({ value:row.id, label:row.employeeName || 'Unnamed technician' })); }
 function buildTechnicianAssignmentOptions(){ return [{ value:'', label:'Pool' }, ...buildTechnicianOptions()]; }
+function buildTruckAssignmentOptions(){ return [{ value:'', label:'Pool / Unassigned' }, ...buildTruckOptions()]; }
 function buildTruckOptions(){ return state.data.trucks.map((row) => ({ value:row.id, label:row.unitNumber || 'Unnamed truck' })); }
 function buildTrailerOptions(){ return state.data.trailers.map((row) => ({ value:row.id, label:row.trailerNumber || 'Unnamed trailer' })); }
 function getTechnicianLabel(id){ return state.data.technicians.find((row) => row.id === id)?.employeeName || 'Unassigned'; }
@@ -572,7 +729,18 @@ function getTrailerLabel(id){ return state.data.trailers.find((row) => row.id ==
 
 function switchView(view){ state.activeView = view; render(); }
 function setDispatchFilter(key, value){ state.filters[key] = value; renderDispatch(buildDerivedState()); }
-function setDirectoryClientFilter(value){ state.filters.directoryClient = value; renderDirectory(); }
+function setDirectoryClientFilter(value){
+  state.filters.directoryClient = value;
+  if(value === 'all'){
+    state.filters.directoryProject = 'all';
+  } else if(state.filters.directoryProject !== 'all'){
+    const project = getProject(state.filters.directoryProject);
+    if(!project || project.clientId !== value) state.filters.directoryProject = 'all';
+  }
+  renderDirectory();
+}
+function setDirectorySection(value){ state.filters.directorySection = value; renderDirectory(); }
+function setDirectoryProjectFilter(value){ state.filters.directoryProject = value; renderDirectory(); }
 function changeScheduleWeek(offset){ state.scheduleAnchorDate = addDaysISO(state.scheduleAnchorDate, Number(offset || 0) * 7); renderSchedule(buildDerivedState()); }
 function resetScheduleWeek(){ state.scheduleAnchorDate = getStartOfWeekISO(new Date()); renderSchedule(buildDerivedState()); }
 
@@ -582,12 +750,21 @@ function getStatusBadge(status){ return `<span class="status-badge ${getStatusTo
 function normalizeOptions(options){ if(!Array.isArray(options)) return []; return options.map((option) => typeof option === 'string' ? { value:option, label:option } : option); }
 function renderTags(csvText){ const tags = String(csvText || '').split(',').map((value) => value.trim()).filter(Boolean); return tags.length ? `<div class="tag-row">${tags.map((tag) => `<span class="tag-chip">${esc(tag)}</span>`).join('')}</div>` : '<span class="muted">None listed</span>'; }
 function renderWarnings(warnings){ return warnings.length ? `<div class="warning-row">${warnings.map((warning) => `<span class="warning-chip">${esc(warning)}</span>`).join('')}</div>` : ''; }
-function renderActionButtons(entityKey, id){ return `<div class="table-actions"><button class="act-btn" type="button" onclick="event.stopPropagation(); openEntityModal('${entityKey}','${esc(id)}')">Edit</button><button class="act-btn danger" type="button" onclick="event.stopPropagation(); deleteEntityRecord('${entityKey}','${esc(id)}')">Delete</button></div>`; }
 function renderCardOpenAttrs(entityKey, id){ return `class="resource-card clickable-card" role="button" tabindex="0" onclick="openEntityModal('${entityKey}','${esc(id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEntityModal('${entityKey}','${esc(id)}'); }"`; }
+function buildTableRow(entityKey, id, cells){
+  return {
+    cells,
+    attrs:`class="clickable-table-row" role="button" tabindex="0" title="Open ${esc(ENTITY_CONFIG[entityKey].label)}" onclick="openEntityModal('${entityKey}','${esc(id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEntityModal('${entityKey}','${esc(id)}'); }"`
+  };
+}
 
 function renderTable(columns, rows, emptyMarkup){
   if(!rows.length) return `<div class="empty-state">${emptyMarkup}</div>`;
-  return `<div class="table-wrap"><table><thead><tr>${columns.map((column) => `<th>${esc(column)}</th>`).join('')}</tr></thead><tbody>${rows.map((cells) => `<tr>${cells.map((cell) => `<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  return `<div class="table-wrap"><table><thead><tr>${columns.map((column) => `<th>${esc(column)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => {
+    const cells = Array.isArray(row) ? row : row.cells;
+    const attrs = Array.isArray(row) ? '' : (row.attrs || '');
+    return `<tr ${attrs}>${cells.map((cell) => `<td>${cell}</td>`).join('')}</tr>`;
+  }).join('')}</tbody></table></div>`;
 }
 
 function getJobWarnings(job, derived){
@@ -602,7 +779,7 @@ function getJobWarnings(job, derived){
 
 function renderMiniJobList(jobs, derived, emptyText){
   if(!jobs.length) return `<div class="empty-state"><strong>Nothing to show</strong>${esc(emptyText)}</div>`;
-  return `<div class="mini-list">${[...jobs].sort(getEntitySorter('jobs')).map((job) => `<div class="mini-card"><div class="mini-head"><div><div class="item-title">${esc(job.fieldfxTicketId || job.jobType || 'Field job')}</div><div class="muted">${esc(getClientLabel(job.clientId))} | ${esc(getSiteLabel(job.siteId))}</div></div>${getPriorityBadge(job.priority)}</div><div class="mini-tags">${getStatusBadge(job.jobStatus)}<span class="mini-tag">${esc(fmtDateTime(job.scheduledStart || job.requestedDate))}</span></div>${renderWarnings(getJobWarnings(job, derived))}</div>`).join('')}</div>`;
+  return `<div class="mini-list">${[...jobs].sort(getEntitySorter('jobs')).map((job) => `<div class="mini-card"><div class="mini-head"><div><div class="item-title">${esc(job.fieldfxTicketId || job.jobType || 'Field job')}</div><div class="muted">${esc(getClientLabel(job.clientId))} | ${esc(getProjectLabel(job.projectId))} | ${esc(getSiteLabel(job.siteId))}</div></div>${getPriorityBadge(job.priority)}</div><div class="mini-tags">${getStatusBadge(job.jobStatus)}<span class="mini-tag">${esc(fmtDateTime(job.scheduledStart || job.requestedDate))}</span></div>${renderWarnings(getJobWarnings(job, derived))}</div>`).join('')}</div>`;
 }
 
 function renderIssueCard(label, value, copy){
@@ -624,7 +801,7 @@ function getFilteredDispatchJobs(){
     if(state.filters.dispatchPriority !== 'all' && job.priority !== state.filters.dispatchPriority) return false;
     if(state.filters.dispatchJobType !== 'all' && job.jobType !== state.filters.dispatchJobType) return false;
     if(!search) return true;
-    const haystack = [job.fieldfxTicketId, job.jobType, job.scopeSummary, job.clientContactForJob, getClientLabel(job.clientId), getSiteLabel(job.siteId)].join(' ').toLowerCase();
+    const haystack = [job.fieldfxTicketId, job.jobType, job.scopeSummary, job.clientContactForJob, getClientLabel(job.clientId), getProjectLabel(job.projectId), getSiteLabel(job.siteId)].join(' ').toLowerCase();
     return haystack.includes(search);
   }).sort(getEntitySorter('jobs'));
 }
@@ -635,7 +812,7 @@ function renderOverview(derived){
   const samplesInTransit = state.data.samples.filter((row) => row.chainOfCustodyStatus === 'In Transit');
   const jobsInProgress = state.data.jobs.filter((job) => job.jobStatus === 'In Progress');
   document.getElementById('overview-stats').innerHTML = [{ label:'Jobs Today', value:todayJobs.length, cls:'' }, { label:'Jobs In Progress', value:jobsInProgress.length, cls:'ok' }, { label:'Jobs Overdue', value:derived.overdueJobs.length, cls:'danger' }, { label:'Samples In Transit', value:samplesInTransit.length, cls:'warn' }, { label:'Assets Down', value:derived.downAssets.length, cls:'danger' }].map((card) => `<div class="stat-card ${card.cls}"><div class="stat-label">${esc(card.label)}</div><div class="stat-value ${card.cls}">${esc(card.value)}</div></div>`).join('');
-  document.getElementById('overview-actions').innerHTML = `<button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button><button class="act-btn" type="button" onclick="openEntityModal('clients')">+ Add Client</button><button class="act-btn" type="button" onclick="openEntityModal('technicians')">+ Add Tech</button><button class="act-btn" type="button" onclick="openEntityModal('samples')">+ Add Sample</button>`;
+  document.getElementById('overview-actions').innerHTML = `<button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button><button class="act-btn" type="button" onclick="window.location.href='clients.html'">Open Clients</button><button class="act-btn" type="button" onclick="openEntityModal('technicians')">+ Add Tech</button><button class="act-btn" type="button" onclick="openEntityModal('samples')">+ Add Sample</button>`;
   document.getElementById('today-jobs-panel').innerHTML = renderMiniJobList(todayJobs, derived, 'No field jobs are scheduled for today yet.');
   document.getElementById('resource-readiness-panel').innerHTML = `<div class="summary-grid"><div class="summary-card"><div class="label">Available Techs</div><div class="value">${state.data.technicians.filter((row) => row.availabilityStatus === 'Available').length}</div><div class="muted">${state.data.technicians.length} total technicians</div></div><div class="summary-card"><div class="label">Available Trucks</div><div class="value">${state.data.trucks.filter((row) => row.serviceStatus === 'Available').length}</div><div class="muted">${state.data.trucks.filter((row) => row.serviceStatus === 'Out of Service').length} out of service</div></div><div class="summary-card"><div class="label">Available Trailers</div><div class="value">${state.data.trailers.filter((row) => ['Available', 'Assigned'].includes(row.serviceStatus)).length}</div><div class="muted">${state.data.trailers.filter((row) => row.serviceStatus === 'Maintenance').length} in maintenance</div></div><div class="summary-card"><div class="label">Ready Provers</div><div class="value">${state.data.equipment.filter((row) => ['Small Volume Prover', 'Master Meter'].includes(row.equipmentType) && row.maintenanceStatus !== 'Out of Service' && row.calibrationStatus !== 'Overdue').length}</div><div class="muted">${derived.overdueCalibration.length} calibration overdue</div></div></div>`;
   document.getElementById('issues-panel').innerHTML = `<div class="issue-list">${renderIssueCard('Scheduling Conflicts', derived.conflicts.length, 'Double-booked technicians, trucks, trailers, or equipment.')}${renderIssueCard('Jobs Missing Required Resources', derived.missingJobs.length, 'Required assignments still missing for active jobs.')}${renderIssueCard('Missing / Early COC', derived.missingCocSamples.length, 'Samples still requested or collected without a complete handoff chain.')}${renderIssueCard('Overdue Maintenance', derived.overdueMaintenance.length, 'Maintenance items past their due date and still open.')}${renderIssueCard('Calibration Overdue', derived.overdueCalibration.length, 'Equipment that should not be dispatched without review.')}</div>`;
@@ -644,9 +821,9 @@ function renderOverview(derived){
 
 function renderDispatch(derived){
   const filteredJobs = getFilteredDispatchJobs();
-  document.getElementById('dispatch-toolbar').innerHTML = `<span class="label">Search</span><input type="text" value="${esc(state.filters.dispatchSearch)}" placeholder="Ticket, client, site, or scope..." oninput="setDispatchFilter('dispatchSearch', this.value)"><span class="label">Status</span><select onchange="setDispatchFilter('dispatchStatus', this.value)"><option value="all">All Statuses</option>${JOB_STATUS_OPTIONS.map((status) => `<option value="${esc(status)}" ${state.filters.dispatchStatus === status ? 'selected' : ''}>${esc(status)}</option>`).join('')}</select><span class="label">Priority</span><select onchange="setDispatchFilter('dispatchPriority', this.value)"><option value="all">All Priorities</option>${PRIORITY_OPTIONS.map((priority) => `<option value="${esc(priority)}" ${state.filters.dispatchPriority === priority ? 'selected' : ''}>${esc(priority)}</option>`).join('')}</select><span class="label">Type</span><select onchange="setDispatchFilter('dispatchJobType', this.value)"><option value="all">All Job Types</option>${JOB_TYPE_OPTIONS.map((jobType) => `<option value="${esc(jobType)}" ${state.filters.dispatchJobType === jobType ? 'selected' : ''}>${esc(jobType)}</option>`).join('')}</select><div class="toolbar-spacer"></div><button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button>`;
+  document.getElementById('dispatch-toolbar').innerHTML = `<span class="label">Search</span><input type="text" value="${esc(state.filters.dispatchSearch)}" placeholder="Ticket, client, project, site, or scope..." oninput="setDispatchFilter('dispatchSearch', this.value)"><span class="label">Status</span><select onchange="setDispatchFilter('dispatchStatus', this.value)"><option value="all">All Statuses</option>${JOB_STATUS_OPTIONS.map((status) => `<option value="${esc(status)}" ${state.filters.dispatchStatus === status ? 'selected' : ''}>${esc(status)}</option>`).join('')}</select><span class="label">Priority</span><select onchange="setDispatchFilter('dispatchPriority', this.value)"><option value="all">All Priorities</option>${PRIORITY_OPTIONS.map((priority) => `<option value="${esc(priority)}" ${state.filters.dispatchPriority === priority ? 'selected' : ''}>${esc(priority)}</option>`).join('')}</select><span class="label">Type</span><select onchange="setDispatchFilter('dispatchJobType', this.value)"><option value="all">All Job Types</option>${JOB_TYPE_OPTIONS.map((jobType) => `<option value="${esc(jobType)}" ${state.filters.dispatchJobType === jobType ? 'selected' : ''}>${esc(jobType)}</option>`).join('')}</select><div class="toolbar-spacer"></div><button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button>`;
   document.getElementById('dispatch-summary').textContent = `${filteredJobs.length} visible / ${state.data.jobs.length} total`;
-  document.getElementById('dispatch-table').innerHTML = renderTable(['Ticket / Scope', 'Client / Site', 'Job Type', 'Schedule', 'Priority', 'Status', 'Assignments / Alerts', 'Actions'], filteredJobs.map((job) => [ `<div class="inline-stack"><div class="item-title">${esc(job.fieldfxTicketId || `${job.jobType || 'Job'} ${job.id.slice(0, 8)}`)}</div><div class="muted">${esc(job.scopeSummary || 'No scope summary')}</div></div>`, `<div class="inline-stack"><div class="item-title">${esc(getClientLabel(job.clientId))}</div><div class="muted">${esc(getSiteLabel(job.siteId))}</div></div>`, `<div class="inline-stack">${getStatusBadge(job.jobType || 'Not set')}${job.custodyAllocation ? `<div class="muted">${esc(job.custodyAllocation)}</div>` : ''}</div>`, `<div class="inline-stack"><div>${esc(fmtDateTime(job.scheduledStart || job.requestedDate))}</div><div class="muted">${job.durationPlanned ? `${esc(job.durationPlanned)} min planned` : 'No duration set'}</div></div>`, getPriorityBadge(job.priority), `<div class="inline-stack">${getStatusBadge(job.jobStatus)}${isJobOverdue(job) ? '<div class="muted">Past due</div>' : ''}</div>`, `<div>${summarizeAssignments(job.id)}${renderWarnings(getJobWarnings(job, derived))}</div>`, renderActionButtons('jobs', job.id) ]), '<strong>No dispatch jobs yet</strong>Use the Add Job button to start building the field schedule.');
+  document.getElementById('dispatch-table').innerHTML = renderTable(['Ticket / Scope', 'Client / Project / Site', 'Job Type', 'Schedule', 'Priority', 'Status', 'Assignments / Alerts'], filteredJobs.map((job) => buildTableRow('jobs', job.id, [ `<div class="inline-stack"><div class="item-title">${esc(job.fieldfxTicketId || `${job.jobType || 'Job'} ${job.id.slice(0, 8)}`)}</div><div class="muted">${esc(job.scopeSummary || 'No scope summary')}</div></div>`, `<div class="inline-stack"><div class="item-title">${esc(getClientLabel(job.clientId))}</div><div class="muted">${esc(getProjectLabel(job.projectId))} | ${esc(getSiteLabel(job.siteId))}</div></div>`, `<div class="inline-stack">${getStatusBadge(job.jobType || 'Not set')}${job.custodyAllocation ? `<div class="muted">${esc(job.custodyAllocation)}</div>` : ''}</div>`, `<div class="inline-stack"><div>${esc(fmtDateTime(job.scheduledStart || job.requestedDate))}</div><div class="muted">${job.durationPlanned ? `${esc(job.durationPlanned)} min planned` : 'No duration set'}</div></div>`, getPriorityBadge(job.priority), `<div class="inline-stack">${getStatusBadge(job.jobStatus)}${isJobOverdue(job) ? '<div class="muted">Past due</div>' : ''}</div>`, `<div>${summarizeAssignments(job.id)}${renderWarnings(getJobWarnings(job, derived))}</div>` ])), '<strong>No dispatch jobs yet</strong>Use the Add Job button to start building the field schedule.');
 }
 
 function renderSchedule(derived){
@@ -659,14 +836,147 @@ function renderSchedule(derived){
   document.getElementById('schedule-board').innerHTML = `<div class="schedule-week">${weekDates.map((dateIso) => { const jobsForDay = weekJobs.filter((job) => isSameDay(getJobPrimaryDate(job), dateIso)); return `<div class="day-column"><div class="day-head"><strong>${esc(parseDateOnly(dateIso)?.toLocaleDateString('en-US', { weekday:'long' }) || '')}</strong><span>${esc(fmtDate(dateIso))}</span></div><div class="day-list">${jobsForDay.length ? jobsForDay.map((job) => { const warnings = getJobWarnings(job, derived); const cardClasses = ['schedule-card', derived.conflictJobIds.has(job.id) ? 'conflict' : '', warnings.length ? 'warning' : ''].filter(Boolean).join(' '); return `<div class="${cardClasses}"><div class="item-title">${esc(job.fieldfxTicketId || job.jobType || 'Field job')}</div><div class="muted">${esc(fmtTime(job.scheduledStart || job.requestedDate))} | ${esc(getSiteLabel(job.siteId))}</div><div class="mini-tags">${getStatusBadge(job.jobStatus)}${getPriorityBadge(job.priority)}</div>${renderWarnings(warnings)}</div>`; }).join('') : '<div class="empty-state">No scheduled jobs</div>'}</div></div>`; }).join('')}</div>`;
   const weekConflictList = derived.conflicts.filter((conflict) => conflict.start >= weekStart && conflict.start <= weekEnd);
   const weekMissingJobs = derived.missingJobs.filter((job) => { const jobDate = getJobPrimaryDate(job); return !!(jobDate && weekStart && weekEnd && jobDate >= weekStart && jobDate <= weekEnd); });
-  document.getElementById('schedule-conflicts').innerHTML = `<div class="card-list"><div class="summary-card"><div class="label">Scheduling Conflicts</div><div class="value">${weekConflictList.length}</div><div class="muted">Double-booked resources inside the visible week.</div></div>${weekConflictList.length ? weekConflictList.map((conflict) => `<div class="issue-item"><div><div class="item-title">${esc(conflict.resourceLabel)}</div><div class="muted">${esc(conflict.jobA.fieldfxTicketId || conflict.jobA.jobType || 'Job')} overlaps ${esc(conflict.jobB.fieldfxTicketId || conflict.jobB.jobType || 'Job')}</div></div>${getStatusBadge(conflict.assignmentType)}</div>`).join('') : '<div class="empty-state">No resource conflicts for this week.</div>'}<div class="summary-card"><div class="label">Jobs Missing Required Resources</div><div class="value">${weekMissingJobs.length}</div><div class="muted">These jobs still need core resource assignments before dispatch.</div></div>${weekMissingJobs.length ? weekMissingJobs.map((job) => `<div class="issue-item"><div><div class="item-title">${esc(job.fieldfxTicketId || job.jobType || 'Field job')}</div><div class="muted">${esc(getJobMissingRequirements(job).join(', '))}</div></div><button class="act-btn" type="button" onclick="openEntityModal('jobs','${esc(job.id)}')">Edit</button></div>`).join('') : '<div class="empty-state">All visible jobs have their required resource types.</div>'}</div>`;
+  document.getElementById('schedule-conflicts').innerHTML = `<div class="card-list"><div class="summary-card"><div class="label">Scheduling Conflicts</div><div class="value">${weekConflictList.length}</div><div class="muted">Double-booked resources inside the visible week.</div></div>${weekConflictList.length ? weekConflictList.map((conflict) => `<div class="issue-item"><div><div class="item-title">${esc(conflict.resourceLabel)}</div><div class="muted">${esc(conflict.jobA.fieldfxTicketId || conflict.jobA.jobType || 'Job')} overlaps ${esc(conflict.jobB.fieldfxTicketId || conflict.jobB.jobType || 'Job')}</div></div>${getStatusBadge(conflict.assignmentType)}</div>`).join('') : '<div class="empty-state">No resource conflicts for this week.</div>'}<div class="summary-card"><div class="label">Jobs Missing Required Resources</div><div class="value">${weekMissingJobs.length}</div><div class="muted">These jobs still need core resource assignments before dispatch.</div></div>${weekMissingJobs.length ? weekMissingJobs.map((job) => `<div class="issue-item clickable-card" role="button" tabindex="0" title="Open Job" onclick="openEntityModal('jobs','${esc(job.id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEntityModal('jobs','${esc(job.id)}'); }"><div><div class="item-title">${esc(job.fieldfxTicketId || job.jobType || 'Field job')}</div><div class="muted">${esc(getJobMissingRequirements(job).join(', '))}</div></div>${getStatusBadge(job.jobStatus || 'Not set')}</div>`).join('') : '<div class="empty-state">All visible jobs have their required resource types.</div>'}</div>`;
 }
 
+function getActiveDirectoryClientId(){
+  if(state.filters.directoryClient !== 'all' && getClient(state.filters.directoryClient)) return state.filters.directoryClient;
+  return state.data.clients[0]?.id || '';
+}
+function getActiveDirectoryProjectId(clientId = getActiveDirectoryClientId()){
+  if(!clientId || state.filters.directoryProject === 'all') return 'all';
+  const project = getProject(state.filters.directoryProject);
+  return project && project.clientId === clientId ? project.id : 'all';
+}
+function getDirectoryProjects(clientId){ return state.data.projects.filter((row) => row.clientId === clientId).sort(getEntitySorter('projects')); }
+function getDirectoryContacts(clientId, projectId = 'all'){
+  return state.data.contacts
+    .filter((row) => row.clientId === clientId && (projectId === 'all' || !row.projectId || row.projectId === projectId))
+    .sort(getEntitySorter('contacts'));
+}
+function getDirectoryBillingProfiles(clientId, projectId = 'all'){
+  return state.data.billingProfiles
+    .filter((row) => row.clientId === clientId && (projectId === 'all' || !row.projectId || row.projectId === projectId))
+    .sort(getEntitySorter('billingProfiles'));
+}
+function getDirectorySites(clientId, projectId = 'all'){
+  return state.data.sites
+    .filter((row) => row.clientId === clientId && (projectId === 'all' || row.projectId === projectId))
+    .sort(getEntitySorter('sites'));
+}
+function getDirectoryJobs(clientId, projectId = 'all'){
+  return state.data.jobs
+    .filter((row) => row.clientId === clientId && (projectId === 'all' || row.projectId === projectId))
+    .sort(getEntitySorter('jobs'));
+}
+function renderDirectoryClientList(activeClientId){
+  if(!state.data.clients.length) return `<div class="empty-state"><strong>No clients yet</strong>Create a client first to start onboarding projects, contacts, billing, sites, and jobs.</div>`;
+  return `<div class="directory-client-list">${state.data.clients.map((client) => {
+    const projectCount = getDirectoryProjects(client.id).length;
+    const siteCount = getDirectorySites(client.id).length;
+    const jobCount = getDirectoryJobs(client.id).length;
+    const activeClass = client.id === activeClientId ? ' active' : '';
+    return `<button type="button" class="directory-client-card${activeClass}" onclick="setDirectoryClientFilter('${esc(client.id)}')"><div class="client-row-ident">${renderAssetPhoto(client, { className:'client-logo-thumb', emptyLabel:'No logo', alt:getAssetPhotoAlt('clients', client) })}<div class="inline-stack"><div class="item-title">${esc(client.clientName || 'Unnamed client')}</div><div class="muted">${esc(normalizeClientCode(client.clientCode) || 'No client code')} | ${esc(client.salesforceAccountId || client.defaultServiceArea || 'No CRM or region set')}</div></div></div><div class="mini-tags">${getStatusBadge(client.accountStatus)}${getStatusBadge(client.serviceScope || 'Field')}</div><div class="muted">${esc(client.primaryContact || 'No primary contact')} | ${esc(client.contactPhone || client.contactEmail || 'No phone or email')}</div><div class="tag-row"><span class="tag-chip">${esc(projectCount)} project${projectCount === 1 ? '' : 's'}</span><span class="tag-chip">${esc(siteCount)} site${siteCount === 1 ? '' : 's'}</span><span class="tag-chip">${esc(jobCount)} job${jobCount === 1 ? '' : 's'}</span></div></button>`;
+  }).join('')}</div>`;
+}
+function renderDirectorySectionNav(){
+  const sections = [
+    { value:'overview', label:'Overview' },
+    { value:'projects', label:'Projects' },
+    { value:'contacts', label:'Contacts' },
+    { value:'billing', label:'Billing' },
+    { value:'sites', label:'Sites' }
+  ];
+  return `<div class="directory-section-nav">${sections.map((section) => `<button type="button" class="view-btn ${state.filters.directorySection === section.value ? 'active' : ''}" onclick="setDirectorySection('${section.value}')">${esc(section.label)}</button>`).join('')}</div>`;
+}
+function renderDirectoryOverviewSection(client, activeProjectId){
+  const projects = getDirectoryProjects(client.id);
+  const contacts = getDirectoryContacts(client.id, activeProjectId);
+  const billingProfiles = getDirectoryBillingProfiles(client.id, activeProjectId);
+  const sites = getDirectorySites(client.id, activeProjectId);
+  const jobs = getDirectoryJobs(client.id, activeProjectId);
+  const focusedProject = activeProjectId !== 'all' ? getProject(activeProjectId) : null;
+  const primaryContacts = contacts.filter((row) => row.isPrimary);
+  const upcomingJobs = jobs.filter((row) => !isJobClosed(row)).slice(0, 4);
+  const address = [client.hqStreet, [client.hqCity, client.hqState].filter(Boolean).join(', '), client.hqZip].filter(Boolean).join(' ');
+  return `<div class="summary-grid directory-summary-grid"><div class="summary-card"><div class="label">Service Scope</div><div class="value">${esc(client.serviceScope || 'Field')}</div><div class="muted">${esc(client.sector || 'No sector')}</div></div><div class="summary-card"><div class="label">Client Code</div><div class="value">${esc(normalizeClientCode(client.clientCode) || 'Missing')}</div><div class="muted">Lab samples tie back to this client through the shared code.</div></div><div class="summary-card"><div class="label">Focused Project</div><div class="value">${esc(focusedProject?.projectName || 'All Projects')}</div><div class="muted">${esc(focusedProject?.projectStatus || `${projects.length} total projects`)}</div></div><div class="summary-card"><div class="label">Contacts</div><div class="value">${contacts.length}</div><div class="muted">${esc(primaryContacts.length ? `${primaryContacts.length} primary contact${primaryContacts.length === 1 ? '' : 's'}` : 'No primary contacts flagged')}</div></div><div class="summary-card"><div class="label">Sites</div><div class="value">${sites.length}</div><div class="muted">${esc(jobs.length)} active workflow record(s) in this scope</div></div></div><div class="directory-section-grid"><div class="summary-card"><div class="label">Company Snapshot</div><div class="value">${esc(client.clientName || 'Unnamed client')}</div><div class="muted">${esc(normalizeClientCode(client.clientCode) || 'No client code')}</div><div class="muted">${esc(address || 'No HQ address on file')}</div><div class="muted">${esc(client.defaultServiceArea || 'No default service area')}</div><div class="mini-tags">${getStatusBadge(client.accountStatus)}${getStatusBadge(client.serviceScope || 'Field')}</div></div><div class="summary-card"><div class="label">Billing Snapshot</div><div class="value">${esc(billingProfiles[0]?.billingName || 'No billing profile')}</div><div class="muted">${esc(billingProfiles[0]?.billingEmail || billingProfiles[0]?.billingPhone || client.contactEmail || 'No billing contact on file')}</div><div class="muted">${esc(billingProfiles[0]?.poNumber || billingProfiles[0]?.referenceNumber || 'No PO / reference')}</div></div><div class="summary-card"><div class="label">Field Snapshot</div><div class="value">${esc(client.primaryContact || 'No primary contact')}</div><div class="muted">${esc(client.contactPhone || client.contactEmail || 'No client phone or email')}</div><div class="muted">${esc(client.operationalNotes || 'No field notes added yet')}</div></div></div><div class="directory-subsection"><div class="panel-header directory-subsection-head"><h2>Upcoming Jobs</h2><button class="act-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button></div><div class="panel-body">${upcomingJobs.length ? `<div class="mini-list">${upcomingJobs.map((job) => `<div class="mini-card clickable-card" role="button" tabindex="0" onclick="openEntityModal('jobs','${esc(job.id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEntityModal('jobs','${esc(job.id)}'); }"><div class="mini-head"><div><div class="item-title">${esc(job.fieldfxTicketId || job.jobType || 'Field job')}</div><div class="muted">${esc(getProjectLabel(job.projectId))} | ${esc(getSiteLabel(job.siteId))}</div></div>${getPriorityBadge(job.priority)}</div><div class="mini-tags">${getStatusBadge(job.jobStatus)}<span class="mini-tag">${esc(fmtDateTime(job.scheduledStart || job.requestedDate))}</span></div></div>`).join('')}</div>` : '<div class="empty-state">No jobs are queued for this client scope yet.</div>'}</div></div>`;
+}
+function renderDirectoryProjectsSection(clientId, activeProjectId){
+  const projects = getDirectoryProjects(clientId);
+  return renderTable(['Project', 'Scope / Status', 'Timeline', 'Sites / Jobs', 'Notes'], projects.map((project) => {
+    const siteCount = getSitesForProject(project.id).length;
+    const jobCount = getJobsForProject(project.id).length;
+    return buildTableRow('projects', project.id, [
+      `<div class="inline-stack"><div class="item-title">${esc(project.projectName || 'Unnamed project')}</div><div class="muted">${project.id === activeProjectId ? 'Focused project' : getClientLabel(project.clientId)}</div></div>`,
+      `<div class="inline-stack">${getStatusBadge(project.serviceScope || 'Field')}${getStatusBadge(project.projectStatus || 'Active')}</div>`,
+      `<div class="inline-stack"><div>${esc(fmtDate(project.startDate))}</div><div class="muted">${esc(project.endDate ? `Ends ${fmtDate(project.endDate)}` : 'No end date')}</div></div>`,
+      `<div class="inline-stack"><div>${esc(siteCount)} site${siteCount === 1 ? '' : 's'}</div><div class="muted">${esc(jobCount)} job${jobCount === 1 ? '' : 's'}</div></div>`,
+      `<div class="muted">${esc(project.notes || 'No notes')}</div>`
+    ]);
+  }), '<strong>No projects yet</strong>Create a project as soon as the client scope is defined so sites and jobs have a real operational home.');
+}
+function renderDirectoryContactsSection(clientId, activeProjectId){
+  const contacts = getDirectoryContacts(clientId, activeProjectId);
+  return renderTable(['Contact', 'Scope', 'Project / Site', 'Phone / Email', 'Notes'], contacts.map((contact) => buildTableRow('contacts', contact.id, [
+    `<div class="inline-stack"><div class="item-title">${esc(contact.contactName || 'Unnamed contact')}</div><div class="muted">${esc(contact.contactRole || 'No role/title')}</div></div>`,
+    `<div class="inline-stack">${getStatusBadge(contact.contactScope || 'Operations')}${contact.isPrimary ? '<span class="tag-chip">Primary</span>' : ''}</div>`,
+    `<div class="inline-stack"><div>${esc(contact.projectId ? getProjectLabel(contact.projectId) : 'Client-wide')}</div><div class="muted">${esc(contact.siteId ? getSiteLabel(contact.siteId) : 'No site linked')}</div></div>`,
+    `<div class="inline-stack"><div>${esc(contact.phone || 'No phone')}</div><div class="muted">${esc(contact.email || 'No email')}</div></div>`,
+    `<div class="muted">${esc(contact.notes || 'No notes')}</div>`
+  ])), '<strong>No contacts yet</strong>Add billing, operations, lab, and site contacts here so jobs can pull the right people into the workflow.');
+}
+function renderDirectoryBillingSection(clientId, activeProjectId){
+  const billingProfiles = getDirectoryBillingProfiles(clientId, activeProjectId);
+  return renderTable(['Billing Profile', 'Project', 'Billing Contact', 'PO / Reference', 'Default', 'Notes'], billingProfiles.map((profile) => buildTableRow('billingProfiles', profile.id, [
+    `<div class="inline-stack"><div class="item-title">${esc(profile.billingName || 'Unnamed billing profile')}</div><div class="muted">${esc(profile.billingAddress || 'No billing address')}</div></div>`,
+    esc(profile.projectId ? getProjectLabel(profile.projectId) : 'Client-wide'),
+    `<div class="inline-stack"><div>${esc(profile.billingEmail || 'No email')}</div><div class="muted">${esc(profile.billingPhone || 'No phone')}</div></div>`,
+    `<div class="inline-stack"><div>${esc(profile.poNumber || 'No PO')}</div><div class="muted">${esc(profile.referenceNumber || 'No reference')}</div></div>`,
+    profile.isDefault ? '<span class="tag-chip">Default</span>' : '<span class="muted">Optional</span>',
+    `<div class="muted">${esc(profile.invoiceNotes || profile.fieldBillingNotes || profile.labBillingNotes || 'No notes')}</div>`
+  ])), '<strong>No billing profiles yet</strong>Capture field and lab invoicing details here so the client record stays usable across both teams.');
+}
+function renderDirectorySitesSection(clientId, activeProjectId){
+  const sites = getDirectorySites(clientId, activeProjectId);
+  return renderTable(['Site', 'Project', 'Type / Status', 'Location', 'Standard Job Types', 'Jobs'], sites.map((site) => buildTableRow('sites', site.id, [
+    `<div class="inline-stack"><div class="item-title">${esc(site.siteName || 'Unnamed site')}</div><div class="muted">${esc(site.clientSiteContact || 'No site contact')}</div></div>`,
+    esc(getProjectLabel(site.projectId)),
+    `<div class="inline-stack">${getStatusBadge(site.siteType || 'Other')}${getStatusBadge(site.siteStatus || 'Active')}</div>`,
+    `<div class="inline-stack"><div>${esc(site.physicalAddress || 'No address')}</div><div class="muted">${esc(site.countyState || 'No county/state')}</div></div>`,
+    renderTags(site.standardJobTypes),
+    `<div class="inline-stack"><div>${esc(getJobsForSite(site.id).length)} job${getJobsForSite(site.id).length === 1 ? '' : 's'}</div><div class="muted">${esc(getSamplesForSite(site.id).length)} sample${getSamplesForSite(site.id).length === 1 ? '' : 's'}</div></div>`
+  ])), '<strong>No sites yet</strong>Add project-owned sites here so field jobs can be scheduled to real locations.');
+}
+function renderDirectoryWorkspace(client, activeProjectId){
+  const overview = renderDirectoryOverviewSection(client, activeProjectId);
+  if(state.filters.directorySection === 'projects') return renderDirectoryProjectsSection(client.id, activeProjectId);
+  if(state.filters.directorySection === 'contacts') return renderDirectoryContactsSection(client.id, activeProjectId);
+  if(state.filters.directorySection === 'billing') return renderDirectoryBillingSection(client.id, activeProjectId);
+  if(state.filters.directorySection === 'sites') return renderDirectorySitesSection(client.id, activeProjectId);
+  return overview;
+}
 function renderDirectory(){
-  document.getElementById('directory-toolbar').innerHTML = `<span class="label">Filter Sites</span><select onchange="setDirectoryClientFilter(this.value)"><option value="all">All Clients</option>${state.data.clients.map((client) => `<option value="${esc(client.id)}" ${state.filters.directoryClient === client.id ? 'selected' : ''}>${esc(client.clientName || 'Unnamed client')}</option>`).join('')}</select><div class="toolbar-spacer"></div><button class="add-btn" type="button" onclick="openEntityModal('clients')">+ Add Client</button><button class="act-btn" type="button" onclick="openEntityModal('sites')">+ Add Site</button>`;
-  document.getElementById('clients-table').innerHTML = renderTable(['Client', 'Status', 'Contact', 'Region', 'Notes', 'Actions'], state.data.clients.map((client) => [ `<div class="inline-stack"><div class="item-title">${esc(client.clientName || 'Unnamed client')}</div><div class="muted">${esc(client.salesforceAccountId || 'No Salesforce ID')}</div></div>`, getStatusBadge(client.accountStatus), `<div class="inline-stack"><div>${esc(client.primaryContact || 'No contact')}</div><div class="muted">${esc(client.contactPhone || client.contactEmail || 'No phone or email')}</div></div>`, esc(client.defaultServiceArea || 'Not set'), `<div class="inline-stack"><div class="muted">${esc(client.operationalNotes || client.billingNotes || 'No notes')}</div></div>`, renderActionButtons('clients', client.id) ]), '<strong>No clients yet</strong>Create a client first so sites and jobs have an account to live under.');
-  const visibleSites = state.data.sites.filter((site) => state.filters.directoryClient === 'all' || site.clientId === state.filters.directoryClient);
-  document.getElementById('sites-table').innerHTML = renderTable(['Site', 'Client', 'Type', 'Status', 'Location', 'Standard Job Types', 'Actions'], visibleSites.map((site) => [ `<div class="inline-stack"><div class="item-title">${esc(site.siteName || 'Unnamed site')}</div><div class="muted">${esc(site.clientSiteContact || 'No site contact')}</div></div>`, esc(getClientLabel(site.clientId)), getStatusBadge(site.siteType), getStatusBadge(site.siteStatus), `<div class="inline-stack"><div>${esc(site.physicalAddress || 'No address')}</div><div class="muted">${esc(site.countyState || 'No county/state')}</div></div>`, renderTags(site.standardJobTypes), renderActionButtons('sites', site.id) ]), '<strong>No sites yet</strong>Add sites under clients so field jobs can be scheduled to a real location.');
+  const activeClientId = getActiveDirectoryClientId();
+  const activeClient = getClient(activeClientId);
+  const activeProjectId = getActiveDirectoryProjectId(activeClientId);
+  const projectOptions = activeClient ? getDirectoryProjects(activeClient.id) : [];
+  document.getElementById('directory-toolbar').innerHTML = `<div class="toolbar-summary">Onboard the client, define the project scope, then add contacts, billing, sites, and jobs from one shared workspace for field and lab.</div>${activeClient ? `<span class="label">Project Focus</span><select onchange="setDirectoryProjectFilter(this.value)"><option value="all">All Projects</option>${projectOptions.map((project) => `<option value="${esc(project.id)}" ${activeProjectId === project.id ? 'selected' : ''}>${esc(project.projectName || 'Unnamed project')}</option>`).join('')}</select>` : ''}<div class="toolbar-spacer"></div><button class="add-btn" type="button" onclick="openEntityModal('clients')">+ Add Client</button>`;
+  document.getElementById('directory-client-list').innerHTML = renderDirectoryClientList(activeClientId);
+  if(!activeClient){
+    document.getElementById('directory-detail-title').textContent = 'Client Workspace';
+    document.getElementById('directory-detail-meta').textContent = 'Pick or create a client to start onboarding.';
+    document.getElementById('directory-detail-actions').innerHTML = '';
+    document.getElementById('directory-workspace').innerHTML = `<div class="empty-state"><strong>No client selected</strong>Create a client to begin the shared client/project onboarding flow.</div>`;
+    return;
+  }
+  const focusedProject = activeProjectId !== 'all' ? getProject(activeProjectId) : null;
+  const contacts = getDirectoryContacts(activeClient.id, activeProjectId);
+  const billingProfiles = getDirectoryBillingProfiles(activeClient.id, activeProjectId);
+  const sites = getDirectorySites(activeClient.id, activeProjectId);
+  document.getElementById('directory-detail-title').textContent = activeClient.clientName || 'Client Workspace';
+  document.getElementById('directory-detail-meta').textContent = focusedProject ? `${normalizeClientCode(activeClient.clientCode) || 'No client code'} | ${focusedProject.projectName} | ${contacts.length} contacts | ${billingProfiles.length} billing profile(s) | ${sites.length} site(s)` : `${normalizeClientCode(activeClient.clientCode) || 'No client code'} | ${getDirectoryProjects(activeClient.id).length} projects | ${contacts.length} contacts | ${billingProfiles.length} billing profile(s) | ${sites.length} site(s)`;
+  document.getElementById('directory-detail-actions').innerHTML = `<button class="act-btn" type="button" onclick="openEntityModal('clients','${esc(activeClient.id)}')">Edit Client</button><button class="act-btn" type="button" onclick="openEntityModal('projects')">+ Project</button><button class="act-btn" type="button" onclick="openEntityModal('contacts')">+ Contact</button><button class="act-btn" type="button" onclick="openEntityModal('billingProfiles')">+ Billing</button><button class="act-btn" type="button" onclick="openEntityModal('sites')">+ Site</button><button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Job</button>`;
+  document.getElementById('directory-workspace').innerHTML = `${renderDirectorySectionNav()}<div class="directory-hero"><div class="client-row-ident">${renderAssetPhoto(activeClient, { className:'client-logo-thumb', emptyLabel:'No logo', alt:getAssetPhotoAlt('clients', activeClient) })}<div class="inline-stack"><div class="item-title">${esc(activeClient.clientName || 'Unnamed client')}</div><div class="muted">${esc(normalizeClientCode(activeClient.clientCode) || 'No client code')} | ${esc(activeClient.primaryContact || 'No primary contact')} | ${esc(activeClient.contactPhone || activeClient.contactEmail || 'No phone or email')}</div><div class="mini-tags">${getStatusBadge(activeClient.accountStatus)}${getStatusBadge(activeClient.serviceScope || 'Field')}${activeProjectId !== 'all' ? `<span class="tag-chip">Project Focus: ${esc(getProjectLabel(activeProjectId))}</span>` : ''}</div></div></div><div class="directory-hero-copy">Build the account once, then keep projects, billing, contacts, sites, and jobs connected instead of split across separate screens.</div></div>${renderDirectoryWorkspace(activeClient, activeProjectId)}`;
 }
 
 function renderResourceCards(list, renderer, emptyLabel){
@@ -676,11 +986,13 @@ function renderResourceCards(list, renderer, emptyLabel){
 function isAssetPhotoEntity(entityKey){ return ASSET_PHOTO_ENTITY_KEYS.includes(entityKey); }
 function hasAssetPhoto(record){ return !!(record?.assetPhotoDataUrl || record?.assetPhotoPath); }
 function getAssetPhotoAlt(entityKey, record){
+  if(entityKey === 'clients') return `Logo for client ${record?.clientName || 'account'}`;
   if(entityKey === 'trucks') return `Photo for truck ${record?.unitNumber || 'asset'}`;
   if(entityKey === 'trailers') return `Photo for trailer ${record?.trailerNumber || 'asset'}`;
   return `Photo for equipment ${record?.equipmentName || 'asset'}`;
 }
 function getAssetPhotoEmptyLabel(entityKey){
+  if(entityKey === 'clients') return 'No client logo';
   if(entityKey === 'trucks') return 'No truck photo';
   if(entityKey === 'trailers') return 'No trailer photo';
   return 'No equipment photo';
@@ -806,8 +1118,8 @@ function renderAssetPhotoField(field){
 }
 
 function renderResources(){
-  document.getElementById('technicians-panel').innerHTML = renderResourceCards(state.data.technicians, (tech) => `<div ${renderCardOpenAttrs('technicians', tech.id)}><div class="resource-card-head"><div><div class="item-title">${esc(tech.employeeName || 'Unnamed technician')}</div><div class="muted">${esc(tech.role)}</div></div>${getStatusBadge(tech.availabilityStatus)}</div>${renderTags(tech.skillTags)}<div class="muted">${esc(tech.phone || tech.email || 'No contact info')}</div></div>`, 'No technicians yet');
-  document.getElementById('trucks-panel').innerHTML = renderResourceCards(state.data.trucks, (truck) => `<div ${renderCardOpenAttrs('trucks', truck.id)}><div class="resource-card-head"><div><div class="item-title">${esc(truck.unitNumber || 'Unnamed truck')}</div><div class="muted">${esc([truck.color, truck.vehicleYear, truck.make, truck.model, truck.duty || truck.vehicleType].filter(Boolean).join(' ') || truck.vehicleType)}</div></div>${getStatusBadge(truck.serviceStatus)}</div><div class="mini-tags">${truck.truckWorkflow ? `<span class="tag-chip">${esc(truck.truckWorkflow)}</span>` : ''}${truck.businessUnit ? `<span class="tag-chip">${esc(truck.businessUnit)}</span>` : ''}${truck.primaryUse ? `<span class="tag-chip">${esc(truck.primaryUse)}</span>` : ''}${truck.gpsStatus ? getStatusBadge(truck.gpsStatus) : ''}</div><div class="muted">${esc(truck.assignedRegion || 'No region')} | ${esc(truck.licensePlateNumber || truck.plateVin || 'No plate')} | ${esc(truck.vin || 'No VIN')}</div><div class="muted">Tech: ${esc(truck.assignedTechnicianId ? getTechnicianLabel(truck.assignedTechnicianId) : (truck.assignedTo || 'Pool'))}</div><div class="muted">${truck.odometer !== null ? `${esc(truck.odometer)} mi` : 'No odometer'} ${truck.vehicleInformation ? `| ${esc(truck.vehicleInformation)}` : ''}</div><div class="muted">${esc(truck.ownership || 'No ownership')} ${truck.leaseCompany ? `| ${esc(truck.leaseCompany)}` : ''}</div></div>`, 'No trucks yet');
+  document.getElementById('technicians-panel').innerHTML = renderResourceCards(state.data.technicians, (tech) => `<div ${renderCardOpenAttrs('technicians', tech.id)}><div class="resource-card-head"><div><div class="item-title">${esc(tech.employeeName || 'Unnamed technician')}</div><div class="muted">${esc(tech.role)}</div></div>${getStatusBadge(tech.availabilityStatus)}</div>${renderTags(tech.skillTags)}<div class="muted">Default Truck: ${esc(getDefaultTruckForTechnician(tech.id)?.unitNumber || 'Pool / Unassigned')}</div><div class="muted">${esc(tech.phone || tech.email || 'No contact info')}</div></div>`, 'No technicians yet');
+  document.getElementById('trucks-panel').innerHTML = renderResourceCards(state.data.trucks, (truck) => `<div ${renderCardOpenAttrs('trucks', truck.id)}><div class="resource-card-head"><div><div class="item-title">${esc(truck.unitNumber || 'Unnamed truck')}</div><div class="muted">${esc([truck.color, truck.vehicleYear, truck.make, truck.model, truck.duty || truck.vehicleType].filter(Boolean).join(' ') || truck.vehicleType)}</div></div>${getStatusBadge(truck.serviceStatus)}</div><div class="mini-tags">${truck.truckWorkflow ? `<span class="tag-chip">${esc(truck.truckWorkflow)}</span>` : ''}${truck.businessUnit ? `<span class="tag-chip">${esc(truck.businessUnit)}</span>` : ''}${truck.primaryUse ? `<span class="tag-chip">${esc(truck.primaryUse)}</span>` : ''}${truck.gpsStatus ? getStatusBadge(truck.gpsStatus) : ''}</div><div class="muted">${esc(truck.assignedRegion || 'No region')} | ${esc(truck.licensePlateNumber || truck.plateVin || 'No plate')} | ${esc(truck.vin || 'No VIN')}</div><div class="muted">Default Tech: ${esc(truck.assignedTechnicianId ? getTechnicianLabel(truck.assignedTechnicianId) : (truck.assignedTo || 'Pool'))}</div><div class="muted">${truck.odometer !== null ? `${esc(truck.odometer)} mi` : 'No odometer'} ${truck.vehicleInformation ? `| ${esc(truck.vehicleInformation)}` : ''}</div><div class="muted">${esc(truck.ownership || 'No ownership')} ${truck.leaseCompany ? `| ${esc(truck.leaseCompany)}` : ''}</div></div>`, 'No trucks yet');
   document.getElementById('trailers-panel').innerHTML = renderResourceCards(state.data.trailers, (trailer) => `<div ${renderCardOpenAttrs('trailers', trailer.id)}><div class="resource-card-head"><div><div class="item-title">${esc(trailer.trailerNumber || 'Unnamed trailer')}</div><div class="muted">${esc(trailer.trailerType || 'No trailer type')}</div></div>${getStatusBadge(trailer.serviceStatus)}</div><div class="muted">${esc(trailer.capacityConfiguration || 'No capacity/configuration')}</div><div class="muted">Assigned Truck: ${esc(trailer.assignedTruckId ? getTruckLabel(trailer.assignedTruckId) : 'Unassigned')}</div></div>`, 'No trailers yet');
   document.getElementById('equipment-panel').innerHTML = renderResourceCards(state.data.equipment, (item) => `<div ${renderCardOpenAttrs('equipment', item.id)}><div class="resource-card-head"><div><div class="item-title">${esc(item.equipmentName || 'Unnamed equipment')}</div><div class="muted">${esc(item.equipmentType)}</div></div>${getStatusBadge(item.maintenanceStatus)}</div><div class="mini-tags">${getStatusBadge(item.calibrationStatus)}${item.serialNumber ? `<span class="tag-chip">${esc(item.serialNumber)}</span>` : ''}</div><div class="muted">${esc(item.storageLocation || 'No storage location')}</div><div class="muted">Truck: ${esc(item.assignedTruckId ? getTruckLabel(item.assignedTruckId) : 'Unassigned')} | Trailer: ${esc(item.assignedTrailerId ? getTrailerLabel(item.assignedTrailerId) : 'Unassigned')}</div></div>`, 'No equipment yet');
 }
@@ -815,12 +1127,12 @@ function renderResources(){
 function renderSamples(){
   const inTransit = state.data.samples.filter((sample) => sample.chainOfCustodyStatus === 'In Transit').length;
   document.getElementById('samples-summary').textContent = `${state.data.samples.length} total | ${inTransit} in transit`;
-  document.getElementById('samples-table').innerHTML = renderTable(['Sample', 'Job / Location', 'Collected', 'COC', 'Lab Receipt', 'Drop-Off / Priority', 'Actions'], state.data.samples.map((sample) => [ `<div class="inline-stack"><div class="item-title">${esc(sample.sampleType)}</div><div class="muted">${esc(sample.containerType)}</div></div>`, `<div class="inline-stack"><div>${esc(getJobLabel(sample.jobId))}</div><div class="muted">${esc(getClientLabel(sample.clientId))} | ${esc(getSiteLabel(sample.siteId))}</div></div>`, esc(fmtDateTime(sample.collectionDateTime)), getStatusBadge(sample.chainOfCustodyStatus), getStatusBadge(sample.labReceiptStatus), `<div class="inline-stack"><div>${esc(sample.dropOffLocation || 'No drop-off set')}</div><div class="muted">${esc(sample.priorityTat || 'No priority / TAT')}</div></div>`, renderActionButtons('samples', sample.id) ]), '<strong>No sample records yet</strong>Track pickups, chain of custody, and lab handoff from here.');
+  document.getElementById('samples-table').innerHTML = renderTable(['Sample', 'Job / Client Scope', 'Collected', 'COC', 'Lab Receipt', 'Drop-Off / Priority'], state.data.samples.map((sample) => { const job = getJob(sample.jobId); const projectLabel = job?.projectId ? getProjectLabel(job.projectId) : 'No project'; return buildTableRow('samples', sample.id, [ `<div class="inline-stack"><div class="item-title">${esc(sample.sampleType)}</div><div class="muted">${esc(sample.containerType)}</div></div>`, `<div class="inline-stack"><div>${esc(getJobLabel(sample.jobId))}</div><div class="muted">${esc(getClientLabel(sample.clientId))} | ${esc(projectLabel)} | ${esc(getSiteLabel(sample.siteId))}</div></div>`, esc(fmtDateTime(sample.collectionDateTime)), getStatusBadge(sample.chainOfCustodyStatus), getStatusBadge(sample.labReceiptStatus), `<div class="inline-stack"><div>${esc(sample.dropOffLocation || 'No drop-off set')}</div><div class="muted">${esc(sample.priorityTat || 'No priority / TAT')}</div></div>` ]); }), '<strong>No sample records yet</strong>Track pickups, chain of custody, and lab handoff from here.');
 }
 
 function renderMaintenance(){
   document.getElementById('maintenance-summary').textContent = `${state.data.maintenanceRecords.filter((record) => !isMaintenanceClosed(record)).length} open items`;
-  document.getElementById('maintenance-table').innerHTML = renderTable(['Asset', 'Type', 'Status', 'Dates', 'Assigned', 'Vendor / Cost', 'Actions'], state.data.maintenanceRecords.map((record) => [ `<div class="inline-stack"><div class="item-title">${esc(getAssetLabel(record.assetType, record.assetId))}</div><div class="muted">${esc(record.assetType)}</div></div>`, getStatusBadge(record.maintenanceType), getStatusBadge(record.status), `<div class="inline-stack"><div>${esc(fmtDate(record.dueDate))}</div><div class="muted">${esc(record.openDate ? `Opened ${fmtDate(record.openDate)}` : 'No open date')}</div></div>`, esc(record.assignedPerson || 'Unassigned'), `<div class="inline-stack"><div>${esc(record.vendorInternal || 'Internal')}</div><div class="muted">${esc(fmtCurrency(record.cost))}</div></div>`, renderActionButtons('maintenanceRecords', record.id) ]), '<strong>No maintenance records yet</strong>Capture inspections, repairs, and calibration readiness here.');
+  document.getElementById('maintenance-table').innerHTML = renderTable(['Asset', 'Type', 'Status', 'Dates', 'Assigned', 'Vendor / Cost'], state.data.maintenanceRecords.map((record) => buildTableRow('maintenanceRecords', record.id, [ `<div class="inline-stack"><div class="item-title">${esc(getAssetLabel(record.assetType, record.assetId))}</div><div class="muted">${esc(record.assetType)}</div></div>`, getStatusBadge(record.maintenanceType), getStatusBadge(record.status), `<div class="inline-stack"><div>${esc(fmtDate(record.dueDate))}</div><div class="muted">${esc(record.openDate ? `Opened ${fmtDate(record.openDate)}` : 'No open date')}</div></div>`, esc(record.assignedPerson || 'Unassigned'), `<div class="inline-stack"><div>${esc(record.vendorInternal || 'Internal')}</div><div class="muted">${esc(fmtCurrency(record.cost))}</div></div>` ])), '<strong>No maintenance records yet</strong>Capture inspections, repairs, and calibration readiness here.');
 }
 
 function renderViewState(){
@@ -831,14 +1143,14 @@ function renderViewState(){
 function render(){
   renderViewState();
   const derived = buildDerivedState();
-  renderOverview(derived);
-  renderDispatch(derived);
-  renderSchedule(derived);
-  renderDirectory();
-  renderResources();
-  renderSamples();
-  renderMaintenance();
-  renderModal();
+  if(document.getElementById('overview-stats')) renderOverview(derived);
+  if(document.getElementById('dispatch-table')) renderDispatch(derived);
+  if(document.getElementById('schedule-board')) renderSchedule(derived);
+  if(document.getElementById('directory-toolbar')) renderDirectory();
+  if(document.getElementById('technicians-panel')) renderResources();
+  if(document.getElementById('samples-table')) renderSamples();
+  if(document.getElementById('maintenance-table')) renderMaintenance();
+  if(document.getElementById('entity-modal-overlay')) renderModal();
   hydrateAssetPhotoPreviews();
 }
 
@@ -851,8 +1163,14 @@ function getNewRecordDraft(entityKey){
 }
 
 function normalizeOptionsList(options){ return normalizeOptions(typeof options === 'function' ? options() : options); }
+function shouldRenderField(field){
+  if(!field || modalState.entity !== 'jobs') return true;
+  if(!Array.isArray(field.jobTypes) || !field.jobTypes.length) return true;
+  return field.jobTypes.includes(modalState.formData.jobType);
+}
 
 function renderFormField(field){
+  if(!shouldRenderField(field)) return '';
   if(field.kind === 'section') return `<div class="form-section"><h4>${esc(field.label)}</h4></div>`;
   const fullClass = field.full ? ' full' : '';
   if(field.type === 'checkbox') return `<div class="form-group${fullClass}"><label class="form-label">${esc(field.label)}</label><label class="toggle-card"><input type="checkbox" ${modalState.formData[field.key] ? 'checked' : ''} onchange="toggleModalField('${field.key}', this.checked)"><span>${esc(field.label)}</span></label></div>`;
@@ -871,9 +1189,59 @@ function renderAssignmentRow(assignment){
   return `<div class="assignment-row"><div class="form-group"><label class="form-label">Assignment Type</label><select class="form-input" onchange="updateModalAssignmentField('${assignment.id}', 'assignmentType', this.value)">${ASSIGNMENT_TYPE_OPTIONS.map((option) => `<option value="${esc(option)}" ${assignment.assignmentType === option ? 'selected' : ''}>${esc(option)}</option>`).join('')}</select></div><div class="form-group"><label class="form-label">Resource</label><select class="form-input" onchange="updateModalAssignmentField('${assignment.id}', 'resourceId', this.value)"><option value="">Select resource...</option>${buildResourceOptions(assignment.assignmentType).map((option) => `<option value="${esc(option.value)}" ${assignment.resourceId === option.value ? 'selected' : ''}>${esc(option.label)}</option>`).join('')}</select></div><div class="form-group"><label class="form-label">Assigned Start</label><input class="form-input" type="datetime-local" value="${esc(assignment.assignedStart)}" oninput="updateModalAssignmentField('${assignment.id}', 'assignedStart', this.value)"></div><div class="form-group"><label class="form-label">Assigned End</label><input class="form-input" type="datetime-local" value="${esc(assignment.assignedEnd)}" oninput="updateModalAssignmentField('${assignment.id}', 'assignedEnd', this.value)"></div><div class="form-group"><label class="form-label">Status</label><select class="form-input" onchange="updateModalAssignmentField('${assignment.id}', 'assignmentStatus', this.value)">${ASSIGNMENT_STATUS_OPTIONS.map((option) => `<option value="${esc(option)}" ${assignment.assignmentStatus === option ? 'selected' : ''}>${esc(option)}</option>`).join('')}</select></div><div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" oninput="updateModalAssignmentField('${assignment.id}', 'assignmentNotes', this.value)">${esc(assignment.assignmentNotes)}</textarea></div><div class="form-group"><label class="form-label">Remove</label><button class="act-btn danger" type="button" onclick="removeAssignmentRow('${assignment.id}')">Delete</button></div></div>`;
 }
 
+function getModalTruckAssignment(){ return modalState.assignments.find((item) => item.assignmentType === 'Truck' && item.resourceId) || null; }
+function getOrCreateModalTruckAssignment(){
+  let row = modalState.assignments.find((item) => item.assignmentType === 'Truck' && item.resourceId) || modalState.assignments.find((item) => item.assignmentType === 'Truck');
+  if(row) return row;
+  row = normalizeRecord('jobAssignments', { id:uid(ENTITY_CONFIG.jobAssignments.idPrefix), assignmentType:'Truck', resourceId:'', assignedStart:modalState.formData.scheduledStart || '', assignedEnd:modalState.formData.scheduledEnd || '', assignmentStatus:'Assigned', assignmentNotes:'' });
+  modalState.assignments.push(row);
+  return row;
+}
+function getModalDefaultTruckSuggestions(){
+  const seen = new Set();
+  return modalState.assignments
+    .filter((item) => item.assignmentType === 'Technician' && item.resourceId)
+    .map((item) => {
+      const technician = state.data.technicians.find((row) => row.id === item.resourceId) || null;
+      const defaultTruck = getDefaultTruckForTechnician(item.resourceId);
+      if(!technician || !defaultTruck || seen.has(item.resourceId)) return null;
+      seen.add(item.resourceId);
+      return { technician, defaultTruck };
+    })
+    .filter(Boolean);
+}
+function applyTechnicianDefaultTruck(technicianId, replace = false){
+  if(!modalState.open) return;
+  const defaultTruck = getDefaultTruckForTechnician(technicianId);
+  if(!defaultTruck){
+    alert('This technician does not have a default truck yet.');
+    return;
+  }
+  const currentTruck = getModalTruckAssignment();
+  if(currentTruck && currentTruck.resourceId === defaultTruck.id) return;
+  if(currentTruck && !replace){
+    alert('A truck is already assigned to this job. Use the existing truck row to swap vehicles, or use this shortcut after clearing the current truck.');
+    return;
+  }
+  const target = getOrCreateModalTruckAssignment();
+  target.assignmentType = 'Truck';
+  target.resourceId = defaultTruck.id;
+  target.assignedStart = target.assignedStart || modalState.formData.scheduledStart || '';
+  target.assignedEnd = target.assignedEnd || modalState.formData.scheduledEnd || '';
+  renderModal();
+}
+function clearModalTruckAssignment(){
+  const target = modalState.assignments.find((item) => item.assignmentType === 'Truck');
+  if(!target) return;
+  target.resourceId = '';
+  renderModal();
+}
 function renderAssignmentEditor(){
   const requirements = REQUIRED_ASSIGNMENTS_BY_JOB_TYPE[modalState.formData.jobType] || [];
-  return `<div class="assignment-editor"><div class="assignment-head"><div><h4>Job Assignments</h4><div class="section-copy">${requirements.length ? `Required for ${modalState.formData.jobType}: ${requirements.join(', ')}.` : 'Add technicians, trucks, trailers, and equipment as needed for this job.'}</div></div><button class="add-btn" type="button" onclick="addAssignmentRow()">+ Add Assignment</button></div><div class="assignment-list">${modalState.assignments.length ? modalState.assignments.map((assignment) => renderAssignmentRow(assignment)).join('') : '<div class="empty-state">No assignments added yet.</div>'}</div><div class="form-hint">Scheduling conflicts, missing required resources, out-of-service assets, and overdue calibration are surfaced in the dashboard after save.</div></div>`;
+  const suggestions = getModalDefaultTruckSuggestions();
+  const currentTruck = getModalTruckAssignment();
+  const suggestionMarkup = suggestions.length ? `<div class="assignment-defaults">${suggestions.map(({ technician, defaultTruck }) => `<div class="assignment-default-row"><div><div class="item-title">${esc(technician.employeeName || 'Technician')}</div><div class="muted">Default truck ${esc(defaultTruck.unitNumber || 'Unnamed truck')}</div></div><div class="table-actions"><button class="act-btn" type="button" onclick="applyTechnicianDefaultTruck('${esc(technician.id)}', true)" ${currentTruck?.resourceId === defaultTruck.id ? 'disabled' : ''}>Use Default Truck</button>${currentTruck ? `<button class="act-btn danger" type="button" onclick="clearModalTruckAssignment()">Clear Truck</button>` : ''}</div></div>`).join('')}</div>` : '';
+  return `<div class="assignment-editor"><div class="assignment-head"><div><h4>Job Assignments</h4><div class="section-copy">${requirements.length ? `Required for ${modalState.formData.jobType}: ${requirements.join(', ')}.` : 'Choose a job type, then add technicians, trucks, trailers, and equipment as needed.'}</div></div><button class="add-btn" type="button" onclick="addAssignmentRow()">+ Add Assignment</button></div>${suggestionMarkup}<div class="assignment-list">${modalState.assignments.length ? modalState.assignments.map((assignment) => renderAssignmentRow(assignment)).join('') : '<div class="empty-state">No assignments added yet.</div>'}</div><div class="form-hint">Selecting a technician auto-fills their default truck when no truck is assigned. You can swap to another vehicle or clear the truck from this editor at any time.</div></div>`;
 }
 
 function renderModal(){
@@ -889,7 +1257,23 @@ function renderModal(){
 
 function openEntityModal(entityKey, id = ''){
   const existing = id ? state.data[entityKey].find((row) => row.id === id) : null;
-  modalState = { open:true, entity:entityKey, id:existing?.id || '', formData:existing ? clone(existing) : getNewRecordDraft(entityKey), assignments:entityKey === 'jobs' ? (existing ? getAssignmentsForJob(existing.id).map((row) => clone(row)) : []) : [] };
+  const draft = existing ? clone(existing) : getNewRecordDraft(entityKey);
+  const directoryClientId = state.activeView === 'directory' ? getActiveDirectoryClientId() : (state.filters.directoryClient !== 'all' ? state.filters.directoryClient : '');
+  const directoryProjectId = state.activeView === 'directory' ? getActiveDirectoryProjectId(directoryClientId) : (state.filters.directoryProject !== 'all' ? state.filters.directoryProject : '');
+  if(!existing){
+    if(['projects', 'contacts', 'billingProfiles', 'sites', 'jobs'].includes(entityKey) && directoryClientId) draft.clientId = directoryClientId;
+    if(['contacts', 'billingProfiles', 'sites', 'jobs'].includes(entityKey) && directoryProjectId && directoryProjectId !== 'all') draft.projectId = directoryProjectId;
+  }
+  if(entityKey === 'technicians') draft.defaultTruckId = existing ? (getDefaultTruckForTechnician(existing.id)?.id || '') : '';
+  if(entityKey === 'sites' && draft.projectId && !draft.clientId){
+    const project = getProject(draft.projectId);
+    if(project) draft.clientId = project.clientId;
+  }
+  if(entityKey === 'jobs' && draft.projectId && !draft.clientId){
+    const project = getProject(draft.projectId);
+    if(project) draft.clientId = project.clientId;
+  }
+  modalState = { open:true, entity:entityKey, id:existing?.id || '', formData:draft, assignments:entityKey === 'jobs' ? (existing ? getAssignmentsForJob(existing.id).map((row) => clone(row)) : []) : [] };
   if(entityKey === 'equipment' && !existing) syncEquipmentAssignmentSummary();
   renderModal();
 }
@@ -898,7 +1282,66 @@ function closeEntityModal(){ modalState = createClosedModalState(); renderModal(
 function setModalField(key, value, mode = 'text'){ if(modalState.open) modalState.formData[key] = mode === 'number' ? normalizeNumber(value) : value; }
 function toggleModalField(key, checked){ if(modalState.open) modalState.formData[key] = !!checked; }
 
-function changeJobClient(value){ modalState.formData.clientId = value; const site = getSite(modalState.formData.siteId); if(site && site.clientId !== value) modalState.formData.siteId = ''; renderModal(); }
+function changeSiteClient(value){
+  modalState.formData.clientId = value;
+  const project = getProject(modalState.formData.projectId);
+  if(project && project.clientId !== value) modalState.formData.projectId = '';
+  renderModal();
+}
+function changeSiteProject(value){
+  modalState.formData.projectId = value;
+  const project = getProject(value);
+  if(project) modalState.formData.clientId = project.clientId;
+  renderModal();
+}
+function changeContactClient(value){
+  modalState.formData.clientId = value;
+  const project = getProject(modalState.formData.projectId);
+  if(project && project.clientId !== value) modalState.formData.projectId = '';
+  const site = getSite(modalState.formData.siteId);
+  if(site && site.clientId !== value) modalState.formData.siteId = '';
+  renderModal();
+}
+function changeContactProject(value){
+  modalState.formData.projectId = value;
+  const project = getProject(value);
+  if(project) modalState.formData.clientId = project.clientId;
+  const site = getSite(modalState.formData.siteId);
+  if(site && site.projectId !== value) modalState.formData.siteId = '';
+  renderModal();
+}
+function changeBillingClient(value){
+  modalState.formData.clientId = value;
+  const project = getProject(modalState.formData.projectId);
+  if(project && project.clientId !== value) modalState.formData.projectId = '';
+  renderModal();
+}
+function changeBillingProject(value){
+  modalState.formData.projectId = value;
+  const project = getProject(value);
+  if(project) modalState.formData.clientId = project.clientId;
+  renderModal();
+}
+function changeJobClient(value){
+  modalState.formData.clientId = value;
+  const project = getProject(modalState.formData.projectId);
+  if(project && project.clientId !== value) modalState.formData.projectId = '';
+  if(!modalState.formData.projectId){
+    const projectOptions = buildProjectOptions(value);
+    if(projectOptions.length === 1) modalState.formData.projectId = projectOptions[0].value;
+  }
+  const site = getSite(modalState.formData.siteId);
+  if(site && site.clientId !== value) modalState.formData.siteId = '';
+  renderModal();
+}
+function changeJobProject(value){
+  modalState.formData.projectId = value;
+  const project = getProject(value);
+  if(project) modalState.formData.clientId = project.clientId;
+  const site = getSite(modalState.formData.siteId);
+  if(site && site.projectId !== value) modalState.formData.siteId = '';
+  renderModal();
+}
 function changeJobType(value){ modalState.formData.jobType = value; renderModal(); }
 function changeSampleJob(value){ modalState.formData.jobId = value; const job = getJob(value); if(job){ modalState.formData.clientId = job.clientId; modalState.formData.siteId = job.siteId; } renderModal(); }
 function changeSampleClient(value){ modalState.formData.clientId = value; const site = getSite(modalState.formData.siteId); if(site && site.clientId !== value) modalState.formData.siteId = ''; renderModal(); }
@@ -928,20 +1371,62 @@ function changeEquipmentAssignedTrailer(value){
 
 function addAssignmentRow(){ modalState.assignments.push(normalizeRecord('jobAssignments', { id:uid(ENTITY_CONFIG.jobAssignments.idPrefix), assignmentType:'Technician', resourceId:'', assignedStart:modalState.formData.scheduledStart || '', assignedEnd:modalState.formData.scheduledEnd || '', assignmentStatus:'Assigned', assignmentNotes:'' })); renderModal(); }
 function removeAssignmentRow(id){ modalState.assignments = modalState.assignments.filter((row) => row.id !== id); renderModal(); }
-function updateModalAssignmentField(id, key, value){ const row = modalState.assignments.find((item) => item.id === id); if(!row) return; row[key] = value; if(key === 'assignmentType'){ row.resourceId = ''; renderModal(); } }
+function updateModalAssignmentField(id, key, value){
+  const row = modalState.assignments.find((item) => item.id === id);
+  if(!row) return;
+  row[key] = value;
+  if(key === 'assignmentType'){
+    row.resourceId = '';
+    renderModal();
+    return;
+  }
+  if(key === 'resourceId' && row.assignmentType === 'Technician' && value){
+    const currentTruck = getModalTruckAssignment();
+    if(!currentTruck) applyTechnicianDefaultTruck(value, false);
+    else renderModal();
+    return;
+  }
+}
 
 function validateModal(){
   const entityKey = modalState.entity;
   const formData = modalState.formData;
-  if(entityKey === 'clients' && !String(formData.clientName || '').trim()) return 'Client name is required.';
-  if(entityKey === 'sites'){ if(!String(formData.clientId || '').trim()) return 'Client is required.'; if(!String(formData.siteName || '').trim()) return 'Site name is required.'; }
+  if(entityKey === 'clients'){
+    if(!String(formData.clientName || '').trim()) return 'Client name is required.';
+    if(!normalizeClientCode(formData.clientCode)) return 'Client code is required.';
+    const duplicateClient = state.data.clients.find((row) => row.id !== modalState.id && normalizeClientCode(row.clientCode) === normalizeClientCode(formData.clientCode));
+    if(duplicateClient) return `Client code ${normalizeClientCode(formData.clientCode)} is already in use by ${duplicateClient.clientName || 'another client'}.`;
+  }
+  if(entityKey === 'projects'){
+    if(!String(formData.clientId || '').trim()) return 'Client is required.';
+    if(!String(formData.projectName || '').trim()) return 'Project name is required.';
+  }
+  if(entityKey === 'contacts'){
+    if(!String(formData.clientId || '').trim()) return 'Client is required.';
+    if(!String(formData.contactName || '').trim()) return 'Contact name is required.';
+  }
+  if(entityKey === 'billingProfiles'){
+    if(!String(formData.clientId || '').trim()) return 'Client is required.';
+    if(!String(formData.billingName || '').trim()) return 'Billing name is required.';
+  }
+  if(entityKey === 'sites'){
+    if(!String(formData.clientId || '').trim()) return 'Client is required.';
+    if(!String(formData.projectId || '').trim()) return 'Project is required.';
+    if(!String(formData.siteName || '').trim()) return 'Site name is required.';
+    const project = getProject(formData.projectId);
+    if(project && project.clientId !== formData.clientId) return 'The selected project does not belong to the selected client.';
+  }
   if(entityKey === 'jobs'){
     if(!String(formData.clientId || '').trim()) return 'Client is required.';
+    if(!String(formData.projectId || '').trim()) return 'Project is required.';
     if(!String(formData.siteId || '').trim()) return 'Site is required.';
     if(!String(formData.jobType || '').trim()) return 'Job type is required.';
     if(!String(formData.jobStatus || '').trim()) return 'Job status is required.';
+    const project = getProject(formData.projectId);
+    if(project && project.clientId !== formData.clientId) return 'The selected project does not belong to the selected client.';
     const site = getSite(formData.siteId);
     if(site && site.clientId !== formData.clientId) return 'The selected site does not belong to the selected client.';
+    if(site && site.projectId !== formData.projectId) return 'The selected site does not belong to the selected project.';
     const assignmentKeys = new Set();
     for(const assignment of modalState.assignments){
       if((assignment.assignmentType && !assignment.resourceId) || (!assignment.assignmentType && assignment.resourceId)) return 'Each assignment row must include both a type and a resource.';
@@ -964,6 +1449,44 @@ function validateModal(){
 
 async function persistLocal(nextData){ const normalized = await localRepository.write(nextData); state.data = normalized; lastLoadedSnapshot = JSON.stringify(normalized); render(); return normalized; }
 
+function clearTruckTechnicianAssignment(truck){
+  return { ...truck, assignedTechnicianId:'', assignedTo:'', currentDriver:'' };
+}
+
+function syncTechnicianDefaultTruckLocal(next, technicianRecord){
+  const defaultTruckId = String(technicianRecord.defaultTruckId || '');
+  const technicianId = technicianRecord.id;
+  const technicianName = technicianRecord.employeeName || '';
+  next.technicians = next.technicians.map((row) => {
+    if(row.id === technicianId) return { ...row, defaultTruckId };
+    if(defaultTruckId && row.defaultTruckId === defaultTruckId) return { ...row, defaultTruckId:'' };
+    return row;
+  });
+  next.trucks = next.trucks.map((truck) => {
+    if(defaultTruckId && truck.id === defaultTruckId) return { ...truck, assignedTechnicianId:technicianId, assignedTo:technicianName, currentDriver:technicianName };
+    if(truck.assignedTechnicianId === technicianId) return clearTruckTechnicianAssignment(truck);
+    return truck;
+  });
+}
+
+function syncTruckTechnicianLocal(next, truckRecord){
+  const technicianId = String(truckRecord.assignedTechnicianId || '');
+  const technicianName = technicianId ? (next.technicians.find((row) => row.id === technicianId)?.employeeName || truckRecord.assignedTo || truckRecord.currentDriver || '') : '';
+  const normalizedTruck = technicianId
+    ? { ...truckRecord, assignedTo:technicianName, currentDriver:technicianName }
+    : { ...truckRecord, assignedTo:'', currentDriver:'' };
+  next.trucks = next.trucks.map((truck) => {
+    if(truck.id === normalizedTruck.id) return normalizedTruck;
+    if(technicianId && truck.assignedTechnicianId === technicianId) return clearTruckTechnicianAssignment(truck);
+    return truck;
+  });
+  next.technicians = next.technicians.map((row) => {
+    if(row.id === technicianId) return { ...row, defaultTruckId:normalizedTruck.id };
+    if(row.defaultTruckId === normalizedTruck.id) return { ...row, defaultTruckId:'' };
+    return row;
+  });
+}
+
 async function saveLocalRecord(entityKey, draft){
   const next = clone(state.data);
   const cfg = ENTITY_CONFIG[entityKey];
@@ -971,8 +1494,11 @@ async function saveLocalRecord(entityKey, draft){
   const existingIndex = list.findIndex((row) => row.id === draft.id);
   const existing = existingIndex >= 0 ? list[existingIndex] : null;
   const now = new Date().toISOString();
-  const record = normalizeRecord(entityKey, { ...existing, ...draft, id:draft.id || existing?.id || uid(cfg.idPrefix), createdAt:existing?.createdAt || now, updatedAt:now });
+  const normalizedDraft = entityKey === 'clients' ? { ...draft, clientCode:normalizeClientCode(draft.clientCode) } : draft;
+  const record = normalizeRecord(entityKey, { ...existing, ...normalizedDraft, id:normalizedDraft.id || existing?.id || uid(cfg.idPrefix), createdAt:existing?.createdAt || now, updatedAt:now });
   if(existingIndex >= 0) list[existingIndex] = record; else list.unshift(record);
+  if(entityKey === 'technicians') syncTechnicianDefaultTruckLocal(next, record);
+  if(entityKey === 'trucks') syncTruckTechnicianLocal(next, record);
   await persistLocal(next);
   return record.id;
 }
@@ -1018,6 +1544,30 @@ async function removeRemoteAssetPhoto(path){
     body:JSON.stringify({ prefixes:[path] })
   });
 }
+function buildRemoteTruckAssignmentPayload(technicianId, technicianName = ''){
+  return {
+    assigned_technician_id:technicianId || null,
+    assigned_to:technicianName || '',
+    current_driver:technicianName || ''
+  };
+}
+async function syncRemoteTruckAssignmentsForTechnician(technicianId, technicianName, defaultTruckId){
+  if(defaultTruckId){
+    await remoteRepository.patchByQuery(ENTITY_CONFIG.trucks.table, `assigned_technician_id=eq.${encodeURIComponent(technicianId)}&id=neq.${encodeURIComponent(defaultTruckId)}`, buildRemoteTruckAssignmentPayload(null));
+    await remoteRepository.patchByQuery(ENTITY_CONFIG.trucks.table, `id=eq.${encodeURIComponent(defaultTruckId)}`, buildRemoteTruckAssignmentPayload(technicianId, technicianName));
+    return;
+  }
+  await remoteRepository.updateWhere(ENTITY_CONFIG.trucks.table, [{ column:'assigned_technician_id', value:technicianId }], buildRemoteTruckAssignmentPayload(null));
+}
+async function syncRemoteTruckAssignmentsForTruck(truckId, technicianId, technicianName){
+  if(!technicianId) return;
+  await remoteRepository.patchByQuery(ENTITY_CONFIG.trucks.table, `assigned_technician_id=eq.${encodeURIComponent(technicianId)}&id=neq.${encodeURIComponent(truckId)}`, buildRemoteTruckAssignmentPayload(null));
+}
+async function saveRemoteTechnicianRecord(draft){
+  const recordId = await remoteRepository.saveRecord('technicians', draft);
+  await syncRemoteTruckAssignmentsForTechnician(recordId, draft.employeeName || '', String(draft.defaultTruckId || ''));
+  return recordId;
+}
 async function saveRemoteAssetRecord(entityKey, draft){
   const existing = draft.id ? state.data[entityKey].find((row) => row.id === draft.id) : null;
   const currentPath = existing?.assetPhotoPath || '';
@@ -1035,10 +1585,16 @@ async function saveRemoteAssetRecord(entityKey, draft){
     await removeRemoteAssetPhoto(currentPath).catch((error) => console.warn('Unable to remove asset photo:', error));
     clearCachedAssetPhoto(currentPath);
   }
+  if(entityKey === 'trucks'){
+    const technicianId = String(draft.assignedTechnicianId || '');
+    const technicianName = technicianId ? (state.data.technicians.find((row) => row.id === technicianId)?.employeeName || draft.assignedTo || draft.currentDriver || '') : '';
+    if(technicianId) await syncRemoteTruckAssignmentsForTruck(recordId, technicianId, technicianName);
+  }
   return recordId;
 }
 
 async function saveEntityFromModal(){
+  if(modalState.entity === 'clients') modalState.formData.clientCode = normalizeClientCode(modalState.formData.clientCode);
   const validationMessage = validateModal();
   if(validationMessage){ alert(validationMessage); return; }
   state.saveInFlight = true;
@@ -1047,7 +1603,12 @@ async function saveEntityFromModal(){
     if(modalState.entity === 'jobs'){
       if(isRemoteMode()){ await saveRemoteJob(modalState.formData, modalState.assignments); await loadData({ silent:true, force:true }); }
       else await saveLocalJob(modalState.formData, modalState.assignments);
-    } else if(isRemoteMode()){ if(isAssetPhotoEntity(modalState.entity)) await saveRemoteAssetRecord(modalState.entity, modalState.formData); else await remoteRepository.saveRecord(modalState.entity, modalState.formData); await loadData({ silent:true, force:true }); }
+    } else if(isRemoteMode()){
+      if(modalState.entity === 'technicians') await saveRemoteTechnicianRecord(modalState.formData);
+      else if(isAssetPhotoEntity(modalState.entity)) await saveRemoteAssetRecord(modalState.entity, modalState.formData);
+      else await remoteRepository.saveRecord(modalState.entity, modalState.formData);
+      await loadData({ silent:true, force:true });
+    }
     else await saveLocalRecord(modalState.entity, modalState.formData);
     closeEntityModal();
     showSaveStatus('saved', 'SAVED');
@@ -1064,11 +1625,26 @@ async function saveEntityFromModal(){
 
 function buildLocalDeleteResult(entityKey, id){
   const next = clone(state.data);
-  if(entityKey === 'clients'){ next.clients = next.clients.filter((row) => row.id !== id); next.sites = next.sites.filter((row) => row.clientId !== id); }
-  else if(entityKey === 'sites'){ next.sites = next.sites.filter((row) => row.id !== id); }
+  if(entityKey === 'clients'){
+    next.clients = next.clients.filter((row) => row.id !== id);
+    next.projects = next.projects.filter((row) => row.clientId !== id);
+    next.contacts = next.contacts.filter((row) => row.clientId !== id);
+    next.billingProfiles = next.billingProfiles.filter((row) => row.clientId !== id);
+    next.sites = next.sites.filter((row) => row.clientId !== id);
+  }
+  else if(entityKey === 'projects'){
+    next.projects = next.projects.filter((row) => row.id !== id);
+    next.contacts = next.contacts.filter((row) => row.projectId !== id);
+    next.billingProfiles = next.billingProfiles.filter((row) => row.projectId !== id);
+    next.sites = next.sites.filter((row) => row.projectId !== id);
+  }
+  else if(entityKey === 'sites'){
+    next.sites = next.sites.filter((row) => row.id !== id);
+    next.contacts = next.contacts.filter((row) => row.siteId !== id);
+  }
   else if(entityKey === 'jobs'){ next.jobs = next.jobs.filter((row) => row.id !== id); next.jobAssignments = next.jobAssignments.filter((row) => row.jobId !== id); next.samples = next.samples.filter((row) => row.jobId !== id); }
   else if(entityKey === 'technicians'){ next.technicians = next.technicians.filter((row) => row.id !== id); next.trucks = next.trucks.map((row) => row.assignedTechnicianId === id ? { ...row, assignedTechnicianId:'', assignedTo:'', currentDriver:'' } : row); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Technician' && row.resourceId === id)); }
-  else if(entityKey === 'trucks'){ next.trucks = next.trucks.filter((row) => row.id !== id); next.trailers = next.trailers.map((row) => row.assignedTruckId === id ? { ...row, assignedTruckId:'' } : row); next.equipment = next.equipment.map((row) => row.assignedTruckId === id ? { ...row, assignedTruckId:'', assignedTrailerTruck:row.assignedTrailerId ? getTrailerLabel(row.assignedTrailerId) : '' } : row); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Truck' && row.resourceId === id)); next.maintenanceRecords = next.maintenanceRecords.filter((row) => !(row.assetType === 'Truck' && row.assetId === id)); }
+  else if(entityKey === 'trucks'){ next.trucks = next.trucks.filter((row) => row.id !== id); next.technicians = next.technicians.map((row) => row.defaultTruckId === id ? { ...row, defaultTruckId:'' } : row); next.trailers = next.trailers.map((row) => row.assignedTruckId === id ? { ...row, assignedTruckId:'' } : row); next.equipment = next.equipment.map((row) => row.assignedTruckId === id ? { ...row, assignedTruckId:'', assignedTrailerTruck:row.assignedTrailerId ? getTrailerLabel(row.assignedTrailerId) : '' } : row); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Truck' && row.resourceId === id)); next.maintenanceRecords = next.maintenanceRecords.filter((row) => !(row.assetType === 'Truck' && row.assetId === id)); }
   else if(entityKey === 'trailers'){ next.trailers = next.trailers.filter((row) => row.id !== id); next.equipment = next.equipment.map((row) => row.assignedTrailerId === id ? { ...row, assignedTrailerId:'', assignedTrailerTruck:row.assignedTruckId ? getTruckLabel(row.assignedTruckId) : '' } : row); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Trailer' && row.resourceId === id)); next.maintenanceRecords = next.maintenanceRecords.filter((row) => !(row.assetType === 'Trailer' && row.assetId === id)); }
   else if(entityKey === 'equipment'){ next.equipment = next.equipment.filter((row) => row.id !== id); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Equipment' && row.resourceId === id)); next.maintenanceRecords = next.maintenanceRecords.filter((row) => !(row.assetType === 'Equipment' && row.assetId === id)); }
   else next[entityKey] = next[entityKey].filter((row) => row.id !== id);
@@ -1078,6 +1654,10 @@ function buildLocalDeleteResult(entityKey, id){
 async function deleteEntityRecord(entityKey, id){
   if(entityKey === 'clients'){
     const blockMessage = getClientDeleteBlockMessage(id);
+    if(blockMessage){ alert(blockMessage); return; }
+  }
+  if(entityKey === 'projects'){
+    const blockMessage = getProjectDeleteBlockMessage(id);
     if(blockMessage){ alert(blockMessage); return; }
   }
   if(entityKey === 'sites'){
@@ -1090,9 +1670,9 @@ async function deleteEntityRecord(entityKey, id){
   try {
     if(isRemoteMode()){
       const existing = state.data[entityKey]?.find((row) => row.id === id) || null;
-      if(entityKey === 'technicians'){ await remoteRepository.updateWhere(ENTITY_CONFIG.trucks.table, [{ column:'assigned_technician_id', value:id }], { assigned_technician_id:'', assigned_to:'', current_driver:'' }); await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'assignment_type', value:'Technician' }, { column:'resource_id', value:id }]); }
-      if(entityKey === 'trucks'){ await remoteRepository.updateWhere(ENTITY_CONFIG.trailers.table, [{ column:'assigned_truck_id', value:id }], { assigned_truck_id:'' }); await remoteRepository.updateWhere(ENTITY_CONFIG.equipment.table, [{ column:'assigned_truck_id', value:id }], { assigned_truck_id:'', assigned_trailer_truck:'' }); await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'assignment_type', value:'Truck' }, { column:'resource_id', value:id }]); await remoteRepository.deleteWhere(ENTITY_CONFIG.maintenanceRecords.table, [{ column:'asset_type', value:'Truck' }, { column:'asset_id', value:id }]); }
-      if(entityKey === 'trailers'){ await remoteRepository.updateWhere(ENTITY_CONFIG.equipment.table, [{ column:'assigned_trailer_id', value:id }], { assigned_trailer_id:'', assigned_trailer_truck:'' }); await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'assignment_type', value:'Trailer' }, { column:'resource_id', value:id }]); await remoteRepository.deleteWhere(ENTITY_CONFIG.maintenanceRecords.table, [{ column:'asset_type', value:'Trailer' }, { column:'asset_id', value:id }]); }
+      if(entityKey === 'technicians'){ await remoteRepository.updateWhere(ENTITY_CONFIG.trucks.table, [{ column:'assigned_technician_id', value:id }], buildRemoteTruckAssignmentPayload(null)); await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'assignment_type', value:'Technician' }, { column:'resource_id', value:id }]); }
+      if(entityKey === 'trucks'){ await remoteRepository.updateWhere(ENTITY_CONFIG.trailers.table, [{ column:'assigned_truck_id', value:id }], { assigned_truck_id:null }); await remoteRepository.updateWhere(ENTITY_CONFIG.equipment.table, [{ column:'assigned_truck_id', value:id }], { assigned_truck_id:null, assigned_trailer_truck:'' }); await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'assignment_type', value:'Truck' }, { column:'resource_id', value:id }]); await remoteRepository.deleteWhere(ENTITY_CONFIG.maintenanceRecords.table, [{ column:'asset_type', value:'Truck' }, { column:'asset_id', value:id }]); }
+      if(entityKey === 'trailers'){ await remoteRepository.updateWhere(ENTITY_CONFIG.equipment.table, [{ column:'assigned_trailer_id', value:id }], { assigned_trailer_id:null, assigned_trailer_truck:'' }); await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'assignment_type', value:'Trailer' }, { column:'resource_id', value:id }]); await remoteRepository.deleteWhere(ENTITY_CONFIG.maintenanceRecords.table, [{ column:'asset_type', value:'Trailer' }, { column:'asset_id', value:id }]); }
       if(entityKey === 'equipment'){ await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'assignment_type', value:'Equipment' }, { column:'resource_id', value:id }]); await remoteRepository.deleteWhere(ENTITY_CONFIG.maintenanceRecords.table, [{ column:'asset_type', value:'Equipment' }, { column:'asset_id', value:id }]); }
       if(existing?.assetPhotoPath){ await removeRemoteAssetPhoto(existing.assetPhotoPath).catch((error) => console.warn('Unable to remove deleted asset photo:', error)); clearCachedAssetPhoto(existing.assetPhotoPath); }
       await remoteRepository.deleteRecord(entityKey, id);
@@ -1146,7 +1726,7 @@ async function refreshFromRemote(){
 function startAutoRefresh(){ stopAutoRefresh(); if(isRemoteMode()) state.autoRefreshTimer = setInterval(refreshFromRemote, AUTO_REFRESH_MS); }
 function stopAutoRefresh(){ if(state.autoRefreshTimer){ clearInterval(state.autoRefreshTimer); state.autoRefreshTimer = null; } }
 
-document.getElementById('entity-modal-overlay').addEventListener('click', (event) => { if(event.target === document.getElementById('entity-modal-overlay')) closeEntityModal(); });
+document.getElementById('entity-modal-overlay')?.addEventListener('click', (event) => { if(event.target === document.getElementById('entity-modal-overlay')) closeEntityModal(); });
 document.addEventListener('visibilitychange', () => { if(!document.hidden) refreshFromRemote(); });
 window.addEventListener('keydown', (event) => { if(event.key === 'Escape' && isInteractionOverlayOpen()) closeEntityModal(); });
 

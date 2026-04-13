@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SPL Client Directory</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="field-dashboard.css">
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <img class="spl-logo" src="assets/spl-logo.svg" alt="SPL">
+      <div class="header-brand">
+        <h1>SPL Client Directory</h1>
+        <p>Shared client, project, contact, billing, and site workspace for lab and field</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="live-clock">
+        <span>Current Time</span>
+        <div id="clock">--:--:--</div>
+        <div id="datedisp" class="date-display"></div>
+      </div>
+      <div data-session-slot></div>
+      <div class="nav-row">
+        <button class="sec-btn" onclick="window.location.href='index.html'">Home</button>
+        <button class="sec-btn" onclick="window.location.href='lab-dashboard.html'">Lab WIP</button>
+        <button class="sec-btn" onclick="window.location.href='field-dashboard.html'">Field Ops</button>
+        <button class="sec-btn current" type="button">Clients</button>
+        <button class="sec-btn" onclick="window.location.href='SureMap/SPLClientMap.HTML'">SureMap</button>
+        <button class="sec-btn" onclick="window.location.href='import.html'">Import</button>
+        <button class="sec-btn" onclick="window.location.href='test-types.html'">Test Types</button>
+        <button class="sec-btn" onclick="window.location.href='standards.html'">Standards</button>
+      </div>
+      <div id="save-indicator" class="save-indicator" style="visibility:hidden;">Saved</div>
+    </div>
+  </header>
+
+  <div id="directory-screen" class="screen active">
+    <div class="toolbar" id="directory-toolbar"></div>
+    <div class="directory-layout">
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Clients</h2>
+          <button class="act-btn" type="button" onclick="openEntityModal('clients')">+ Add Client</button>
+        </div>
+        <div class="panel-body" id="directory-client-list"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 id="directory-detail-title">Client Workspace</h2>
+            <div class="panel-meta" id="directory-detail-meta"></div>
+          </div>
+          <div class="panel-actions" id="directory-detail-actions"></div>
+        </div>
+        <div class="panel-body" id="directory-workspace"></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="entity-modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="entity-modal-title">Add Record</h3>
+        <button class="modal-close" type="button" onclick="closeEntityModal()">X</button>
+      </div>
+      <div class="modal-body" id="entity-modal-body"></div>
+      <div class="modal-footer">
+        <button class="btn-del" id="entity-modal-delete" type="button" onclick="deleteCurrentModalEntity()" style="display:none;">Delete</button>
+        <button class="btn-cancel" type="button" onclick="closeEntityModal()">Cancel</button>
+        <button class="btn-save" type="button" onclick="saveEntityFromModal()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app-config.js"></script>
+  <script>
+    window.APP_CONFIG = Object.assign({}, window.APP_CONFIG || {}, {
+      authTitle: 'SPL Client Directory',
+      authHelpText: 'Sign in to access shared SPL client, project, and site records.'
+    });
+    window.FIELD_OPS_STANDALONE_MODE = 'clients';
+  </script>
+  <script src="cloud-auth.js"></script>
+  <script src="field-dashboard.js"></script>
+</body>
+</html>

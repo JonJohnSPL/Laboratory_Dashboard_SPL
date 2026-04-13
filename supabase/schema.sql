@@ -260,8 +260,10 @@ $$;
 create table if not exists public.field_clients (
   id uuid primary key default gen_random_uuid(),
   client_name text not null default '',
+  client_code text not null default '',
   account_status text not null default 'Active' check (account_status in ('Active', 'Pending', 'On Hold', 'Inactive')),
   sector text not null default 'Upstream',
+  service_scope text not null default 'Field' check (service_scope in ('Lab', 'Field', 'Both')),
   primary_contact text not null default '',
   contact_phone text not null default '',
   contact_email text not null default '',
@@ -269,6 +271,7 @@ create table if not exists public.field_clients (
   operational_notes text not null default '',
   salesforce_account_id text not null default '',
   default_service_area text not null default '',
+  logo_path text,
   hq_street text not null default '',
   hq_city text not null default '',
   hq_state text not null default '',
@@ -282,18 +285,128 @@ create table if not exists public.field_clients (
 );
 
 alter table public.field_clients add column if not exists sector text not null default 'Upstream';
+alter table public.field_clients add column if not exists client_code text not null default '';
+alter table public.field_clients add column if not exists service_scope text not null default 'Field';
 alter table public.field_clients add column if not exists hq_street text not null default '';
 alter table public.field_clients add column if not exists hq_city text not null default '';
 alter table public.field_clients add column if not exists hq_state text not null default '';
 alter table public.field_clients add column if not exists hq_zip text not null default '';
 alter table public.field_clients add column if not exists hq_latitude numeric;
 alter table public.field_clients add column if not exists hq_longitude numeric;
+alter table public.field_clients add column if not exists logo_path text;
+update public.field_clients
+set client_code = upper(btrim(client_code))
+where coalesce(client_code, '') <> '';
 alter table public.field_clients drop constraint if exists field_clients_account_status_check;
 alter table public.field_clients add constraint field_clients_account_status_check check (account_status in ('Active', 'Pending', 'On Hold', 'Inactive'));
+alter table public.field_clients drop constraint if exists field_clients_service_scope_check;
+alter table public.field_clients add constraint field_clients_service_scope_check check (service_scope in ('Lab', 'Field', 'Both'));
+
+create table if not exists public.field_projects (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references public.field_clients(id) on delete cascade,
+  project_name text not null default '',
+  service_scope text not null default 'Field' check (service_scope in ('Lab', 'Field', 'Both')),
+  project_status text not null default 'Active' check (project_status in ('Planning', 'Active', 'On Hold', 'Complete', 'Inactive')),
+  start_date date,
+  end_date date,
+  notes text not null default '',
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+
+alter table public.field_projects add column if not exists service_scope text not null default 'Field';
+alter table public.field_projects add column if not exists project_status text not null default 'Active';
+alter table public.field_projects add column if not exists client_id uuid;
+alter table public.field_projects add column if not exists project_name text not null default '';
+alter table public.field_projects add column if not exists start_date date;
+alter table public.field_projects add column if not exists end_date date;
+alter table public.field_projects add column if not exists notes text not null default '';
+alter table public.field_projects drop constraint if exists field_projects_client_id_fkey;
+alter table public.field_projects add constraint field_projects_client_id_fkey foreign key (client_id) references public.field_clients(id) on delete cascade;
+alter table public.field_projects drop constraint if exists field_projects_service_scope_check;
+alter table public.field_projects add constraint field_projects_service_scope_check check (service_scope in ('Lab', 'Field', 'Both'));
+alter table public.field_projects drop constraint if exists field_projects_project_status_check;
+alter table public.field_projects add constraint field_projects_project_status_check check (project_status in ('Planning', 'Active', 'On Hold', 'Complete', 'Inactive'));
+
+create table if not exists public.field_contacts (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references public.field_clients(id) on delete cascade,
+  project_id uuid references public.field_projects(id) on delete cascade,
+  site_id uuid,
+  contact_name text not null default '',
+  contact_role text not null default '',
+  phone text not null default '',
+  email text not null default '',
+  contact_scope text not null default 'Operations' check (contact_scope in ('Billing', 'Operations', 'Site', 'Lab', 'Field')),
+  is_primary boolean not null default false,
+  notes text not null default '',
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+
+alter table public.field_contacts add column if not exists client_id uuid;
+alter table public.field_contacts add column if not exists project_id uuid;
+alter table public.field_contacts add column if not exists site_id uuid;
+alter table public.field_contacts add column if not exists contact_name text not null default '';
+alter table public.field_contacts add column if not exists contact_role text not null default '';
+alter table public.field_contacts add column if not exists phone text not null default '';
+alter table public.field_contacts add column if not exists email text not null default '';
+alter table public.field_contacts add column if not exists contact_scope text not null default 'Operations';
+alter table public.field_contacts add column if not exists is_primary boolean not null default false;
+alter table public.field_contacts add column if not exists notes text not null default '';
+alter table public.field_contacts drop constraint if exists field_contacts_client_id_fkey;
+alter table public.field_contacts add constraint field_contacts_client_id_fkey foreign key (client_id) references public.field_clients(id) on delete cascade;
+alter table public.field_contacts drop constraint if exists field_contacts_project_id_fkey;
+alter table public.field_contacts add constraint field_contacts_project_id_fkey foreign key (project_id) references public.field_projects(id) on delete cascade;
+alter table public.field_contacts drop constraint if exists field_contacts_contact_scope_check;
+alter table public.field_contacts add constraint field_contacts_contact_scope_check check (contact_scope in ('Billing', 'Operations', 'Site', 'Lab', 'Field'));
+
+create table if not exists public.field_billing_profiles (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references public.field_clients(id) on delete cascade,
+  project_id uuid references public.field_projects(id) on delete cascade,
+  billing_name text not null default '',
+  billing_address text not null default '',
+  billing_email text not null default '',
+  billing_phone text not null default '',
+  po_number text not null default '',
+  reference_number text not null default '',
+  invoice_notes text not null default '',
+  field_billing_notes text not null default '',
+  lab_billing_notes text not null default '',
+  is_default boolean not null default false,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+
+alter table public.field_billing_profiles add column if not exists client_id uuid;
+alter table public.field_billing_profiles add column if not exists project_id uuid;
+alter table public.field_billing_profiles add column if not exists billing_name text not null default '';
+alter table public.field_billing_profiles add column if not exists billing_address text not null default '';
+alter table public.field_billing_profiles add column if not exists billing_email text not null default '';
+alter table public.field_billing_profiles add column if not exists billing_phone text not null default '';
+alter table public.field_billing_profiles add column if not exists po_number text not null default '';
+alter table public.field_billing_profiles add column if not exists reference_number text not null default '';
+alter table public.field_billing_profiles add column if not exists invoice_notes text not null default '';
+alter table public.field_billing_profiles add column if not exists field_billing_notes text not null default '';
+alter table public.field_billing_profiles add column if not exists lab_billing_notes text not null default '';
+alter table public.field_billing_profiles add column if not exists is_default boolean not null default false;
+alter table public.field_billing_profiles drop constraint if exists field_billing_profiles_client_id_fkey;
+alter table public.field_billing_profiles add constraint field_billing_profiles_client_id_fkey foreign key (client_id) references public.field_clients(id) on delete cascade;
+alter table public.field_billing_profiles drop constraint if exists field_billing_profiles_project_id_fkey;
+alter table public.field_billing_profiles add constraint field_billing_profiles_project_id_fkey foreign key (project_id) references public.field_projects(id) on delete cascade;
 
 create table if not exists public.field_sites (
   id uuid primary key default gen_random_uuid(),
   client_id uuid not null references public.field_clients(id) on delete cascade,
+  project_id uuid not null references public.field_projects(id) on delete cascade,
   site_name text not null default '',
   site_type text not null default 'Other' check (site_type in ('Well Site', 'Meter Station', 'Field Site', 'Well Pad', 'LACT Unit', 'Facility', 'Pipeline Location', 'Office / Yard', 'Other')),
   physical_address text not null default '',
@@ -314,11 +427,18 @@ create table if not exists public.field_sites (
 
 alter table public.field_sites drop constraint if exists field_sites_site_type_check;
 alter table public.field_sites add constraint field_sites_site_type_check check (site_type in ('Well Site', 'Meter Station', 'Field Site', 'Well Pad', 'LACT Unit', 'Facility', 'Pipeline Location', 'Office / Yard', 'Other'));
+alter table public.field_sites add column if not exists project_id uuid;
+alter table public.field_sites drop constraint if exists field_sites_project_id_fkey;
+alter table public.field_sites add constraint field_sites_project_id_fkey foreign key (project_id) references public.field_projects(id) on delete cascade;
+alter table public.field_contacts add column if not exists site_id uuid;
+alter table public.field_contacts drop constraint if exists field_contacts_site_id_fkey;
+alter table public.field_contacts add constraint field_contacts_site_id_fkey foreign key (site_id) references public.field_sites(id) on delete cascade;
 
 create table if not exists public.field_jobs (
   id uuid primary key default gen_random_uuid(),
   fieldfx_ticket_id text not null default '',
   client_id uuid not null references public.field_clients(id) on delete cascade,
+  project_id uuid not null references public.field_projects(id) on delete cascade,
   site_id uuid not null references public.field_sites(id) on delete cascade,
   job_type text not null default '' check (job_type in ('', 'Allocation Proving', 'LACT Proving', 'Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service')),
   job_status text not null default 'New' check (job_status in ('New', 'Scheduled', 'Dispatched', 'In Progress', 'Waiting', 'Complete', 'Closed', 'Canceled')),
@@ -348,6 +468,9 @@ create table if not exists public.field_jobs (
   created_by uuid,
   updated_by uuid
 );
+alter table public.field_jobs add column if not exists project_id uuid;
+alter table public.field_jobs drop constraint if exists field_jobs_project_id_fkey;
+alter table public.field_jobs add constraint field_jobs_project_id_fkey foreign key (project_id) references public.field_projects(id) on delete cascade;
 
 create table if not exists public.field_job_assignments (
   id uuid primary key default gen_random_uuid(),
@@ -537,7 +660,16 @@ create table if not exists public.field_maintenance_records (
 );
 
 create index if not exists field_sites_client_id_idx on public.field_sites(client_id);
+create index if not exists field_projects_client_id_idx on public.field_projects(client_id);
+create unique index if not exists field_clients_client_code_unique_idx on public.field_clients (lower(client_code)) where btrim(client_code) <> '';
+create index if not exists field_contacts_client_id_idx on public.field_contacts(client_id);
+create index if not exists field_contacts_project_id_idx on public.field_contacts(project_id);
+create index if not exists field_contacts_site_id_idx on public.field_contacts(site_id);
+create index if not exists field_billing_profiles_client_id_idx on public.field_billing_profiles(client_id);
+create index if not exists field_billing_profiles_project_id_idx on public.field_billing_profiles(project_id);
+create index if not exists field_sites_project_id_idx on public.field_sites(project_id);
 create index if not exists field_jobs_client_id_idx on public.field_jobs(client_id);
+create index if not exists field_jobs_project_id_idx on public.field_jobs(project_id);
 create index if not exists field_jobs_site_id_idx on public.field_jobs(site_id);
 create index if not exists field_jobs_status_schedule_idx on public.field_jobs(job_status, scheduled_start);
 create unique index if not exists field_job_assignments_unique_resource_per_job_idx on public.field_job_assignments(job_id, assignment_type, resource_id);
@@ -551,6 +683,9 @@ declare
   tbl text;
   field_tables text[] := array[
     'field_clients',
+    'field_projects',
+    'field_contacts',
+    'field_billing_profiles',
     'field_sites',
     'field_jobs',
     'field_job_assignments',
@@ -581,3 +716,73 @@ begin
   end loop;
 end
 $$;
+
+insert into public.field_projects (client_id, project_name, service_scope, project_status, notes)
+select c.id, 'General / Legacy', c.service_scope, 'Active', 'Auto-created legacy project for existing client records.'
+from public.field_clients c
+where not exists (
+  select 1
+  from public.field_projects p
+  where p.client_id = c.id
+);
+
+with project_choice as (
+  select
+    c.id as client_id,
+    coalesce(
+      (
+        select p.id
+        from public.field_projects p
+        where p.client_id = c.id
+          and p.project_name = 'General / Legacy'
+        order by p.created_at asc, p.id asc
+        limit 1
+      ),
+      (
+        select p.id
+        from public.field_projects p
+        where p.client_id = c.id
+        order by p.created_at asc, p.id asc
+        limit 1
+      )
+    ) as project_id
+  from public.field_clients c
+)
+update public.field_sites s
+set project_id = project_choice.project_id
+from project_choice
+where s.client_id = project_choice.client_id
+  and s.project_id is null
+  and project_choice.project_id is not null;
+
+with project_choice as (
+  select
+    c.id as client_id,
+    coalesce(
+      (
+        select p.id
+        from public.field_projects p
+        where p.client_id = c.id
+          and p.project_name = 'General / Legacy'
+        order by p.created_at asc, p.id asc
+        limit 1
+      ),
+      (
+        select p.id
+        from public.field_projects p
+        where p.client_id = c.id
+        order by p.created_at asc, p.id asc
+        limit 1
+      )
+    ) as project_id
+  from public.field_clients c
+)
+update public.field_jobs j
+set project_id = project_choice.project_id
+from project_choice
+where j.client_id = project_choice.client_id
+  and j.project_id is null
+  and project_choice.project_id is not null;
+
+alter table public.field_sites alter column project_id set not null;
+alter table public.field_jobs alter column project_id set not null;

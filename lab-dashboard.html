@@ -26,6 +26,7 @@
 <div data-session-slot></div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
 <button class="sec-btn" onclick="window.location.href='index.html'">Home</button>
+<button class="sec-btn" onclick="window.location.href='clients.html'">Clients</button>
 <button class="sec-btn" onclick="window.location.href='field-dashboard.html'">Field Ops</button>
 <button class="sec-btn" onclick="window.location.href='SureMap/SPLClientMap.HTML'">SureMap</button>
 <button class="sec-btn" onclick="window.location.href='import.html'">Import Data</button>
@@ -384,10 +385,22 @@
 <div class="form-value" id="f-client"></div>
 </div>
 <div>
+<label class="form-label">Project</label>
+<div class="form-value" id="f-project"></div>
+</div>
+<div>
 <label class="form-label">Due Date</label>
 <div class="form-value" id="f-due"></div>
 </div>
 </div>
+</div>
+<div class="form-group">
+<label class="form-label">Link Client</label>
+<select class="form-input" id="f-client-id" onchange="onWorkOrderClientLinkChange(this.value)"></select>
+</div>
+<div class="form-group">
+<label class="form-label">Link Project</label>
+<select class="form-input" id="f-project-id" onchange="onWorkOrderProjectLinkChange(this.value)"></select>
 </div>
 <div class="form-group full">
 <label class="form-label">Notes</label>

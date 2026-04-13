@@ -42,4 +42,4 @@ With `authEmailSuffix` set, staff can type `jsmith` plus their password, and the
 - Shared data is stored in the `app_state` table by key.
 - The current behavior is last-write-wins. If two users edit the same data at the same time, the most recent save will replace the older one.
 - Column visibility still uses local browser storage because it is a personal UI preference, not shared lab data.
-
+- The Field Ops `field-assets` storage bucket is used for uploaded asset photos and client logos.

@@ -25,6 +25,7 @@
       <div data-session-slot></div>
       <div class="nav-row">
         <button class="sec-btn" onclick="window.location.href='index.html'">Home</button>
+        <button class="sec-btn" onclick="window.location.href='clients.html'">Clients</button>
         <button class="sec-btn" onclick="window.location.href='lab-dashboard.html'">Lab WIP</button>
         <button class="sec-btn" onclick="window.location.href='SureMap/SPLClientMap.HTML'">SureMap</button>
         <button class="sec-btn" onclick="window.location.href='import.html'">Import</button>
@@ -40,7 +41,6 @@
     <button class="view-btn active" data-view="overview" onclick="switchView('overview')">Overview</button>
     <button class="view-btn" data-view="dispatch" onclick="switchView('dispatch')">Dispatch</button>
     <button class="view-btn" data-view="schedule" onclick="switchView('schedule')">Schedule</button>
-    <button class="view-btn" data-view="directory" onclick="switchView('directory')">Directory</button>
     <button class="view-btn" data-view="resources" onclick="switchView('resources')">Resources</button>
     <button class="view-btn" data-view="samples" onclick="switchView('samples')">Samples</button>
     <button class="view-btn" data-view="maintenance" onclick="switchView('maintenance')">Maintenance</button>
@@ -108,26 +108,6 @@
           <button class="act-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button>
         </div>
         <div class="panel-body" id="schedule-conflicts"></div>
-      </section>
-    </div>
-  </div>
-
-  <div id="directory-screen" class="screen">
-    <div class="toolbar" id="directory-toolbar"></div>
-    <div class="split-layout">
-      <section class="panel table-panel">
-        <div class="panel-header">
-          <h2>Clients</h2>
-          <button class="act-btn" type="button" onclick="openEntityModal('clients')">+ Add Client</button>
-        </div>
-        <div class="panel-body" id="clients-table"></div>
-      </section>
-      <section class="panel table-panel">
-        <div class="panel-header">
-          <h2>Sites / Locations</h2>
-          <button class="act-btn" type="button" onclick="openEntityModal('sites')">+ Add Site</button>
-        </div>
-        <div class="panel-body" id="sites-table"></div>
       </section>
     </div>
   </div>

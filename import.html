@@ -190,6 +190,7 @@ async function buildWOsFromSureChemCSV(text){
         location:'Pittsburgh',
         number:woNum,
         client:clientCode,
+        clientCode:clientCode,
         gas:0,liq:0,gc:0,
         dueDate,
         priority:pri,
@@ -203,6 +204,7 @@ async function buildWOsFromSureChemCSV(text){
 
     const wo = woMap.get(woNum);
     if(!wo.client && clientCode) wo.client = clientCode;
+    if(!wo.clientCode && clientCode) wo.clientCode = clientCode;
     if(!wo.dueDate && dueDate) wo.dueDate = dueDate;
     if((PRI[pri] ?? 99) < (PRI[wo.priority] ?? 99)) wo.priority = pri;
 

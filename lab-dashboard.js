@@ -31,6 +31,9 @@ let selectedTestRowId = null;
 let modalSampleGroupKeys = [];
 let expandedSampleGroups = new Set();
 let modalPdfAttachment = null;
+const FIELD_DIRECTORY_STORAGE_KEY = 'field-ops-dashboard-data';
+let sharedDirectory = { clients:[], projects:[] };
+let lastLoadedSharedDirectorySignature = '';
 let appView = 'queue';
 let scheduleDragIndex = null;
 let scheduleState = {date:'',employees:[],entries:[],tasks:[]};
@@ -38,6 +41,11 @@ let editingTestDefinitionId = null;
 const WO_STAGE = { RUNNING:'running', PENDING:'pending', DONE:'done' };
 function normalizeCatalogKey(raw){ return String(raw || '').trim().toUpperCase().replace(/\s+/g,'_').replace(/[^A-Z0-9_-]/g,''); }
 function normalizeAliasToken(raw){ return String(raw || '').trim().toUpperCase().replace(/[^A-Z0-9]/g,''); }
+function normalizeClientCode(raw){ return String(raw || '').trim().toUpperCase(); }
+function inferClientCodeFromLegacyValue(raw){
+const normalized = normalizeClientCode(raw);
+return normalized && /^[A-Z0-9_-]+$/.test(normalized) ? normalized : '';
+}
 function uniqueList(list){ return [...new Set((Array.isArray(list) ? list : []).map(item => String(item || '').trim()).filter(Boolean))]; }
 function getColumnWidthForTest(def){ return Math.max(110, Math.min(180, 20 + String(def?.label || '').length * 8)); }
 function inferTestTone(def){ const key = String(def?.key || '').toUpperCase(); if(def?.groupKey) return 'gc'; if(key.includes('LIQ')) return 'liq'; if(key.includes('2103')) return 'gc'; return 'default'; }
@@ -135,9 +143,59 @@ if(raw === WO_STAGE.DONE) return WO_STAGE.DONE;
 if(src?.complete) return WO_STAGE.DONE;
 return WO_STAGE.RUNNING;
 }
+function normalizeSharedClientRecord(src, fromRemote = false){ return { id:String(src?.id || ''), clientName:String((fromRemote ? src?.client_name : src?.clientName) || ''), clientCode:normalizeClientCode(fromRemote ? src?.client_code : src?.clientCode), serviceScope:String((fromRemote ? src?.service_scope : src?.serviceScope) || 'Field') }; }
+function normalizeSharedProjectRecord(src, fromRemote = false){ return { id:String(src?.id || ''), clientId:String((fromRemote ? src?.client_id : src?.clientId) || ''), projectName:String((fromRemote ? src?.project_name : src?.projectName) || ''), serviceScope:String((fromRemote ? src?.service_scope : src?.serviceScope) || 'Field'), projectStatus:String((fromRemote ? src?.project_status : src?.projectStatus) || 'Active') }; }
+function getSharedClientRecord(clientId){ return sharedDirectory.clients.find(client => client.id === clientId) || null; }
+function getSharedClientRecordByCode(clientCode){ const normalized = normalizeClientCode(clientCode); return normalized ? (sharedDirectory.clients.find(client => client.clientCode === normalized) || null) : null; }
+function getSharedProjectRecord(projectId){ return sharedDirectory.projects.find(project => project.id === projectId) || null; }
+function getWorkOrderClientLabel(workOrder){ return (getSharedClientRecord(String(workOrder?.clientId || '')) || getSharedClientRecordByCode(workOrder?.clientCode || (!workOrder?.clientId ? workOrder?.client : '')))?.clientName || String(workOrder?.client || '').trim() || 'Unassigned client'; }
+function getWorkOrderProjectLabel(workOrder){ return getSharedProjectRecord(String(workOrder?.projectId || ''))?.projectName || 'Not linked'; }
+function formatSharedClientOptionLabel(client){
+  const code = normalizeClientCode(client?.clientCode);
+  const name = String(client?.clientName || 'Unnamed client');
+  return code ? `${code} | ${name}` : name;
+}
+async function loadSharedDirectory(){
+  try {
+    let next = { clients:[], projects:[] };
+    if(isRemoteStorageMode()){
+      const [clients, projects] = await Promise.all([
+        window.appAuth.requestJson('/rest/v1/field_clients?select=id,client_name,client_code,service_scope'),
+        window.appAuth.requestJson('/rest/v1/field_projects?select=id,client_id,project_name,service_scope,project_status')
+      ]);
+      next = {
+        clients:(Array.isArray(clients) ? clients : []).map(row => normalizeSharedClientRecord(row, true)).filter(row => row.id),
+        projects:(Array.isArray(projects) ? projects : []).map(row => normalizeSharedProjectRecord(row, true)).filter(row => row.id)
+      };
+    } else {
+      const raw = localStorage.getItem(FIELD_DIRECTORY_STORAGE_KEY);
+      if(raw){
+        const parsed = JSON.parse(raw);
+        next = {
+          clients:(Array.isArray(parsed?.clients) ? parsed.clients : []).map(row => normalizeSharedClientRecord(row)).filter(row => row.id),
+          projects:(Array.isArray(parsed?.projects) ? parsed.projects : []).map(row => normalizeSharedProjectRecord(row)).filter(row => row.id)
+        };
+      }
+    }
+    next.clients.sort((a, b) => a.clientName.localeCompare(b.clientName));
+    next.projects.sort((a, b) => a.projectName.localeCompare(b.projectName));
+    const signature = JSON.stringify(next);
+    if(signature === lastLoadedSharedDirectorySignature) return false;
+    sharedDirectory = next;
+    lastLoadedSharedDirectorySignature = signature;
+    return true;
+  } catch (error){
+    console.warn('Unable to load shared client/project directory:', error);
+    return false;
+  }
+}
 function normalizeWorkOrder(w){ const src = (w && typeof w === 'object') ? w : {};
 const stage = normalizeStage(src);
-return { ...src, id: String(src.id || uid()), number: String(src.number || ''), client: String(src.client || ''), location: String(src.location || 'Pittsburgh'), dueDate: src.dueDate || null, priority: PRI[String(src.priority || '').toUpperCase()] !== undefined ? String(src.priority).toUpperCase() : 'NONE', stage, complete: stage === WO_STAGE.DONE, notes: String(src.notes || ''), gas: Number(src.gas || 0), liq: Number(src.liq || 0), gc: Number(src.gc || 0), samples: Array.isArray(src.samples) ? src.samples : [], testRows: Array.isArray(src.testRows) ? src.testRows : [], pdfAttachment: normalizePdfAttachment(src.pdfAttachment) }; }
+const project = getSharedProjectRecord(String(src.projectId || ''));
+const matchedClient = getSharedClientRecord(String(src.clientId || '')) || getSharedClientRecordByCode(src.clientCode) || (!src.clientId ? getSharedClientRecordByCode(src.client) : null);
+const resolvedClientId = String(src.clientId || project?.clientId || matchedClient?.id || '');
+const resolvedClientCode = normalizeClientCode(src.clientCode || matchedClient?.clientCode || inferClientCodeFromLegacyValue(!src.clientId ? src.client : ''));
+return { ...src, id: String(src.id || uid()), number: String(src.number || ''), client: String(src.client || ''), clientCode: resolvedClientCode, clientId: resolvedClientId, projectId: String(src.projectId || ''), location: String(src.location || 'Pittsburgh'), dueDate: src.dueDate || null, priority: PRI[String(src.priority || '').toUpperCase()] !== undefined ? String(src.priority).toUpperCase() : 'NONE', stage, complete: stage === WO_STAGE.DONE, notes: String(src.notes || ''), gas: Number(src.gas || 0), liq: Number(src.liq || 0), gc: Number(src.gc || 0), samples: Array.isArray(src.samples) ? src.samples : [], testRows: Array.isArray(src.testRows) ? src.testRows : [], pdfAttachment: normalizePdfAttachment(src.pdfAttachment) }; }
 function normalizeWorkOrders(list){ if(!Array.isArray(list)) return [];
 return list.map(normalizeWorkOrder).filter(w => w.number || w.id); } const calcM = w => getWOMetrics(w).minutes;
 const getWOCounts = w => getWOMetrics(w).counts;
@@ -174,7 +232,7 @@ const now=new Date();now.setHours(0,0,0,0);
 const diff=w=>{const dt=parseDate(w.dueDate);
 return dt?Math.round((dt-now)/86400000):9999;};
 const arr=[...WOs]; arr.sort((a,b)=>{ let av,bv;
-if(f==='priority'){av=PRI[a.priority||'NONE'];bv=PRI[b.priority||'NONE'];} else if(f==='dueDate'||f==='status'){av=diff(a);bv=diff(b);} else if(f==='number'){av=a.number;bv=b.number;} else if(f==='client'){av=(a.client||'').toLowerCase();bv=(b.client||'').toLowerCase();} else if(f==='assignedTo'){av=getWOAssigneeLabel(a).toLowerCase();bv=getWOAssigneeLabel(b).toLowerCase();} else if(f==='estTime'){av=calcM(a);bv=calcM(b);} else if(TEST_CODES.includes(f)){av=getWOCounts(a)[f]||0;bv=getWOCounts(b)[f]||0;} else {av=0;bv=0;} if(av<bv)return d==='asc'?-1:1;
+if(f==='priority'){av=PRI[a.priority||'NONE'];bv=PRI[b.priority||'NONE'];} else if(f==='dueDate'||f==='status'){av=diff(a);bv=diff(b);} else if(f==='number'){av=a.number;bv=b.number;} else if(f==='client'){av=getWorkOrderClientLabel(a).toLowerCase();bv=getWorkOrderClientLabel(b).toLowerCase();} else if(f==='assignedTo'){av=getWOAssigneeLabel(a).toLowerCase();bv=getWOAssigneeLabel(b).toLowerCase();} else if(f==='estTime'){av=calcM(a);bv=calcM(b);} else if(TEST_CODES.includes(f)){av=getWOCounts(a)[f]||0;bv=getWOCounts(b)[f]||0;} else {av=0;bv=0;} if(av<bv)return d==='asc'?-1:1;
 if(av>bv)return d==='asc'?1:-1;
 return 0; }); arr.sort((a,b)=>a.complete===b.complete?0:a.complete?1:-1);
 return arr; }
@@ -503,7 +561,7 @@ unscheduledList.innerHTML = '<div class="schedule-empty">All open work orders ar
 } else {
 unscheduledList.innerHTML = unscheduledWOs.map(wo => {
 const assignments = getSchedulableTasksForWO(wo);
-return ` <div class="schedule-item task-group-item"> <div class="schedule-item-main"> <div class="run-rank">WO</div> <div> <div class="schedule-title">${esc(wo.number)}</div> <div class="schedule-sub">${esc(wo.client || 'Unassigned client')} | Priority ${esc(wo.priority || 'NONE')} | ${fmtDate(wo.dueDate) || 'No due date'}</div> <div class="schedule-sub">${fmtMOrZero(calcM(wo))} total | ${getWOTestTotal(wo)} total test units</div> </div> <button class="act-btn" onclick="addToSchedule('${esc(wo.id)}')">Schedule WO</button> </div> <div class="schedule-task-list"> ${assignments.map(item => ` <div class="schedule-task-row"> <div> <div class="schedule-task-name">${esc(item.label)}${item.quantity > 1 ? ` | Qty ${item.quantity}` : ''}</div> <div class="schedule-sub">${fmtMOrZero(item.taskMinutes)} | ${esc(item.matrixType || 'Unknown Matrix')}</div> </div> </div> `).join('')} </div> </div> `;
+return ` <div class="schedule-item task-group-item"> <div class="schedule-item-main"> <div class="run-rank">WO</div> <div> <div class="schedule-title">${esc(wo.number)}</div> <div class="schedule-sub">${esc(getWorkOrderClientLabel(wo))}${wo.projectId ? ` | ${esc(getWorkOrderProjectLabel(wo))}` : ''} | Priority ${esc(wo.priority || 'NONE')} | ${fmtDate(wo.dueDate) || 'No due date'}</div> <div class="schedule-sub">${fmtMOrZero(calcM(wo))} total | ${getWOTestTotal(wo)} total test units</div> </div> <button class="act-btn" onclick="addToSchedule('${esc(wo.id)}')">Schedule WO</button> </div> <div class="schedule-task-list"> ${assignments.map(item => ` <div class="schedule-task-row"> <div> <div class="schedule-task-name">${esc(item.label)}${item.quantity > 1 ? ` | Qty ${item.quantity}` : ''}</div> <div class="schedule-sub">${fmtMOrZero(item.taskMinutes)} | ${esc(item.matrixType || 'Unknown Matrix')}</div> </div> </div> `).join('')} </div> </div> `;
 }).join('');
 }
 const scheduledList = document.getElementById('scheduled-list');
@@ -522,11 +580,11 @@ return `<button type="button" class="assignee-btn ${active ? 'on' : ''}" onclick
 }).join('') : '<span class="split-hint">Add employees above to assign this test type.</span>';
 return ` <div class="schedule-task-row"> <div> <div class="schedule-task-name">${esc(item.label)}${item.quantity > 1 ? ` | Qty ${item.quantity}` : ''}</div> <div class="schedule-sub">${fmtMOrZero(item.taskMinutes)} | ${esc(item.tech || 'Unassigned')} | ${esc(item.matrixType || 'Unknown Matrix')}</div> </div> <div class="schedule-assignees">${techButtons}</div> </div> `;
 }).join('');
-return ` <div class="schedule-item run-item" draggable="true" data-index="${index}" ondragstart="onScheduleDragStart(event)" ondragover="onScheduleDragOver(event)" ondrop="onScheduleDrop(event)" ondragend="onScheduleDragEnd()"> <div class="schedule-item-main"> <div class="run-rank">#${row.order}</div> <div> <div class="schedule-title">${esc(row.wo.number)} | ${esc(row.wo.client || 'Unassigned client')}</div> <div class="schedule-sub">Priority ${esc(row.wo.priority || 'NONE')} | Due ${fmtDate(row.wo.dueDate) || 'Not set'} | ${fmtMOrZero(row.totalMinutes)}</div> <div class="schedule-sub">${esc(assigneeLabel)} | ${esc(buildAssignmentSummary(row.assignmentItems, false))}</div> </div> <button class="act-btn" onclick="removeFromSchedule(${index})">Remove</button> </div> <div class="schedule-task-list">${assignmentRows}</div> <div class="schedule-notes"> <textarea placeholder="Work order notes..." oninput="updateScheduleNotes(${index}, this.value)">${esc(row.entry.notes || '')}</textarea> </div> </div> `;
+return ` <div class="schedule-item run-item" draggable="true" data-index="${index}" ondragstart="onScheduleDragStart(event)" ondragover="onScheduleDragOver(event)" ondrop="onScheduleDrop(event)" ondragend="onScheduleDragEnd()"> <div class="schedule-item-main"> <div class="run-rank">#${row.order}</div> <div> <div class="schedule-title">${esc(row.wo.number)} | ${esc(getWorkOrderClientLabel(row.wo))}</div> <div class="schedule-sub">${row.wo.projectId ? `${esc(getWorkOrderProjectLabel(row.wo))} | ` : ''}Priority ${esc(row.wo.priority || 'NONE')} | Due ${fmtDate(row.wo.dueDate) || 'Not set'} | ${fmtMOrZero(row.totalMinutes)}</div> <div class="schedule-sub">${esc(assigneeLabel)} | ${esc(buildAssignmentSummary(row.assignmentItems, false))}</div> </div> <button class="act-btn" onclick="removeFromSchedule(${index})">Remove</button> </div> <div class="schedule-task-list">${assignmentRows}</div> <div class="schedule-notes"> <textarea placeholder="Work order notes..." oninput="updateScheduleNotes(${index}, this.value)">${esc(row.entry.notes || '')}</textarea> </div> </div> `;
 }).join('');
 }
 const liquidLaneList = document.getElementById('liquid-lane-list');
-if(liquidLaneList){ const liquidLaneRows = getLiquidLaneRows(rows); if(!liquidLaneRows.length){ liquidLaneList.innerHTML = '<div class="schedule-empty">No scheduled liquid samples yet.</div>'; } else { liquidLaneList.innerHTML = liquidLaneRows.map(row => { const options = ['<option value="">Set hydrocarbon...</option>', ...HYDROCARBON_OPTIONS.map(code => `<option value="${code}" ${row.hydrocarbon === code ? 'selected' : ''}>${code === 'UNKNOWN' ? 'Unknown' : code}</option>`)].join(''); const rankLabel = row.hydrocarbon === 'UNKNOWN' ? 'Unknown' : (row.hydrocarbon || 'Unset'); const assigneeLabel = row.assignees.length ? row.assignees.join(', ') : 'Unassigned'; return ` <div class="schedule-item liquid-lane-item ${row.hydrocarbon ? '' : 'missing-hydrocarbon'}"> <div class="schedule-item-main"> <div class="run-rank">L${row.laneOrder}</div> <div> <div class="schedule-title">${esc(row.wo.number)} | Sample ${esc(row.sampleId)}</div> <div class="schedule-sub">${esc(row.wo.client || 'Unassigned client')} | Queue #${row.scheduleOrder} | ${esc(assigneeLabel)}</div> <div class="schedule-sub">Hydrocarbon ${esc(rankLabel)} | Liquid lane sorted lightest to heaviest</div> </div> <select class="form-input hydrocarbon-select" onchange="updateSampleHydrocarbon('${esc(row.wo.id)}','${esc(row.sampleId)}', this.value)">${options}</select> </div> </div> `; }).join(''); } }
+if(liquidLaneList){ const liquidLaneRows = getLiquidLaneRows(rows); if(!liquidLaneRows.length){ liquidLaneList.innerHTML = '<div class="schedule-empty">No scheduled liquid samples yet.</div>'; } else { liquidLaneList.innerHTML = liquidLaneRows.map(row => { const options = ['<option value="">Set hydrocarbon...</option>', ...HYDROCARBON_OPTIONS.map(code => `<option value="${code}" ${row.hydrocarbon === code ? 'selected' : ''}>${code === 'UNKNOWN' ? 'Unknown' : code}</option>`)].join(''); const rankLabel = row.hydrocarbon === 'UNKNOWN' ? 'Unknown' : (row.hydrocarbon || 'Unset'); const assigneeLabel = row.assignees.length ? row.assignees.join(', ') : 'Unassigned'; return ` <div class="schedule-item liquid-lane-item ${row.hydrocarbon ? '' : 'missing-hydrocarbon'}"> <div class="schedule-item-main"> <div class="run-rank">L${row.laneOrder}</div> <div> <div class="schedule-title">${esc(row.wo.number)} | Sample ${esc(row.sampleId)}</div> <div class="schedule-sub">${esc(getWorkOrderClientLabel(row.wo))} | Queue #${row.scheduleOrder} | ${esc(assigneeLabel)}</div> <div class="schedule-sub">Hydrocarbon ${esc(rankLabel)} | Liquid lane sorted lightest to heaviest</div> </div> <select class="form-input hydrocarbon-select" onchange="updateSampleHydrocarbon('${esc(row.wo.id)}','${esc(row.sampleId)}', this.value)">${options}</select> </div> </div> `; }).join(''); } }
 const plan = buildEmployeePlan(rows);
 const planNode = document.getElementById('employee-plan');
 const planSummary = document.getElementById('employee-plan-summary');
@@ -608,7 +666,7 @@ function csvEsc(value){ return `"${String(value ?? '').replace(/"/g, '""')}"`;
 }
 function exportRunOrderCsv(){ const rows = getScheduleRows();
 if(!rows.length){ alert('No scheduled work to export.'); return; } const lines = [ ['Schedule Date','Run Order','WO Number','Client','Priority','Due Date','Total Minutes','Assigned Techs','Test Assignments','Notes'].map(csvEsc).join(',') ];
-for(const row of rows){ lines.push([ scheduleState.date || todayISO(), row.order, row.wo.number || '', row.wo.client || '', row.wo.priority || 'NONE', row.wo.dueDate || '', row.totalMinutes, row.assignedTechs.join(' | ') || 'Unassigned', buildAssignmentSummary(row.assignmentItems, true), row.entry.notes || '' ].map(csvEsc).join(',')); } const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
+for(const row of rows){ lines.push([ scheduleState.date || todayISO(), row.order, row.wo.number || '', getWorkOrderClientLabel(row.wo), row.wo.priority || 'NONE', row.wo.dueDate || '', row.totalMinutes, row.assignedTechs.join(' | ') || 'Unassigned', buildAssignmentSummary(row.assignmentItems, true), row.entry.notes || '' ].map(csvEsc).join(',')); } const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
 const url = URL.createObjectURL(blob);
 const a = document.createElement('a'); a.href = url; a.download = `run-order-${scheduleState.date || todayISO()}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
@@ -618,9 +676,9 @@ if(!report.rows.length && !report.hasTasks){ alert('No scheduled work or tasks t
 if(!report.isMaster && !report.filteredRows.length && !report.hasTasks){ alert('No scheduled work or additional tasks are assigned to that employee.'); return; }
 const win = window.open('', '_blank');
 if(!win){ alert('Unable to open print window. Please allow pop-ups.'); return; }
-const runRows = report.filteredRows.length ? report.filteredRows.map(row => ` <tr> <td>${row.order}</td> <td>${esc(row.wo.number || '')}</td> <td>${esc(row.wo.client || '')}</td> <td>${esc(row.wo.priority || 'NONE')}</td> <td>${esc(row.wo.dueDate || '')}</td> <td>${fmtMOrZero(row.reportMinutes)}</td> <td>${esc(row.reportTechs.join(', ') || 'Unassigned')}</td> <td>${esc(buildAssignmentSummary(row.reportAssignmentItems, true))}</td> <td>${esc(row.entry.notes || '')}</td> </tr> `).join('') : '<tr><td colspan="9">No scheduled work orders in this report.</td></tr>';
-const laneRows = laneList => laneList.length ? laneList.map(row => ` <tr> <td>${row.order}</td> <td>${esc(row.wo.number || '')}</td> <td>${esc(row.wo.client || '')}</td> <td>${fmtMOrZero(row.reportMinutes)}</td> <td>${esc(row.reportTechs.join(', ') || 'Unassigned')}</td> <td>${esc(buildAssignmentSummary(row.reportAssignmentItems, true))}</td> </tr> `).join('') : '<tr><td colspan="6">No gas work assigned.</td></tr>';
-const liquidSampleRows = report.liquidSampleRows.length ? report.liquidSampleRows.map(row => ` <tr> <td>${row.laneOrder}</td> <td>${esc(row.wo.number || '')}</td> <td>${esc(row.wo.client || '')}</td> <td>${esc(row.sampleId || '')}</td> <td>${esc(row.hydrocarbon || 'Unset')}</td> <td>${esc(row.assignees.length ? row.assignees.join(', ') : 'Unassigned')}</td> </tr> `).join('') : '<tr><td colspan="6">No liquid samples scheduled.</td></tr>';
+const runRows = report.filteredRows.length ? report.filteredRows.map(row => ` <tr> <td>${row.order}</td> <td>${esc(row.wo.number || '')}</td> <td>${esc(getWorkOrderClientLabel(row.wo))}</td> <td>${esc(row.wo.priority || 'NONE')}</td> <td>${esc(row.wo.dueDate || '')}</td> <td>${fmtMOrZero(row.reportMinutes)}</td> <td>${esc(row.reportTechs.join(', ') || 'Unassigned')}</td> <td>${esc(buildAssignmentSummary(row.reportAssignmentItems, true))}</td> <td>${esc(row.entry.notes || '')}</td> </tr> `).join('') : '<tr><td colspan="9">No scheduled work orders in this report.</td></tr>';
+const laneRows = laneList => laneList.length ? laneList.map(row => ` <tr> <td>${row.order}</td> <td>${esc(row.wo.number || '')}</td> <td>${esc(getWorkOrderClientLabel(row.wo))}</td> <td>${fmtMOrZero(row.reportMinutes)}</td> <td>${esc(row.reportTechs.join(', ') || 'Unassigned')}</td> <td>${esc(buildAssignmentSummary(row.reportAssignmentItems, true))}</td> </tr> `).join('') : '<tr><td colspan="6">No gas work assigned.</td></tr>';
+const liquidSampleRows = report.liquidSampleRows.length ? report.liquidSampleRows.map(row => ` <tr> <td>${row.laneOrder}</td> <td>${esc(row.wo.number || '')}</td> <td>${esc(getWorkOrderClientLabel(row.wo))}</td> <td>${esc(row.sampleId || '')}</td> <td>${esc(row.hydrocarbon || 'Unset')}</td> <td>${esc(row.assignees.length ? row.assignees.join(', ') : 'Unassigned')}</td> </tr> `).join('') : '<tr><td colspan="6">No liquid samples scheduled.</td></tr>';
 const planRows = report.plan.length ? report.plan.map(p => ` <tr> <td>${esc(p.name)}</td> <td>${fmtMOrZero(Math.round(p.minutes))}</td> <td>${esc(p.items.map(item => `#${item.order} ${item.woNumber} ${item.testType}${item.quantity > 1 ? ` x${item.quantity}` : ''}`.trim()).join(' | ')) || 'No assigned test work'}</td> </tr> `).join('') : '<tr><td colspan="3">No workload assigned.</td></tr>';
 const taskRows = report.taskBuckets.length ? report.taskBuckets.map(bucket => bucket.tasks.length ? bucket.tasks.map((task, index) => ` <tr> <td>${index === 0 ? esc(bucket.name) : ''}</td> <td>${esc(task.name)}</td> <td>${task.minutes ? fmtMOrZero(task.minutes) : 'Not set'}</td> </tr> `).join('') : ` <tr><td>${esc(bucket.name)}</td><td>No additional tasks</td><td>Not set</td></tr> `).join('') : '<tr><td colspan="3">No additional tasks assigned.</td></tr>';
 const reportTitle = report.isMaster ? 'Daily Run Order - Master Report' : `Daily Run Order - ${report.employeeName}`;
@@ -630,11 +688,11 @@ const grpBy=document.getElementById('grp-by').value;
 const search=document.getElementById('search').value.toLowerCase().trim(); document.querySelectorAll('thead th').forEach(th=>{ th.classList.remove('sorted-asc','sorted-desc'); });
  let sorted=getFilteredWorkOrders();
 const activeSortTh = document.querySelector(`thead th.sortable[onclick="clickSort('${sortState.field}')"]`); if (activeSortTh) activeSortTh.classList.add(sortState.dir==='asc' ? 'sorted-asc' : 'sorted-desc');
- if(search)sorted=sorted.filter(w=> String(w.number||'').toLowerCase().includes(search)||(w.client||'').toLowerCase().includes(search)|| (w.location||'').toLowerCase().includes(search) || getWOAssigneeLabel(w).toLowerCase().includes(search) );
+ if(search)sorted=sorted.filter(w=> String(w.number||'').toLowerCase().includes(search)||getWorkOrderClientLabel(w).toLowerCase().includes(search)||getWorkOrderProjectLabel(w).toLowerCase().includes(search)||(w.location||'').toLowerCase().includes(search) || getWOAssigneeLabel(w).toLowerCase().includes(search) );
  const tbodyId = appView === 'pending' ? 'pending-wo-tbody' : 'wo-tbody';
  const emptyLabel = appView === 'pending' ? 'No work orders are waiting to report.' : 'No work orders match current filters.';
  if(!sorted.length){ document.getElementById(tbodyId).innerHTML=`<tr><td colspan="${visibleCols}"><div class="empty-state"><div class="big"></div>${emptyLabel}</div></td></tr>`; applyColumnVisibility(); updateStats(); renderSchedule(); const ts = new Date().toLocaleTimeString(); document.getElementById(appView === 'pending' ? 'pending-last-update' : 'last-update').textContent=`Updated ${ts}`; return; } const groups={};
-if(grpBy==='none'){ groups['__all__']=sorted; } else if(grpBy==='client'){ for(const w of sorted){ const k=w.client||'Unassigned';
+if(grpBy==='none'){ groups['__all__']=sorted; } else if(grpBy==='client'){ for(const w of sorted){ const k=getWorkOrderClientLabel(w)||'Unassigned';
 if(!groups[k])groups[k]=[]; groups[k].push(w); } } else if(grpBy==='priority'){ for(const w of sorted){ const k=w.priority||'NONE';
 if(!groups[k])groups[k]=[]; groups[k].push(w); } } else if(grpBy==='matrix'){ for(const w of sorted){ const k=getPrimaryMatrixGroup(w);
 if(!groups[k])groups[k]=[]; groups[k].push(w); } } else if(grpBy==='assignedTo'){ for(const w of sorted){ const k=getWOAssigneeLabel(w);
@@ -651,13 +709,14 @@ const pri=w.priority||'NONE';
 const sampleCount = Array.isArray(w.samples) && w.samples.length ? w.samples.length : (Array.isArray(w.testRows) ? new Set(w.testRows.map(r=>r.sampleId||'UNASSIGNED')).size : 0);
 const safeNum = esc(w.number);
 const safeNotes = esc(w.notes || '');
-const safeClient = esc(w.client || '');
+const safeClient = esc(getWorkOrderClientLabel(w));
+const safeProject = esc(getWorkOrderProjectLabel(w));
 const safeAssignedTo = esc(getWOAssigneeLabel(w));
 const counts = getWOCounts(w);
 const priBadge=(pri==='CRITICAL'||pri==='HIGH'||pri==='MEDIUM'||pri==='LOW') ?`<div class="pri-badge pb-${pri}">${pri==='CRITICAL'?'&#128680;':pri==='HIGH'?'&#128293;':pri==='MEDIUM'?'&#9888;&#65039;':'&#128998;'} ${pri}</div>`: `<span style="color:var(--muted);font-size:11px"></span>`;
 const testCell=(v,cls='')=>v?`<span class="tc ${cls}">${v}</span>`:`<span class="tc empty"></span>`;
  const testCells = getTestDefinitions().map(def => { const cls = def.matrixType === 'Calculated' ? 'calc' : def.tone === 'gc' ? 'gc' : def.tone === 'liq' ? 'liq' : ''; return `<td class="num col-${def.key}">${testCell(counts[def.key], cls)}</td>`; }).join('');
- const dueFmt=fmtDate(w.dueDate)||'<span style="color:var(--muted)">Not set</span>'; html+=` <tr class="p-${pri}${w.stage===WO_STAGE.DONE?' complete-row':''} wo-clickable-row" data-id="${w.id}" onclick="openModal('${w.id}')" title="Click for work order details"> <td class="col-number"><div class="wo-num">${safeNum}</div>${safeNotes?`<div class="wo-sub">${safeNotes}</div>`:''}${sampleCount?`<div class="wo-sub">${sampleCount} sample(s)</div>`:''}</td> <td class="col-priority">${priBadge}</td> <td class="col-client" style="font-family:var(--sans);font-size:14px">${safeClient||'<span style="color:var(--muted)"></span>'}</td> <td class="col-assignedTo" style="font-family:var(--mono);font-size:12px">${safeAssignedTo}</td> ${testCells} <td class="col-estTime"><div class="est-time">${fmtMOrZero(mins)}${mins?`<div class="est-mins">${mins} min</div>`:''}</div></td> <td class="col-dueDate"><div style="font-family:var(--mono);font-size:12px">${dueFmt}</div></td> <td class="col-status"><span class="sb ${st.cls}">${st.label}</span>${st.dl?`<span class="overdue-info">${st.dl}</span>`:''}</td> </tr>`; } } document.getElementById(tbodyId).innerHTML=html; applyColumnVisibility(); const stamp = `Updated ${new Date().toLocaleTimeString()}`; document.getElementById('last-update').textContent=stamp; const pendingStamp = document.getElementById('pending-last-update'); if(pendingStamp) pendingStamp.textContent=stamp; updateStats(); renderSchedule(); }
+ const dueFmt=fmtDate(w.dueDate)||'<span style="color:var(--muted)">Not set</span>'; html+=` <tr class="p-${pri}${w.stage===WO_STAGE.DONE?' complete-row':''} wo-clickable-row" data-id="${w.id}" onclick="openModal('${w.id}')" title="Click for work order details"> <td class="col-number"><div class="wo-num">${safeNum}</div>${safeNotes?`<div class="wo-sub">${safeNotes}</div>`:''}${sampleCount?`<div class="wo-sub">${sampleCount} sample(s)</div>`:''}</td> <td class="col-priority">${priBadge}</td> <td class="col-client" style="font-family:var(--sans);font-size:14px">${safeClient||'<span style="color:var(--muted)"></span>'}${w.projectId ? `<div class="wo-sub">${safeProject}</div>` : ''}</td> <td class="col-assignedTo" style="font-family:var(--mono);font-size:12px">${safeAssignedTo}</td> ${testCells} <td class="col-estTime"><div class="est-time">${fmtMOrZero(mins)}${mins?`<div class="est-mins">${mins} min</div>`:''}</div></td> <td class="col-dueDate"><div style="font-family:var(--mono);font-size:12px">${dueFmt}</div></td> <td class="col-status"><span class="sb ${st.cls}">${st.label}</span>${st.dl?`<span class="overdue-info">${st.dl}</span>`:''}</td> </tr>`; } } document.getElementById(tbodyId).innerHTML=html; applyColumnVisibility(); const stamp = `Updated ${new Date().toLocaleTimeString()}`; document.getElementById('last-update').textContent=stamp; const pendingStamp = document.getElementById('pending-last-update'); if(pendingStamp) pendingStamp.textContent=stamp; updateStats(); renderSchedule(); }
 function renderPdfAttachmentInfo(){ const meta = document.getElementById('f-pdf-meta');
 if(!meta) return;
 if(modalPdfAttachment && modalPdfAttachment.name){ const sizeLabel = modalPdfAttachment.size ? ` (${Math.round(modalPdfAttachment.size/1024)} KB)` : ''; meta.innerHTML = `Attached: ${esc(modalPdfAttachment.name)}${sizeLabel} <button type="button" class="act-btn" style="margin-left:8px;padding:2px 6px;" onclick="openCurrentPdfAttachment()">Open</button> <button type="button" class="act-btn" style="margin-left:6px;padding:2px 6px;" onclick="clearCurrentPdfAttachment()">Remove</button>`; } else { meta.textContent = 'No PDF attached'; } }
@@ -693,13 +752,46 @@ if(pendingCount){ document.getElementById('p-wo').textContent=pending.length; do
 }
 function toggleDone(id){ const w=WOs.find(x=>x.id===id);
 if(w){ w.stage = w.stage === WO_STAGE.DONE ? WO_STAGE.RUNNING : WO_STAGE.DONE; w.complete = w.stage === WO_STAGE.DONE; normalizeScheduleState(); render(); } }
+function renderWorkOrderProjectOptions(clientId = '', selectedProjectId = ''){
+const select = document.getElementById('f-project-id');
+if(!select) return;
+const options = sharedDirectory.projects.filter(project => !clientId || project.clientId === clientId);
+select.innerHTML = `<option value="">Not linked</option>${options.map(project => `<option value="${esc(project.id)}" ${project.id === selectedProjectId ? 'selected' : ''}>${esc(project.projectName || 'Unnamed project')}</option>`).join('')}`;
+if(!options.some(project => project.id === selectedProjectId)) select.value = '';
+}
+function updateWorkOrderLinkSummary(clientId = '', projectId = ''){
+const workOrder = WOs.find(x=>x.id===editId);
+const project = getSharedProjectRecord(projectId);
+const resolvedClientId = clientId || project?.clientId || '';
+const linkedClient = resolvedClientId ? getSharedClientRecord(resolvedClientId) : getSharedClientRecordByCode(workOrder?.clientCode || workOrder?.client);
+document.getElementById('f-client').textContent = linkedClient ? formatSharedClientOptionLabel(linkedClient) : (workOrder?.client || 'Unassigned client');
+document.getElementById('f-project').textContent = project?.projectName || 'Not linked';
+}
+function onWorkOrderClientLinkChange(value){
+const currentProjectId = document.getElementById('f-project-id')?.value || '';
+const currentProject = getSharedProjectRecord(currentProjectId);
+const nextProjectId = currentProject && currentProject.clientId === value ? currentProjectId : '';
+renderWorkOrderProjectOptions(value, nextProjectId);
+updateWorkOrderLinkSummary(value, nextProjectId);
+}
+function onWorkOrderProjectLinkChange(value){
+const project = getSharedProjectRecord(value);
+const clientId = project?.clientId || document.getElementById('f-client-id')?.value || '';
+const clientSelect = document.getElementById('f-client-id');
+if(clientSelect && clientId) clientSelect.value = clientId;
+renderWorkOrderProjectOptions(clientId, value);
+updateWorkOrderLinkSummary(clientId, value);
+}
 function openModal(id){ editId=id;
 const w = WOs.find(x=>x.id===id);
 if(!w)return;
 document.getElementById('modal-title').textContent=`WO ${w.number || 'Details'}`;
 document.getElementById('btn-del').style.display='inline-block';
 document.getElementById('f-num').textContent=w.number || 'Not available';
-document.getElementById('f-client').textContent=w.client || 'Unassigned client';
+document.getElementById('f-client-id').innerHTML = `<option value="">Not linked</option>${sharedDirectory.clients.map(client => `<option value="${esc(client.id)}" ${client.id === w.clientId ? 'selected' : ''}>${esc(formatSharedClientOptionLabel(client))}</option>`).join('')}`;
+document.getElementById('f-client-id').value = w.clientId || '';
+renderWorkOrderProjectOptions(w.clientId || '', w.projectId || '');
+updateWorkOrderLinkSummary(w.clientId || '', w.projectId || '');
 document.getElementById('f-due').textContent=fmtDate(w.dueDate) || 'Not set';
 document.getElementById('f-notes').value=w.notes||'';
 modalPdfAttachment = w.pdfAttachment || null;
@@ -793,7 +885,12 @@ function saveTestCatalogEntry(){ const keyInput = document.getElementById('tc-ke
 function saveWO(){ if(!editId) return false;
 const w=WOs.find(x=>x.id===editId);
 if(!w) return false;
-Object.assign(w,{ notes:document.getElementById('f-notes').value.trim(), pdfAttachment:modalPdfAttachment ? {name:modalPdfAttachment.name || '', type:'application/pdf', size:Number(modalPdfAttachment.size || 0), dataUrl:modalPdfAttachment.dataUrl || ''} : null, priority:document.querySelector('#pri-grid .pri-opt.sel')?.dataset.p||'NONE', });
+const linkedProjectId = String(document.getElementById('f-project-id')?.value || '');
+const linkedProject = getSharedProjectRecord(linkedProjectId);
+const linkedClientId = String(document.getElementById('f-client-id')?.value || linkedProject?.clientId || '');
+const linkedClient = getSharedClientRecord(linkedClientId);
+const preservedClientCode = linkedClient ? linkedClient.clientCode : inferClientCodeFromLegacyValue(w.client);
+Object.assign(w,{ notes:document.getElementById('f-notes').value.trim(), pdfAttachment:modalPdfAttachment ? {name:modalPdfAttachment.name || '', type:'application/pdf', size:Number(modalPdfAttachment.size || 0), dataUrl:modalPdfAttachment.dataUrl || ''} : null, priority:document.querySelector('#pri-grid .pri-opt.sel')?.dataset.p||'NONE', clientId:linkedClientId, projectId:linkedProjectId, clientCode:preservedClientCode, client:linkedClient ? linkedClient.clientName : w.client, });
 closeModal();render();
 return true; }
 function deleteWO(){/* overridden by storage wrapper below */}
@@ -826,7 +923,7 @@ function isInteractionOverlayOpen(){ return ['modal-overlay','samples-overlay','
 function rememberLoadedState(woRaw, scheduleRaw, testDefinitionsRaw){ lastLoadedWorkOrdersRaw = typeof woRaw === 'string' ? woRaw : ''; lastLoadedScheduleRaw = typeof scheduleRaw === 'string' ? scheduleRaw : ''; lastLoadedTestDefinitionsRaw = typeof testDefinitionsRaw === 'string' ? testDefinitionsRaw : ''; }
 async function saveData() { const storageAdapter = getStorageAdapter(); clearTimeout(saveTimer); saveTimer = null; showSaveStatus('saving', 'SAVING...'); try { normalizeScheduleState(); const woRaw = JSON.stringify(WOs); const scheduleRaw = JSON.stringify(scheduleState); const testDefinitionsRaw = JSON.stringify(getTestDefinitions()); await Promise.all([ storageAdapter.set(STORAGE_KEY, woRaw), storageAdapter.set(SCHEDULE_STORAGE_KEY, scheduleRaw), storageAdapter.set(TEST_DEFINITION_STORAGE_KEY, testDefinitionsRaw) ]); rememberLoadedState(woRaw, scheduleRaw, testDefinitionsRaw); showSaveStatus('saved', 'SAVED'); hideSaveStatusSoon(); } catch (e) { showSaveStatus('error', 'SAVE FAILED'); console.error('Storage save error:', e); } }
 function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(saveData, 600); }
-async function loadData(options = {}) { const silent = !!options.silent; let loadedWOs = false; let loadedSchedule = false; let loadedTestDefinitions = false; let changed = false; try { const storageAdapter = getStorageAdapter(); const [woResult, scheduleResult, testDefinitionsResult] = await Promise.all([ storageAdapter.get(STORAGE_KEY), storageAdapter.get(SCHEDULE_STORAGE_KEY), storageAdapter.get(TEST_DEFINITION_STORAGE_KEY) ]); const woRaw = typeof woResult?.value === 'string' ? woResult.value : ''; const scheduleRaw = typeof scheduleResult?.value === 'string' ? scheduleResult.value : ''; const testDefinitionsRaw = typeof testDefinitionsResult?.value === 'string' ? testDefinitionsResult.value : ''; if(woRaw === lastLoadedWorkOrdersRaw && scheduleRaw === lastLoadedScheduleRaw && testDefinitionsRaw === lastLoadedTestDefinitionsRaw) return false; if(testDefinitionsRaw) { const parsedTestDefinitions = JSON.parse(testDefinitionsRaw); if(Array.isArray(parsedTestDefinitions) && parsedTestDefinitions.length) { setTestDefinitions(parsedTestDefinitions); loadedTestDefinitions = true; changed = true; } } else if(lastLoadedTestDefinitionsRaw !== '') { setTestDefinitions(getDefaultTestDefinitions()); changed = true; } if(woRaw) { const parsed = JSON.parse(woRaw); if (Array.isArray(parsed)) { WOs = normalizeWorkOrders(parsed); loadedWOs = true; changed = true; } else if(parsed && Array.isArray(parsed.workOrders)) { WOs = normalizeWorkOrders(parsed.workOrders); loadedWOs = true; changed = true; } } else if(lastLoadedWorkOrdersRaw !== '') { WOs = []; changed = true; } if (scheduleRaw) { const parsedSchedule = JSON.parse(scheduleRaw); if(parsedSchedule && typeof parsedSchedule === 'object') { scheduleState = { date: parsedSchedule.date || todayISO(), employees: Array.isArray(parsedSchedule.employees) ? parsedSchedule.employees : [], entries: Array.isArray(parsedSchedule.entries) ? parsedSchedule.entries : [], tasks: Array.isArray(parsedSchedule.tasks) ? parsedSchedule.tasks : [] }; loadedSchedule = true; changed = true; } } else if(lastLoadedScheduleRaw !== '') { scheduleState = {date:todayISO(),employees:[],entries:[],tasks:[]}; changed = true; } normalizeScheduleState(); renderDynamicTestUI(); rememberLoadedState(woRaw, scheduleRaw, testDefinitionsRaw); if (changed) { render(); renderSchedule(); if (!silent) { showSaveStatus('loaded', `${WOs.length} WOs | ${scheduleState.entries.length} scheduled`); hideSaveStatusSoon(); } } } catch (e) { console.log('No saved data found.'); } return changed || loadedWOs || loadedSchedule || loadedTestDefinitions; }
+async function loadData(options = {}) { const silent = !!options.silent; let loadedWOs = false; let loadedSchedule = false; let loadedTestDefinitions = false; let changed = false; let sharedChanged = false; try { const storageAdapter = getStorageAdapter(); const [woResult, scheduleResult, testDefinitionsResult, sharedDirectoryChanged] = await Promise.all([ storageAdapter.get(STORAGE_KEY), storageAdapter.get(SCHEDULE_STORAGE_KEY), storageAdapter.get(TEST_DEFINITION_STORAGE_KEY), loadSharedDirectory() ]); sharedChanged = !!sharedDirectoryChanged; const woRaw = typeof woResult?.value === 'string' ? woResult.value : ''; const scheduleRaw = typeof scheduleResult?.value === 'string' ? scheduleResult.value : ''; const testDefinitionsRaw = typeof testDefinitionsResult?.value === 'string' ? testDefinitionsResult.value : ''; if(woRaw === lastLoadedWorkOrdersRaw && scheduleRaw === lastLoadedScheduleRaw && testDefinitionsRaw === lastLoadedTestDefinitionsRaw && !sharedChanged) return false; if(testDefinitionsRaw) { const parsedTestDefinitions = JSON.parse(testDefinitionsRaw); if(Array.isArray(parsedTestDefinitions) && parsedTestDefinitions.length) { setTestDefinitions(parsedTestDefinitions); loadedTestDefinitions = true; changed = true; } } else if(lastLoadedTestDefinitionsRaw !== '') { setTestDefinitions(getDefaultTestDefinitions()); changed = true; } if(woRaw) { const parsed = JSON.parse(woRaw); if (Array.isArray(parsed)) { WOs = normalizeWorkOrders(parsed); loadedWOs = true; changed = true; } else if(parsed && Array.isArray(parsed.workOrders)) { WOs = normalizeWorkOrders(parsed.workOrders); loadedWOs = true; changed = true; } } else if(lastLoadedWorkOrdersRaw !== '') { WOs = []; changed = true; } if (scheduleRaw) { const parsedSchedule = JSON.parse(scheduleRaw); if(parsedSchedule && typeof parsedSchedule === 'object') { scheduleState = { date: parsedSchedule.date || todayISO(), employees: Array.isArray(parsedSchedule.employees) ? parsedSchedule.employees : [], entries: Array.isArray(parsedSchedule.entries) ? parsedSchedule.entries : [], tasks: Array.isArray(parsedSchedule.tasks) ? parsedSchedule.tasks : [] }; loadedSchedule = true; changed = true; } } else if(lastLoadedScheduleRaw !== '') { scheduleState = {date:todayISO(),employees:[],entries:[],tasks:[]}; changed = true; } normalizeScheduleState(); renderDynamicTestUI(); rememberLoadedState(woRaw, scheduleRaw, testDefinitionsRaw); if (changed || sharedChanged) { render(); renderSchedule(); if (!silent) { showSaveStatus('loaded', `${WOs.length} WOs | ${scheduleState.entries.length} scheduled`); hideSaveStatusSoon(); } } } catch (e) { console.log('No saved data found.'); } return changed || loadedWOs || loadedSchedule || loadedTestDefinitions || sharedChanged; }
 async function refreshFromSharedStorage(){ if(!isRemoteStorageMode() || document.hidden || saveTimer || isInteractionOverlayOpen() || autoRefreshInFlight) return; autoRefreshInFlight = true; try { const changed = await loadData({ silent:true }); if(changed){ showSaveStatus('loaded', 'SYNCED'); hideSaveStatusSoon(1800); } } finally { autoRefreshInFlight = false; } }
 function stopAutoRefresh(){ if(autoRefreshTimer){ clearInterval(autoRefreshTimer); autoRefreshTimer = null; } }
 function startAutoRefresh(){ stopAutoRefresh(); if(!isRemoteStorageMode()) return; autoRefreshTimer = setInterval(() => { refreshFromSharedStorage(); }, AUTO_REFRESH_MS); }
