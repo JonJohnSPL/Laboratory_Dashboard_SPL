@@ -17,6 +17,7 @@
     lat: 40.435349,
     lng: -80.130022
   };
+  let googleMapsLoadPromise = null;
 
   const state = {
     data: createEmptyData(),
@@ -28,7 +29,10 @@
     activeSiteId: '',
     expandedIds: new Set(),
     map: null,
+    mapProvider: 'leaflet',
     baseLayer: null,
+    googleInfoWindow: null,
+    geocoder: null,
     homeMarker: null,
     markerCache: new Map(),
     booted: false,
@@ -40,16 +44,16 @@
 
   const els = {};
 
-  document.addEventListener('DOMContentLoaded', init);
+  document.addEventListener('DOMContentLoaded', () => { init().catch(handleLoadError); });
 
-  function init(){
+  async function init(){
     cacheElements();
     hydrateSelects();
     bindShell();
     bindToolbar();
     bindPanels();
     bindModals();
-    initMap();
+    await initMap();
     tickClock();
     setInterval(tickClock, 1000);
     bindPageRefresh();
@@ -334,11 +338,86 @@
     });
   }
 
-  function initMap(){
+  function getGoogleMapsApiKey(){
+    return String(window.APP_CONFIG?.googleMapsApiKey || '').trim();
+  }
+
+  function getGoogleMapsMapId(){
+    return String(window.APP_CONFIG?.googleMapsMapId || '').trim();
+  }
+
+  function hasGoogleMapsConfigured(){
+    return !!getGoogleMapsApiKey();
+  }
+
+  function loadGoogleMapsApi(){
+    if(window.google?.maps) return Promise.resolve(window.google.maps);
+    if(googleMapsLoadPromise) return googleMapsLoadPromise;
+    const apiKey = getGoogleMapsApiKey();
+    if(!apiKey) return Promise.reject(new Error('Google Maps API key is not configured.'));
+    googleMapsLoadPromise = new Promise((resolve, reject) => {
+      const callbackName = `sureMapGoogleInit_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const script = document.createElement('script');
+      const cleanup = () => {
+        delete window[callbackName];
+      };
+      window[callbackName] = () => {
+        cleanup();
+        resolve(window.google.maps);
+      };
+      script.async = true;
+      script.defer = true;
+      script.onerror = () => {
+        cleanup();
+        reject(new Error('Google Maps failed to load.'));
+      };
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&loading=async&callback=${encodeURIComponent(callbackName)}`;
+      document.head.appendChild(script);
+    }).catch((error) => {
+      googleMapsLoadPromise = null;
+      throw error;
+    });
+    return googleMapsLoadPromise;
+  }
+
+  async function initMap(){
+    window.addEventListener('resize', scheduleMapResize);
+    if(hasGoogleMapsConfigured()){
+      try {
+        await loadGoogleMapsApi();
+        initGoogleMap();
+        return;
+      } catch (error){
+        console.warn('Google Maps unavailable. Falling back to the default map.', error);
+        els['map-summary'].textContent = 'Google Maps unavailable. Using default map.';
+      }
+    }
+    initLeafletMap();
+  }
+
+  function initGoogleMap(){
+    state.mapProvider = 'google';
+    state.googleInfoWindow = new google.maps.InfoWindow();
+    state.geocoder = new google.maps.Geocoder();
+    const options = {
+      center: { lat:40.44, lng:-79.99 },
+      zoom: 10,
+      mapTypeControl: true,
+      streetViewControl: false,
+      fullscreenControl: true
+    };
+    const mapId = getGoogleMapsMapId();
+    if(mapId) options.mapId = mapId;
+    state.map = new google.maps.Map(els.map, options);
+    scheduleMapResize();
+  }
+
+  function initLeafletMap(){
+    state.mapProvider = 'leaflet';
+    state.googleInfoWindow = null;
+    state.geocoder = null;
     state.map = L.map(els.map, { zoomControl:true }).setView([40.44, -79.99], 10);
     state.map.options.closePopupOnClick = false;
-    window.addEventListener('resize', scheduleMapResize);
-    scheduleMapResize();
     replaceBasemapLayer();
   }
 
@@ -356,12 +435,18 @@
     if(!state.map) return;
     clearTimeout(state.mapResizeTimer);
     state.mapResizeTimer = setTimeout(() => {
-      state.map.invalidateSize(false);
+      if(state.mapProvider === 'google' && window.google?.maps?.event){
+        const center = state.map.getCenter();
+        google.maps.event.trigger(state.map, 'resize');
+        if(center) state.map.setCenter(center);
+        return;
+      }
+      if(typeof state.map.invalidateSize === 'function') state.map.invalidateSize(false);
     }, 90);
   }
 
   function replaceBasemapLayer(){
-    if(!state.map || typeof L === 'undefined' || typeof L.TileLayer === 'undefined') return;
+    if(state.mapProvider !== 'leaflet' || !state.map || typeof L === 'undefined' || typeof L.TileLayer === 'undefined') return;
     state.tileErrorNotified = false;
     state.map.eachLayer((layer) => {
       if(layer instanceof L.TileLayer){
@@ -396,6 +481,7 @@
   }
 
   function handleBasemapTileError(){
+    if(state.mapProvider !== 'leaflet') return;
     if(state.tileErrorNotified) return;
     state.tileErrorNotified = true;
     console.warn('SureMap basemap tiles failed to load.');
@@ -406,7 +492,7 @@
   function handleLoadError(error){
     console.error('SureMap load failed:', error);
     showSaveStatus('error', 'LOAD FAILED');
-    alert(error.message || 'SureMap could not load shared client/site data.');
+    alert(error.message || 'Google Maps could not load shared client/site data.');
   }
 
   function readLocalRaw(){
@@ -608,7 +694,7 @@
     }
     if(state.activeClientId){
       const client = getActiveClient();
-      els['toolbar-summary'].textContent = `${client?.name || 'Client'} selected. Use SureMap to manage HQ pins and site geography from the shared directory.`;
+      els['toolbar-summary'].textContent = `${client?.name || 'Client'} selected. Use Google Maps to manage HQ pins and site geography from the shared directory.`;
       return;
     }
     els['toolbar-summary'].textContent = 'Shared client and site directory synced with Field Ops.';
@@ -689,7 +775,8 @@
 
   function renderMapSummary(){
     const siteCount = state.filteredClients.reduce((sum, client) => sum + client.sublocations.length, 0);
-    els['map-summary'].textContent = `${state.filteredClients.length} clients / ${siteCount} sites visible`;
+    const providerLabel = state.mapProvider === 'google' ? 'Google Maps' : 'Default map';
+    els['map-summary'].textContent = `${state.filteredClients.length} clients / ${siteCount} sites visible | ${providerLabel}`;
   }
 
   function renderDetailPanel(){
@@ -803,6 +890,7 @@
   }
 
   function syncMarkers(){
+    if(!state.map) return;
     const visibleKeys = new Set();
     ensureHomeMarker();
     state.filteredClients.forEach((client) => {
@@ -821,20 +909,75 @@
     });
     Array.from(state.markerCache.keys()).forEach((key) => {
       if(!visibleKeys.has(key)){
-        state.map.removeLayer(state.markerCache.get(key));
+        removeMapMarker(state.markerCache.get(key));
         state.markerCache.delete(key);
       }
     });
   }
 
+  function removeMapMarker(marker){
+    if(!marker) return;
+    if(state.mapProvider === 'google'){
+      marker.setMap(null);
+      return;
+    }
+    state.map.removeLayer(marker);
+  }
+
+  function openMapPopup(marker){
+    if(!marker) return;
+    if(state.mapProvider === 'google'){
+      if(!state.googleInfoWindow) state.googleInfoWindow = new google.maps.InfoWindow();
+      state.googleInfoWindow.setContent(marker.__popupHtml || '');
+      state.googleInfoWindow.open({ anchor:marker, map:state.map });
+      return;
+    }
+    marker.openPopup();
+  }
+
   function ensureHomeMarker(){
-    if(!hasCoords(HOME_BASE.lat, HOME_BASE.lng) || state.homeMarker) return;
+    if(!state.map || !hasCoords(HOME_BASE.lat, HOME_BASE.lng) || state.homeMarker) return;
+    const popupHtml = buildPopup(HOME_BASE.name, formatAddress(HOME_BASE.street, HOME_BASE.city, HOME_BASE.state, HOME_BASE.zip));
+    if(state.mapProvider === 'google'){
+      state.homeMarker = new google.maps.Marker({
+        map: state.map,
+        position: { lat:HOME_BASE.lat, lng:HOME_BASE.lng },
+        icon: makeHomeIcon(),
+        title: HOME_BASE.name
+      });
+      state.homeMarker.__popupHtml = popupHtml;
+      state.homeMarker.addListener('click', () => openMapPopup(state.homeMarker));
+      return;
+    }
     state.homeMarker = L.marker([HOME_BASE.lat, HOME_BASE.lng], { icon:makeHomeIcon() })
-      .bindPopup(buildPopup(HOME_BASE.name, formatAddress(HOME_BASE.street, HOME_BASE.city, HOME_BASE.state, HOME_BASE.zip)), { autoPan:false })
+      .bindPopup(popupHtml, { autoPan:false })
       .addTo(state.map);
   }
 
   function upsertMarker(key, latLng, icon, popupHtml, onClick){
+    if(state.mapProvider === 'google'){
+      const position = { lat:Number(latLng[0]), lng:Number(latLng[1]) };
+      let marker = state.markerCache.get(key);
+      if(!marker){
+        marker = new google.maps.Marker({
+          map: state.map,
+          position,
+          icon
+        });
+        state.markerCache.set(key, marker);
+      } else {
+        marker.setMap(state.map);
+        marker.setPosition(position);
+        marker.setIcon(icon);
+      }
+      marker.__popupHtml = popupHtml;
+      google.maps.event.clearInstanceListeners(marker);
+      marker.addListener('click', () => {
+        openMapPopup(marker);
+        onClick();
+      });
+      return;
+    }
     let marker = state.markerCache.get(key);
     if(!marker){
       marker = L.marker(latLng, { icon });
@@ -852,26 +995,46 @@
     return `<div class="suremap-popup-title">${esc(title)}</div><div class="suremap-popup-copy">${esc(copy)}</div>`;
   }
 
+  function svgToDataUri(svg){
+    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+  }
+
   function makeMarkerIcon(color, isSite){
     const size = isSite ? [22, 30] : [28, 36];
     const anchor = isSite ? [11, 30] : [14, 36];
     const inner = isSite ? 4 : 5;
+    const svg = `<svg width="${size[0]}" height="${size[1]}" viewBox="0 0 ${size[0]} ${size[1]}" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M${size[0] / 2} 0C${isSite ? '4.9 0 0 4.9 0 11c0 8.3 11 19 11 19s11-10.7 11-19C22 4.9 17.1 0 11 0Z' : '6.7 0 0 6.7 0 14.5c0 10.5 14 21.5 14 21.5s14-11 14-21.5C28 6.7 21.3 0 14 0Z'}" fill="${color}"/><circle cx="${size[0] / 2}" cy="${isSite ? 11 : 14}" r="${inner}" fill="#071009"/></svg>`;
+    if(state.mapProvider === 'google'){
+      return {
+        url: svgToDataUri(svg),
+        scaledSize: new google.maps.Size(size[0], size[1]),
+        anchor: new google.maps.Point(anchor[0], anchor[1])
+      };
+    }
     return L.divIcon({
       className: '',
       iconSize: size,
       iconAnchor: anchor,
       popupAnchor: [0, isSite ? -26 : -32],
-      html: `<svg width="${size[0]}" height="${size[1]}" viewBox="0 0 ${size[0]} ${size[1]}" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M${size[0] / 2} 0C${isSite ? '4.9 0 0 4.9 0 11c0 8.3 11 19 11 19s11-10.7 11-19C22 4.9 17.1 0 11 0Z' : '6.7 0 0 6.7 0 14.5c0 10.5 14 21.5 14 21.5s14-11 14-21.5C28 6.7 21.3 0 14 0Z'}" fill="${color}"/><circle cx="${size[0] / 2}" cy="${isSite ? 11 : 14}" r="${inner}" fill="#071009"/></svg>`
+      html: svg
     });
   }
 
   function makeHomeIcon(){
+    const svg = '<svg width="30" height="34" viewBox="0 0 30 34" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 1 2 12v20h26V12L15 1Z" fill="#ffd166"/><path d="M10 32V19h10v13" fill="#071009"/><path d="M8 15h14" stroke="#071009" stroke-width="2"/></svg>';
+    if(state.mapProvider === 'google'){
+      return {
+        url: svgToDataUri(svg),
+        scaledSize: new google.maps.Size(30, 34),
+        anchor: new google.maps.Point(15, 34)
+      };
+    }
     return L.divIcon({
       className: '',
       iconSize: [30, 34],
       iconAnchor: [15, 34],
       popupAnchor: [0, -30],
-      html: '<svg width="30" height="34" viewBox="0 0 30 34" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 1 2 12v20h26V12L15 1Z" fill="#ffd166"/><path d="M10 32V19h10v13" fill="#071009"/><path d="M8 15h14" stroke="#071009" stroke-width="2"/></svg>'
+      html: svg
     });
   }
 
@@ -879,6 +1042,12 @@
     const site = getActiveSite();
     if(site && hasCoords(site.lat, site.lng)){
       els['map-placeholder'].classList.add('hidden');
+      if(state.mapProvider === 'google'){
+        state.map.panTo({ lat:site.lat, lng:site.lng });
+        state.map.setZoom(14);
+        openMapPopup(state.markerCache.get(`site:${site.id}`));
+        return;
+      }
       state.map.flyTo([site.lat, site.lng], 14, { animate:true, duration:.6 });
       state.markerCache.get(`site:${site.id}`)?.openPopup();
       return;
@@ -886,6 +1055,12 @@
     const client = getActiveClient();
     if(client && hasCoords(client.lat, client.lng)){
       els['map-placeholder'].classList.add('hidden');
+      if(state.mapProvider === 'google'){
+        state.map.panTo({ lat:client.lat, lng:client.lng });
+        state.map.setZoom(12);
+        openMapPopup(state.markerCache.get(`client:${client.id}`));
+        return;
+      }
       state.map.flyTo([client.lat, client.lng], 12, { animate:true, duration:.6 });
       state.markerCache.get(`client:${client.id}`)?.openPopup();
       return;
@@ -1344,7 +1519,7 @@
             });
           });
         } catch (_error){
-          config.results.innerHTML = '<div class="suremap-autocomplete-item"><strong>Lookup unavailable</strong><span>Enter the address manually and SureMap will geocode it on save.</span></div>';
+          config.results.innerHTML = '<div class="suremap-autocomplete-item"><strong>Lookup unavailable</strong><span>Enter the address manually and the map will geocode it on save.</span></div>';
           config.results.classList.add('open');
         }
       }, 220);
@@ -1400,8 +1575,20 @@
   }
 
   async function geocodeAddress(street, city, stateCode, zip){
+    const query = formatAddress(street, city, stateCode, zip);
+    if(state.mapProvider === 'google' && state.geocoder && query){
+      try {
+        const response = await state.geocoder.geocode({ address:query });
+        const first = Array.isArray(response?.results) ? response.results[0] : null;
+        const location = first?.geometry?.location || null;
+        const lat = typeof location?.lat === 'function' ? location.lat() : normalizeNumber(location?.lat);
+        const lng = typeof location?.lng === 'function' ? location.lng() : normalizeNumber(location?.lng);
+        if(hasCoords(lat, lng)) return { lat, lng };
+      } catch (_error){
+        // Fall through to the existing Census geocoder.
+      }
+    }
     try {
-      const query = formatAddress(street, city, stateCode, zip);
       const rows = await requestCensusAddressMatches(query);
       if(!rows.length) return null;
       const lat = normalizeNumber(rows[0].lat);

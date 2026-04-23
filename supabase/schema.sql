@@ -493,52 +493,30 @@ create table if not exists public.field_technicians (
   role text not null default 'Field Tech' check (role in ('Field Tech', 'Senior Field Tech', 'Supervisor', 'Manager')),
   phone text not null default '',
   email text not null default '',
-  home_base text not null default '',
-  certifications text not null default '',
-  api_safety_training_status text not null default '',
-  availability_status text not null default 'Available' check (availability_status in ('Available', 'Assigned', 'PTO', 'Unavailable')),
-  skill_tags text not null default '',
   notes text not null default '',
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
   created_by uuid,
   updated_by uuid
 );
+alter table public.field_technicians drop column if exists home_base;
+alter table public.field_technicians drop column if exists certifications;
+alter table public.field_technicians drop column if exists api_safety_training_status;
+alter table public.field_technicians drop column if exists availability_status;
+alter table public.field_technicians drop column if exists skill_tags;
 
 create table if not exists public.field_trucks (
   id uuid primary key default gen_random_uuid(),
   unit_number text not null default '',
   vehicle_type text not null default 'Pickup' check (vehicle_type in ('Pickup', 'Service Truck', 'Other')),
-  plate_vin text not null default '',
-  assigned_region text not null default '',
-  odometer integer,
   service_status text not null default 'Available' check (service_status in ('Available', 'In Use', 'Maintenance', 'Out of Service')),
-  last_service_date date,
-  next_service_due date,
-  workflow text not null default '',
-  gps_id text not null default '',
-  gps_status text not null default '',
-  gvwr integer,
-  business_unit text not null default '',
-  primary_use text not null default '',
-  assigned_to text not null default '',
   current_driver text not null default '',
   assigned_technician_id uuid,
-  duty text not null default '',
-  lease_company text not null default '',
   model text not null default '',
-  vehicle_information text not null default '',
-  lease_begin_date date,
-  delivery_date date,
-  lease_end_date date,
-  returned_date date,
   license_plate_number text not null default '',
   make text not null default '',
   color text not null default '',
-  ownership text not null default '',
   registered_state text not null default '',
-  registration_expiration_date date,
-  state_insurance_expiration_date date,
   vin text not null default '',
   vehicle_id text not null default '',
   vehicle_year integer,
@@ -549,33 +527,38 @@ create table if not exists public.field_trucks (
   updated_by uuid
 );
 alter table public.field_trucks add column if not exists photo_path text;
-alter table public.field_trucks add column if not exists workflow text not null default '';
-alter table public.field_trucks add column if not exists gps_id text not null default '';
-alter table public.field_trucks add column if not exists gps_status text not null default '';
-alter table public.field_trucks add column if not exists gvwr integer;
-alter table public.field_trucks add column if not exists business_unit text not null default '';
-alter table public.field_trucks add column if not exists primary_use text not null default '';
-alter table public.field_trucks add column if not exists assigned_to text not null default '';
 alter table public.field_trucks add column if not exists current_driver text not null default '';
 alter table public.field_trucks add column if not exists assigned_technician_id uuid;
-alter table public.field_trucks add column if not exists duty text not null default '';
-alter table public.field_trucks add column if not exists lease_company text not null default '';
 alter table public.field_trucks add column if not exists model text not null default '';
-alter table public.field_trucks add column if not exists vehicle_information text not null default '';
-alter table public.field_trucks add column if not exists lease_begin_date date;
-alter table public.field_trucks add column if not exists delivery_date date;
-alter table public.field_trucks add column if not exists lease_end_date date;
-alter table public.field_trucks add column if not exists returned_date date;
 alter table public.field_trucks add column if not exists license_plate_number text not null default '';
 alter table public.field_trucks add column if not exists make text not null default '';
 alter table public.field_trucks add column if not exists color text not null default '';
-alter table public.field_trucks add column if not exists ownership text not null default '';
 alter table public.field_trucks add column if not exists registered_state text not null default '';
-alter table public.field_trucks add column if not exists registration_expiration_date date;
-alter table public.field_trucks add column if not exists state_insurance_expiration_date date;
 alter table public.field_trucks add column if not exists vin text not null default '';
 alter table public.field_trucks add column if not exists vehicle_id text not null default '';
 alter table public.field_trucks add column if not exists vehicle_year integer;
+alter table public.field_trucks drop column if exists plate_vin;
+alter table public.field_trucks drop column if exists assigned_region;
+alter table public.field_trucks drop column if exists odometer;
+alter table public.field_trucks drop column if exists last_service_date;
+alter table public.field_trucks drop column if exists next_service_due;
+alter table public.field_trucks drop column if exists workflow;
+alter table public.field_trucks drop column if exists gps_id;
+alter table public.field_trucks drop column if exists gps_status;
+alter table public.field_trucks drop column if exists gvwr;
+alter table public.field_trucks drop column if exists business_unit;
+alter table public.field_trucks drop column if exists primary_use;
+alter table public.field_trucks drop column if exists assigned_to;
+alter table public.field_trucks drop column if exists duty;
+alter table public.field_trucks drop column if exists vehicle_information;
+alter table public.field_trucks drop column if exists lease_company;
+alter table public.field_trucks drop column if exists lease_begin_date;
+alter table public.field_trucks drop column if exists delivery_date;
+alter table public.field_trucks drop column if exists lease_end_date;
+alter table public.field_trucks drop column if exists returned_date;
+alter table public.field_trucks drop column if exists ownership;
+alter table public.field_trucks drop column if exists registration_expiration_date;
+alter table public.field_trucks drop column if exists state_insurance_expiration_date;
 
 create table if not exists public.field_trailers (
   id uuid primary key default gen_random_uuid(),
@@ -584,8 +567,6 @@ create table if not exists public.field_trailers (
   capacity_configuration text not null default '',
   service_status text not null default 'Available' check (service_status in ('Available', 'Assigned', 'In Use', 'Maintenance', 'Out of Service')),
   assigned_truck_id uuid,
-  last_inspection_date date,
-  next_inspection_due date,
   notes text not null default '',
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
@@ -594,11 +575,16 @@ create table if not exists public.field_trailers (
 );
 alter table public.field_trailers add column if not exists photo_path text;
 alter table public.field_trailers add column if not exists assigned_truck_id uuid;
+alter table public.field_trailers drop column if exists last_inspection_date;
+alter table public.field_trailers drop column if exists next_inspection_due;
 
 create table if not exists public.field_equipment (
   id uuid primary key default gen_random_uuid(),
   equipment_name text not null default '',
   equipment_type text not null default 'Small Volume Prover' check (equipment_type in ('Small Volume Prover', 'Master Meter', 'Regulator', 'Hose Set', 'Sampling Equipment', 'Tooling', 'Other')),
+  model text not null default '',
+  manufacturer text not null default '',
+  spl_inventory_barcode text not null default '',
   serial_number text not null default '',
   calibration_status text not null default 'Current' check (calibration_status in ('Current', 'Due Soon', 'Overdue')),
   last_calibration_date date,
@@ -617,6 +603,9 @@ create table if not exists public.field_equipment (
 alter table public.field_equipment add column if not exists photo_path text;
 alter table public.field_equipment add column if not exists assigned_truck_id uuid;
 alter table public.field_equipment add column if not exists assigned_trailer_id uuid;
+alter table public.field_equipment add column if not exists model text not null default '';
+alter table public.field_equipment add column if not exists manufacturer text not null default '';
+alter table public.field_equipment add column if not exists spl_inventory_barcode text not null default '';
 
 create table if not exists public.field_samples (
   id uuid primary key default gen_random_uuid(),

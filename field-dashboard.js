@@ -3,6 +3,11 @@ const AUTO_REFRESH_MS = 15000;
 const ENTITY_ORDER = ['clients', 'projects', 'contacts', 'billingProfiles', 'sites', 'jobs', 'jobAssignments', 'technicians', 'trucks', 'trailers', 'equipment', 'samples', 'maintenanceRecords'];
 const FIELD_ASSET_BUCKET = 'field-assets';
 const ASSET_PHOTO_ENTITY_KEYS = ['clients', 'trucks', 'trailers', 'equipment'];
+const DEFAULT_ASSET_ICON_PATHS = {
+  truckPickup:'assets/truck-icon-pickup.png',
+  truckService:'assets/truck-icon-service.png',
+  trailer:'assets/trailer-icon-box.png'
+};
 const FIELD_OPS_STANDALONE_MODE = String(window.FIELD_OPS_STANDALONE_MODE || '').toLowerCase();
 const IS_CLIENTS_STANDALONE = FIELD_OPS_STANDALONE_MODE === 'clients';
 
@@ -20,7 +25,6 @@ const CUSTODY_OPTIONS = ['Allocation', 'Custody', 'Both'];
 const ASSIGNMENT_TYPE_OPTIONS = ['Technician', 'Truck', 'Trailer', 'Equipment'];
 const ASSIGNMENT_STATUS_OPTIONS = ['Assigned', 'Confirmed', 'In Progress', 'Complete'];
 const TECH_ROLE_OPTIONS = ['Field Tech', 'Senior Field Tech', 'Supervisor', 'Manager'];
-const TECH_AVAILABILITY_OPTIONS = ['Available', 'Assigned', 'PTO', 'Unavailable'];
 const TRUCK_TYPE_OPTIONS = ['Pickup', 'Service Truck', 'Other'];
 const VEHICLE_STATUS_OPTIONS = ['Available', 'In Use', 'Maintenance', 'Out of Service'];
 const TRAILER_STATUS_OPTIONS = ['Available', 'Assigned', 'In Use', 'Maintenance', 'Out of Service'];
@@ -53,10 +57,10 @@ const ENTITY_CONFIG = {
   sites:{ table:'field_sites', label:'Site', idPrefix:'site', defaults:{ clientId:'', projectId:'', siteName:'', siteType:'Other', physicalAddress:'', countyState:'', gpsCoordinates:'', accessInstructions:'', safetyPpeNotes:'', gateCodeEntryRequirements:'', clientSiteContact:'', siteStatus:'Active', standardJobTypes:'', notes:'' }, fieldMap:{ clientId:'client_id', projectId:'project_id', siteName:'site_name', siteType:'site_type', physicalAddress:'physical_address', countyState:'county_state', gpsCoordinates:'gps_coordinates', accessInstructions:'access_instructions', safetyPpeNotes:'safety_ppe_notes', gateCodeEntryRequirements:'gate_code_entry_requirements', clientSiteContact:'client_site_contact', siteStatus:'site_status', standardJobTypes:'standard_job_types', notes:'notes' }, idFields:['clientId', 'projectId'] },
   jobs:{ table:'field_jobs', label:'Job', idPrefix:'job', defaults:{ fieldfxTicketId:'', clientId:'', projectId:'', siteId:'', jobType:'', jobStatus:'New', priority:'Normal', requestedDate:'', scheduledStart:'', scheduledEnd:'', actualStart:'', actualEnd:'', durationPlanned:null, durationActual:null, scopeSummary:'', workInstructions:'', apiStandardReference:'', custodyAllocation:'Allocation', samplesRequired:false, meterUnitId:'', provingRequired:false, maintenanceRequired:false, clientContactForJob:'', dispatchNotes:'', completionNotes:'', followUpRequired:false, followUpNotes:'' }, fieldMap:{ fieldfxTicketId:'fieldfx_ticket_id', clientId:'client_id', projectId:'project_id', siteId:'site_id', jobType:'job_type', jobStatus:'job_status', priority:'priority', requestedDate:'requested_date', scheduledStart:'scheduled_start', scheduledEnd:'scheduled_end', actualStart:'actual_start', actualEnd:'actual_end', durationPlanned:'duration_planned_minutes', durationActual:'duration_actual_minutes', scopeSummary:'scope_summary', workInstructions:'work_instructions', apiStandardReference:'api_standard_reference', custodyAllocation:'custody_allocation', samplesRequired:'samples_required', meterUnitId:'meter_unit_id', provingRequired:'proving_required', maintenanceRequired:'maintenance_required', clientContactForJob:'client_contact_for_job', dispatchNotes:'dispatch_notes', completionNotes:'completion_notes', followUpRequired:'follow_up_required', followUpNotes:'follow_up_notes' }, idFields:['clientId', 'projectId', 'siteId'], numberFields:['durationPlanned', 'durationActual'], booleanFields:['samplesRequired', 'provingRequired', 'maintenanceRequired', 'followUpRequired'], dateFields:['requestedDate'], dateTimeFields:['scheduledStart', 'scheduledEnd', 'actualStart', 'actualEnd'] },
   jobAssignments:{ table:'field_job_assignments', label:'Assignment', idPrefix:'asg', defaults:{ jobId:'', assignmentType:'Technician', resourceId:'', assignedStart:'', assignedEnd:'', assignmentStatus:'Assigned', assignmentNotes:'' }, fieldMap:{ jobId:'job_id', assignmentType:'assignment_type', resourceId:'resource_id', assignedStart:'assigned_start', assignedEnd:'assigned_end', assignmentStatus:'assignment_status', assignmentNotes:'assignment_notes' }, idFields:['jobId', 'resourceId'], dateTimeFields:['assignedStart', 'assignedEnd'] },
-  technicians:{ table:'field_technicians', label:'Technician', idPrefix:'tech', defaults:{ employeeName:'', role:'Field Tech', phone:'', email:'', homeBase:'', certifications:'', apiSafetyTrainingStatus:'', availabilityStatus:'Available', skillTags:'', defaultTruckId:'', notes:'' }, fieldMap:{ employeeName:'employee_name', role:'role', phone:'phone', email:'email', homeBase:'home_base', certifications:'certifications', apiSafetyTrainingStatus:'api_safety_training_status', availabilityStatus:'availability_status', skillTags:'skill_tags', notes:'notes' }, localOnlyFields:['defaultTruckId'] },
-  trucks:{ table:'field_trucks', label:'Truck', idPrefix:'truck', defaults:{ unitNumber:'', vehicleType:'Pickup', plateVin:'', assignedRegion:'', odometer:null, serviceStatus:'Available', lastServiceDate:'', nextServiceDue:'', truckWorkflow:'', gpsId:'', gpsStatus:'', gvwr:null, businessUnit:'', primaryUse:'', assignedTo:'', currentDriver:'', assignedTechnicianId:'', duty:'', model:'', vehicleInformation:'', leaseCompany:'', leaseBeginDate:'', deliveryDate:'', leaseEndDate:'', returnedDate:'', licensePlateNumber:'', make:'', color:'', ownership:'', registeredState:'', registrationExpirationDate:'', stateInsuranceExpirationDate:'', vin:'', vehicleId:'', vehicleYear:null, assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ unitNumber:'unit_number', vehicleType:'vehicle_type', plateVin:'plate_vin', assignedRegion:'assigned_region', odometer:'odometer', serviceStatus:'service_status', lastServiceDate:'last_service_date', nextServiceDue:'next_service_due', truckWorkflow:'workflow', gpsId:'gps_id', gpsStatus:'gps_status', gvwr:'gvwr', businessUnit:'business_unit', primaryUse:'primary_use', assignedTo:'assigned_to', currentDriver:'current_driver', assignedTechnicianId:'assigned_technician_id', duty:'duty', model:'model', vehicleInformation:'vehicle_information', leaseCompany:'lease_company', leaseBeginDate:'lease_begin_date', deliveryDate:'delivery_date', leaseEndDate:'lease_end_date', returnedDate:'returned_date', licensePlateNumber:'license_plate_number', make:'make', color:'color', ownership:'ownership', registeredState:'registered_state', registrationExpirationDate:'registration_expiration_date', stateInsuranceExpirationDate:'state_insurance_expiration_date', vin:'vin', vehicleId:'vehicle_id', vehicleYear:'vehicle_year', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTechnicianId'], numberFields:['odometer', 'gvwr', 'vehicleYear'], dateFields:['lastServiceDate', 'nextServiceDue', 'leaseBeginDate', 'deliveryDate', 'leaseEndDate', 'returnedDate', 'registrationExpirationDate', 'stateInsuranceExpirationDate'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
-  trailers:{ table:'field_trailers', label:'Trailer', idPrefix:'trailer', defaults:{ trailerNumber:'', trailerType:'', capacityConfiguration:'', serviceStatus:'Available', assignedTruckId:'', lastInspectionDate:'', nextInspectionDue:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ trailerNumber:'trailer_number', trailerType:'trailer_type', capacityConfiguration:'capacity_configuration', serviceStatus:'service_status', assignedTruckId:'assigned_truck_id', lastInspectionDate:'last_inspection_date', nextInspectionDue:'next_inspection_due', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTruckId'], dateFields:['lastInspectionDate', 'nextInspectionDue'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
-  equipment:{ table:'field_equipment', label:'Equipment', idPrefix:'equip', defaults:{ equipmentName:'', equipmentType:'Small Volume Prover', serialNumber:'', calibrationStatus:'Current', lastCalibrationDate:'', nextCalibrationDue:'', maintenanceStatus:'Available', storageLocation:'', assignedTrailerTruck:'', assignedTruckId:'', assignedTrailerId:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ equipmentName:'equipment_name', equipmentType:'equipment_type', serialNumber:'serial_number', calibrationStatus:'calibration_status', lastCalibrationDate:'last_calibration_date', nextCalibrationDue:'next_calibration_due', maintenanceStatus:'maintenance_status', storageLocation:'storage_location', assignedTrailerTruck:'assigned_trailer_truck', assignedTruckId:'assigned_truck_id', assignedTrailerId:'assigned_trailer_id', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTruckId', 'assignedTrailerId'], dateFields:['lastCalibrationDate', 'nextCalibrationDue'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
+  technicians:{ table:'field_technicians', label:'Technician', idPrefix:'tech', defaults:{ employeeName:'', role:'Field Tech', phone:'', email:'', defaultTruckId:'', notes:'' }, fieldMap:{ employeeName:'employee_name', role:'role', phone:'phone', email:'email', notes:'notes' }, localOnlyFields:['defaultTruckId'] },
+  trucks:{ table:'field_trucks', label:'Truck', idPrefix:'truck', defaults:{ unitNumber:'', vehicleType:'Pickup', serviceStatus:'Available', currentDriver:'', assignedTechnicianId:'', model:'', licensePlateNumber:'', make:'', color:'', registeredState:'', vin:'', vehicleId:'', vehicleYear:null, assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ unitNumber:'unit_number', vehicleType:'vehicle_type', serviceStatus:'service_status', currentDriver:'current_driver', assignedTechnicianId:'assigned_technician_id', model:'model', licensePlateNumber:'license_plate_number', make:'make', color:'color', registeredState:'registered_state', vin:'vin', vehicleId:'vehicle_id', vehicleYear:'vehicle_year', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTechnicianId'], numberFields:['vehicleYear'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
+  trailers:{ table:'field_trailers', label:'Trailer', idPrefix:'trailer', defaults:{ trailerNumber:'', trailerType:'', capacityConfiguration:'', serviceStatus:'Available', assignedTruckId:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ trailerNumber:'trailer_number', trailerType:'trailer_type', capacityConfiguration:'capacity_configuration', serviceStatus:'service_status', assignedTruckId:'assigned_truck_id', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTruckId'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
+  equipment:{ table:'field_equipment', label:'Equipment', idPrefix:'equip', defaults:{ equipmentName:'', equipmentType:'Small Volume Prover', model:'', manufacturer:'', splInventoryBarcode:'', serialNumber:'', calibrationStatus:'Current', lastCalibrationDate:'', nextCalibrationDue:'', maintenanceStatus:'Available', storageLocation:'', assignedTrailerTruck:'', assignedTruckId:'', assignedTrailerId:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ equipmentName:'equipment_name', equipmentType:'equipment_type', model:'model', manufacturer:'manufacturer', splInventoryBarcode:'spl_inventory_barcode', serialNumber:'serial_number', calibrationStatus:'calibration_status', lastCalibrationDate:'last_calibration_date', nextCalibrationDue:'next_calibration_due', maintenanceStatus:'maintenance_status', storageLocation:'storage_location', assignedTrailerTruck:'assigned_trailer_truck', assignedTruckId:'assigned_truck_id', assignedTrailerId:'assigned_trailer_id', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTruckId', 'assignedTrailerId'], dateFields:['lastCalibrationDate', 'nextCalibrationDue'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
   samples:{ table:'field_samples', label:'Sample', idPrefix:'sample', defaults:{ jobId:'', clientId:'', siteId:'', sampleType:'Gas', containerType:'Cylinder', collectionDateTime:'', pickedUpBy:'', dropOffLocation:'', chainOfCustodyStatus:'Requested', labReceiptStatus:'Requested', priorityTat:'', notes:'' }, fieldMap:{ jobId:'job_id', clientId:'client_id', siteId:'site_id', sampleType:'sample_type', containerType:'container_type', collectionDateTime:'collection_date_time', pickedUpBy:'picked_up_by', dropOffLocation:'drop_off_location', chainOfCustodyStatus:'chain_of_custody_status', labReceiptStatus:'lab_receipt_status', priorityTat:'priority_tat', notes:'notes' }, idFields:['jobId', 'clientId', 'siteId'], dateTimeFields:['collectionDateTime'] },
   maintenanceRecords:{ table:'field_maintenance_records', label:'Maintenance Record', idPrefix:'maint', defaults:{ assetType:'Equipment', assetId:'', maintenanceType:'Preventive', openDate:'', dueDate:'', completedDate:'', status:'Open', issueDescription:'', resolution:'', vendorInternal:'Internal', cost:null, assignedPerson:'', notes:'' }, fieldMap:{ assetType:'asset_type', assetId:'asset_id', maintenanceType:'maintenance_type', openDate:'open_date', dueDate:'due_date', completedDate:'completed_date', status:'status', issueDescription:'issue_description', resolution:'resolution', vendorInternal:'vendor_internal', cost:'cost', assignedPerson:'assigned_person', notes:'notes' }, idFields:['assetId'], numberFields:['cost'], dateFields:['openDate', 'dueDate', 'completedDate'] }
 };
@@ -401,7 +405,6 @@ function getAssignedResourceWarnings(job){
   getAssignmentsForJob(job.id).forEach((assignment) => {
     const resource = getResourceRecord(assignment.assignmentType, assignment.resourceId);
     if(!resource) return;
-    if(assignment.assignmentType === 'Technician' && ['PTO', 'Unavailable'].includes(resource.availabilityStatus)) warnings.push(`${resource.employeeName || 'Technician'} ${resource.availabilityStatus.toLowerCase()}`);
     if(assignment.assignmentType === 'Truck' && ['Maintenance', 'Out of Service'].includes(resource.serviceStatus)) warnings.push(`${resource.unitNumber || 'Truck'} ${resource.serviceStatus.toLowerCase()}`);
     if(assignment.assignmentType === 'Trailer' && ['Maintenance', 'Out of Service'].includes(resource.serviceStatus)) warnings.push(`${resource.trailerNumber || 'Trailer'} ${resource.serviceStatus.toLowerCase()}`);
     if(assignment.assignmentType === 'Equipment'){
@@ -585,14 +588,9 @@ const FORM_DEFINITIONS = {
     { kind:'section', label:'Personnel' },
     { key:'employeeName', label:'Employee Name', type:'text', required:true },
     { key:'role', label:'Role', type:'select', options:TECH_ROLE_OPTIONS },
-    { key:'availabilityStatus', label:'Availability Status', type:'select', options:TECH_AVAILABILITY_OPTIONS },
-    { key:'defaultTruckId', label:'Default Truck', type:'select', options:() => buildTruckAssignmentOptions(), placeholderLabel:'Pool / Unassigned' },
-    { key:'homeBase', label:'Home Base', type:'text' },
+    { key:'defaultTruckId', label:'Default Truck', type:'select', options:() => buildTruckAssignmentOptions(), placeholderLabel:'Pool' },
     { key:'phone', label:'Phone', type:'text' },
     { key:'email', label:'Email', type:'email' },
-    { key:'apiSafetyTrainingStatus', label:'API / Safety Training Status', type:'text' },
-    { key:'skillTags', label:'Skill Tags', type:'text', full:true },
-    { key:'certifications', label:'Certifications', type:'textarea', full:true },
     { key:'notes', label:'Notes', type:'textarea', full:true }
   ],
   trucks:[
@@ -600,37 +598,15 @@ const FORM_DEFINITIONS = {
     { key:'unitNumber', label:'Unit Number', type:'text', required:true },
     { key:'vehicleType', label:'Vehicle Type', type:'select', options:TRUCK_TYPE_OPTIONS },
     { key:'serviceStatus', label:'Service Status', type:'select', options:VEHICLE_STATUS_OPTIONS },
-    { key:'assignedRegion', label:'Assigned Region', type:'text' },
-    { key:'truckWorkflow', label:'Workflow', type:'text' },
-    { key:'businessUnit', label:'Lab / Field / Sales', type:'text' },
-    { key:'primaryUse', label:'Primary Use', type:'text' },
     { key:'assignedTechnicianId', label:'Assigned Tech', type:'select', options:() => buildTechnicianAssignmentOptions(), handler:'changeTruckAssignedTechnician', placeholderLabel:'Pool' },
-    { key:'assignedTo', label:'Assigned To', type:'text' },
-    { key:'duty', label:'Duty', type:'text' },
     { key:'make', label:'Make', type:'text' },
     { key:'color', label:'Truck Color', type:'text' },
     { key:'model', label:'Model', type:'text' },
     { key:'vehicleYear', label:'Year Of Vehicle', type:'number' },
     { key:'vehicleId', label:'Vehicle ID', type:'text' },
-    { key:'vehicleInformation', label:'Vehicle Information', type:'text' },
-    { key:'ownership', label:'Ownership', type:'text' },
-    { key:'leaseCompany', label:'Lease Company', type:'text' },
-    { key:'leaseBeginDate', label:'Lease Begin Date', type:'date' },
-    { key:'deliveryDate', label:'Delivery Date', type:'date' },
-    { key:'leaseEndDate', label:'Lease End Date', type:'date' },
-    { key:'returnedDate', label:'Returned Date', type:'date' },
     { key:'licensePlateNumber', label:'License Plate Number', type:'text' },
     { key:'registeredState', label:'Registered State', type:'text' },
     { key:'vin', label:'VIN', type:'text' },
-    { key:'plateVin', label:'Plate / VIN Summary', type:'text' },
-    { key:'gpsId', label:'GPS ID', type:'text' },
-    { key:'gpsStatus', label:'GPS Status', type:'text' },
-    { key:'gvwr', label:'GVWR', type:'number' },
-    { key:'odometer', label:'Odometer', type:'number' },
-    { key:'lastServiceDate', label:'Date Of Last Inspection', type:'date' },
-    { key:'registrationExpirationDate', label:'Registration Expiration Date', type:'date' },
-    { key:'stateInsuranceExpirationDate', label:'State Insurance Expiration Date', type:'date' },
-    { key:'nextServiceDue', label:'Next Service Due', type:'date' },
     { key:'assetPhotoPath', label:'Truck Photo', type:'image', full:true },
     { key:'notes', label:'Notes', type:'textarea', full:true }
   ],
@@ -641,8 +617,6 @@ const FORM_DEFINITIONS = {
     { key:'serviceStatus', label:'Service Status', type:'select', options:TRAILER_STATUS_OPTIONS },
     { key:'assignedTruckId', label:'Assigned Truck', type:'select', options:() => buildTruckOptions() },
     { key:'capacityConfiguration', label:'Capacity / Configuration', type:'text', full:true },
-    { key:'lastInspectionDate', label:'Last Inspection Date', type:'date' },
-    { key:'nextInspectionDue', label:'Next Inspection Due', type:'date' },
     { key:'assetPhotoPath', label:'Trailer Photo', type:'image', full:true },
     { key:'notes', label:'Notes', type:'textarea', full:true }
   ],
@@ -650,12 +624,15 @@ const FORM_DEFINITIONS = {
     { kind:'section', label:'Equipment' },
     { key:'equipmentName', label:'Equipment Name', type:'text', required:true },
     { key:'equipmentType', label:'Equipment Type', type:'select', options:EQUIPMENT_TYPE_OPTIONS },
+    { key:'model', label:'Model', type:'text' },
+    { key:'manufacturer', label:'Manufacturer', type:'text' },
+    { key:'splInventoryBarcode', label:'SPL Inventory Barcode #', type:'text' },
     { key:'serialNumber', label:'Serial Number', type:'text' },
     { key:'maintenanceStatus', label:'Maintenance Status', type:'select', options:EQUIPMENT_STATUS_OPTIONS },
     { key:'calibrationStatus', label:'Calibration Status', type:'select', options:CALIBRATION_STATUS_OPTIONS },
     { key:'storageLocation', label:'Storage Location', type:'text' },
-    { key:'assignedTruckId', label:'Assigned Truck', type:'select', options:() => buildTruckOptions(), handler:'changeEquipmentAssignedTruck' },
-    { key:'assignedTrailerId', label:'Assigned Trailer', type:'select', options:() => buildTrailerOptions(), handler:'changeEquipmentAssignedTrailer' },
+    { key:'assignedTruckId', label:'Assigned Truck', type:'select', options:() => buildTruckOptions(), handler:'changeEquipmentAssignedTruck', placeholderLabel:'Pool' },
+    { key:'assignedTrailerId', label:'Assigned Trailer', type:'select', options:() => buildTrailerOptions(), handler:'changeEquipmentAssignedTrailer', placeholderLabel:'Pool' },
     { key:'lastCalibrationDate', label:'Last Calibration Date', type:'date' },
     { key:'nextCalibrationDue', label:'Next Calibration Due', type:'date' },
     { key:'assetPhotoPath', label:'Equipment Photo', type:'image', full:true },
@@ -729,7 +706,7 @@ function buildAssetOptions(assetType = ''){ if(assetType === 'Truck') return sta
 function buildResourceOptions(assignmentType = 'Technician'){ const entityKey = RESOURCE_ENTITY_BY_TYPE[assignmentType]; return entityKey ? state.data[entityKey].map((row) => ({ value:row.id, label:getResourceLabel(assignmentType, row.id) })) : []; }
 function buildTechnicianOptions(){ return state.data.technicians.map((row) => ({ value:row.id, label:row.employeeName || 'Unnamed technician' })); }
 function buildTechnicianAssignmentOptions(){ return [{ value:'', label:'Pool' }, ...buildTechnicianOptions()]; }
-function buildTruckAssignmentOptions(){ return [{ value:'', label:'Pool / Unassigned' }, ...buildTruckOptions()]; }
+function buildTruckAssignmentOptions(){ return [{ value:'', label:'Pool' }, ...buildTruckOptions()]; }
 function buildTruckOptions(){ return state.data.trucks.map((row) => ({ value:row.id, label:row.unitNumber || 'Unnamed truck' })); }
 function buildTrailerOptions(){ return state.data.trailers.map((row) => ({ value:row.id, label:row.trailerNumber || 'Unnamed trailer' })); }
 function getTechnicianLabel(id){ return state.data.technicians.find((row) => row.id === id)?.employeeName || 'Unassigned'; }
@@ -823,7 +800,8 @@ function renderOverview(derived){
   document.getElementById('overview-stats').innerHTML = [{ label:'Jobs Today', value:todayJobs.length, cls:'' }, { label:'Jobs In Progress', value:jobsInProgress.length, cls:'ok' }, { label:'Jobs Overdue', value:derived.overdueJobs.length, cls:'danger' }, { label:'Samples In Transit', value:samplesInTransit.length, cls:'warn' }, { label:'Assets Down', value:derived.downAssets.length, cls:'danger' }].map((card) => `<div class="stat-card ${card.cls}"><div class="stat-label">${esc(card.label)}</div><div class="stat-value ${card.cls}">${esc(card.value)}</div></div>`).join('');
   document.getElementById('overview-actions').innerHTML = `<button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button><button class="act-btn" type="button" onclick="window.location.href='clients.html'">Open Clients</button><button class="act-btn" type="button" onclick="openEntityModal('technicians')">+ Add Tech</button><button class="act-btn" type="button" onclick="openEntityModal('samples')">+ Add Sample</button>`;
   document.getElementById('today-jobs-panel').innerHTML = renderMiniJobList(todayJobs, derived, 'No field jobs are scheduled for today yet.');
-  document.getElementById('resource-readiness-panel').innerHTML = `<div class="summary-grid"><div class="summary-card"><div class="label">Available Techs</div><div class="value">${state.data.technicians.filter((row) => row.availabilityStatus === 'Available').length}</div><div class="muted">${state.data.technicians.length} total technicians</div></div><div class="summary-card"><div class="label">Available Trucks</div><div class="value">${state.data.trucks.filter((row) => row.serviceStatus === 'Available').length}</div><div class="muted">${state.data.trucks.filter((row) => row.serviceStatus === 'Out of Service').length} out of service</div></div><div class="summary-card"><div class="label">Available Trailers</div><div class="value">${state.data.trailers.filter((row) => ['Available', 'Assigned'].includes(row.serviceStatus)).length}</div><div class="muted">${state.data.trailers.filter((row) => row.serviceStatus === 'Maintenance').length} in maintenance</div></div><div class="summary-card"><div class="label">Ready Provers</div><div class="value">${state.data.equipment.filter((row) => ['Small Volume Prover', 'Master Meter'].includes(row.equipmentType) && row.maintenanceStatus !== 'Out of Service' && row.calibrationStatus !== 'Overdue').length}</div><div class="muted">${derived.overdueCalibration.length} calibration overdue</div></div></div>`;
+  const assignedTechCount = state.data.trucks.filter((row) => row.assignedTechnicianId).length;
+  document.getElementById('resource-readiness-panel').innerHTML = `<div class="summary-grid"><div class="summary-card"><div class="label">Technicians</div><div class="value">${state.data.technicians.length}</div><div class="muted">${assignedTechCount} truck assignment${assignedTechCount === 1 ? '' : 's'}</div></div><div class="summary-card"><div class="label">Available Trucks</div><div class="value">${state.data.trucks.filter((row) => row.serviceStatus === 'Available').length}</div><div class="muted">${state.data.trucks.filter((row) => row.serviceStatus === 'Out of Service').length} out of service</div></div><div class="summary-card"><div class="label">Available Trailers</div><div class="value">${state.data.trailers.filter((row) => ['Available', 'Assigned'].includes(row.serviceStatus)).length}</div><div class="muted">${state.data.trailers.filter((row) => row.serviceStatus === 'Maintenance').length} in maintenance</div></div><div class="summary-card"><div class="label">Ready Provers</div><div class="value">${state.data.equipment.filter((row) => ['Small Volume Prover', 'Master Meter'].includes(row.equipmentType) && row.maintenanceStatus !== 'Out of Service' && row.calibrationStatus !== 'Overdue').length}</div><div class="muted">${derived.overdueCalibration.length} calibration overdue</div></div></div>`;
   document.getElementById('issues-panel').innerHTML = `<div class="issue-list">${renderIssueCard('Scheduling Conflicts', derived.conflicts.length, 'Double-booked technicians, trucks, trailers, or equipment.')}${renderIssueCard('Jobs Missing Required Resources', derived.missingJobs.length, 'Required assignments still missing for active jobs.')}${renderIssueCard('Missing / Early COC', derived.missingCocSamples.length, 'Samples still requested or collected without a complete handoff chain.')}${renderIssueCard('Overdue Maintenance', derived.overdueMaintenance.length, 'Maintenance items past their due date and still open.')}${renderIssueCard('Calibration Overdue', derived.overdueCalibration.length, 'Equipment that should not be dispatched without review.')}</div>`;
   document.getElementById('next-seven-panel').innerHTML = renderMiniJobList(nextSevenJobs, derived, 'No upcoming jobs are scheduled in the next seven days.');
 }
@@ -941,7 +919,7 @@ function renderDirectoryBillingSection(clientId, activeProjectId){
     esc(profile.projectId ? getProjectLabel(profile.projectId) : 'Client-wide'),
     `<div class="inline-stack"><div>${esc(profile.billingEmail || 'No email')}</div><div class="muted">${esc(profile.billingPhone || 'No phone')}</div></div>`,
     `<div class="inline-stack"><div>${esc(profile.poNumber || 'No PO')}</div><div class="muted">${esc(profile.referenceNumber || 'No reference')}</div></div>`,
-    profile.isDefault ? '<span class="tag-chip">Default</span>' : '<span class="muted">Optional</span>',
+    profile.isDefault ? '<span class="tag-chip">Default</span>' : '<span class="muted">No</span>',
     `<div class="muted">${esc(profile.invoiceNotes || profile.fieldBillingNotes || profile.labBillingNotes || 'No notes')}</div>`
   ])), '<strong>No billing profiles yet</strong>Capture field and lab invoicing details here so the client record stays usable across both teams.');
 }
@@ -965,6 +943,7 @@ function renderDirectoryWorkspace(client, activeProjectId){
   return overview;
 }
 function renderDirectory(){
+  const directoryScreen = document.getElementById('directory-screen') || document;
   const activeClientId = getActiveDirectoryClientId();
   const activeClient = getClient(activeClientId);
   const activeProjectId = getActiveDirectoryProjectId(activeClientId);
@@ -976,6 +955,7 @@ function renderDirectory(){
     document.getElementById('directory-detail-meta').textContent = 'Pick or create a client to start onboarding.';
     document.getElementById('directory-detail-actions').innerHTML = '';
     document.getElementById('directory-workspace').innerHTML = `<div class="empty-state"><strong>No client selected</strong>Create a client to begin the shared client/project onboarding flow.</div>`;
+    hydrateAssetPhotoPreviews(directoryScreen);
     return;
   }
   const focusedProject = activeProjectId !== 'all' ? getProject(activeProjectId) : null;
@@ -986,6 +966,7 @@ function renderDirectory(){
   document.getElementById('directory-detail-meta').textContent = focusedProject ? `${normalizeClientCode(activeClient.clientCode) || 'No client code'} | ${focusedProject.projectName} | ${contacts.length} contacts | ${billingProfiles.length} billing profile(s) | ${sites.length} site(s)` : `${normalizeClientCode(activeClient.clientCode) || 'No client code'} | ${getDirectoryProjects(activeClient.id).length} projects | ${contacts.length} contacts | ${billingProfiles.length} billing profile(s) | ${sites.length} site(s)`;
   document.getElementById('directory-detail-actions').innerHTML = `<button class="act-btn" type="button" onclick="openEntityModal('clients','${esc(activeClient.id)}')">Edit Client</button><button class="act-btn" type="button" onclick="openEntityModal('projects')">+ Project</button><button class="act-btn" type="button" onclick="openEntityModal('contacts')">+ Contact</button><button class="act-btn" type="button" onclick="openEntityModal('billingProfiles')">+ Billing</button><button class="act-btn" type="button" onclick="openEntityModal('sites')">+ Site</button><button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Job</button>`;
   document.getElementById('directory-workspace').innerHTML = `${renderDirectorySectionNav()}<div class="directory-hero"><div class="client-row-ident">${renderAssetPhoto(activeClient, { className:'client-logo-thumb', emptyLabel:'No logo', alt:getAssetPhotoAlt('clients', activeClient) })}<div class="inline-stack"><div class="item-title">${esc(activeClient.clientName || 'Unnamed client')}</div><div class="muted">${esc(normalizeClientCode(activeClient.clientCode) || 'No client code')} | ${esc(activeClient.primaryContact || 'No primary contact')} | ${esc(activeClient.contactPhone || activeClient.contactEmail || 'No phone or email')}</div><div class="mini-tags">${getStatusBadge(activeClient.accountStatus)}${getStatusBadge(activeClient.serviceScope || 'Field')}${activeProjectId !== 'all' ? `<span class="tag-chip">Project Focus: ${esc(getProjectLabel(activeProjectId))}</span>` : ''}</div></div></div><div class="directory-hero-copy">Build the account once, then keep projects, billing, contacts, sites, and jobs connected instead of split across separate screens.</div></div>${renderDirectoryWorkspace(activeClient, activeProjectId)}`;
+  hydrateAssetPhotoPreviews(directoryScreen);
 }
 
 function renderResourceCards(list, renderer, emptyLabel){
@@ -1006,12 +987,19 @@ function getAssetPhotoEmptyLabel(entityKey){
   if(entityKey === 'trailers') return 'No trailer photo';
   return 'No equipment photo';
 }
+function getDefaultAssetIconSrc(entityKey, record){
+  if(entityKey === 'trucks') return record?.vehicleType === 'Service Truck' ? DEFAULT_ASSET_ICON_PATHS.truckService : DEFAULT_ASSET_ICON_PATHS.truckPickup;
+  if(entityKey === 'trailers') return DEFAULT_ASSET_ICON_PATHS.trailer;
+  return '';
+}
 function renderAssetPhoto(record, options = {}){
   const className = options.className || 'asset-photo';
   const emptyLabel = options.emptyLabel || 'No photo';
   const alt = options.alt || 'Asset photo';
+  const fallbackImageSrc = options.fallbackImageSrc || '';
   if(record?.assetPhotoDataUrl) return `<img class="${className}" src="${esc(record.assetPhotoDataUrl)}" alt="${esc(alt)}">`;
   if(record?.assetPhotoPath && isRemoteMode()) return `<img class="${className}" src="" alt="${esc(alt)}" data-asset-photo-path="${esc(record.assetPhotoPath)}">`;
+  if(fallbackImageSrc) return `<img class="${className} asset-icon" src="${esc(fallbackImageSrc)}" alt="${esc(alt)}">`;
   return `<div class="${className} empty">${esc(emptyLabel)}</div>`;
 }
 function buildAssetPhotoStoragePath(entityKey, recordId, fileName){
@@ -1123,14 +1111,14 @@ async function openModalAssetPhoto(){
 }
 function renderAssetPhotoField(field){
   const photoLabel = modalState.formData.assetPhotoName || (modalState.formData.assetPhotoPath ? 'Current saved photo' : 'JPG, PNG, or HEIC image');
-  return `<div class="form-group full"><label class="form-label">${esc(field.label)}</label><div class="asset-photo-field"><div class="asset-photo-preview-wrap">${renderAssetPhoto(modalState.formData, { className:'asset-photo-preview', emptyLabel:'No photo selected', alt:field.label })}</div><div class="asset-photo-controls"><label class="add-btn asset-photo-upload" for="asset-photo-input">Choose Photo</label><input id="asset-photo-input" class="asset-photo-input" type="file" accept="image/*" onchange="handleAssetPhotoSelected(event)"><div class="muted">${esc(photoLabel)}</div><div class="table-actions"><button class="act-btn" type="button" onclick="openModalAssetPhoto()" ${hasAssetPhoto(modalState.formData) ? '' : 'disabled'}>Open Photo</button><button class="act-btn danger" type="button" onclick="removeModalAssetPhoto()" ${hasAssetPhoto(modalState.formData) ? '' : 'disabled'}>Remove Photo</button></div></div></div></div>`;
+  return `<div class="form-group full"><label class="form-label">${esc(field.label)}</label><div class="asset-photo-field"><div class="asset-photo-preview-wrap">${renderAssetPhoto(modalState.formData, { className:'asset-photo-preview', emptyLabel:'No photo selected', alt:field.label, fallbackImageSrc:getDefaultAssetIconSrc(modalState.entity, modalState.formData) })}</div><div class="asset-photo-controls"><label class="add-btn asset-photo-upload" for="asset-photo-input">Choose Photo</label><input id="asset-photo-input" class="asset-photo-input" type="file" accept="image/*" onchange="handleAssetPhotoSelected(event)"><div class="muted">${esc(photoLabel)}</div><div class="table-actions"><button class="act-btn" type="button" onclick="openModalAssetPhoto()" ${hasAssetPhoto(modalState.formData) ? '' : 'disabled'}>Open Photo</button><button class="act-btn danger" type="button" onclick="removeModalAssetPhoto()" ${hasAssetPhoto(modalState.formData) ? '' : 'disabled'}>Remove Photo</button></div></div></div></div>`;
 }
 
 function renderResources(){
-  document.getElementById('technicians-panel').innerHTML = renderResourceCards(state.data.technicians, (tech) => `<div ${renderCardOpenAttrs('technicians', tech.id)}><div class="resource-card-head"><div><div class="item-title">${esc(tech.employeeName || 'Unnamed technician')}</div><div class="muted">${esc(tech.role)}</div></div>${getStatusBadge(tech.availabilityStatus)}</div>${renderTags(tech.skillTags)}<div class="muted">Default Truck: ${esc(getDefaultTruckForTechnician(tech.id)?.unitNumber || 'Pool / Unassigned')}</div><div class="muted">${esc(tech.phone || tech.email || 'No contact info')}</div></div>`, 'No technicians yet');
-  document.getElementById('trucks-panel').innerHTML = renderResourceCards(state.data.trucks, (truck) => `<div ${renderCardOpenAttrs('trucks', truck.id)}><div class="resource-card-head"><div><div class="item-title">${esc(truck.unitNumber || 'Unnamed truck')}</div><div class="muted">${esc([truck.color, truck.vehicleYear, truck.make, truck.model, truck.duty || truck.vehicleType].filter(Boolean).join(' ') || truck.vehicleType)}</div></div>${getStatusBadge(truck.serviceStatus)}</div><div class="mini-tags">${truck.truckWorkflow ? `<span class="tag-chip">${esc(truck.truckWorkflow)}</span>` : ''}${truck.businessUnit ? `<span class="tag-chip">${esc(truck.businessUnit)}</span>` : ''}${truck.primaryUse ? `<span class="tag-chip">${esc(truck.primaryUse)}</span>` : ''}${truck.gpsStatus ? getStatusBadge(truck.gpsStatus) : ''}</div><div class="muted">${esc(truck.assignedRegion || 'No region')} | ${esc(truck.licensePlateNumber || truck.plateVin || 'No plate')} | ${esc(truck.vin || 'No VIN')}</div><div class="muted">Default Tech: ${esc(truck.assignedTechnicianId ? getTechnicianLabel(truck.assignedTechnicianId) : (truck.assignedTo || 'Pool'))}</div><div class="muted">${truck.odometer !== null ? `${esc(truck.odometer)} mi` : 'No odometer'} ${truck.vehicleInformation ? `| ${esc(truck.vehicleInformation)}` : ''}</div><div class="muted">${esc(truck.ownership || 'No ownership')} ${truck.leaseCompany ? `| ${esc(truck.leaseCompany)}` : ''}</div></div>`, 'No trucks yet');
-  document.getElementById('trailers-panel').innerHTML = renderResourceCards(state.data.trailers, (trailer) => `<div ${renderCardOpenAttrs('trailers', trailer.id)}><div class="resource-card-head"><div><div class="item-title">${esc(trailer.trailerNumber || 'Unnamed trailer')}</div><div class="muted">${esc(trailer.trailerType || 'No trailer type')}</div></div>${getStatusBadge(trailer.serviceStatus)}</div><div class="muted">${esc(trailer.capacityConfiguration || 'No capacity/configuration')}</div><div class="muted">Assigned Truck: ${esc(trailer.assignedTruckId ? getTruckLabel(trailer.assignedTruckId) : 'Unassigned')}</div></div>`, 'No trailers yet');
-  document.getElementById('equipment-panel').innerHTML = renderResourceCards(state.data.equipment, (item) => `<div ${renderCardOpenAttrs('equipment', item.id)}><div class="resource-card-head"><div><div class="item-title">${esc(item.equipmentName || 'Unnamed equipment')}</div><div class="muted">${esc(item.equipmentType)}</div></div>${getStatusBadge(item.maintenanceStatus)}</div><div class="mini-tags">${getStatusBadge(item.calibrationStatus)}${item.serialNumber ? `<span class="tag-chip">${esc(item.serialNumber)}</span>` : ''}</div><div class="muted">${esc(item.storageLocation || 'No storage location')}</div><div class="muted">Truck: ${esc(item.assignedTruckId ? getTruckLabel(item.assignedTruckId) : 'Unassigned')} | Trailer: ${esc(item.assignedTrailerId ? getTrailerLabel(item.assignedTrailerId) : 'Unassigned')}</div></div>`, 'No equipment yet');
+  document.getElementById('technicians-panel').innerHTML = renderResourceCards(state.data.technicians, (tech) => `<div ${renderCardOpenAttrs('technicians', tech.id)}><div class="resource-card-head"><div><div class="item-title">${esc(tech.employeeName || 'Unnamed technician')}</div><div class="muted">${esc(tech.role)}</div></div></div><div class="muted">Default Truck: ${esc(getDefaultTruckForTechnician(tech.id)?.unitNumber || 'Pool')}</div><div class="muted">${esc(tech.phone || tech.email || 'No contact info')}</div></div>`, 'No technicians yet');
+  document.getElementById('trucks-panel').innerHTML = renderResourceCards(state.data.trucks, (truck) => `<div ${renderCardOpenAttrs('trucks', truck.id)}>${renderAssetPhoto(truck, { className:'resource-photo', emptyLabel:getAssetPhotoEmptyLabel('trucks'), alt:getAssetPhotoAlt('trucks', truck), fallbackImageSrc:getDefaultAssetIconSrc('trucks', truck) })}<div class="resource-card-head"><div><div class="item-title">${esc(truck.unitNumber || 'Unnamed truck')}</div><div class="muted">${esc([truck.color, truck.vehicleYear, truck.make, truck.model].filter(Boolean).join(' ') || truck.vehicleType)}</div></div>${getStatusBadge(truck.serviceStatus)}</div><div class="muted">${esc(truck.licensePlateNumber || 'No plate')} ${truck.registeredState ? `| ${esc(truck.registeredState)}` : ''}</div><div class="muted">${truck.vin ? `VIN: ${esc(truck.vin)}` : 'No VIN'}</div><div class="muted">Assigned Tech: ${esc(truck.assignedTechnicianId ? getTechnicianLabel(truck.assignedTechnicianId) : 'Pool')}</div></div>`, 'No trucks yet');
+  document.getElementById('trailers-panel').innerHTML = renderResourceCards(state.data.trailers, (trailer) => `<div ${renderCardOpenAttrs('trailers', trailer.id)}>${renderAssetPhoto(trailer, { className:'resource-photo', emptyLabel:getAssetPhotoEmptyLabel('trailers'), alt:getAssetPhotoAlt('trailers', trailer), fallbackImageSrc:getDefaultAssetIconSrc('trailers', trailer) })}<div class="resource-card-head"><div><div class="item-title">${esc(trailer.trailerNumber || 'Unnamed trailer')}</div><div class="muted">${esc(trailer.trailerType || 'No trailer type')}</div></div>${getStatusBadge(trailer.serviceStatus)}</div><div class="muted">${esc(trailer.capacityConfiguration || 'No capacity/configuration')}</div><div class="muted">Assigned Truck: ${esc(trailer.assignedTruckId ? getTruckLabel(trailer.assignedTruckId) : 'Unassigned')}</div></div>`, 'No trailers yet');
+  document.getElementById('equipment-panel').innerHTML = renderResourceCards(state.data.equipment, (item) => `<div ${renderCardOpenAttrs('equipment', item.id)}><div class="resource-card-head"><div><div class="item-title">${esc(item.equipmentName || 'Unnamed equipment')}</div><div class="muted">${esc(item.equipmentType)}</div></div>${getStatusBadge(item.maintenanceStatus)}</div><div class="mini-tags">${getStatusBadge(item.calibrationStatus)}${item.serialNumber ? `<span class="tag-chip">${esc(item.serialNumber)}</span>` : ''}</div><div class="muted">${esc([item.manufacturer, item.model].filter(Boolean).join(' | ') || 'No manufacturer or model')}</div><div class="muted">${esc(item.splInventoryBarcode ? `Barcode: ${item.splInventoryBarcode}` : 'No SPL inventory barcode')}</div><div class="muted">Truck: ${esc(item.assignedTruckId ? getTruckLabel(item.assignedTruckId) : 'Pool')} | Trailer: ${esc(item.assignedTrailerId ? getTrailerLabel(item.assignedTrailerId) : 'Pool')}</div></div>`, 'No equipment yet');
 }
 
 function renderSamples(){
@@ -1172,6 +1160,8 @@ function getNewRecordDraft(entityKey){
 }
 
 function normalizeOptionsList(options){ return normalizeOptions(typeof options === 'function' ? options() : options); }
+function isEmptyOptionValue(value){ return value === '' || value === null || value === undefined; }
+function hasExplicitEmptyOption(options){ return options.some((option) => isEmptyOptionValue(option?.value)); }
 function shouldRenderField(field){
   if(!field || modalState.entity !== 'jobs') return true;
   if(!Array.isArray(field.jobTypes) || !field.jobTypes.length) return true;
@@ -1186,10 +1176,12 @@ function renderFormField(field){
   if(field.type === 'image') return renderAssetPhotoField(field);
   const value = modalState.formData[field.key];
   const options = normalizeOptionsList(field.options || []);
+  const includeEmptyOption = !hasExplicitEmptyOption(options);
+  const emptyOptionLabel = field.placeholderLabel || (field.required ? 'Select...' : '');
   const control = field.type === 'textarea'
     ? `<textarea class="form-input" oninput="setModalField('${field.key}', this.value)">${esc(value)}</textarea>`
     : field.type === 'select'
-      ? `<select class="form-input" onchange="${field.handler ? `${field.handler}(this.value)` : `setModalField('${field.key}', this.value)`}"><option value="">${esc(field.placeholderLabel || (field.required ? 'Select...' : 'Optional'))}</option>${options.map((option) => `<option value="${esc(option.value)}" ${String(value) === String(option.value) ? 'selected' : ''}>${esc(option.label)}</option>`).join('')}</select>`
+      ? `<select class="form-input" onchange="${field.handler ? `${field.handler}(this.value)` : `setModalField('${field.key}', this.value)`}">${includeEmptyOption ? `<option value="">${esc(emptyOptionLabel)}</option>` : ''}${options.map((option) => `<option value="${esc(option.value)}" ${String(value) === String(option.value) ? 'selected' : ''}>${esc(option.label)}</option>`).join('')}</select>`
       : `<input class="form-input" type="${field.type || 'text'}" value="${esc(value ?? '')}" oninput="setModalField('${field.key}', this.value, '${field.type === 'number' ? 'number' : 'text'}')">`;
   return `<div class="form-group${fullClass}"><label class="form-label">${esc(field.label)}</label>${control}</div>`;
 }
@@ -1358,7 +1350,6 @@ function changeMaintenanceAssetType(value){ modalState.formData.assetType = valu
 function changeTruckAssignedTechnician(value){
   modalState.formData.assignedTechnicianId = value;
   const tech = state.data.technicians.find((row) => row.id === value) || null;
-  modalState.formData.assignedTo = tech?.employeeName || '';
   modalState.formData.currentDriver = tech?.employeeName || '';
   renderModal();
 }
@@ -1459,7 +1450,7 @@ function validateModal(){
 async function persistLocal(nextData){ const normalized = await localRepository.write(nextData); state.data = normalized; lastLoadedSnapshot = JSON.stringify(normalized); render(); return normalized; }
 
 function clearTruckTechnicianAssignment(truck){
-  return { ...truck, assignedTechnicianId:'', assignedTo:'', currentDriver:'' };
+  return { ...truck, assignedTechnicianId:'', currentDriver:'' };
 }
 
 function syncTechnicianDefaultTruckLocal(next, technicianRecord){
@@ -1472,7 +1463,7 @@ function syncTechnicianDefaultTruckLocal(next, technicianRecord){
     return row;
   });
   next.trucks = next.trucks.map((truck) => {
-    if(defaultTruckId && truck.id === defaultTruckId) return { ...truck, assignedTechnicianId:technicianId, assignedTo:technicianName, currentDriver:technicianName };
+    if(defaultTruckId && truck.id === defaultTruckId) return { ...truck, assignedTechnicianId:technicianId, currentDriver:technicianName };
     if(truck.assignedTechnicianId === technicianId) return clearTruckTechnicianAssignment(truck);
     return truck;
   });
@@ -1480,10 +1471,10 @@ function syncTechnicianDefaultTruckLocal(next, technicianRecord){
 
 function syncTruckTechnicianLocal(next, truckRecord){
   const technicianId = String(truckRecord.assignedTechnicianId || '');
-  const technicianName = technicianId ? (next.technicians.find((row) => row.id === technicianId)?.employeeName || truckRecord.assignedTo || truckRecord.currentDriver || '') : '';
+  const technicianName = technicianId ? (next.technicians.find((row) => row.id === technicianId)?.employeeName || truckRecord.currentDriver || '') : '';
   const normalizedTruck = technicianId
-    ? { ...truckRecord, assignedTo:technicianName, currentDriver:technicianName }
-    : { ...truckRecord, assignedTo:'', currentDriver:'' };
+    ? { ...truckRecord, currentDriver:technicianName }
+    : { ...truckRecord, currentDriver:'' };
   next.trucks = next.trucks.map((truck) => {
     if(truck.id === normalizedTruck.id) return normalizedTruck;
     if(technicianId && truck.assignedTechnicianId === technicianId) return clearTruckTechnicianAssignment(truck);
@@ -1556,7 +1547,6 @@ async function removeRemoteAssetPhoto(path){
 function buildRemoteTruckAssignmentPayload(technicianId, technicianName = ''){
   return {
     assigned_technician_id:technicianId || null,
-    assigned_to:technicianName || '',
     current_driver:technicianName || ''
   };
 }
@@ -1596,7 +1586,7 @@ async function saveRemoteAssetRecord(entityKey, draft){
   }
   if(entityKey === 'trucks'){
     const technicianId = String(draft.assignedTechnicianId || '');
-    const technicianName = technicianId ? (state.data.technicians.find((row) => row.id === technicianId)?.employeeName || draft.assignedTo || draft.currentDriver || '') : '';
+    const technicianName = technicianId ? (state.data.technicians.find((row) => row.id === technicianId)?.employeeName || draft.currentDriver || '') : '';
     if(technicianId) await syncRemoteTruckAssignmentsForTruck(recordId, technicianId, technicianName);
   }
   return recordId;
@@ -1652,7 +1642,7 @@ function buildLocalDeleteResult(entityKey, id){
     next.contacts = next.contacts.filter((row) => row.siteId !== id);
   }
   else if(entityKey === 'jobs'){ next.jobs = next.jobs.filter((row) => row.id !== id); next.jobAssignments = next.jobAssignments.filter((row) => row.jobId !== id); next.samples = next.samples.filter((row) => row.jobId !== id); }
-  else if(entityKey === 'technicians'){ next.technicians = next.technicians.filter((row) => row.id !== id); next.trucks = next.trucks.map((row) => row.assignedTechnicianId === id ? { ...row, assignedTechnicianId:'', assignedTo:'', currentDriver:'' } : row); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Technician' && row.resourceId === id)); }
+  else if(entityKey === 'technicians'){ next.technicians = next.technicians.filter((row) => row.id !== id); next.trucks = next.trucks.map((row) => row.assignedTechnicianId === id ? { ...row, assignedTechnicianId:'', currentDriver:'' } : row); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Technician' && row.resourceId === id)); }
   else if(entityKey === 'trucks'){ next.trucks = next.trucks.filter((row) => row.id !== id); next.technicians = next.technicians.map((row) => row.defaultTruckId === id ? { ...row, defaultTruckId:'' } : row); next.trailers = next.trailers.map((row) => row.assignedTruckId === id ? { ...row, assignedTruckId:'' } : row); next.equipment = next.equipment.map((row) => row.assignedTruckId === id ? { ...row, assignedTruckId:'', assignedTrailerTruck:row.assignedTrailerId ? getTrailerLabel(row.assignedTrailerId) : '' } : row); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Truck' && row.resourceId === id)); next.maintenanceRecords = next.maintenanceRecords.filter((row) => !(row.assetType === 'Truck' && row.assetId === id)); }
   else if(entityKey === 'trailers'){ next.trailers = next.trailers.filter((row) => row.id !== id); next.equipment = next.equipment.map((row) => row.assignedTrailerId === id ? { ...row, assignedTrailerId:'', assignedTrailerTruck:row.assignedTruckId ? getTruckLabel(row.assignedTruckId) : '' } : row); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Trailer' && row.resourceId === id)); next.maintenanceRecords = next.maintenanceRecords.filter((row) => !(row.assetType === 'Trailer' && row.assetId === id)); }
   else if(entityKey === 'equipment'){ next.equipment = next.equipment.filter((row) => row.id !== id); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Equipment' && row.resourceId === id)); next.maintenanceRecords = next.maintenanceRecords.filter((row) => !(row.assetType === 'Equipment' && row.assetId === id)); }
