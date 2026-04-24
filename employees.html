@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SPL Shared Employee Directory</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="employees.css">
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <img class="spl-logo" src="assets/spl-logo.svg" alt="SPL">
+      <div class="header-brand">
+        <h1>Shared Employee Directory</h1>
+        <p>One central roster for lab scheduling, field resources, trucks, and sample transport eligibility</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="live-clock">
+        <span>Current Time</span>
+        <div id="clock">--:--:--</div>
+        <div id="datedisp" class="date-display"></div>
+      </div>
+      <div data-session-slot></div>
+      <div class="nav-row">
+        <button class="sec-btn" onclick="window.location.href='index.html'">Home</button>
+        <button class="sec-btn" onclick="window.location.href='lab-dashboard.html'">Lab WIP</button>
+        <button class="sec-btn" onclick="window.location.href='field-dashboard.html'">Field Ops</button>
+        <button class="sec-btn" onclick="window.location.href='clients.html'">Clients</button>
+        <button class="sec-btn" onclick="window.location.href='import.html'">Import</button>
+        <button class="sec-btn current" type="button">Employees</button>
+      </div>
+      <div id="save-indicator" class="save-indicator" style="visibility:hidden;">Saved</div>
+    </div>
+  </header>
+
+  <div class="employee-shell">
+    <div class="stats-bar" id="employee-stats"></div>
+
+    <div class="toolbar">
+      <label>
+        Scope
+        <select id="scope-filter" onchange="render()">
+          <option value="all">All</option>
+          <option value="Lab">Lab</option>
+          <option value="Field">Field</option>
+          <option value="Both">Both</option>
+        </select>
+      </label>
+      <label>
+        Search
+        <input id="employee-search" type="text" placeholder="Search name / email / role..." oninput="render()">
+      </label>
+      <div class="toolbar-spacer"></div>
+      <button class="add-btn" type="button" onclick="openEmployeeModal()">+ Add Employee</button>
+    </div>
+
+    <div class="employee-hero">
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Directory</h2>
+          <div class="panel-meta" id="employee-summary"></div>
+        </div>
+        <div class="panel-body">
+          <div id="employee-list" class="employee-list"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Policy Notes</h2>
+        </div>
+        <div class="panel-body">
+          <div class="mini-list">
+            <div class="mini-card">
+              <div class="item-title">Daily Lab Scheduling</div>
+              <div class="muted">Lab and Both employees are eligible for the shared lab daily roster.</div>
+            </div>
+            <div class="mini-card">
+              <div class="item-title">Field Scheduling</div>
+              <div class="muted">Field and Both employees are available as field job resources and truck assignments.</div>
+            </div>
+            <div class="mini-card">
+              <div class="item-title">Sample Transport</div>
+              <div class="muted">Only employees flagged for company-vehicle sample pickup/drop-off are eligible on those field job types.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="employee-modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="employee-modal-title">Add Employee</h3>
+        <button class="modal-close" type="button" onclick="closeEmployeeModal()">X</button>
+      </div>
+      <div class="modal-body" id="employee-modal-body"></div>
+      <div class="modal-footer">
+        <button class="btn-del" id="employee-modal-delete" type="button" style="display:none;" onclick="deleteCurrentEmployee()">Delete</button>
+        <button class="btn-cancel" type="button" onclick="closeEmployeeModal()">Cancel</button>
+        <button class="btn-save" type="button" onclick="saveEmployee()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app-config.js"></script>
+  <script>
+    window.APP_CONFIG = Object.assign({}, window.APP_CONFIG || {}, {
+      authTitle: 'SPL Shared Employee Directory',
+      authHelpText: 'Sign in to manage the shared employee roster used by Lab and Field.'
+    });
+  </script>
+  <script src="cloud-auth.js"></script>
+  <script src="employees.js"></script>
+</body>
+</html>

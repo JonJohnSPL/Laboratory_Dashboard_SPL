@@ -1,6 +1,6 @@
 const STORAGE_KEY = 'field-ops-dashboard-data';
 const AUTO_REFRESH_MS = 15000;
-const ENTITY_ORDER = ['clients', 'projects', 'contacts', 'billingProfiles', 'sites', 'jobs', 'jobAssignments', 'technicians', 'trucks', 'trailers', 'equipment', 'samples', 'maintenanceRecords'];
+const ENTITY_ORDER = ['clients', 'projects', 'contacts', 'billingProfiles', 'sites', 'jobs', 'jobAssignments', 'employees', 'trucks', 'trailers', 'equipment', 'samples', 'maintenanceRecords'];
 const FIELD_ASSET_BUCKET = 'field-assets';
 const ASSET_PHOTO_ENTITY_KEYS = ['clients', 'trucks', 'trailers', 'equipment'];
 const DEFAULT_ASSET_ICON_PATHS = {
@@ -24,7 +24,8 @@ const PRIORITY_OPTIONS = ['Low', 'Normal', 'High', 'Urgent'];
 const CUSTODY_OPTIONS = ['Allocation', 'Custody', 'Both'];
 const ASSIGNMENT_TYPE_OPTIONS = ['Technician', 'Truck', 'Trailer', 'Equipment'];
 const ASSIGNMENT_STATUS_OPTIONS = ['Assigned', 'Confirmed', 'In Progress', 'Complete'];
-const TECH_ROLE_OPTIONS = ['Field Tech', 'Senior Field Tech', 'Supervisor', 'Manager'];
+const LAB_ROLE_OPTIONS = ['Lab Tech', 'Senior Lab Tech', 'Lab Lead', 'Lab Supervisor'];
+const FIELD_ROLE_OPTIONS = ['Field Tech', 'Senior Field Tech', 'Supervisor', 'Manager'];
 const TRUCK_TYPE_OPTIONS = ['Pickup', 'Service Truck', 'Other'];
 const VEHICLE_STATUS_OPTIONS = ['Available', 'In Use', 'Maintenance', 'Out of Service'];
 const TRAILER_STATUS_OPTIONS = ['Available', 'Assigned', 'In Use', 'Maintenance', 'Out of Service'];
@@ -41,7 +42,7 @@ const ASSET_TYPE_OPTIONS = ['Truck', 'Trailer', 'Equipment'];
 const VENDOR_INTERNAL_OPTIONS = ['Vendor', 'Internal'];
 
 const PRIORITY_RANK = { Urgent:0, High:1, Normal:2, Low:3 };
-const RESOURCE_ENTITY_BY_TYPE = { Technician:'technicians', Truck:'trucks', Trailer:'trailers', Equipment:'equipment' };
+const RESOURCE_ENTITY_BY_TYPE = { Technician:'employees', Truck:'trucks', Trailer:'trailers', Equipment:'equipment' };
 const REQUIRED_ASSIGNMENTS_BY_JOB_TYPE = {
   'Allocation Proving':['Technician', 'Truck', 'Equipment'],
   'LACT Proving':['Technician', 'Truck', 'Equipment'],
@@ -57,7 +58,7 @@ const ENTITY_CONFIG = {
   sites:{ table:'field_sites', label:'Site', idPrefix:'site', defaults:{ clientId:'', projectId:'', siteName:'', siteType:'Other', physicalAddress:'', countyState:'', gpsCoordinates:'', accessInstructions:'', safetyPpeNotes:'', gateCodeEntryRequirements:'', clientSiteContact:'', siteStatus:'Active', standardJobTypes:'', notes:'' }, fieldMap:{ clientId:'client_id', projectId:'project_id', siteName:'site_name', siteType:'site_type', physicalAddress:'physical_address', countyState:'county_state', gpsCoordinates:'gps_coordinates', accessInstructions:'access_instructions', safetyPpeNotes:'safety_ppe_notes', gateCodeEntryRequirements:'gate_code_entry_requirements', clientSiteContact:'client_site_contact', siteStatus:'site_status', standardJobTypes:'standard_job_types', notes:'notes' }, idFields:['clientId', 'projectId'] },
   jobs:{ table:'field_jobs', label:'Job', idPrefix:'job', defaults:{ fieldfxTicketId:'', clientId:'', projectId:'', siteId:'', jobType:'', jobStatus:'New', priority:'Normal', requestedDate:'', scheduledStart:'', scheduledEnd:'', actualStart:'', actualEnd:'', durationPlanned:null, durationActual:null, scopeSummary:'', workInstructions:'', apiStandardReference:'', custodyAllocation:'Allocation', samplesRequired:false, meterUnitId:'', provingRequired:false, maintenanceRequired:false, clientContactForJob:'', dispatchNotes:'', completionNotes:'', followUpRequired:false, followUpNotes:'' }, fieldMap:{ fieldfxTicketId:'fieldfx_ticket_id', clientId:'client_id', projectId:'project_id', siteId:'site_id', jobType:'job_type', jobStatus:'job_status', priority:'priority', requestedDate:'requested_date', scheduledStart:'scheduled_start', scheduledEnd:'scheduled_end', actualStart:'actual_start', actualEnd:'actual_end', durationPlanned:'duration_planned_minutes', durationActual:'duration_actual_minutes', scopeSummary:'scope_summary', workInstructions:'work_instructions', apiStandardReference:'api_standard_reference', custodyAllocation:'custody_allocation', samplesRequired:'samples_required', meterUnitId:'meter_unit_id', provingRequired:'proving_required', maintenanceRequired:'maintenance_required', clientContactForJob:'client_contact_for_job', dispatchNotes:'dispatch_notes', completionNotes:'completion_notes', followUpRequired:'follow_up_required', followUpNotes:'follow_up_notes' }, idFields:['clientId', 'projectId', 'siteId'], numberFields:['durationPlanned', 'durationActual'], booleanFields:['samplesRequired', 'provingRequired', 'maintenanceRequired', 'followUpRequired'], dateFields:['requestedDate'], dateTimeFields:['scheduledStart', 'scheduledEnd', 'actualStart', 'actualEnd'] },
   jobAssignments:{ table:'field_job_assignments', label:'Assignment', idPrefix:'asg', defaults:{ jobId:'', assignmentType:'Technician', resourceId:'', assignedStart:'', assignedEnd:'', assignmentStatus:'Assigned', assignmentNotes:'' }, fieldMap:{ jobId:'job_id', assignmentType:'assignment_type', resourceId:'resource_id', assignedStart:'assigned_start', assignedEnd:'assigned_end', assignmentStatus:'assignment_status', assignmentNotes:'assignment_notes' }, idFields:['jobId', 'resourceId'], dateTimeFields:['assignedStart', 'assignedEnd'] },
-  technicians:{ table:'field_technicians', label:'Technician', idPrefix:'tech', defaults:{ employeeName:'', role:'Field Tech', phone:'', email:'', defaultTruckId:'', notes:'' }, fieldMap:{ employeeName:'employee_name', role:'role', phone:'phone', email:'email', notes:'notes' }, localOnlyFields:['defaultTruckId'] },
+  employees:{ table:'employees', label:'Employee', idPrefix:'emp', defaults:{ employeeName:'', workScope:'Field', labRole:'', fieldRole:'Field Tech', canSampleTransport:false, phone:'', email:'', notes:'' }, fieldMap:{ employeeName:'employee_name', workScope:'work_scope', labRole:'lab_role', fieldRole:'field_role', canSampleTransport:'can_sample_transport', phone:'phone', email:'email', notes:'notes' }, booleanFields:['canSampleTransport'] },
   trucks:{ table:'field_trucks', label:'Truck', idPrefix:'truck', defaults:{ unitNumber:'', vehicleType:'Pickup', serviceStatus:'Available', currentDriver:'', assignedTechnicianId:'', model:'', licensePlateNumber:'', make:'', color:'', registeredState:'', vin:'', vehicleId:'', vehicleYear:null, assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ unitNumber:'unit_number', vehicleType:'vehicle_type', serviceStatus:'service_status', currentDriver:'current_driver', assignedTechnicianId:'assigned_technician_id', model:'model', licensePlateNumber:'license_plate_number', make:'make', color:'color', registeredState:'registered_state', vin:'vin', vehicleId:'vehicle_id', vehicleYear:'vehicle_year', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTechnicianId'], numberFields:['vehicleYear'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
   trailers:{ table:'field_trailers', label:'Trailer', idPrefix:'trailer', defaults:{ trailerNumber:'', trailerType:'', capacityConfiguration:'', serviceStatus:'Available', assignedTruckId:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ trailerNumber:'trailer_number', trailerType:'trailer_type', capacityConfiguration:'capacity_configuration', serviceStatus:'service_status', assignedTruckId:'assigned_truck_id', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTruckId'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
   equipment:{ table:'field_equipment', label:'Equipment', idPrefix:'equip', defaults:{ equipmentName:'', equipmentType:'Small Volume Prover', model:'', manufacturer:'', splInventoryBarcode:'', serialNumber:'', calibrationStatus:'Current', lastCalibrationDate:'', nextCalibrationDue:'', maintenanceStatus:'Available', storageLocation:'', assignedTrailerTruck:'', assignedTruckId:'', assignedTrailerId:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ equipmentName:'equipment_name', equipmentType:'equipment_type', model:'model', manufacturer:'manufacturer', splInventoryBarcode:'spl_inventory_barcode', serialNumber:'serial_number', calibrationStatus:'calibration_status', lastCalibrationDate:'last_calibration_date', nextCalibrationDue:'next_calibration_due', maintenanceStatus:'maintenance_status', storageLocation:'storage_location', assignedTrailerTruck:'assigned_trailer_truck', assignedTruckId:'assigned_truck_id', assignedTrailerId:'assigned_trailer_id', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTruckId', 'assignedTrailerId'], dateFields:['lastCalibrationDate', 'nextCalibrationDue'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
@@ -72,7 +73,7 @@ let hideSaveStatusTimer = null;
 const remoteAssetPhotoUrlCache = new Map();
 const remoteAssetPhotoLoadPromises = new Map();
 
-function createEmptyData(){ return { clients:[], projects:[], contacts:[], billingProfiles:[], sites:[], jobs:[], jobAssignments:[], technicians:[], trucks:[], trailers:[], equipment:[], samples:[], maintenanceRecords:[] }; }
+function createEmptyData(){ return { clients:[], projects:[], contacts:[], billingProfiles:[], sites:[], jobs:[], jobAssignments:[], employees:[], trucks:[], trailers:[], equipment:[], samples:[], maintenanceRecords:[], technicians:[] }; }
 function createClosedModalState(){ return { open:false, entity:'', id:'', formData:{}, assignments:[] }; }
 function uid(prefix = 'fld'){ return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
 function clone(value){ return JSON.parse(JSON.stringify(value)); }
@@ -171,7 +172,7 @@ function getEntitySorter(entityKey){
     case 'sites': return (a, b) => compareStrings(a.siteName, b.siteName);
     case 'jobs': return (a, b) => compareOptionalDates(getJobPrimaryDate(a), getJobPrimaryDate(b)) || ((PRIORITY_RANK[a.priority] ?? 99) - (PRIORITY_RANK[b.priority] ?? 99)) || compareStrings(a.fieldfxTicketId || a.id, b.fieldfxTicketId || b.id);
     case 'jobAssignments': return (a, b) => compareStrings(a.assignmentType, b.assignmentType) || compareStrings(a.resourceId, b.resourceId);
-    case 'technicians': return (a, b) => compareStrings(a.employeeName, b.employeeName);
+    case 'employees': return (a, b) => compareStrings(a.employeeName, b.employeeName);
     case 'trucks': return (a, b) => compareStrings(a.unitNumber, b.unitNumber);
     case 'trailers': return (a, b) => compareStrings(a.trailerNumber, b.trailerNumber);
     case 'equipment': return (a, b) => compareStrings(a.equipmentName, b.equipmentName);
@@ -204,6 +205,19 @@ function normalizeData(source, fromRemote = false){
     const rows = Array.isArray(source?.[entityKey]) ? source[entityKey] : [];
     normalized[entityKey] = rows.map((row) => normalizeRecord(entityKey, row, { fromRemote })).sort(getEntitySorter(entityKey));
   });
+  if(!normalized.employees.length && Array.isArray(source?.technicians) && source.technicians.length){
+    normalized.employees = source.technicians.map((row) => normalizeRecord('employees', {
+      id:row?.id || uid('emp'),
+      employeeName:row?.employeeName ?? row?.employee_name ?? '',
+      workScope:'Field',
+      labRole:'',
+      fieldRole:row?.role || 'Field Tech',
+      canSampleTransport:false,
+      phone:row?.phone || '',
+      email:row?.email || '',
+      notes:row?.notes || ''
+    }, { fromRemote:false })).sort(getEntitySorter('employees'));
+  }
   repairDataRelationships(normalized);
   return normalized;
 }
@@ -321,11 +335,10 @@ function getAssignmentsForJob(jobId){ return state.data.jobAssignments.filter((r
 function getClientLabel(clientId){ return getClient(clientId)?.clientName || 'Unknown client'; }
 function getProjectLabel(projectId){ return getProject(projectId)?.projectName || 'Unknown project'; }
 function getSiteLabel(siteId){ return getSite(siteId)?.siteName || 'Unknown site'; }
+function isFieldEligibleEmployee(employee){ return !!employee && ['Field', 'Both'].includes(employee.workScope || ''); }
+function isSampleTransportJobType(jobType){ return ['Sample Pickup', 'Sample Drop-Off'].includes(jobType); }
 function getDefaultTruckForTechnician(technicianId){
-  const assignedTruck = state.data.trucks.find((row) => row.assignedTechnicianId === technicianId) || null;
-  if(assignedTruck) return assignedTruck;
-  const technician = state.data.technicians.find((row) => row.id === technicianId) || null;
-  return technician?.defaultTruckId ? (state.data.trucks.find((row) => row.id === technician.defaultTruckId) || null) : null;
+  return state.data.trucks.find((row) => row.assignedTechnicianId === technicianId) || null;
 }
 function getProjectIdsForClient(clientId){ return state.data.projects.filter((row) => row.clientId === clientId).map((row) => row.id); }
 function getSiteIdsForClient(clientId){ return state.data.sites.filter((row) => row.clientId === clientId).map((row) => row.id); }
@@ -366,7 +379,7 @@ function getResourceRecord(assignmentType, resourceId){
 function getResourceLabel(assignmentType, resourceId){
   const record = getResourceRecord(assignmentType, resourceId);
   if(!record) return 'Unknown resource';
-  if(assignmentType === 'Technician') return record.employeeName || 'Unnamed technician';
+  if(assignmentType === 'Technician') return record.employeeName || 'Unnamed employee';
   if(assignmentType === 'Truck') return record.unitNumber || 'Unnamed truck';
   if(assignmentType === 'Trailer') return record.trailerNumber || 'Unnamed trailer';
   return record.equipmentName || 'Unnamed equipment';
@@ -584,11 +597,13 @@ const FORM_DEFINITIONS = {
     { key:'completionNotes', label:'Completion Notes', type:'textarea', full:true, jobTypes:['Allocation Proving', 'LACT Proving', 'Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service'] },
     { key:'followUpNotes', label:'Follow-Up Notes', type:'textarea', full:true, jobTypes:['Allocation Proving', 'LACT Proving', 'Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service'] }
   ],
-  technicians:[
+  employees:[
     { kind:'section', label:'Personnel' },
     { key:'employeeName', label:'Employee Name', type:'text', required:true },
-    { key:'role', label:'Role', type:'select', options:TECH_ROLE_OPTIONS },
-    { key:'defaultTruckId', label:'Default Truck', type:'select', options:() => buildTruckAssignmentOptions(), placeholderLabel:'Pool' },
+    { key:'workScope', label:'Work Scope', type:'select', options:WORK_SCOPE_OPTIONS },
+    { key:'labRole', label:'Lab Role', type:'select', options:LAB_ROLE_OPTIONS },
+    { key:'fieldRole', label:'Field Role', type:'select', options:FIELD_ROLE_OPTIONS },
+    { key:'canSampleTransport', label:'Sample Pickup / Drop-Off Eligible', type:'checkbox' },
     { key:'phone', label:'Phone', type:'text' },
     { key:'email', label:'Email', type:'email' },
     { key:'notes', label:'Notes', type:'textarea', full:true }
@@ -598,7 +613,7 @@ const FORM_DEFINITIONS = {
     { key:'unitNumber', label:'Unit Number', type:'text', required:true },
     { key:'vehicleType', label:'Vehicle Type', type:'select', options:TRUCK_TYPE_OPTIONS },
     { key:'serviceStatus', label:'Service Status', type:'select', options:VEHICLE_STATUS_OPTIONS },
-    { key:'assignedTechnicianId', label:'Assigned Tech', type:'select', options:() => buildTechnicianAssignmentOptions(), handler:'changeTruckAssignedTechnician', placeholderLabel:'Pool' },
+    { key:'assignedTechnicianId', label:'Assigned Employee', type:'select', options:() => buildTechnicianAssignmentOptions(), handler:'changeTruckAssignedTechnician', placeholderLabel:'Pool' },
     { key:'make', label:'Make', type:'text' },
     { key:'color', label:'Truck Color', type:'text' },
     { key:'model', label:'Model', type:'text' },
@@ -703,13 +718,21 @@ function buildJobContactOptions(clientId = '', projectId = ''){
     .map((row) => ({ value:[row.contactName, row.contactRole].filter(Boolean).join(' | ') || row.contactName || 'Unnamed contact', label:`${row.contactName || 'Unnamed contact'} | ${row.contactRole || row.contactScope || 'Contact'}` }));
 }
 function buildAssetOptions(assetType = ''){ if(assetType === 'Truck') return state.data.trucks.map((row) => ({ value:row.id, label:row.unitNumber || 'Unnamed truck' })); if(assetType === 'Trailer') return state.data.trailers.map((row) => ({ value:row.id, label:row.trailerNumber || 'Unnamed trailer' })); return state.data.equipment.map((row) => ({ value:row.id, label:row.equipmentName || 'Unnamed equipment' })); }
-function buildResourceOptions(assignmentType = 'Technician'){ const entityKey = RESOURCE_ENTITY_BY_TYPE[assignmentType]; return entityKey ? state.data[entityKey].map((row) => ({ value:row.id, label:getResourceLabel(assignmentType, row.id) })) : []; }
-function buildTechnicianOptions(){ return state.data.technicians.map((row) => ({ value:row.id, label:row.employeeName || 'Unnamed technician' })); }
+function buildResourceOptions(assignmentType = 'Technician'){
+  if(assignmentType === 'Technician') return buildTechnicianOptions(modalState.formData.jobType);
+  const entityKey = RESOURCE_ENTITY_BY_TYPE[assignmentType];
+  return entityKey ? state.data[entityKey].map((row) => ({ value:row.id, label:getResourceLabel(assignmentType, row.id) })) : [];
+}
+function buildTechnicianOptions(jobType = ''){
+  return state.data.employees
+    .filter((row) => isFieldEligibleEmployee(row) && (!isSampleTransportJobType(jobType) || row.canSampleTransport))
+    .map((row) => ({ value:row.id, label:row.employeeName || 'Unnamed employee' }));
+}
 function buildTechnicianAssignmentOptions(){ return [{ value:'', label:'Pool' }, ...buildTechnicianOptions()]; }
 function buildTruckAssignmentOptions(){ return [{ value:'', label:'Pool' }, ...buildTruckOptions()]; }
 function buildTruckOptions(){ return state.data.trucks.map((row) => ({ value:row.id, label:row.unitNumber || 'Unnamed truck' })); }
 function buildTrailerOptions(){ return state.data.trailers.map((row) => ({ value:row.id, label:row.trailerNumber || 'Unnamed trailer' })); }
-function getTechnicianLabel(id){ return state.data.technicians.find((row) => row.id === id)?.employeeName || 'Unassigned'; }
+function getTechnicianLabel(id){ return state.data.employees.find((row) => row.id === id)?.employeeName || 'Unassigned'; }
 function getTruckLabel(id){ return state.data.trucks.find((row) => row.id === id)?.unitNumber || 'Unassigned'; }
 function getTrailerLabel(id){ return state.data.trailers.find((row) => row.id === id)?.trailerNumber || 'Unassigned'; }
 
@@ -798,11 +821,11 @@ function renderOverview(derived){
   const samplesInTransit = state.data.samples.filter((row) => row.chainOfCustodyStatus === 'In Transit');
   const jobsInProgress = state.data.jobs.filter((job) => job.jobStatus === 'In Progress');
   document.getElementById('overview-stats').innerHTML = [{ label:'Jobs Today', value:todayJobs.length, cls:'' }, { label:'Jobs In Progress', value:jobsInProgress.length, cls:'ok' }, { label:'Jobs Overdue', value:derived.overdueJobs.length, cls:'danger' }, { label:'Samples In Transit', value:samplesInTransit.length, cls:'warn' }, { label:'Assets Down', value:derived.downAssets.length, cls:'danger' }].map((card) => `<div class="stat-card ${card.cls}"><div class="stat-label">${esc(card.label)}</div><div class="stat-value ${card.cls}">${esc(card.value)}</div></div>`).join('');
-  document.getElementById('overview-actions').innerHTML = `<button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button><button class="act-btn" type="button" onclick="window.location.href='clients.html'">Open Clients</button><button class="act-btn" type="button" onclick="openEntityModal('technicians')">+ Add Tech</button><button class="act-btn" type="button" onclick="openEntityModal('samples')">+ Add Sample</button>`;
+  document.getElementById('overview-actions').innerHTML = `<button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button><button class="act-btn" type="button" onclick="window.location.href='clients.html'">Open Clients</button><button class="act-btn" type="button" onclick="window.location.href='employees.html'">Open Employees</button><button class="act-btn" type="button" onclick="openEntityModal('samples')">+ Add Sample</button>`;
   document.getElementById('today-jobs-panel').innerHTML = renderMiniJobList(todayJobs, derived, 'No field jobs are scheduled for today yet.');
   const assignedTechCount = state.data.trucks.filter((row) => row.assignedTechnicianId).length;
-  document.getElementById('resource-readiness-panel').innerHTML = `<div class="summary-grid"><div class="summary-card"><div class="label">Technicians</div><div class="value">${state.data.technicians.length}</div><div class="muted">${assignedTechCount} truck assignment${assignedTechCount === 1 ? '' : 's'}</div></div><div class="summary-card"><div class="label">Available Trucks</div><div class="value">${state.data.trucks.filter((row) => row.serviceStatus === 'Available').length}</div><div class="muted">${state.data.trucks.filter((row) => row.serviceStatus === 'Out of Service').length} out of service</div></div><div class="summary-card"><div class="label">Available Trailers</div><div class="value">${state.data.trailers.filter((row) => ['Available', 'Assigned'].includes(row.serviceStatus)).length}</div><div class="muted">${state.data.trailers.filter((row) => row.serviceStatus === 'Maintenance').length} in maintenance</div></div><div class="summary-card"><div class="label">Ready Provers</div><div class="value">${state.data.equipment.filter((row) => ['Small Volume Prover', 'Master Meter'].includes(row.equipmentType) && row.maintenanceStatus !== 'Out of Service' && row.calibrationStatus !== 'Overdue').length}</div><div class="muted">${derived.overdueCalibration.length} calibration overdue</div></div></div>`;
-  document.getElementById('issues-panel').innerHTML = `<div class="issue-list">${renderIssueCard('Scheduling Conflicts', derived.conflicts.length, 'Double-booked technicians, trucks, trailers, or equipment.')}${renderIssueCard('Jobs Missing Required Resources', derived.missingJobs.length, 'Required assignments still missing for active jobs.')}${renderIssueCard('Missing / Early COC', derived.missingCocSamples.length, 'Samples still requested or collected without a complete handoff chain.')}${renderIssueCard('Overdue Maintenance', derived.overdueMaintenance.length, 'Maintenance items past their due date and still open.')}${renderIssueCard('Calibration Overdue', derived.overdueCalibration.length, 'Equipment that should not be dispatched without review.')}</div>`;
+  document.getElementById('resource-readiness-panel').innerHTML = `<div class="summary-grid"><div class="summary-card"><div class="label">Employees</div><div class="value">${state.data.employees.filter((row) => isFieldEligibleEmployee(row)).length}</div><div class="muted">${assignedTechCount} truck assignment${assignedTechCount === 1 ? '' : 's'}</div></div><div class="summary-card"><div class="label">Available Trucks</div><div class="value">${state.data.trucks.filter((row) => row.serviceStatus === 'Available').length}</div><div class="muted">${state.data.trucks.filter((row) => row.serviceStatus === 'Out of Service').length} out of service</div></div><div class="summary-card"><div class="label">Available Trailers</div><div class="value">${state.data.trailers.filter((row) => ['Available', 'Assigned'].includes(row.serviceStatus)).length}</div><div class="muted">${state.data.trailers.filter((row) => row.serviceStatus === 'Maintenance').length} in maintenance</div></div><div class="summary-card"><div class="label">Ready Provers</div><div class="value">${state.data.equipment.filter((row) => ['Small Volume Prover', 'Master Meter'].includes(row.equipmentType) && row.maintenanceStatus !== 'Out of Service' && row.calibrationStatus !== 'Overdue').length}</div><div class="muted">${derived.overdueCalibration.length} calibration overdue</div></div></div>`;
+  document.getElementById('issues-panel').innerHTML = `<div class="issue-list">${renderIssueCard('Scheduling Conflicts', derived.conflicts.length, 'Double-booked employees, trucks, trailers, or equipment.')}${renderIssueCard('Jobs Missing Required Resources', derived.missingJobs.length, 'Required assignments still missing for active jobs.')}${renderIssueCard('Missing / Early COC', derived.missingCocSamples.length, 'Samples still requested or collected without a complete handoff chain.')}${renderIssueCard('Overdue Maintenance', derived.overdueMaintenance.length, 'Maintenance items past their due date and still open.')}${renderIssueCard('Calibration Overdue', derived.overdueCalibration.length, 'Equipment that should not be dispatched without review.')}</div>`;
   document.getElementById('next-seven-panel').innerHTML = renderMiniJobList(nextSevenJobs, derived, 'No upcoming jobs are scheduled in the next seven days.');
 }
 
@@ -1115,8 +1138,8 @@ function renderAssetPhotoField(field){
 }
 
 function renderResources(){
-  document.getElementById('technicians-panel').innerHTML = renderResourceCards(state.data.technicians, (tech) => `<div ${renderCardOpenAttrs('technicians', tech.id)}><div class="resource-card-head"><div><div class="item-title">${esc(tech.employeeName || 'Unnamed technician')}</div><div class="muted">${esc(tech.role)}</div></div></div><div class="muted">Default Truck: ${esc(getDefaultTruckForTechnician(tech.id)?.unitNumber || 'Pool')}</div><div class="muted">${esc(tech.phone || tech.email || 'No contact info')}</div></div>`, 'No technicians yet');
-  document.getElementById('trucks-panel').innerHTML = renderResourceCards(state.data.trucks, (truck) => `<div ${renderCardOpenAttrs('trucks', truck.id)}>${renderAssetPhoto(truck, { className:'resource-photo', emptyLabel:getAssetPhotoEmptyLabel('trucks'), alt:getAssetPhotoAlt('trucks', truck), fallbackImageSrc:getDefaultAssetIconSrc('trucks', truck) })}<div class="resource-card-head"><div><div class="item-title">${esc(truck.unitNumber || 'Unnamed truck')}</div><div class="muted">${esc([truck.color, truck.vehicleYear, truck.make, truck.model].filter(Boolean).join(' ') || truck.vehicleType)}</div></div>${getStatusBadge(truck.serviceStatus)}</div><div class="muted">${esc(truck.licensePlateNumber || 'No plate')} ${truck.registeredState ? `| ${esc(truck.registeredState)}` : ''}</div><div class="muted">${truck.vin ? `VIN: ${esc(truck.vin)}` : 'No VIN'}</div><div class="muted">Assigned Tech: ${esc(truck.assignedTechnicianId ? getTechnicianLabel(truck.assignedTechnicianId) : 'Pool')}</div></div>`, 'No trucks yet');
+  document.getElementById('employees-panel').innerHTML = renderResourceCards(state.data.employees.filter((employee) => isFieldEligibleEmployee(employee)), (employee) => `<div class="resource-card"><div class="resource-card-head"><div><div class="item-title">${esc(employee.employeeName || 'Unnamed employee')}</div><div class="muted">${esc(employee.fieldRole || employee.labRole || 'No role set')}</div></div><div class="mini-tags">${getStatusBadge(employee.workScope || 'Field')}${employee.canSampleTransport ? '<span class="warning-chip">Sample Pickup / Drop-Off</span>' : ''}</div></div><div class="muted">Default Truck: ${esc(getDefaultTruckForTechnician(employee.id)?.unitNumber || 'Pool')}</div><div class="muted">${esc(employee.phone || employee.email || 'No contact info')}</div><div class="table-actions"><button class="act-btn" type="button" onclick="window.location.href='employees.html'">Manage In Directory</button></div></div>`, 'No field-eligible employees yet');
+  document.getElementById('trucks-panel').innerHTML = renderResourceCards(state.data.trucks, (truck) => `<div ${renderCardOpenAttrs('trucks', truck.id)}>${renderAssetPhoto(truck, { className:'resource-photo', emptyLabel:getAssetPhotoEmptyLabel('trucks'), alt:getAssetPhotoAlt('trucks', truck), fallbackImageSrc:getDefaultAssetIconSrc('trucks', truck) })}<div class="resource-card-head"><div><div class="item-title">${esc(truck.unitNumber || 'Unnamed truck')}</div><div class="muted">${esc([truck.color, truck.vehicleYear, truck.make, truck.model].filter(Boolean).join(' ') || truck.vehicleType)}</div></div>${getStatusBadge(truck.serviceStatus)}</div><div class="muted">${esc(truck.licensePlateNumber || 'No plate')} ${truck.registeredState ? `| ${esc(truck.registeredState)}` : ''}</div><div class="muted">${truck.vin ? `VIN: ${esc(truck.vin)}` : 'No VIN'}</div><div class="muted">Assigned Employee: ${esc(truck.assignedTechnicianId ? getTechnicianLabel(truck.assignedTechnicianId) : 'Pool')}</div></div>`, 'No trucks yet');
   document.getElementById('trailers-panel').innerHTML = renderResourceCards(state.data.trailers, (trailer) => `<div ${renderCardOpenAttrs('trailers', trailer.id)}>${renderAssetPhoto(trailer, { className:'resource-photo', emptyLabel:getAssetPhotoEmptyLabel('trailers'), alt:getAssetPhotoAlt('trailers', trailer), fallbackImageSrc:getDefaultAssetIconSrc('trailers', trailer) })}<div class="resource-card-head"><div><div class="item-title">${esc(trailer.trailerNumber || 'Unnamed trailer')}</div><div class="muted">${esc(trailer.trailerType || 'No trailer type')}</div></div>${getStatusBadge(trailer.serviceStatus)}</div><div class="muted">${esc(trailer.capacityConfiguration || 'No capacity/configuration')}</div><div class="muted">Assigned Truck: ${esc(trailer.assignedTruckId ? getTruckLabel(trailer.assignedTruckId) : 'Unassigned')}</div></div>`, 'No trailers yet');
   document.getElementById('equipment-panel').innerHTML = renderResourceCards(state.data.equipment, (item) => `<div ${renderCardOpenAttrs('equipment', item.id)}><div class="resource-card-head"><div><div class="item-title">${esc(item.equipmentName || 'Unnamed equipment')}</div><div class="muted">${esc(item.equipmentType)}</div></div>${getStatusBadge(item.maintenanceStatus)}</div><div class="mini-tags">${getStatusBadge(item.calibrationStatus)}${item.serialNumber ? `<span class="tag-chip">${esc(item.serialNumber)}</span>` : ''}</div><div class="muted">${esc([item.manufacturer, item.model].filter(Boolean).join(' | ') || 'No manufacturer or model')}</div><div class="muted">${esc(item.splInventoryBarcode ? `Barcode: ${item.splInventoryBarcode}` : 'No SPL inventory barcode')}</div><div class="muted">Truck: ${esc(item.assignedTruckId ? getTruckLabel(item.assignedTruckId) : 'Pool')} | Trailer: ${esc(item.assignedTrailerId ? getTrailerLabel(item.assignedTrailerId) : 'Pool')}</div></div>`, 'No equipment yet');
 }
@@ -1144,7 +1167,7 @@ function render(){
   if(document.getElementById('dispatch-table')) renderDispatch(derived);
   if(document.getElementById('schedule-board')) renderSchedule(derived);
   if(document.getElementById('directory-toolbar')) renderDirectory();
-  if(document.getElementById('technicians-panel')) renderResources();
+  if(document.getElementById('employees-panel')) renderResources();
   if(document.getElementById('samples-table')) renderSamples();
   if(document.getElementById('maintenance-table')) renderMaintenance();
   if(document.getElementById('entity-modal-overlay')) renderModal();
@@ -1203,11 +1226,11 @@ function getModalDefaultTruckSuggestions(){
   return modalState.assignments
     .filter((item) => item.assignmentType === 'Technician' && item.resourceId)
     .map((item) => {
-      const technician = state.data.technicians.find((row) => row.id === item.resourceId) || null;
+      const employee = state.data.employees.find((row) => row.id === item.resourceId) || null;
       const defaultTruck = getDefaultTruckForTechnician(item.resourceId);
-      if(!technician || !defaultTruck || seen.has(item.resourceId)) return null;
+      if(!employee || !defaultTruck || seen.has(item.resourceId)) return null;
       seen.add(item.resourceId);
-      return { technician, defaultTruck };
+      return { employee, defaultTruck };
     })
     .filter(Boolean);
 }
@@ -1215,7 +1238,7 @@ function applyTechnicianDefaultTruck(technicianId, replace = false){
   if(!modalState.open) return;
   const defaultTruck = getDefaultTruckForTechnician(technicianId);
   if(!defaultTruck){
-    alert('This technician does not have a default truck yet.');
+    alert('This employee does not have a default truck yet.');
     return;
   }
   const currentTruck = getModalTruckAssignment();
@@ -1241,8 +1264,8 @@ function renderAssignmentEditor(){
   const requirements = REQUIRED_ASSIGNMENTS_BY_JOB_TYPE[modalState.formData.jobType] || [];
   const suggestions = getModalDefaultTruckSuggestions();
   const currentTruck = getModalTruckAssignment();
-  const suggestionMarkup = suggestions.length ? `<div class="assignment-defaults">${suggestions.map(({ technician, defaultTruck }) => `<div class="assignment-default-row"><div><div class="item-title">${esc(technician.employeeName || 'Technician')}</div><div class="muted">Default truck ${esc(defaultTruck.unitNumber || 'Unnamed truck')}</div></div><div class="table-actions"><button class="act-btn" type="button" onclick="applyTechnicianDefaultTruck('${esc(technician.id)}', true)" ${currentTruck?.resourceId === defaultTruck.id ? 'disabled' : ''}>Use Default Truck</button>${currentTruck ? `<button class="act-btn danger" type="button" onclick="clearModalTruckAssignment()">Clear Truck</button>` : ''}</div></div>`).join('')}</div>` : '';
-  return `<div class="assignment-editor"><div class="assignment-head"><div><h4>Job Assignments</h4><div class="section-copy">${requirements.length ? `Required for ${modalState.formData.jobType}: ${requirements.join(', ')}.` : 'Choose a job type, then add technicians, trucks, trailers, and equipment as needed.'}</div></div><button class="add-btn" type="button" onclick="addAssignmentRow()">+ Add Assignment</button></div>${suggestionMarkup}<div class="assignment-list">${modalState.assignments.length ? modalState.assignments.map((assignment) => renderAssignmentRow(assignment)).join('') : '<div class="empty-state">No assignments added yet.</div>'}</div><div class="form-hint">Selecting a technician auto-fills their default truck when no truck is assigned. You can swap to another vehicle or clear the truck from this editor at any time.</div></div>`;
+  const suggestionMarkup = suggestions.length ? `<div class="assignment-defaults">${suggestions.map(({ employee, defaultTruck }) => `<div class="assignment-default-row"><div><div class="item-title">${esc(employee.employeeName || 'Employee')}</div><div class="muted">Default truck ${esc(defaultTruck.unitNumber || 'Unnamed truck')}</div></div><div class="table-actions"><button class="act-btn" type="button" onclick="applyTechnicianDefaultTruck('${esc(employee.id)}', true)" ${currentTruck?.resourceId === defaultTruck.id ? 'disabled' : ''}>Use Default Truck</button>${currentTruck ? `<button class="act-btn danger" type="button" onclick="clearModalTruckAssignment()">Clear Truck</button>` : ''}</div></div>`).join('')}</div>` : '';
+  return `<div class="assignment-editor"><div class="assignment-head"><div><h4>Job Assignments</h4><div class="section-copy">${requirements.length ? `Required for ${modalState.formData.jobType}: ${requirements.join(', ')}.` : 'Choose a job type, then add employees, trucks, trailers, and equipment as needed.'}</div></div><button class="add-btn" type="button" onclick="addAssignmentRow()">+ Add Assignment</button></div>${suggestionMarkup}<div class="assignment-list">${modalState.assignments.length ? modalState.assignments.map((assignment) => renderAssignmentRow(assignment)).join('') : '<div class="empty-state">No assignments added yet.</div>'}</div><div class="form-hint">Selecting an employee auto-fills their default truck when no truck is assigned. You can swap to another vehicle or clear the truck from this editor at any time.</div></div>`;
 }
 
 function renderModal(){
@@ -1257,6 +1280,10 @@ function renderModal(){
 }
 
 function openEntityModal(entityKey, id = ''){
+  if(entityKey === 'employees'){
+    window.location.href = 'employees.html';
+    return;
+  }
   const existing = id ? state.data[entityKey].find((row) => row.id === id) : null;
   const draft = existing ? clone(existing) : getNewRecordDraft(entityKey);
   const directoryClientId = state.activeView === 'directory' ? getActiveDirectoryClientId() : (state.filters.directoryClient !== 'all' ? state.filters.directoryClient : '');
@@ -1265,7 +1292,6 @@ function openEntityModal(entityKey, id = ''){
     if(['projects', 'contacts', 'billingProfiles', 'sites', 'jobs'].includes(entityKey) && directoryClientId) draft.clientId = directoryClientId;
     if(['contacts', 'billingProfiles', 'sites', 'jobs'].includes(entityKey) && directoryProjectId && directoryProjectId !== 'all') draft.projectId = directoryProjectId;
   }
-  if(entityKey === 'technicians') draft.defaultTruckId = existing ? (getDefaultTruckForTechnician(existing.id)?.id || '') : '';
   if(entityKey === 'sites' && draft.projectId && !draft.clientId){
     const project = getProject(draft.projectId);
     if(project) draft.clientId = project.clientId;
@@ -1349,7 +1375,7 @@ function changeSampleClient(value){ modalState.formData.clientId = value; const 
 function changeMaintenanceAssetType(value){ modalState.formData.assetType = value; modalState.formData.assetId = ''; renderModal(); }
 function changeTruckAssignedTechnician(value){
   modalState.formData.assignedTechnicianId = value;
-  const tech = state.data.technicians.find((row) => row.id === value) || null;
+  const tech = state.data.employees.find((row) => row.id === value) || null;
   modalState.formData.currentDriver = tech?.employeeName || '';
   renderModal();
 }
@@ -1438,7 +1464,7 @@ function validateModal(){
     const missing = getJobMissingRequirements({ ...formData, id:modalState.id || 'draft' }, modalState.assignments);
     if(missing.length) return `This ${formData.jobType} job still needs: ${missing.join(', ')}.`;
   }
-  if(entityKey === 'technicians' && !String(formData.employeeName || '').trim()) return 'Technician name is required.';
+  if(entityKey === 'employees' && !String(formData.employeeName || '').trim()) return 'Employee name is required.';
   if(entityKey === 'trucks' && !String(formData.unitNumber || '').trim()) return 'Truck unit number is required.';
   if(entityKey === 'trailers' && !String(formData.trailerNumber || '').trim()) return 'Trailer number is required.';
   if(entityKey === 'equipment' && !String(formData.equipmentName || '').trim()) return 'Equipment name is required.';
@@ -1457,11 +1483,6 @@ function syncTechnicianDefaultTruckLocal(next, technicianRecord){
   const defaultTruckId = String(technicianRecord.defaultTruckId || '');
   const technicianId = technicianRecord.id;
   const technicianName = technicianRecord.employeeName || '';
-  next.technicians = next.technicians.map((row) => {
-    if(row.id === technicianId) return { ...row, defaultTruckId };
-    if(defaultTruckId && row.defaultTruckId === defaultTruckId) return { ...row, defaultTruckId:'' };
-    return row;
-  });
   next.trucks = next.trucks.map((truck) => {
     if(defaultTruckId && truck.id === defaultTruckId) return { ...truck, assignedTechnicianId:technicianId, currentDriver:technicianName };
     if(truck.assignedTechnicianId === technicianId) return clearTruckTechnicianAssignment(truck);
@@ -1471,7 +1492,7 @@ function syncTechnicianDefaultTruckLocal(next, technicianRecord){
 
 function syncTruckTechnicianLocal(next, truckRecord){
   const technicianId = String(truckRecord.assignedTechnicianId || '');
-  const technicianName = technicianId ? (next.technicians.find((row) => row.id === technicianId)?.employeeName || truckRecord.currentDriver || '') : '';
+  const technicianName = technicianId ? (next.employees.find((row) => row.id === technicianId)?.employeeName || truckRecord.currentDriver || '') : '';
   const normalizedTruck = technicianId
     ? { ...truckRecord, currentDriver:technicianName }
     : { ...truckRecord, currentDriver:'' };
@@ -1479,11 +1500,6 @@ function syncTruckTechnicianLocal(next, truckRecord){
     if(truck.id === normalizedTruck.id) return normalizedTruck;
     if(technicianId && truck.assignedTechnicianId === technicianId) return clearTruckTechnicianAssignment(truck);
     return truck;
-  });
-  next.technicians = next.technicians.map((row) => {
-    if(row.id === technicianId) return { ...row, defaultTruckId:normalizedTruck.id };
-    if(row.defaultTruckId === normalizedTruck.id) return { ...row, defaultTruckId:'' };
-    return row;
   });
 }
 
@@ -1497,7 +1513,7 @@ async function saveLocalRecord(entityKey, draft){
   const normalizedDraft = entityKey === 'clients' ? { ...draft, clientCode:normalizeClientCode(draft.clientCode) } : draft;
   const record = normalizeRecord(entityKey, { ...existing, ...normalizedDraft, id:normalizedDraft.id || existing?.id || uid(cfg.idPrefix), createdAt:existing?.createdAt || now, updatedAt:now });
   if(existingIndex >= 0) list[existingIndex] = record; else list.unshift(record);
-  if(entityKey === 'technicians') syncTechnicianDefaultTruckLocal(next, record);
+  if(entityKey === 'employees') syncTechnicianDefaultTruckLocal(next, record);
   if(entityKey === 'trucks') syncTruckTechnicianLocal(next, record);
   await persistLocal(next);
   return record.id;
@@ -1563,7 +1579,7 @@ async function syncRemoteTruckAssignmentsForTruck(truckId, technicianId, technic
   await remoteRepository.patchByQuery(ENTITY_CONFIG.trucks.table, `assigned_technician_id=eq.${encodeURIComponent(technicianId)}&id=neq.${encodeURIComponent(truckId)}`, buildRemoteTruckAssignmentPayload(null));
 }
 async function saveRemoteTechnicianRecord(draft){
-  const recordId = await remoteRepository.saveRecord('technicians', draft);
+  const recordId = await remoteRepository.saveRecord('employees', draft);
   await syncRemoteTruckAssignmentsForTechnician(recordId, draft.employeeName || '', String(draft.defaultTruckId || ''));
   return recordId;
 }
@@ -1586,7 +1602,7 @@ async function saveRemoteAssetRecord(entityKey, draft){
   }
   if(entityKey === 'trucks'){
     const technicianId = String(draft.assignedTechnicianId || '');
-    const technicianName = technicianId ? (state.data.technicians.find((row) => row.id === technicianId)?.employeeName || draft.currentDriver || '') : '';
+    const technicianName = technicianId ? (state.data.employees.find((row) => row.id === technicianId)?.employeeName || draft.currentDriver || '') : '';
     if(technicianId) await syncRemoteTruckAssignmentsForTruck(recordId, technicianId, technicianName);
   }
   return recordId;
@@ -1603,7 +1619,7 @@ async function saveEntityFromModal(){
       if(isRemoteMode()){ await saveRemoteJob(modalState.formData, modalState.assignments); await loadData({ silent:true, force:true }); }
       else await saveLocalJob(modalState.formData, modalState.assignments);
     } else if(isRemoteMode()){
-      if(modalState.entity === 'technicians') await saveRemoteTechnicianRecord(modalState.formData);
+      if(modalState.entity === 'employees') await saveRemoteTechnicianRecord(modalState.formData);
       else if(isAssetPhotoEntity(modalState.entity)) await saveRemoteAssetRecord(modalState.entity, modalState.formData);
       else await remoteRepository.saveRecord(modalState.entity, modalState.formData);
       await loadData({ silent:true, force:true });
@@ -1642,8 +1658,8 @@ function buildLocalDeleteResult(entityKey, id){
     next.contacts = next.contacts.filter((row) => row.siteId !== id);
   }
   else if(entityKey === 'jobs'){ next.jobs = next.jobs.filter((row) => row.id !== id); next.jobAssignments = next.jobAssignments.filter((row) => row.jobId !== id); next.samples = next.samples.filter((row) => row.jobId !== id); }
-  else if(entityKey === 'technicians'){ next.technicians = next.technicians.filter((row) => row.id !== id); next.trucks = next.trucks.map((row) => row.assignedTechnicianId === id ? { ...row, assignedTechnicianId:'', currentDriver:'' } : row); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Technician' && row.resourceId === id)); }
-  else if(entityKey === 'trucks'){ next.trucks = next.trucks.filter((row) => row.id !== id); next.technicians = next.technicians.map((row) => row.defaultTruckId === id ? { ...row, defaultTruckId:'' } : row); next.trailers = next.trailers.map((row) => row.assignedTruckId === id ? { ...row, assignedTruckId:'' } : row); next.equipment = next.equipment.map((row) => row.assignedTruckId === id ? { ...row, assignedTruckId:'', assignedTrailerTruck:row.assignedTrailerId ? getTrailerLabel(row.assignedTrailerId) : '' } : row); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Truck' && row.resourceId === id)); next.maintenanceRecords = next.maintenanceRecords.filter((row) => !(row.assetType === 'Truck' && row.assetId === id)); }
+  else if(entityKey === 'employees'){ next.employees = next.employees.filter((row) => row.id !== id); next.trucks = next.trucks.map((row) => row.assignedTechnicianId === id ? { ...row, assignedTechnicianId:'', currentDriver:'' } : row); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Technician' && row.resourceId === id)); }
+  else if(entityKey === 'trucks'){ next.trucks = next.trucks.filter((row) => row.id !== id); next.trailers = next.trailers.map((row) => row.assignedTruckId === id ? { ...row, assignedTruckId:'' } : row); next.equipment = next.equipment.map((row) => row.assignedTruckId === id ? { ...row, assignedTruckId:'', assignedTrailerTruck:row.assignedTrailerId ? getTrailerLabel(row.assignedTrailerId) : '' } : row); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Truck' && row.resourceId === id)); next.maintenanceRecords = next.maintenanceRecords.filter((row) => !(row.assetType === 'Truck' && row.assetId === id)); }
   else if(entityKey === 'trailers'){ next.trailers = next.trailers.filter((row) => row.id !== id); next.equipment = next.equipment.map((row) => row.assignedTrailerId === id ? { ...row, assignedTrailerId:'', assignedTrailerTruck:row.assignedTruckId ? getTruckLabel(row.assignedTruckId) : '' } : row); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Trailer' && row.resourceId === id)); next.maintenanceRecords = next.maintenanceRecords.filter((row) => !(row.assetType === 'Trailer' && row.assetId === id)); }
   else if(entityKey === 'equipment'){ next.equipment = next.equipment.filter((row) => row.id !== id); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Equipment' && row.resourceId === id)); next.maintenanceRecords = next.maintenanceRecords.filter((row) => !(row.assetType === 'Equipment' && row.assetId === id)); }
   else next[entityKey] = next[entityKey].filter((row) => row.id !== id);
@@ -1669,7 +1685,7 @@ async function deleteEntityRecord(entityKey, id){
   try {
     if(isRemoteMode()){
       const existing = state.data[entityKey]?.find((row) => row.id === id) || null;
-      if(entityKey === 'technicians'){ await remoteRepository.updateWhere(ENTITY_CONFIG.trucks.table, [{ column:'assigned_technician_id', value:id }], buildRemoteTruckAssignmentPayload(null)); await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'assignment_type', value:'Technician' }, { column:'resource_id', value:id }]); }
+      if(entityKey === 'employees'){ await remoteRepository.updateWhere(ENTITY_CONFIG.trucks.table, [{ column:'assigned_technician_id', value:id }], buildRemoteTruckAssignmentPayload(null)); await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'assignment_type', value:'Technician' }, { column:'resource_id', value:id }]); }
       if(entityKey === 'trucks'){ await remoteRepository.updateWhere(ENTITY_CONFIG.trailers.table, [{ column:'assigned_truck_id', value:id }], { assigned_truck_id:null }); await remoteRepository.updateWhere(ENTITY_CONFIG.equipment.table, [{ column:'assigned_truck_id', value:id }], { assigned_truck_id:null, assigned_trailer_truck:'' }); await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'assignment_type', value:'Truck' }, { column:'resource_id', value:id }]); await remoteRepository.deleteWhere(ENTITY_CONFIG.maintenanceRecords.table, [{ column:'asset_type', value:'Truck' }, { column:'asset_id', value:id }]); }
       if(entityKey === 'trailers'){ await remoteRepository.updateWhere(ENTITY_CONFIG.equipment.table, [{ column:'assigned_trailer_id', value:id }], { assigned_trailer_id:null, assigned_trailer_truck:'' }); await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'assignment_type', value:'Trailer' }, { column:'resource_id', value:id }]); await remoteRepository.deleteWhere(ENTITY_CONFIG.maintenanceRecords.table, [{ column:'asset_type', value:'Trailer' }, { column:'asset_id', value:id }]); }
       if(entityKey === 'equipment'){ await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'assignment_type', value:'Equipment' }, { column:'resource_id', value:id }]); await remoteRepository.deleteWhere(ENTITY_CONFIG.maintenanceRecords.table, [{ column:'asset_type', value:'Equipment' }, { column:'asset_id', value:id }]); }

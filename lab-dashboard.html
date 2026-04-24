@@ -27,6 +27,7 @@
 <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
 <button class="sec-btn" onclick="window.location.href='index.html'">Home</button>
 <button class="sec-btn" onclick="window.location.href='clients.html'">Clients</button>
+<button class="sec-btn" onclick="window.location.href='employees.html'">Employees</button>
 <button class="sec-btn" onclick="window.location.href='field-dashboard.html'">Field Ops</button>
 <button class="sec-btn" onclick="window.location.href='SureMap/SPLClientMap.HTML'">SureMap</button>
 <button class="sec-btn" onclick="window.location.href='import.html'">Import Data</button>
@@ -237,9 +238,12 @@
 </div>
 </div>
 <div class="schedule-row">
-<input type="text" id="employee-input" class="form-input" placeholder="Add employee..." style="width:220px">
-<button class="add-wo-btn" onclick="addEmployee()">+ Add Employee</button>
-<span class="split-hint">Assign one tech per test type on each scheduled work order.</span>
+<select id="employee-input" class="form-input" style="width:260px">
+<option value="">Select employee...</option>
+</select>
+<button class="add-wo-btn" onclick="addEmployee()">+ Add To Roster</button>
+<button class="sec-btn" onclick="window.location.href='employees.html'">Open Directory</button>
+<span class="split-hint">Select the daily roster from shared Lab / Both employees, then assign one person per test type.</span>
 </div>
 <div id="employee-list" class="employee-list">
 </div>

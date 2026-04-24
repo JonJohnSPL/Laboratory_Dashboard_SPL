@@ -487,6 +487,33 @@ create table if not exists public.field_job_assignments (
   updated_by uuid
 );
 
+create table if not exists public.employees (
+  id uuid primary key default gen_random_uuid(),
+  employee_name text not null default '',
+  work_scope text not null default 'Field' check (work_scope in ('Lab', 'Field', 'Both')),
+  lab_role text not null default '',
+  field_role text not null default '',
+  can_sample_transport boolean not null default false,
+  phone text not null default '',
+  email text not null default '',
+  notes text not null default '',
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+
+alter table public.employees add column if not exists employee_name text not null default '';
+alter table public.employees add column if not exists work_scope text not null default 'Field';
+alter table public.employees add column if not exists lab_role text not null default '';
+alter table public.employees add column if not exists field_role text not null default '';
+alter table public.employees add column if not exists can_sample_transport boolean not null default false;
+alter table public.employees add column if not exists phone text not null default '';
+alter table public.employees add column if not exists email text not null default '';
+alter table public.employees add column if not exists notes text not null default '';
+alter table public.employees drop constraint if exists employees_work_scope_check;
+alter table public.employees add constraint employees_work_scope_check check (work_scope in ('Lab', 'Field', 'Both'));
+
 create table if not exists public.field_technicians (
   id uuid primary key default gen_random_uuid(),
   employee_name text not null default '',
@@ -504,6 +531,40 @@ alter table public.field_technicians drop column if exists certifications;
 alter table public.field_technicians drop column if exists api_safety_training_status;
 alter table public.field_technicians drop column if exists availability_status;
 alter table public.field_technicians drop column if exists skill_tags;
+
+insert into public.employees (
+  employee_name,
+  work_scope,
+  lab_role,
+  field_role,
+  can_sample_transport,
+  phone,
+  email,
+  notes,
+  created_at,
+  updated_at,
+  created_by,
+  updated_by
+)
+select
+  ft.employee_name,
+  'Field',
+  '',
+  ft.role,
+  false,
+  ft.phone,
+  ft.email,
+  ft.notes,
+  ft.created_at,
+  ft.updated_at,
+  ft.created_by,
+  ft.updated_by
+from public.field_technicians ft
+where not exists (
+  select 1
+  from public.employees e
+  where lower(btrim(e.employee_name)) = lower(btrim(ft.employee_name))
+);
 
 create table if not exists public.field_trucks (
   id uuid primary key default gen_random_uuid(),
@@ -678,6 +739,7 @@ declare
     'field_sites',
     'field_jobs',
     'field_job_assignments',
+    'employees',
     'field_technicians',
     'field_trucks',
     'field_trailers',

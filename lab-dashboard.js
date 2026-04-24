@@ -32,11 +32,11 @@ let modalSampleGroupKeys = [];
 let expandedSampleGroups = new Set();
 let modalPdfAttachment = null;
 const FIELD_DIRECTORY_STORAGE_KEY = 'field-ops-dashboard-data';
-let sharedDirectory = { clients:[], projects:[] };
+let sharedDirectory = { clients:[], projects:[], employees:[] };
 let lastLoadedSharedDirectorySignature = '';
 let appView = 'queue';
 let scheduleDragIndex = null;
-let scheduleState = {date:'',employees:[],entries:[],tasks:[]};
+let scheduleState = {date:'',rosterEmployeeIds:[],entries:[],tasks:[]};
 let editingTestDefinitionId = null;
 const WO_STAGE = { RUNNING:'running', PENDING:'pending', DONE:'done' };
 function normalizeCatalogKey(raw){ return String(raw || '').trim().toUpperCase().replace(/\s+/g,'_').replace(/[^A-Z0-9_-]/g,''); }
@@ -145,9 +145,27 @@ return WO_STAGE.RUNNING;
 }
 function normalizeSharedClientRecord(src, fromRemote = false){ return { id:String(src?.id || ''), clientName:String((fromRemote ? src?.client_name : src?.clientName) || ''), clientCode:normalizeClientCode(fromRemote ? src?.client_code : src?.clientCode), serviceScope:String((fromRemote ? src?.service_scope : src?.serviceScope) || 'Field') }; }
 function normalizeSharedProjectRecord(src, fromRemote = false){ return { id:String(src?.id || ''), clientId:String((fromRemote ? src?.client_id : src?.clientId) || ''), projectName:String((fromRemote ? src?.project_name : src?.projectName) || ''), serviceScope:String((fromRemote ? src?.service_scope : src?.serviceScope) || 'Field'), projectStatus:String((fromRemote ? src?.project_status : src?.projectStatus) || 'Active') }; }
+function normalizeSharedEmployeeRecord(src, fromRemote = false){ return { id:String(src?.id || ''), employeeName:String((fromRemote ? src?.employee_name : src?.employeeName) || ''), workScope:String((fromRemote ? src?.work_scope : src?.workScope) || 'Field'), labRole:String((fromRemote ? src?.lab_role : src?.labRole) || ''), fieldRole:String((fromRemote ? src?.field_role : src?.fieldRole) || ''), canSampleTransport:!!(fromRemote ? src?.can_sample_transport : src?.canSampleTransport), phone:String((fromRemote ? src?.phone : src?.phone) || ''), email:String((fromRemote ? src?.email : src?.email) || ''), notes:String((fromRemote ? src?.notes : src?.notes) || '') }; }
 function getSharedClientRecord(clientId){ return sharedDirectory.clients.find(client => client.id === clientId) || null; }
 function getSharedClientRecordByCode(clientCode){ const normalized = normalizeClientCode(clientCode); return normalized ? (sharedDirectory.clients.find(client => client.clientCode === normalized) || null) : null; }
 function getSharedProjectRecord(projectId){ return sharedDirectory.projects.find(project => project.id === projectId) || null; }
+function getSharedEmployeeRecord(employeeId){ return sharedDirectory.employees.find(employee => employee.id === employeeId) || null; }
+function getSharedEmployeeName(employeeId){ return getSharedEmployeeRecord(employeeId)?.employeeName || 'Unassigned'; }
+function getLabRosterEmployees(){ return sharedDirectory.employees.filter(employee => ['Lab', 'Both'].includes(employee.workScope || '')); }
+function deriveSharedEmployeesFromLegacy(source){
+  const technicians = Array.isArray(source?.technicians) ? source.technicians : [];
+  return technicians.map(row => normalizeSharedEmployeeRecord({
+    id: row?.id || uid(),
+    employeeName: row?.employeeName || row?.employee_name || '',
+    workScope: 'Field',
+    labRole: '',
+    fieldRole: row?.role || 'Field Tech',
+    canSampleTransport: false,
+    phone: row?.phone || '',
+    email: row?.email || '',
+    notes: row?.notes || ''
+  }));
+}
 function getWorkOrderClientLabel(workOrder){ return (getSharedClientRecord(String(workOrder?.clientId || '')) || getSharedClientRecordByCode(workOrder?.clientCode || (!workOrder?.clientId ? workOrder?.client : '')))?.clientName || String(workOrder?.client || '').trim() || 'Unassigned client'; }
 function getWorkOrderProjectLabel(workOrder){ return getSharedProjectRecord(String(workOrder?.projectId || ''))?.projectName || 'Not linked'; }
 function formatSharedClientOptionLabel(client){
@@ -157,15 +175,17 @@ function formatSharedClientOptionLabel(client){
 }
 async function loadSharedDirectory(){
   try {
-    let next = { clients:[], projects:[] };
+    let next = { clients:[], projects:[], employees:[] };
     if(isRemoteStorageMode()){
-      const [clients, projects] = await Promise.all([
+      const [clients, projects, employees] = await Promise.all([
         window.appAuth.requestJson('/rest/v1/field_clients?select=id,client_name,client_code,service_scope'),
-        window.appAuth.requestJson('/rest/v1/field_projects?select=id,client_id,project_name,service_scope,project_status')
+        window.appAuth.requestJson('/rest/v1/field_projects?select=id,client_id,project_name,service_scope,project_status'),
+        window.appAuth.requestJson('/rest/v1/employees?select=id,employee_name,work_scope,lab_role,field_role,can_sample_transport,phone,email,notes')
       ]);
       next = {
         clients:(Array.isArray(clients) ? clients : []).map(row => normalizeSharedClientRecord(row, true)).filter(row => row.id),
-        projects:(Array.isArray(projects) ? projects : []).map(row => normalizeSharedProjectRecord(row, true)).filter(row => row.id)
+        projects:(Array.isArray(projects) ? projects : []).map(row => normalizeSharedProjectRecord(row, true)).filter(row => row.id),
+        employees:(Array.isArray(employees) ? employees : []).map(row => normalizeSharedEmployeeRecord(row, true)).filter(row => row.id)
       };
     } else {
       const raw = localStorage.getItem(FIELD_DIRECTORY_STORAGE_KEY);
@@ -173,12 +193,14 @@ async function loadSharedDirectory(){
         const parsed = JSON.parse(raw);
         next = {
           clients:(Array.isArray(parsed?.clients) ? parsed.clients : []).map(row => normalizeSharedClientRecord(row)).filter(row => row.id),
-          projects:(Array.isArray(parsed?.projects) ? parsed.projects : []).map(row => normalizeSharedProjectRecord(row)).filter(row => row.id)
+          projects:(Array.isArray(parsed?.projects) ? parsed.projects : []).map(row => normalizeSharedProjectRecord(row)).filter(row => row.id),
+          employees:(Array.isArray(parsed?.employees) && parsed.employees.length ? parsed.employees : deriveSharedEmployeesFromLegacy(parsed)).map(row => normalizeSharedEmployeeRecord(row)).filter(row => row.id)
         };
       }
     }
     next.clients.sort((a, b) => a.clientName.localeCompare(b.clientName));
     next.projects.sort((a, b) => a.projectName.localeCompare(b.projectName));
+    next.employees.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
     const signature = JSON.stringify(next);
     if(signature === lastLoadedSharedDirectorySignature) return false;
     sharedDirectory = next;
@@ -223,7 +245,7 @@ const m = String(d.getMonth()+1).padStart(2,'0');
 const day = String(d.getDate()).padStart(2,'0');
 return `${y}-${m}-${day}`; };
 const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-const inferTypeFromCode = code => normalizeTestCode(code); setTestDefinitions(getDefaultTestDefinitions()); scheduleState = {date:todayISO(),employees:[],entries:[],tasks:[]}; (function tick(){ const n=new Date(); document.getElementById('clock').textContent=n.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); document.getElementById('datedisp').textContent=n.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'}); setTimeout(tick,1000); })();
+const inferTypeFromCode = code => normalizeTestCode(code); setTestDefinitions(getDefaultTestDefinitions()); scheduleState = {date:todayISO(),rosterEmployeeIds:[],entries:[],tasks:[]}; (function tick(){ const n=new Date(); document.getElementById('clock').textContent=n.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); document.getElementById('datedisp').textContent=n.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'}); setTimeout(tick,1000); })();
 function clickSort(f){ if(sortState.field===f) sortState.dir=sortState.dir==='asc'?'desc':'asc'; else{sortState.field=f;sortState.dir='asc';} document.getElementById('sort-field').value=f; document.getElementById('sort-dir').value=sortState.dir; render(); }
 function sortByPriority(){ sortState = {field:'priority',dir:'asc'}; document.getElementById('sort-field').value='priority'; document.getElementById('sort-dir').value='asc'; render(); }
 function getSorted(){ const f=document.getElementById('sort-field').value;
@@ -248,19 +270,33 @@ function switchView(view){ appView = view === 'schedule' ? 'schedule' : view ===
 if(appView === 'schedule') renderSchedule(); else render();
 }
 function getOpenScheduleTaskMap(){ const map = new Map(); getOpenWOsSorted().forEach(wo => { map.set(wo.id, wo); }); return map; }
-function normalizeScheduleAssignmentsForWO(wo, assignments, employeeSet){
+function buildEmployeeNameLookup(){
+const lookup = new Map();
+sharedDirectory.employees.forEach(employee => {
+const key = String(employee.employeeName || '').trim().toLowerCase();
+if(key && !lookup.has(key)) lookup.set(key, employee.id);
+});
+return lookup;
+}
+function normalizeEmployeeIdValue(value, employeeSet, nameLookup){
+const raw = String(value || '').trim();
+if(!raw) return '';
+if(employeeSet.has(raw)) return raw;
+return nameLookup.get(raw.toLowerCase()) || '';
+}
+function normalizeScheduleAssignmentsForWO(wo, assignments, employeeSet, nameLookup){
 const validKeys = new Set(getSchedulableTasksForWO(wo).filter(item => item.assignable !== false).map(item => item.assignmentKey));
 const normalized = {};
 Object.entries(assignments && typeof assignments === 'object' ? assignments : {}).forEach(([key, value]) => {
 const assignmentKey = String(key || '').trim();
-const tech = String(value || '').trim();
-if(!assignmentKey || !tech || !validKeys.has(assignmentKey) || !employeeSet.has(tech)) return;
-normalized[assignmentKey] = tech;
+const employeeId = normalizeEmployeeIdValue(value, employeeSet, nameLookup);
+if(!assignmentKey || !employeeId || !validKeys.has(assignmentKey)) return;
+normalized[assignmentKey] = employeeId;
 });
 return normalized;
 }
 function getScheduleAssignmentsForWO(wo, assignments = {}){
-return getSchedulableTasksForWO(wo).map(item => ({ ...item, tech:item.assignable === false ? '' : String(assignments?.[item.assignmentKey] || '').trim() }));
+return getSchedulableTasksForWO(wo).map(item => { const techId = item.assignable === false ? '' : String(assignments?.[item.assignmentKey] || '').trim(); return { ...item, techId, tech:item.assignable === false ? '' : (techId ? getSharedEmployeeName(techId) : '') }; });
 }
 function collectAssignmentTechs(items){
 return [...new Set((Array.isArray(items) ? items : []).filter(item => item?.assignable !== false).map(item => String(item?.tech || '').trim()).filter(Boolean))];
@@ -276,11 +312,14 @@ return parts.length ? parts.join(' | ') : 'No test assignments';
 }
 function normalizeScheduleState(){ if(!scheduleState || typeof scheduleState !== 'object') scheduleState = {};
 if(!scheduleState.date) scheduleState.date = todayISO();
-if(!Array.isArray(scheduleState.employees)) scheduleState.employees = [];
+if(!Array.isArray(scheduleState.rosterEmployeeIds)) scheduleState.rosterEmployeeIds = Array.isArray(scheduleState.employees) ? scheduleState.employees : [];
 if(!Array.isArray(scheduleState.entries)) scheduleState.entries = [];
 if(!Array.isArray(scheduleState.tasks)) scheduleState.tasks = [];
-scheduleState.employees = [...new Set(scheduleState.employees.map(name => String(name || '').trim()).filter(Boolean))];
-const employeeSet = new Set(scheduleState.employees);
+const labEmployeeIds = new Set(getLabRosterEmployees().map(employee => employee.id));
+const nameLookup = buildEmployeeNameLookup();
+scheduleState.rosterEmployeeIds = [...new Set(scheduleState.rosterEmployeeIds.map(value => normalizeEmployeeIdValue(value, labEmployeeIds, nameLookup)).filter(Boolean))];
+const employeeSet = new Set(scheduleState.rosterEmployeeIds);
+delete scheduleState.employees;
 const runningWOs = getOpenWOsSorted();
 const woMap = new Map(runningWOs.map(wo => [wo.id, wo]));
 const normalizedEntries = [];
@@ -301,7 +340,7 @@ const wo = woMap.get(woId);
 const isCurrentShape = entry && typeof entry === 'object' && !entry.taskKey && !Array.isArray(entry.assignees) && entry.assignments && typeof entry.assignments === 'object';
 if(isCurrentShape){
 if(seenWOIds.has(woId)) return;
-normalizedEntries.push({ woId, assignments:normalizeScheduleAssignmentsForWO(wo, entry.assignments, employeeSet), notes:String(entry.notes || '') });
+normalizedEntries.push({ woId, assignments:normalizeScheduleAssignmentsForWO(wo, entry.assignments, employeeSet, nameLookup), notes:String(entry.notes || '') });
 seenWOIds.add(woId);
 return;
 }
@@ -322,27 +361,27 @@ if(!wo) return;
 let notes = '';
 let assignments = {};
 if(group.mode === 'assignees'){
-const legacyAssignees = [...new Set(group.items.flatMap(item => Array.isArray(item?.assignees) ? item.assignees : []).map(name => String(name || '').trim()).filter(name => employeeSet.has(name)))];
+const legacyAssignees = [...new Set(group.items.flatMap(item => Array.isArray(item?.assignees) ? item.assignees : []).map(name => normalizeEmployeeIdValue(name, employeeSet, nameLookup)).filter(Boolean))];
 notes = group.items.map(item => String(item?.notes || '')).find(Boolean) || '';
 assignments = {};
 getSchedulableTasksForWO(wo).forEach((item, index) => {
-const tech = legacyAssignees.length ? legacyAssignees[index % legacyAssignees.length] : '';
-if(tech) assignments[item.assignmentKey] = tech;
+const employeeId = legacyAssignees.length ? legacyAssignees[index % legacyAssignees.length] : '';
+if(employeeId) assignments[item.assignmentKey] = employeeId;
 });
 } else {
 notes = group.items.map(item => String(item?.notes || '')).find(Boolean) || '';
 assignments = {};
 group.items.forEach(item => {
 const assignmentKey = buildScheduleAssignmentKey(item?.testType || '');
-const tech = String(item?.tech || '').trim();
-if(!assignments[assignmentKey] && tech) assignments[assignmentKey] = tech;
+const employeeId = normalizeEmployeeIdValue(item?.tech || item?.employeeId || '', employeeSet, nameLookup);
+if(!assignments[assignmentKey] && employeeId) assignments[assignmentKey] = employeeId;
 });
 }
-normalizedEntries.push({ woId:group.woId, assignments:normalizeScheduleAssignmentsForWO(wo, assignments, employeeSet), notes });
+normalizedEntries.push({ woId:group.woId, assignments:normalizeScheduleAssignmentsForWO(wo, assignments, employeeSet, nameLookup), notes });
 seenWOIds.add(group.woId);
 });
 scheduleState.entries = normalizedEntries;
-scheduleState.tasks = scheduleState.tasks.map(task => ({ id: String(task?.id || uid()), employee: String(task?.employee || '').trim(), name: String(task?.name || '').trim(), minutes: Number(task?.minutes || 0) })).filter(task => task.employee && employeeSet.has(task.employee) && task.name).map(task => ({ ...task, minutes: task.minutes > 0 ? task.minutes : 0 }));
+scheduleState.tasks = scheduleState.tasks.map(task => ({ id: String(task?.id || uid()), employeeId: normalizeEmployeeIdValue(task?.employeeId || task?.employee || '', employeeSet, nameLookup), name: String(task?.name || '').trim(), minutes: Number(task?.minutes || 0) })).filter(task => task.employeeId && employeeSet.has(task.employeeId) && task.name).map(task => ({ ...task, minutes: task.minutes > 0 ? task.minutes : 0 }));
 }
 function getOpenWOsSorted(){ const arr = WOs.filter(w => w.stage === WO_STAGE.RUNNING);
 const now = new Date(); now.setHours(0,0,0,0);
@@ -367,23 +406,23 @@ const assignedMinutes = assignmentItems.reduce((sum, item) => sum + (item.tech ?
 return { entry, wo, order:index + 1, assignmentItems, assignmentMap:{ ...(entry.assignments || {}) }, assignedTechs, totalMinutes, assignedMinutes, unassignedMinutes:Math.max(0, totalMinutes - assignedMinutes), matrixType:getPrimaryMatrixGroup(wo) };
 }).filter(Boolean);
 }
-function buildEmployeePlan(rows){ const plan = new Map(scheduleState.employees.map(name => [name, {name, minutes:0, items:[]}]));
-const unassigned = {name:'Unassigned', minutes:0, items:[]};
+function buildEmployeePlan(rows){ const plan = new Map(scheduleState.rosterEmployeeIds.map(employeeId => [employeeId, { employeeId, name:getSharedEmployeeName(employeeId), minutes:0, items:[] }]));
+const unassigned = {employeeId:'', name:'Unassigned', minutes:0, items:[]};
 for(const row of rows){
 row.assignmentItems.forEach(item => {
 if(item.assignable === false) return;
-const owner = String(item.tech || '').trim();
-const target = owner ? (plan.get(owner) || {name:owner, minutes:0, items:[]}) : unassigned;
-if(owner && !plan.has(owner)) plan.set(owner, target);
+const ownerId = String(item.techId || '').trim();
+const target = ownerId ? (plan.get(ownerId) || { employeeId:ownerId, name:getSharedEmployeeName(ownerId), minutes:0, items:[] }) : unassigned;
+if(ownerId && !plan.has(ownerId)) plan.set(ownerId, target);
 target.minutes += Number(item.taskMinutes || 0);
 target.items.push({ order:row.order, woNumber:row.wo.number, testType:item.label, quantity:Number(item.quantity || 0), minutes:Number(item.taskMinutes || 0) });
 });
 }
-const out = [...plan.values()].filter(p => p.minutes > 0 || scheduleState.employees.includes(p.name));
+const out = [...plan.values()].filter(p => p.minutes > 0 || scheduleState.rosterEmployeeIds.includes(p.employeeId));
 if(unassigned.minutes > 0) out.push(unassigned); out.sort((a,b) => b.minutes - a.minutes);
 return out;
 }
-function getEmployeeTasks(employeeName){ return scheduleState.tasks.filter(task => task.employee === employeeName); }
+function getEmployeeTasks(employeeId){ return scheduleState.tasks.filter(task => task.employeeId === employeeId); }
 function getWOAssigneeList(w){ const entry = scheduleState.entries.find(item => item.woId === w?.id); if(!entry) return []; const wo = WOs.find(item => item.id === w?.id); if(!wo) return []; return collectAssignmentTechs(getScheduleAssignmentsForWO(wo, entry.assignments)); }
 function getWOAssigneeLabel(w){ const assignees = getWOAssigneeList(w); return assignees.length ? assignees.join(' | ') : 'Unassigned'; }
 function getFilteredWorkOrders(){ const showDone = document.getElementById('show-done').checked;
@@ -418,9 +457,9 @@ syncWorkOrderModalActions(editId);
 }
 function buildReportData(scope = '__master__'){ const rows = getScheduleRows().map(row => ({ ...row, matrixType:row.matrixType || getPrimaryMatrixGroup(row.wo) }));
 const isMaster = !scope || scope === '__master__';
-const employeeName = isMaster ? 'Master Report' : scope;
+const employeeName = isMaster ? 'Master Report' : getSharedEmployeeName(scope);
 const filteredRows = rows.map(row => {
-const reportAssignmentItems = isMaster ? row.assignmentItems : row.assignmentItems.filter(item => item.tech === scope);
+const reportAssignmentItems = isMaster ? row.assignmentItems : row.assignmentItems.filter(item => item.techId === scope);
 return { ...row, reportAssignmentItems, reportTechs:collectAssignmentTechs(reportAssignmentItems), reportMinutes:reportAssignmentItems.reduce((sum, item) => sum + Number(item.taskMinutes || 0), 0) };
 }).filter(row => isMaster ? true : row.reportAssignmentItems.length > 0);
 const gasRows = filteredRows.map(row => {
@@ -430,28 +469,28 @@ return { ...row, reportAssignmentItems:gasAssignmentItems, reportTechs:collectAs
 }).filter(Boolean);
 const liquidSampleRows = getLiquidLaneRows(filteredRows, isMaster ? '' : scope);
 const plan = buildEmployeePlan(rows);
-const filteredPlan = isMaster ? plan : plan.filter(p => p.name === scope);
-const reportEmployees = isMaster ? scheduleState.employees : [scope];
-const taskBuckets = reportEmployees.filter(name => !!name).map(name => ({ name, tasks:getEmployeeTasks(name) }));
+const filteredPlan = isMaster ? plan : plan.filter(p => p.employeeId === scope);
+const reportEmployees = isMaster ? scheduleState.rosterEmployeeIds : [scope];
+const taskBuckets = reportEmployees.filter(employeeId => !!employeeId).map(employeeId => ({ employeeId, name:getSharedEmployeeName(employeeId), tasks:getEmployeeTasks(employeeId) }));
 const hasTasks = taskBuckets.some(bucket => bucket.tasks.length);
 return { isMaster, employeeName, rows, filteredRows, gasRows, liquidSampleRows, plan:filteredPlan, taskBuckets, hasTasks };
 }
 function renderPrintTargetOptions(){ const select = document.getElementById('print-report-target');
 if(!select) return;
 const current = select.value || '__master__';
-select.innerHTML = ['<option value="__master__">Master Report</option>', ...scheduleState.employees.map(name => `<option value="${esc(name)}">${esc(name)}</option>`)].join('');
-select.value = scheduleState.employees.includes(current) || current === '__master__' ? current : '__master__';
+select.innerHTML = ['<option value="__master__">Master Report</option>', ...scheduleState.rosterEmployeeIds.map(employeeId => `<option value="${esc(employeeId)}">${esc(getSharedEmployeeName(employeeId))}</option>`)].join('');
+select.value = scheduleState.rosterEmployeeIds.includes(current) || current === '__master__' ? current : '__master__';
 }
 function renderTaskEmployeeOptions(){ const select = document.getElementById('task-employee-select');
 if(!select) return;
 const current = select.value || '';
-select.innerHTML = ['<option value="">Select employee...</option>', ...scheduleState.employees.map(name => `<option value="${esc(name)}">${esc(name)}</option>`)].join('');
-select.value = scheduleState.employees.includes(current) ? current : '';
+select.innerHTML = ['<option value="">Select employee...</option>', ...scheduleState.rosterEmployeeIds.map(employeeId => `<option value="${esc(employeeId)}">${esc(getSharedEmployeeName(employeeId))}</option>`)].join('');
+select.value = scheduleState.rosterEmployeeIds.includes(current) ? current : '';
 }
 function renderTaskList(){ const taskList = document.getElementById('task-list');
 if(!taskList) return;
-if(!scheduleState.employees.length){ taskList.innerHTML = '<div class="task-empty">Add employees before assigning tasks.</div>'; return; }
-const buckets = scheduleState.employees.map(name => ({ name, tasks:getEmployeeTasks(name) }));
+if(!scheduleState.rosterEmployeeIds.length){ taskList.innerHTML = '<div class="task-empty">Add roster employees before assigning tasks.</div>'; return; }
+const buckets = scheduleState.rosterEmployeeIds.map(employeeId => ({ employeeId, name:getSharedEmployeeName(employeeId), tasks:getEmployeeTasks(employeeId) }));
 if(!buckets.some(bucket => bucket.tasks.length)){ taskList.innerHTML = '<div class="task-empty">No additional tasks assigned yet.</div>'; return; }
 taskList.innerHTML = buckets.filter(bucket => bucket.tasks.length).map(bucket => { const totalMinutes = bucket.tasks.reduce((sum, task) => sum + Number(task.minutes || 0), 0);
 return ` <div class="task-card"> <div class="task-card-head"> <div class="task-card-name">${esc(bucket.name)}</div> <div class="task-card-total">${totalMinutes ? fmtMOrZero(totalMinutes) : 'No time set'}</div> </div> <div class="task-card-lines"> ${bucket.tasks.map(task => `<div><span>${esc(task.name)}${task.minutes ? ` (${fmtMOrZero(task.minutes)})` : ''}</span><button class="act-btn" type="button" onclick="removeEmployeeTask('${esc(task.id)}')">Remove</button></div>`).join('')} </div> </div> `;
@@ -526,7 +565,7 @@ return ''; }
 function isLiquidSampleRecord(sample){ return normalizeMatrixBucket(sample?.matrix) === 'Liquid'; }
 function isLiquidScheduleTask(task){ if(!task || task.isFallback) return false; if(task.matrixType === 'Liquid') return true; if(normalizeMatrixBucket(task.matrixType) === 'Liquid') return true; if(normalizeMatrixBucket(task.matrix) === 'Liquid') return true; return !!task.testType && isLiquidTestCode(task.testType); }
 function getLiquidSamplesForWO(w){ const samples = Array.isArray(w?.samples) ? w.samples : []; if(samples.length){ return samples.map((sample, sampleIndex) => ({ sampleId:String(sample?.sampleId || `UNASSIGNED-${sampleIndex + 1}`), matrix:String(sample?.matrix || ''), hydrocarbon:normalizeHydrocarbonCode(sample?.hydrocarbon), sourceIndex:sampleIndex })).filter(sample => isLiquidSampleRecord(sample)); } const rows = Array.isArray(w?.testRows) ? w.testRows : []; const grouped = new Map(); rows.forEach((row, rowIndex) => { const sampleId = String(row?.sampleId || `UNASSIGNED-${rowIndex + 1}`); if(!grouped.has(sampleId)) grouped.set(sampleId, { sampleId, matrix:String(row?.matrix || ''), hydrocarbon:normalizeHydrocarbonCode(row?.hydrocarbon), sourceIndex:rowIndex, hasLiquidTest:false }); const sample = grouped.get(sampleId); if(!sample.matrix) sample.matrix = String(row?.matrix || ''); if(!sample.hydrocarbon) sample.hydrocarbon = normalizeHydrocarbonCode(row?.hydrocarbon); if(isLiquidTestCode(row?.testCode || row?.type)) sample.hasLiquidTest = true; }); return [...grouped.values()].filter(sample => isLiquidSampleRecord(sample) || sample.hasLiquidTest); }
-function getLiquidLaneRows(scheduleRows, techScope = ''){ const grouped = new Map(); scheduleRows.forEach(row => { const taskRows = getScheduleTaskRowsForWO(row.wo); const liquidSamples = getLiquidSamplesForWO(row.wo); liquidSamples.forEach(sample => { const liquidTypes = [...new Set(taskRows.filter(task => String(task.sampleId || '') === String(sample.sampleId || '') && isLiquidScheduleTask(task)).map(task => task.testType).filter(Boolean))]; const techs = new Set(); liquidTypes.forEach(testType => { const tech = String(row.assignmentMap?.[buildScheduleAssignmentKey(testType)] || '').trim(); if(tech && (!techScope || tech === techScope)) techs.add(tech); }); if(techScope && !techs.size) return; const key = `${row.wo.id}::${sample.sampleId}`; if(!grouped.has(key)) grouped.set(key, { wo:row.wo, scheduleOrder:row.order, sampleId:String(sample.sampleId || 'UNASSIGNED'), hydrocarbon:sample.hydrocarbon || '', hydrocarbonRank:getHydrocarbonRank(sample.hydrocarbon), sourceIndex:Number(sample.sourceIndex || 0), techs:new Set(), }); const lane = grouped.get(key); lane.scheduleOrder = Math.min(lane.scheduleOrder, row.order); if(!lane.hydrocarbon && sample.hydrocarbon) lane.hydrocarbon = sample.hydrocarbon; lane.hydrocarbonRank = getHydrocarbonRank(lane.hydrocarbon); lane.sourceIndex = Math.min(lane.sourceIndex, Number(sample.sourceIndex || 0)); techs.forEach(name => lane.techs.add(name)); }); }); const laneRows = [...grouped.values()]; laneRows.sort((a,b) => { if(a.hydrocarbonRank !== b.hydrocarbonRank) return a.hydrocarbonRank - b.hydrocarbonRank; if(a.scheduleOrder !== b.scheduleOrder) return a.scheduleOrder - b.scheduleOrder; if(a.sourceIndex !== b.sourceIndex) return a.sourceIndex - b.sourceIndex; return a.sampleId.localeCompare(b.sampleId); }); return laneRows.map((row, index) => ({ ...row, assignees:[...row.techs], laneOrder:index + 1 })); }
+function getLiquidLaneRows(scheduleRows, techScope = ''){ const grouped = new Map(); scheduleRows.forEach(row => { const taskRows = getScheduleTaskRowsForWO(row.wo); const liquidSamples = getLiquidSamplesForWO(row.wo); liquidSamples.forEach(sample => { const liquidTypes = [...new Set(taskRows.filter(task => String(task.sampleId || '') === String(sample.sampleId || '') && isLiquidScheduleTask(task)).map(task => task.testType).filter(Boolean))]; const techIds = new Set(); liquidTypes.forEach(testType => { const techId = String(row.assignmentMap?.[buildScheduleAssignmentKey(testType)] || '').trim(); if(techId && (!techScope || techId === techScope)) techIds.add(techId); }); if(techScope && !techIds.size) return; const key = `${row.wo.id}::${sample.sampleId}`; if(!grouped.has(key)) grouped.set(key, { wo:row.wo, scheduleOrder:row.order, sampleId:String(sample.sampleId || 'UNASSIGNED'), hydrocarbon:sample.hydrocarbon || '', hydrocarbonRank:getHydrocarbonRank(sample.hydrocarbon), sourceIndex:Number(sample.sourceIndex || 0), techIds:new Set(), }); const lane = grouped.get(key); lane.scheduleOrder = Math.min(lane.scheduleOrder, row.order); if(!lane.hydrocarbon && sample.hydrocarbon) lane.hydrocarbon = sample.hydrocarbon; lane.hydrocarbonRank = getHydrocarbonRank(lane.hydrocarbon); lane.sourceIndex = Math.min(lane.sourceIndex, Number(sample.sourceIndex || 0)); techIds.forEach(employeeId => lane.techIds.add(employeeId)); }); }); const laneRows = [...grouped.values()]; laneRows.sort((a,b) => { if(a.hydrocarbonRank !== b.hydrocarbonRank) return a.hydrocarbonRank - b.hydrocarbonRank; if(a.scheduleOrder !== b.scheduleOrder) return a.scheduleOrder - b.scheduleOrder; if(a.sourceIndex !== b.sourceIndex) return a.sourceIndex - b.sourceIndex; return a.sampleId.localeCompare(b.sampleId); }); return laneRows.map((row, index) => ({ ...row, assignees:[...row.techIds].map(employeeId => getSharedEmployeeName(employeeId)).filter(Boolean), laneOrder:index + 1 })); }
 function updateSampleHydrocarbon(woId, sampleId, hydrocarbon){ const wo = WOs.find(item => item.id === woId); if(!wo) return; const nextCode = normalizeHydrocarbonCode(hydrocarbon); if(Array.isArray(wo.samples)){ wo.samples.forEach(sample => { if(String(sample?.sampleId || '') === String(sampleId || '')) sample.hydrocarbon = nextCode; }); } if(Array.isArray(wo.testRows)){ wo.testRows.forEach(row => { if(String(row?.sampleId || '') === String(sampleId || '')) row.hydrocarbon = nextCode; }); } render(); scheduleSave(); }
 function getPrimaryMatrixGroup(w){ let gas = 0;
 let liquid = 0;
@@ -539,10 +578,16 @@ return gas >= liquid ? 'Gas' : 'Liquid'; }
 function renderSchedule(){ normalizeScheduleState();
 const schedDate = document.getElementById('sched-date');
 if(schedDate) schedDate.value = scheduleState.date || todayISO();
+const employeeInput = document.getElementById('employee-input');
+if(employeeInput){
+const current = employeeInput.value || '';
+employeeInput.innerHTML = ['<option value="">Select employee...</option>', ...getLabRosterEmployees().map(employee => `<option value="${esc(employee.id)}">${esc(employee.employeeName)}</option>`)].join('');
+employeeInput.value = getLabRosterEmployees().some(employee => employee.id === current) ? current : '';
+}
 renderPrintTargetOptions();
 renderTaskEmployeeOptions();
 const employeeList = document.getElementById('employee-list');
-if(!scheduleState.employees.length){ employeeList.innerHTML = '<span class="split-hint">No employees added yet.</span>'; } else { employeeList.innerHTML = scheduleState.employees.map((name, idx) => ` <span class="employee-chip">${esc(name)} <button title="Remove employee" onclick="removeEmployee(${idx})">x</button></span> `).join(''); }
+if(!scheduleState.rosterEmployeeIds.length){ employeeList.innerHTML = '<span class="split-hint">No employees on the daily roster yet.</span>'; } else { employeeList.innerHTML = scheduleState.rosterEmployeeIds.map((employeeId, idx) => ` <span class="employee-chip">${esc(getSharedEmployeeName(employeeId))} <button title="Remove employee" onclick="removeEmployee(${idx})">x</button></span> `).join(''); }
 const openWOs = getOpenWOsSorted();
 const rows = getScheduleRows();
 const scheduledWOIds = new Set(rows.map(row => row.wo.id));
@@ -552,7 +597,7 @@ const unscheduledCounts = aggregateTaskCounts(unscheduledWOs.flatMap(wo => getSc
 document.getElementById('sch-wo').textContent = rows.length;
 document.getElementById('sch-unscheduled').textContent = unscheduledWOs.length;
 document.getElementById('sch-time').textContent = fmtMOrZero(rows.reduce((sum, row) => sum + row.totalMinutes, 0));
-document.getElementById('sch-employees').textContent = scheduleState.employees.length;
+document.getElementById('sch-employees').textContent = scheduleState.rosterEmployeeIds.length;
 const testSummaryEl = document.getElementById('schedule-test-summary');
 if(testSummaryEl){ testSummaryEl.innerHTML = ` <div><strong>Scheduled:</strong> ${formatCountsSummary(scheduledCounts)}</div> <div class="test-summary-line"><strong>Remaining:</strong> ${formatCountsSummary(unscheduledCounts)}</div> `; }
 const unscheduledList = document.getElementById('unscheduled-list');
@@ -574,10 +619,10 @@ const assignmentRows = row.assignmentItems.map(item => {
 if(item.assignable === false){
 return ` <div class="schedule-task-row"> <div> <div class="schedule-task-name">${esc(item.label)}${item.quantity > 1 ? ` | Qty ${item.quantity}` : ''}</div> <div class="schedule-sub">${fmtMOrZero(item.taskMinutes)} | Auto-calculated | ${esc(item.matrixType || 'Unknown Matrix')}</div> </div> <div class="schedule-assignees"><span class="split-hint">Automatic</span></div> </div> `;
 }
-const techButtons = scheduleState.employees.length ? scheduleState.employees.map((name, empIndex) => {
-const active = item.tech === name;
-return `<button type="button" class="assignee-btn ${active ? 'on' : ''}" onclick="assignWorkOrderTest(${index}, '${esc(item.assignmentKey)}', ${empIndex})">${esc(name)}</button>`;
-}).join('') : '<span class="split-hint">Add employees above to assign this test type.</span>';
+const techButtons = scheduleState.rosterEmployeeIds.length ? scheduleState.rosterEmployeeIds.map((employeeId, empIndex) => {
+const active = item.techId === employeeId;
+return `<button type="button" class="assignee-btn ${active ? 'on' : ''}" onclick="assignWorkOrderTest(${index}, '${esc(item.assignmentKey)}', ${empIndex})">${esc(getSharedEmployeeName(employeeId))}</button>`;
+}).join('') : '<span class="split-hint">Add roster employees above to assign this test type.</span>';
 return ` <div class="schedule-task-row"> <div> <div class="schedule-task-name">${esc(item.label)}${item.quantity > 1 ? ` | Qty ${item.quantity}` : ''}</div> <div class="schedule-sub">${fmtMOrZero(item.taskMinutes)} | ${esc(item.tech || 'Unassigned')} | ${esc(item.matrixType || 'Unknown Matrix')}</div> </div> <div class="schedule-assignees">${techButtons}</div> </div> `;
 }).join('');
 return ` <div class="schedule-item run-item" draggable="true" data-index="${index}" ondragstart="onScheduleDragStart(event)" ondragover="onScheduleDragOver(event)" ondrop="onScheduleDrop(event)" ondragend="onScheduleDragEnd()"> <div class="schedule-item-main"> <div class="run-rank">#${row.order}</div> <div> <div class="schedule-title">${esc(row.wo.number)} | ${esc(getWorkOrderClientLabel(row.wo))}</div> <div class="schedule-sub">${row.wo.projectId ? `${esc(getWorkOrderProjectLabel(row.wo))} | ` : ''}Priority ${esc(row.wo.priority || 'NONE')} | Due ${fmtDate(row.wo.dueDate) || 'Not set'} | ${fmtMOrZero(row.totalMinutes)}</div> <div class="schedule-sub">${esc(assigneeLabel)} | ${esc(buildAssignmentSummary(row.assignmentItems, false))}</div> </div> <button class="act-btn" onclick="removeFromSchedule(${index})">Remove</button> </div> <div class="schedule-task-list">${assignmentRows}</div> <div class="schedule-notes"> <textarea placeholder="Work order notes..." oninput="updateScheduleNotes(${index}, this.value)">${esc(row.entry.notes || '')}</textarea> </div> </div> `;
@@ -589,26 +634,25 @@ const plan = buildEmployeePlan(rows);
 const planNode = document.getElementById('employee-plan');
 const planSummary = document.getElementById('employee-plan-summary');
 if(planSummary){ const totalPlan = plan.reduce((sum, p) => sum + p.minutes, 0); planSummary.textContent = `${plan.length} workload bucket(s) | ${fmtMOrZero(totalPlan)}`; }
-if(!plan.length){ planNode.innerHTML = '<div class="schedule-empty">Add employees and assign test types to build workloads.</div>'; } else { planNode.innerHTML = plan.map(p => ` <div class="plan-card"> <div class="plan-name">${esc(p.name)}</div> <div class="plan-total">${fmtMOrZero(Math.round(p.minutes))}</div> <div class="plan-lines"> ${p.items.length ? p.items.map(item => `<div>#${item.order} WO ${esc(item.woNumber)} | ${esc(item.testType)}${item.quantity > 1 ? ` x${item.quantity}` : ''} (${fmtMOrZero(Math.round(item.minutes))})</div>`).join('') : '<div>No assigned test work.</div>'} </div> </div> `).join(''); }
+if(!plan.length){ planNode.innerHTML = '<div class="schedule-empty">Add employees to the roster and assign test types to build workloads.</div>'; } else { planNode.innerHTML = plan.map(p => ` <div class="plan-card"> <div class="plan-name">${esc(p.name)}</div> <div class="plan-total">${fmtMOrZero(Math.round(p.minutes))}</div> <div class="plan-lines"> ${p.items.length ? p.items.map(item => `<div>#${item.order} WO ${esc(item.woNumber)} | ${esc(item.testType)}${item.quantity > 1 ? ` x${item.quantity}` : ''} (${fmtMOrZero(Math.round(item.minutes))})</div>`).join('') : '<div>No assigned test work.</div>'} </div> </div> `).join(''); }
 renderTaskList();
 }
 function changeScheduleDate(value){ scheduleState.date = value || todayISO(); renderSchedule(); scheduleSave();
 }
 function addEmployee(){ const input = document.getElementById('employee-input');
-const raw = (input.value || '').trim();
-if(!raw) return;
-const exists = scheduleState.employees.some(name => name.toLowerCase() === raw.toLowerCase());
-if(!exists) scheduleState.employees.push(raw); input.value = ''; normalizeScheduleState(); renderSchedule(); scheduleSave();
+const employeeId = String(input.value || '').trim();
+if(!employeeId) return;
+if(!scheduleState.rosterEmployeeIds.includes(employeeId)) scheduleState.rosterEmployeeIds.push(employeeId); input.value = ''; normalizeScheduleState(); renderSchedule(); scheduleSave();
 }
-function removeEmployee(index){ if(index < 0 || index >= scheduleState.employees.length) return; scheduleState.employees.splice(index, 1); normalizeScheduleState(); render(); scheduleSave();
+function removeEmployee(index){ if(index < 0 || index >= scheduleState.rosterEmployeeIds.length) return; scheduleState.rosterEmployeeIds.splice(index, 1); normalizeScheduleState(); render(); scheduleSave();
 }
-function addEmployeeTask(){ const employee = String(document.getElementById('task-employee-select')?.value || '').trim();
+function addEmployeeTask(){ const employeeId = String(document.getElementById('task-employee-select')?.value || '').trim();
 const name = String(document.getElementById('task-name-input')?.value || '').trim();
 const minutesRaw = document.getElementById('task-time-input')?.value;
 const minutes = Number(minutesRaw || 0);
-if(!employee){ alert('Select an employee for the task.'); return; }
+if(!employeeId){ alert('Select an employee for the task.'); return; }
 if(!name){ alert('Task name is required.'); return; }
-scheduleState.tasks.push({ id:uid(), employee, name, minutes: minutes > 0 ? minutes : 0 });
+scheduleState.tasks.push({ id:uid(), employeeId, name, minutes: minutes > 0 ? minutes : 0 });
 document.getElementById('task-name-input').value = '';
 document.getElementById('task-time-input').value = '';
 renderSchedule(); scheduleSave();
@@ -624,8 +668,8 @@ function addToSchedule(woId){ normalizeScheduleState(); const workOrderId = Stri
 function removeFromSchedule(index){ if(index < 0 || index >= scheduleState.entries.length) return; scheduleState.entries.splice(index, 1); render(); scheduleSave();
 }
 function assignWorkOrderTest(scheduleIndex, assignmentKey, employeeIndex){ const entry = scheduleState.entries[scheduleIndex];
-const name = scheduleState.employees[employeeIndex];
-if(!entry || !name) return;
+const employeeId = scheduleState.rosterEmployeeIds[employeeIndex];
+if(!entry || !employeeId) return;
 if(!entry.assignments || typeof entry.assignments !== 'object') entry.assignments = {};
 const key = String(assignmentKey || '').trim();
 if(!key) return;
@@ -633,7 +677,7 @@ const wo = WOs.find(item => item.id === entry.woId && item.stage === WO_STAGE.RU
 if(!wo) return;
 const assignableKeys = new Set(getSchedulableTasksForWO(wo).filter(item => item.assignable !== false).map(item => item.assignmentKey));
 if(!assignableKeys.has(key)) return;
-entry.assignments[key] = entry.assignments[key] === name ? '' : name;
+entry.assignments[key] = entry.assignments[key] === employeeId ? '' : employeeId;
 if(!entry.assignments[key]) delete entry.assignments[key];
 normalizeScheduleState(); render(); scheduleSave();
 }
@@ -665,7 +709,7 @@ scheduleState.entries = getOpenWOsSorted().map(wo => { const prior = existing.ge
 function csvEsc(value){ return `"${String(value ?? '').replace(/"/g, '""')}"`;
 }
 function exportRunOrderCsv(){ const rows = getScheduleRows();
-if(!rows.length){ alert('No scheduled work to export.'); return; } const lines = [ ['Schedule Date','Run Order','WO Number','Client','Priority','Due Date','Total Minutes','Assigned Techs','Test Assignments','Notes'].map(csvEsc).join(',') ];
+if(!rows.length){ alert('No scheduled work to export.'); return; } const lines = [ ['Schedule Date','Run Order','WO Number','Client','Priority','Due Date','Total Minutes','Assigned Employees','Test Assignments','Notes'].map(csvEsc).join(',') ];
 for(const row of rows){ lines.push([ scheduleState.date || todayISO(), row.order, row.wo.number || '', getWorkOrderClientLabel(row.wo), row.wo.priority || 'NONE', row.wo.dueDate || '', row.totalMinutes, row.assignedTechs.join(' | ') || 'Unassigned', buildAssignmentSummary(row.assignmentItems, true), row.entry.notes || '' ].map(csvEsc).join(',')); } const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
 const url = URL.createObjectURL(blob);
 const a = document.createElement('a'); a.href = url; a.download = `run-order-${scheduleState.date || todayISO()}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
@@ -682,7 +726,7 @@ const liquidSampleRows = report.liquidSampleRows.length ? report.liquidSampleRow
 const planRows = report.plan.length ? report.plan.map(p => ` <tr> <td>${esc(p.name)}</td> <td>${fmtMOrZero(Math.round(p.minutes))}</td> <td>${esc(p.items.map(item => `#${item.order} ${item.woNumber} ${item.testType}${item.quantity > 1 ? ` x${item.quantity}` : ''}`.trim()).join(' | ')) || 'No assigned test work'}</td> </tr> `).join('') : '<tr><td colspan="3">No workload assigned.</td></tr>';
 const taskRows = report.taskBuckets.length ? report.taskBuckets.map(bucket => bucket.tasks.length ? bucket.tasks.map((task, index) => ` <tr> <td>${index === 0 ? esc(bucket.name) : ''}</td> <td>${esc(task.name)}</td> <td>${task.minutes ? fmtMOrZero(task.minutes) : 'Not set'}</td> </tr> `).join('') : ` <tr><td>${esc(bucket.name)}</td><td>No additional tasks</td><td>Not set</td></tr> `).join('') : '<tr><td colspan="3">No additional tasks assigned.</td></tr>';
 const reportTitle = report.isMaster ? 'Daily Run Order - Master Report' : `Daily Run Order - ${report.employeeName}`;
-const html = `<!doctype html> <html> <head> <meta charset="utf-8"> <title>${esc(reportTitle)} ${esc(scheduleState.date || todayISO())}</title> <style> body{font-family:Arial,sans-serif;padding:20px;color:#111;} h1{margin:0 0 4px 0;font-size:24px;} .meta{color:#444;margin-bottom:16px;} table{width:100%;border-collapse:collapse;margin-top:8px;margin-bottom:20px;} th,td{border:1px solid #bbb;padding:6px 8px;font-size:12px;vertical-align:top;text-align:left;} th{background:#f2f2f2;} h2{margin:18px 0 6px 0;font-size:16px;} h3{margin:10px 0 6px 0;font-size:14px;} </style> </head> <body> <h1>${esc(reportTitle)}</h1> <div class="meta">Schedule Date: ${esc(scheduleState.date || todayISO())}</div> <table> <thead> <tr><th>Run</th><th>WO</th><th>Client</th><th>Priority</th><th>Due Date</th><th>Minutes</th><th>Assigned Techs</th><th>Test Assignments</th><th>Notes</th></tr> </thead> <tbody>${runRows}</tbody> </table> <h2>Lane Split</h2> <h3>1. Gas Lane</h3> <table> <thead> <tr><th>Run</th><th>WO</th><th>Client</th><th>Minutes</th><th>Assigned Techs</th><th>Gas Assignments</th></tr> </thead> <tbody>${laneRows(report.gasRows)}</tbody> </table> <h3>2. Liquid Lane</h3> <table> <thead> <tr><th>Lane</th><th>WO</th><th>Client</th><th>Sample</th><th>Hydrocarbon</th><th>Assignees</th></tr> </thead> <tbody>${liquidSampleRows}</tbody> </table> <h2>Employee Workload</h2> <table> <thead> <tr><th>Employee</th><th>Total Time</th><th>Assigned Run Steps</th></tr> </thead> <tbody>${planRows}</tbody> </table> <h2>Additional Tasks</h2> <table> <thead> <tr><th>Employee</th><th>Task</th><th>Time</th></tr> </thead> <tbody>${taskRows}</tbody> </table> </body> </html>`; win.document.open(); win.document.write(html); win.document.close(); win.focus(); win.print();}
+const html = `<!doctype html> <html> <head> <meta charset="utf-8"> <title>${esc(reportTitle)} ${esc(scheduleState.date || todayISO())}</title> <style> body{font-family:Arial,sans-serif;padding:20px;color:#111;} h1{margin:0 0 4px 0;font-size:24px;} .meta{color:#444;margin-bottom:16px;} table{width:100%;border-collapse:collapse;margin-top:8px;margin-bottom:20px;} th,td{border:1px solid #bbb;padding:6px 8px;font-size:12px;vertical-align:top;text-align:left;} th{background:#f2f2f2;} h2{margin:18px 0 6px 0;font-size:16px;} h3{margin:10px 0 6px 0;font-size:14px;} </style> </head> <body> <h1>${esc(reportTitle)}</h1> <div class="meta">Schedule Date: ${esc(scheduleState.date || todayISO())}</div> <table> <thead> <tr><th>Run</th><th>WO</th><th>Client</th><th>Priority</th><th>Due Date</th><th>Minutes</th><th>Assigned Employees</th><th>Test Assignments</th><th>Notes</th></tr> </thead> <tbody>${runRows}</tbody> </table> <h2>Lane Split</h2> <h3>1. Gas Lane</h3> <table> <thead> <tr><th>Run</th><th>WO</th><th>Client</th><th>Minutes</th><th>Assigned Employees</th><th>Gas Assignments</th></tr> </thead> <tbody>${laneRows(report.gasRows)}</tbody> </table> <h3>2. Liquid Lane</h3> <table> <thead> <tr><th>Lane</th><th>WO</th><th>Client</th><th>Sample</th><th>Hydrocarbon</th><th>Assignees</th></tr> </thead> <tbody>${liquidSampleRows}</tbody> </table> <h2>Employee Workload</h2> <table> <thead> <tr><th>Employee</th><th>Total Time</th><th>Assigned Run Steps</th></tr> </thead> <tbody>${planRows}</tbody> </table> <h2>Additional Tasks</h2> <table> <thead> <tr><th>Employee</th><th>Task</th><th>Time</th></tr> </thead> <tbody>${taskRows}</tbody> </table> </body> </html>`; win.document.open(); win.document.write(html); win.document.close(); win.focus(); win.print();}
 function render(){ const visibleCols = getVisibleColumnCount();
 const grpBy=document.getElementById('grp-by').value;
 const search=document.getElementById('search').value.toLowerCase().trim(); document.querySelectorAll('thead th').forEach(th=>{ th.classList.remove('sorted-asc','sorted-desc'); });
@@ -923,7 +967,7 @@ function isInteractionOverlayOpen(){ return ['modal-overlay','samples-overlay','
 function rememberLoadedState(woRaw, scheduleRaw, testDefinitionsRaw){ lastLoadedWorkOrdersRaw = typeof woRaw === 'string' ? woRaw : ''; lastLoadedScheduleRaw = typeof scheduleRaw === 'string' ? scheduleRaw : ''; lastLoadedTestDefinitionsRaw = typeof testDefinitionsRaw === 'string' ? testDefinitionsRaw : ''; }
 async function saveData() { const storageAdapter = getStorageAdapter(); clearTimeout(saveTimer); saveTimer = null; showSaveStatus('saving', 'SAVING...'); try { normalizeScheduleState(); const woRaw = JSON.stringify(WOs); const scheduleRaw = JSON.stringify(scheduleState); const testDefinitionsRaw = JSON.stringify(getTestDefinitions()); await Promise.all([ storageAdapter.set(STORAGE_KEY, woRaw), storageAdapter.set(SCHEDULE_STORAGE_KEY, scheduleRaw), storageAdapter.set(TEST_DEFINITION_STORAGE_KEY, testDefinitionsRaw) ]); rememberLoadedState(woRaw, scheduleRaw, testDefinitionsRaw); showSaveStatus('saved', 'SAVED'); hideSaveStatusSoon(); } catch (e) { showSaveStatus('error', 'SAVE FAILED'); console.error('Storage save error:', e); } }
 function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(saveData, 600); }
-async function loadData(options = {}) { const silent = !!options.silent; let loadedWOs = false; let loadedSchedule = false; let loadedTestDefinitions = false; let changed = false; let sharedChanged = false; try { const storageAdapter = getStorageAdapter(); const [woResult, scheduleResult, testDefinitionsResult, sharedDirectoryChanged] = await Promise.all([ storageAdapter.get(STORAGE_KEY), storageAdapter.get(SCHEDULE_STORAGE_KEY), storageAdapter.get(TEST_DEFINITION_STORAGE_KEY), loadSharedDirectory() ]); sharedChanged = !!sharedDirectoryChanged; const woRaw = typeof woResult?.value === 'string' ? woResult.value : ''; const scheduleRaw = typeof scheduleResult?.value === 'string' ? scheduleResult.value : ''; const testDefinitionsRaw = typeof testDefinitionsResult?.value === 'string' ? testDefinitionsResult.value : ''; if(woRaw === lastLoadedWorkOrdersRaw && scheduleRaw === lastLoadedScheduleRaw && testDefinitionsRaw === lastLoadedTestDefinitionsRaw && !sharedChanged) return false; if(testDefinitionsRaw) { const parsedTestDefinitions = JSON.parse(testDefinitionsRaw); if(Array.isArray(parsedTestDefinitions) && parsedTestDefinitions.length) { setTestDefinitions(parsedTestDefinitions); loadedTestDefinitions = true; changed = true; } } else if(lastLoadedTestDefinitionsRaw !== '') { setTestDefinitions(getDefaultTestDefinitions()); changed = true; } if(woRaw) { const parsed = JSON.parse(woRaw); if (Array.isArray(parsed)) { WOs = normalizeWorkOrders(parsed); loadedWOs = true; changed = true; } else if(parsed && Array.isArray(parsed.workOrders)) { WOs = normalizeWorkOrders(parsed.workOrders); loadedWOs = true; changed = true; } } else if(lastLoadedWorkOrdersRaw !== '') { WOs = []; changed = true; } if (scheduleRaw) { const parsedSchedule = JSON.parse(scheduleRaw); if(parsedSchedule && typeof parsedSchedule === 'object') { scheduleState = { date: parsedSchedule.date || todayISO(), employees: Array.isArray(parsedSchedule.employees) ? parsedSchedule.employees : [], entries: Array.isArray(parsedSchedule.entries) ? parsedSchedule.entries : [], tasks: Array.isArray(parsedSchedule.tasks) ? parsedSchedule.tasks : [] }; loadedSchedule = true; changed = true; } } else if(lastLoadedScheduleRaw !== '') { scheduleState = {date:todayISO(),employees:[],entries:[],tasks:[]}; changed = true; } normalizeScheduleState(); renderDynamicTestUI(); rememberLoadedState(woRaw, scheduleRaw, testDefinitionsRaw); if (changed || sharedChanged) { render(); renderSchedule(); if (!silent) { showSaveStatus('loaded', `${WOs.length} WOs | ${scheduleState.entries.length} scheduled`); hideSaveStatusSoon(); } } } catch (e) { console.log('No saved data found.'); } return changed || loadedWOs || loadedSchedule || loadedTestDefinitions || sharedChanged; }
+async function loadData(options = {}) { const silent = !!options.silent; let loadedWOs = false; let loadedSchedule = false; let loadedTestDefinitions = false; let changed = false; let sharedChanged = false; try { const storageAdapter = getStorageAdapter(); const [woResult, scheduleResult, testDefinitionsResult, sharedDirectoryChanged] = await Promise.all([ storageAdapter.get(STORAGE_KEY), storageAdapter.get(SCHEDULE_STORAGE_KEY), storageAdapter.get(TEST_DEFINITION_STORAGE_KEY), loadSharedDirectory() ]); sharedChanged = !!sharedDirectoryChanged; const woRaw = typeof woResult?.value === 'string' ? woResult.value : ''; const scheduleRaw = typeof scheduleResult?.value === 'string' ? scheduleResult.value : ''; const testDefinitionsRaw = typeof testDefinitionsResult?.value === 'string' ? testDefinitionsResult.value : ''; if(woRaw === lastLoadedWorkOrdersRaw && scheduleRaw === lastLoadedScheduleRaw && testDefinitionsRaw === lastLoadedTestDefinitionsRaw && !sharedChanged) return false; if(testDefinitionsRaw) { const parsedTestDefinitions = JSON.parse(testDefinitionsRaw); if(Array.isArray(parsedTestDefinitions) && parsedTestDefinitions.length) { setTestDefinitions(parsedTestDefinitions); loadedTestDefinitions = true; changed = true; } } else if(lastLoadedTestDefinitionsRaw !== '') { setTestDefinitions(getDefaultTestDefinitions()); changed = true; } if(woRaw) { const parsed = JSON.parse(woRaw); if (Array.isArray(parsed)) { WOs = normalizeWorkOrders(parsed); loadedWOs = true; changed = true; } else if(parsed && Array.isArray(parsed.workOrders)) { WOs = normalizeWorkOrders(parsed.workOrders); loadedWOs = true; changed = true; } } else if(lastLoadedWorkOrdersRaw !== '') { WOs = []; changed = true; } if (scheduleRaw) { const parsedSchedule = JSON.parse(scheduleRaw); if(parsedSchedule && typeof parsedSchedule === 'object') { scheduleState = { date: parsedSchedule.date || todayISO(), rosterEmployeeIds: Array.isArray(parsedSchedule.rosterEmployeeIds) ? parsedSchedule.rosterEmployeeIds : (Array.isArray(parsedSchedule.employees) ? parsedSchedule.employees : []), entries: Array.isArray(parsedSchedule.entries) ? parsedSchedule.entries : [], tasks: Array.isArray(parsedSchedule.tasks) ? parsedSchedule.tasks : [] }; loadedSchedule = true; changed = true; } } else if(lastLoadedScheduleRaw !== '') { scheduleState = {date:todayISO(),rosterEmployeeIds:[],entries:[],tasks:[]}; changed = true; } normalizeScheduleState(); renderDynamicTestUI(); rememberLoadedState(woRaw, scheduleRaw, testDefinitionsRaw); if (changed || sharedChanged) { render(); renderSchedule(); if (!silent) { showSaveStatus('loaded', `${WOs.length} WOs | ${scheduleState.entries.length} scheduled`); hideSaveStatusSoon(); } } } catch (e) { console.log('No saved data found.'); } return changed || loadedWOs || loadedSchedule || loadedTestDefinitions || sharedChanged; }
 async function refreshFromSharedStorage(){ if(!isRemoteStorageMode() || document.hidden || saveTimer || isInteractionOverlayOpen() || autoRefreshInFlight) return; autoRefreshInFlight = true; try { const changed = await loadData({ silent:true }); if(changed){ showSaveStatus('loaded', 'SYNCED'); hideSaveStatusSoon(1800); } } finally { autoRefreshInFlight = false; } }
 function stopAutoRefresh(){ if(autoRefreshTimer){ clearInterval(autoRefreshTimer); autoRefreshTimer = null; } }
 function startAutoRefresh(){ stopAutoRefresh(); if(!isRemoteStorageMode()) return; autoRefreshTimer = setInterval(() => { refreshFromSharedStorage(); }, AUTO_REFRESH_MS); }
