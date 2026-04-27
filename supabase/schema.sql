@@ -550,6 +550,7 @@ alter table public.field_job_types add column if not exists detail_groups text[]
 alter table public.field_job_types add column if not exists sort_order integer not null default 0;
 alter table public.field_job_types drop constraint if exists field_job_types_schedule_mode_check;
 alter table public.field_job_types add constraint field_job_types_schedule_mode_check check (schedule_mode in ('range', 'point_in_time'));
+create unique index if not exists field_job_types_job_type_key_unique_idx on public.field_job_types(job_type_key);
 
 insert into public.field_job_types (
   job_type_key,
@@ -798,7 +799,6 @@ create index if not exists field_jobs_project_id_idx on public.field_jobs(projec
 create index if not exists field_jobs_site_id_idx on public.field_jobs(site_id);
 create index if not exists field_jobs_status_schedule_idx on public.field_jobs(job_status, scheduled_start);
 create unique index if not exists field_job_assignments_unique_resource_per_job_idx on public.field_job_assignments(job_id, assignment_type, resource_id);
-create unique index if not exists field_job_types_job_type_key_unique_idx on public.field_job_types(job_type_key);
 create unique index if not exists field_job_types_job_type_key_lower_unique_idx on public.field_job_types (lower(job_type_key));
 create index if not exists field_job_types_sort_order_idx on public.field_job_types(sort_order);
 create index if not exists field_samples_job_id_idx on public.field_samples(job_id);
