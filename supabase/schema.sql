@@ -434,6 +434,29 @@ alter table public.field_contacts add column if not exists site_id uuid;
 alter table public.field_contacts drop constraint if exists field_contacts_site_id_fkey;
 alter table public.field_contacts add constraint field_contacts_site_id_fkey foreign key (site_id) references public.field_sites(id) on delete cascade;
 
+create table if not exists public.field_site_projects (
+  id uuid primary key default gen_random_uuid(),
+  site_id uuid not null references public.field_sites(id) on delete cascade,
+  project_id uuid not null references public.field_projects(id) on delete cascade,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid,
+  unique (site_id, project_id)
+);
+alter table public.field_site_projects add column if not exists site_id uuid;
+alter table public.field_site_projects add column if not exists project_id uuid;
+alter table public.field_site_projects drop constraint if exists field_site_projects_site_id_fkey;
+alter table public.field_site_projects add constraint field_site_projects_site_id_fkey foreign key (site_id) references public.field_sites(id) on delete cascade;
+alter table public.field_site_projects drop constraint if exists field_site_projects_project_id_fkey;
+alter table public.field_site_projects add constraint field_site_projects_project_id_fkey foreign key (project_id) references public.field_projects(id) on delete cascade;
+
+insert into public.field_site_projects (site_id, project_id)
+select s.id, s.project_id
+from public.field_sites s
+where s.project_id is not null
+on conflict (site_id, project_id) do nothing;
+
 create table if not exists public.field_jobs (
   id uuid primary key default gen_random_uuid(),
   fieldfx_ticket_id text not null default '',
@@ -471,6 +494,7 @@ create table if not exists public.field_jobs (
 alter table public.field_jobs add column if not exists project_id uuid;
 alter table public.field_jobs drop constraint if exists field_jobs_project_id_fkey;
 alter table public.field_jobs add constraint field_jobs_project_id_fkey foreign key (project_id) references public.field_projects(id) on delete cascade;
+alter table public.field_jobs drop constraint if exists field_jobs_job_type_check;
 
 create table if not exists public.field_job_assignments (
   id uuid primary key default gen_random_uuid(),
@@ -502,6 +526,54 @@ create table if not exists public.employees (
   created_by uuid,
   updated_by uuid
 );
+
+create table if not exists public.field_job_types (
+  id uuid primary key default gen_random_uuid(),
+  job_type_key text not null default '',
+  job_type_name text not null default '',
+  is_active boolean not null default true,
+  schedule_mode text not null default 'range' check (schedule_mode in ('range', 'point_in_time')),
+  required_assignment_types text[] not null default '{}'::text[],
+  detail_groups text[] not null default '{}'::text[],
+  sort_order integer not null default 0,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+alter table public.field_job_types add column if not exists job_type_key text not null default '';
+alter table public.field_job_types add column if not exists job_type_name text not null default '';
+alter table public.field_job_types add column if not exists is_active boolean not null default true;
+alter table public.field_job_types add column if not exists schedule_mode text not null default 'range';
+alter table public.field_job_types add column if not exists required_assignment_types text[] not null default '{}'::text[];
+alter table public.field_job_types add column if not exists detail_groups text[] not null default '{}'::text[];
+alter table public.field_job_types add column if not exists sort_order integer not null default 0;
+alter table public.field_job_types drop constraint if exists field_job_types_schedule_mode_check;
+alter table public.field_job_types add constraint field_job_types_schedule_mode_check check (schedule_mode in ('range', 'point_in_time'));
+
+insert into public.field_job_types (
+  job_type_key,
+  job_type_name,
+  is_active,
+  schedule_mode,
+  required_assignment_types,
+  detail_groups,
+  sort_order
+)
+values
+  ('ALLOCATION_PROVING', 'Allocation Proving', true, 'range', array['Technician', 'Truck', 'Equipment'], array['proving', 'execution'], 10),
+  ('LACT_PROVING', 'LACT Proving', true, 'range', array['Technician', 'Truck', 'Equipment'], array['proving', 'execution'], 20),
+  ('SAMPLE_PICKUP', 'Sample Pickup', true, 'point_in_time', array['Technician', 'Truck'], array['sample_logistics', 'execution'], 30),
+  ('SAMPLE_DROP_OFF', 'Sample Drop-Off', true, 'point_in_time', array['Technician', 'Truck'], array['sample_logistics', 'execution'], 40),
+  ('MAINTENANCE', 'Maintenance', true, 'range', '{}'::text[], array['maintenance', 'execution'], 50),
+  ('MULTI_SERVICE', 'Multi-Service', true, 'range', '{}'::text[], array['proving', 'sample_logistics', 'maintenance', 'execution'], 60)
+on conflict (job_type_key) do update
+set job_type_name = excluded.job_type_name,
+    is_active = excluded.is_active,
+    schedule_mode = excluded.schedule_mode,
+    required_assignment_types = excluded.required_assignment_types,
+    detail_groups = excluded.detail_groups,
+    sort_order = excluded.sort_order;
 
 alter table public.employees add column if not exists employee_name text not null default '';
 alter table public.employees add column if not exists work_scope text not null default 'Field';
@@ -718,11 +790,17 @@ create index if not exists field_contacts_site_id_idx on public.field_contacts(s
 create index if not exists field_billing_profiles_client_id_idx on public.field_billing_profiles(client_id);
 create index if not exists field_billing_profiles_project_id_idx on public.field_billing_profiles(project_id);
 create index if not exists field_sites_project_id_idx on public.field_sites(project_id);
+create unique index if not exists field_site_projects_site_project_unique_idx on public.field_site_projects(site_id, project_id);
+create index if not exists field_site_projects_site_id_idx on public.field_site_projects(site_id);
+create index if not exists field_site_projects_project_id_idx on public.field_site_projects(project_id);
 create index if not exists field_jobs_client_id_idx on public.field_jobs(client_id);
 create index if not exists field_jobs_project_id_idx on public.field_jobs(project_id);
 create index if not exists field_jobs_site_id_idx on public.field_jobs(site_id);
 create index if not exists field_jobs_status_schedule_idx on public.field_jobs(job_status, scheduled_start);
 create unique index if not exists field_job_assignments_unique_resource_per_job_idx on public.field_job_assignments(job_id, assignment_type, resource_id);
+create unique index if not exists field_job_types_job_type_key_unique_idx on public.field_job_types(job_type_key);
+create unique index if not exists field_job_types_job_type_key_lower_unique_idx on public.field_job_types (lower(job_type_key));
+create index if not exists field_job_types_sort_order_idx on public.field_job_types(sort_order);
 create index if not exists field_samples_job_id_idx on public.field_samples(job_id);
 create index if not exists field_samples_coc_status_idx on public.field_samples(chain_of_custody_status);
 create index if not exists field_maintenance_asset_idx on public.field_maintenance_records(asset_type, asset_id);
@@ -737,8 +815,10 @@ declare
     'field_contacts',
     'field_billing_profiles',
     'field_sites',
+    'field_site_projects',
     'field_jobs',
     'field_job_assignments',
+    'field_job_types',
     'employees',
     'field_technicians',
     'field_trucks',

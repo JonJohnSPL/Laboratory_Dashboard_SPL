@@ -25,11 +25,16 @@
       <div data-session-slot></div>
       <div class="nav-row">
         <button class="sec-btn" onclick="window.location.href='index.html'">Home</button>
-        <button class="sec-btn" onclick="window.location.href='lab-dashboard.html'">Lab WIP</button>
         <button class="sec-btn" onclick="window.location.href='field-dashboard.html'">Field Ops</button>
-        <button class="sec-btn" onclick="window.location.href='clients.html'">Clients</button>
-        <button class="sec-btn" onclick="window.location.href='import.html'">Import</button>
+        <button class="sec-btn" onclick="window.location.href='lab-dashboard.html'">Lab WIP</button>
+        <button class="sec-btn" onclick="window.location.href='SureMap/SPLClientMap.HTML'">SureMap</button>
         <button class="sec-btn current" type="button">Employees</button>
+        <button class="sec-btn" onclick="window.location.href='clients.html'">Clients</button>
+      </div>
+      <div class="page-nav-row">
+        <button class="sec-btn" type="button" onclick="document.getElementById('employee-toolbar').scrollIntoView({ behavior:'smooth', block:'start' })">Roster Tools</button>
+        <button class="sec-btn" type="button" onclick="document.getElementById('employee-directory-section').scrollIntoView({ behavior:'smooth', block:'start' })">Directory</button>
+        <button class="sec-btn" type="button" onclick="document.getElementById('employee-policy-section').scrollIntoView({ behavior:'smooth', block:'start' })">Policy Notes</button>
       </div>
       <div id="save-indicator" class="save-indicator" style="visibility:hidden;">Saved</div>
     </div>
@@ -38,7 +43,7 @@
   <div class="employee-shell">
     <div class="stats-bar" id="employee-stats"></div>
 
-    <div class="toolbar">
+    <div class="toolbar" id="employee-toolbar">
       <label>
         Scope
         <select id="scope-filter" onchange="render()">
@@ -57,7 +62,7 @@
     </div>
 
     <div class="employee-hero">
-      <section class="panel">
+      <section class="panel" id="employee-directory-section">
         <div class="panel-header">
           <h2>Directory</h2>
           <div class="panel-meta" id="employee-summary"></div>
@@ -67,7 +72,7 @@
         </div>
       </section>
 
-      <section class="panel">
+      <section class="panel" id="employee-policy-section">
         <div class="panel-header">
           <h2>Policy Notes</h2>
         </div>

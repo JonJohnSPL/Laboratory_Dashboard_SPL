@@ -25,11 +25,15 @@
     <div data-session-slot></div>
     <div class="nav-row">
       <button class="sec-btn" onclick="window.location.href='index.html'">Home</button>
-      <button class="sec-btn" onclick="window.location.href='lab-dashboard.html'">Dashboard</button>
       <button class="sec-btn" onclick="window.location.href='field-dashboard.html'">Field Ops</button>
+      <button class="sec-btn current" onclick="window.location.href='lab-dashboard.html'">Lab WIP</button>
       <button class="sec-btn" onclick="window.location.href='SureMap/SPLClientMap.HTML'">SureMap</button>
-      <button class="sec-btn" onclick="window.location.href='import.html'">Import</button>
+      <button class="sec-btn" onclick="window.location.href='employees.html'">Employees</button>
+      <button class="sec-btn" onclick="window.location.href='clients.html'">Clients</button>
+    </div>
+    <div class="page-nav-row">
       <button class="sec-btn" onclick="window.location.href='standards.html'">Standards</button>
+      <button class="sec-btn" onclick="window.location.href='import.html'">Import</button>
       <button class="sec-btn current" type="button">Test Types</button>
     </div>
     <div id="save-indicator" class="save-indicator" style="visibility:hidden;">Saved</div>
@@ -55,7 +59,7 @@
   </div>
 </div>
 
-<div class="toolbar">
+<div class="toolbar" id="test-types-toolbar">
   <span class="tb-label">Search</span>
   <input id="search-input" type="text" placeholder="Search code, label, alias, or family..." oninput="updateSearch(this.value)">
   <div class="toolbar-spacer"></div>
@@ -63,7 +67,7 @@
 </div>
 
 <div class="standards-layout">
-  <section class="table-container">
+  <section class="table-container" id="test-types-catalog-section">
     <div class="table-header">
       <h2>Test Type Catalog</h2>
       <div class="refresh-time" id="last-update">Loading test types...</div>

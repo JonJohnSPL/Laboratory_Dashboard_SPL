@@ -16,7 +16,7 @@
 <p>WORK IN PROGRESS OPEN WORK ORDERS REAL-TIME STATUS</p>
 </div>
 </div>
-<div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+<div class="header-right">
 <div class="live-clock">
 <span>CURRENT TIME</span>
 <div id="clock">--:--:--</div>
@@ -24,15 +24,18 @@
 </div>
 </div>
 <div data-session-slot></div>
-<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+<div class="nav-row">
 <button class="sec-btn" onclick="window.location.href='index.html'">Home</button>
-<button class="sec-btn" onclick="window.location.href='clients.html'">Clients</button>
-<button class="sec-btn" onclick="window.location.href='employees.html'">Employees</button>
 <button class="sec-btn" onclick="window.location.href='field-dashboard.html'">Field Ops</button>
+<button class="sec-btn current" type="button">Lab WIP</button>
 <button class="sec-btn" onclick="window.location.href='SureMap/SPLClientMap.HTML'">SureMap</button>
-<button class="sec-btn" onclick="window.location.href='import.html'">Import Data</button>
-<button class="sec-btn" onclick="window.location.href='test-types.html'">Test Types</button>
+<button class="sec-btn" onclick="window.location.href='employees.html'">Employees</button>
+<button class="sec-btn" onclick="window.location.href='clients.html'">Clients</button>
+</div>
+<div class="page-nav-row">
 <button class="sec-btn" onclick="window.location.href='standards.html'">Standards</button>
+<button class="sec-btn" onclick="window.location.href='import.html'">Import</button>
+<button class="sec-btn" onclick="window.location.href='test-types.html'">Test Types</button>
 </div>
 <div id="save-indicator" class="save-indicator" style="visibility:hidden"> SAVED</div>
 </div>

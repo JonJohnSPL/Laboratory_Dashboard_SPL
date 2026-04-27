@@ -1,6 +1,6 @@
 const STORAGE_KEY = 'field-ops-dashboard-data';
 const AUTO_REFRESH_MS = 15000;
-const ENTITY_ORDER = ['clients', 'projects', 'contacts', 'billingProfiles', 'sites', 'jobs', 'jobAssignments', 'employees', 'trucks', 'trailers', 'equipment', 'samples', 'maintenanceRecords'];
+const ENTITY_ORDER = ['clients', 'projects', 'contacts', 'billingProfiles', 'sites', 'siteProjects', 'jobTypes', 'jobs', 'jobAssignments', 'employees', 'trucks', 'trailers', 'equipment', 'samples', 'maintenanceRecords'];
 const FIELD_ASSET_BUCKET = 'field-assets';
 const ASSET_PHOTO_ENTITY_KEYS = ['clients', 'trucks', 'trailers', 'equipment'];
 const DEFAULT_ASSET_ICON_PATHS = {
@@ -18,12 +18,12 @@ const PROJECT_STATUS_OPTIONS = ['Planning', 'Active', 'On Hold', 'Complete', 'In
 const CONTACT_SCOPE_OPTIONS = ['Operations', 'Billing', 'Site', 'Field', 'Lab'];
 const SITE_TYPE_OPTIONS = ['Well Site', 'Meter Station', 'Field Site', 'Well Pad', 'LACT Unit', 'Facility', 'Pipeline Location', 'Office / Yard', 'Other'];
 const SITE_STATUS_OPTIONS = ['Active', 'Restricted', 'Inactive'];
-const JOB_TYPE_OPTIONS = ['Allocation Proving', 'LACT Proving', 'Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service'];
 const JOB_STATUS_OPTIONS = ['New', 'Scheduled', 'Dispatched', 'In Progress', 'Waiting', 'Complete', 'Closed', 'Canceled'];
 const PRIORITY_OPTIONS = ['Low', 'Normal', 'High', 'Urgent'];
 const CUSTODY_OPTIONS = ['Allocation', 'Custody', 'Both'];
 const ASSIGNMENT_TYPE_OPTIONS = ['Technician', 'Truck', 'Trailer', 'Equipment'];
 const ASSIGNMENT_STATUS_OPTIONS = ['Assigned', 'Confirmed', 'In Progress', 'Complete'];
+const WORK_SCOPE_OPTIONS = ['Lab', 'Field', 'Both'];
 const LAB_ROLE_OPTIONS = ['Lab Tech', 'Senior Lab Tech', 'Lab Lead', 'Lab Supervisor'];
 const FIELD_ROLE_OPTIONS = ['Field Tech', 'Senior Field Tech', 'Supervisor', 'Manager'];
 const TRUCK_TYPE_OPTIONS = ['Pickup', 'Service Truck', 'Other'];
@@ -40,22 +40,33 @@ const MAINTENANCE_TYPE_OPTIONS = ['Preventive', 'Repair', 'Inspection', 'Calibra
 const MAINTENANCE_STATUS_OPTIONS = ['Open', 'Scheduled', 'In Progress', 'Complete', 'Canceled'];
 const ASSET_TYPE_OPTIONS = ['Truck', 'Trailer', 'Equipment'];
 const VENDOR_INTERNAL_OPTIONS = ['Vendor', 'Internal'];
+const JOB_TYPE_SCHEDULE_MODE_OPTIONS = ['range', 'point_in_time'];
+const JOB_TYPE_DETAIL_GROUP_OPTIONS = [
+  { value:'proving', label:'Proving' },
+  { value:'sample_logistics', label:'Sample Logistics' },
+  { value:'maintenance', label:'Maintenance' },
+  { value:'execution', label:'Execution' }
+];
+const DEFAULT_JOB_TYPE_DEFS = [
+  { jobTypeKey:'ALLOCATION_PROVING', jobTypeName:'Allocation Proving', isActive:true, scheduleMode:'range', requiredAssignmentTypes:['Technician', 'Truck', 'Equipment'], detailGroups:['proving', 'execution'], sortOrder:10 },
+  { jobTypeKey:'LACT_PROVING', jobTypeName:'LACT Proving', isActive:true, scheduleMode:'range', requiredAssignmentTypes:['Technician', 'Truck', 'Equipment'], detailGroups:['proving', 'execution'], sortOrder:20 },
+  { jobTypeKey:'SAMPLE_PICKUP', jobTypeName:'Sample Pickup', isActive:true, scheduleMode:'point_in_time', requiredAssignmentTypes:['Technician', 'Truck'], detailGroups:['sample_logistics', 'execution'], sortOrder:30 },
+  { jobTypeKey:'SAMPLE_DROP_OFF', jobTypeName:'Sample Drop-Off', isActive:true, scheduleMode:'point_in_time', requiredAssignmentTypes:['Technician', 'Truck'], detailGroups:['sample_logistics', 'execution'], sortOrder:40 },
+  { jobTypeKey:'MAINTENANCE', jobTypeName:'Maintenance', isActive:true, scheduleMode:'range', requiredAssignmentTypes:[], detailGroups:['maintenance', 'execution'], sortOrder:50 },
+  { jobTypeKey:'MULTI_SERVICE', jobTypeName:'Multi-Service', isActive:true, scheduleMode:'range', requiredAssignmentTypes:[], detailGroups:['proving', 'sample_logistics', 'maintenance', 'execution'], sortOrder:60 }
+];
 
 const PRIORITY_RANK = { Urgent:0, High:1, Normal:2, Low:3 };
 const RESOURCE_ENTITY_BY_TYPE = { Technician:'employees', Truck:'trucks', Trailer:'trailers', Equipment:'equipment' };
-const REQUIRED_ASSIGNMENTS_BY_JOB_TYPE = {
-  'Allocation Proving':['Technician', 'Truck', 'Equipment'],
-  'LACT Proving':['Technician', 'Truck', 'Equipment'],
-  'Sample Pickup':['Technician', 'Truck'],
-  'Sample Drop-Off':['Technician', 'Truck']
-};
 
 const ENTITY_CONFIG = {
   clients:{ table:'field_clients', label:'Client', idPrefix:'client', defaults:{ clientName:'', clientCode:'', accountStatus:'Active', sector:'Upstream', serviceScope:'Field', primaryContact:'', contactPhone:'', contactEmail:'', billingNotes:'', operationalNotes:'', salesforceAccountId:'', defaultServiceArea:'', hqStreet:'', hqCity:'', hqState:'', hqZip:'', hqLatitude:null, hqLongitude:null, assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'' }, fieldMap:{ clientName:'client_name', clientCode:'client_code', accountStatus:'account_status', sector:'sector', serviceScope:'service_scope', primaryContact:'primary_contact', contactPhone:'contact_phone', contactEmail:'contact_email', billingNotes:'billing_notes', operationalNotes:'operational_notes', salesforceAccountId:'salesforce_account_id', defaultServiceArea:'default_service_area', hqStreet:'hq_street', hqCity:'hq_city', hqState:'hq_state', hqZip:'hq_zip', hqLatitude:'hq_latitude', hqLongitude:'hq_longitude', assetPhotoPath:'logo_path' }, numberFields:['hqLatitude', 'hqLongitude'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
   projects:{ table:'field_projects', label:'Project', idPrefix:'proj', defaults:{ clientId:'', projectName:'', serviceScope:'Field', projectStatus:'Active', startDate:'', endDate:'', notes:'' }, fieldMap:{ clientId:'client_id', projectName:'project_name', serviceScope:'service_scope', projectStatus:'project_status', startDate:'start_date', endDate:'end_date', notes:'notes' }, idFields:['clientId'], dateFields:['startDate', 'endDate'] },
   contacts:{ table:'field_contacts', label:'Contact', idPrefix:'contact', defaults:{ clientId:'', projectId:'', siteId:'', contactName:'', contactRole:'', phone:'', email:'', contactScope:'Operations', isPrimary:false, notes:'' }, fieldMap:{ clientId:'client_id', projectId:'project_id', siteId:'site_id', contactName:'contact_name', contactRole:'contact_role', phone:'phone', email:'email', contactScope:'contact_scope', isPrimary:'is_primary', notes:'notes' }, idFields:['clientId', 'projectId', 'siteId'], booleanFields:['isPrimary'] },
   billingProfiles:{ table:'field_billing_profiles', label:'Billing Profile', idPrefix:'bill', defaults:{ clientId:'', projectId:'', billingName:'', billingAddress:'', billingEmail:'', billingPhone:'', poNumber:'', referenceNumber:'', invoiceNotes:'', fieldBillingNotes:'', labBillingNotes:'', isDefault:false }, fieldMap:{ clientId:'client_id', projectId:'project_id', billingName:'billing_name', billingAddress:'billing_address', billingEmail:'billing_email', billingPhone:'billing_phone', poNumber:'po_number', referenceNumber:'reference_number', invoiceNotes:'invoice_notes', fieldBillingNotes:'field_billing_notes', labBillingNotes:'lab_billing_notes', isDefault:'is_default' }, idFields:['clientId', 'projectId'], booleanFields:['isDefault'] },
-  sites:{ table:'field_sites', label:'Site', idPrefix:'site', defaults:{ clientId:'', projectId:'', siteName:'', siteType:'Other', physicalAddress:'', countyState:'', gpsCoordinates:'', accessInstructions:'', safetyPpeNotes:'', gateCodeEntryRequirements:'', clientSiteContact:'', siteStatus:'Active', standardJobTypes:'', notes:'' }, fieldMap:{ clientId:'client_id', projectId:'project_id', siteName:'site_name', siteType:'site_type', physicalAddress:'physical_address', countyState:'county_state', gpsCoordinates:'gps_coordinates', accessInstructions:'access_instructions', safetyPpeNotes:'safety_ppe_notes', gateCodeEntryRequirements:'gate_code_entry_requirements', clientSiteContact:'client_site_contact', siteStatus:'site_status', standardJobTypes:'standard_job_types', notes:'notes' }, idFields:['clientId', 'projectId'] },
+  sites:{ table:'field_sites', label:'Site/Location', idPrefix:'site', defaults:{ clientId:'', projectId:'', projectIds:[], siteName:'', siteType:'Other', physicalAddress:'', countyState:'', gpsCoordinates:'', accessInstructions:'', safetyPpeNotes:'', gateCodeEntryRequirements:'', clientSiteContact:'', siteStatus:'Active', standardJobTypes:'', notes:'' }, fieldMap:{ clientId:'client_id', projectId:'project_id', siteName:'site_name', siteType:'site_type', physicalAddress:'physical_address', countyState:'county_state', gpsCoordinates:'gps_coordinates', accessInstructions:'access_instructions', safetyPpeNotes:'safety_ppe_notes', gateCodeEntryRequirements:'gate_code_entry_requirements', clientSiteContact:'client_site_contact', siteStatus:'site_status', standardJobTypes:'standard_job_types', notes:'notes' }, idFields:['clientId', 'projectId'], arrayFields:['projectIds'], localOnlyFields:['projectIds'] },
+  siteProjects:{ table:'field_site_projects', label:'Site Project Link', idPrefix:'siteproj', defaults:{ siteId:'', projectId:'' }, fieldMap:{ siteId:'site_id', projectId:'project_id' }, idFields:['siteId', 'projectId'] },
+  jobTypes:{ table:'field_job_types', label:'Job Type', idPrefix:'jobtype', defaults:{ jobTypeKey:'', jobTypeName:'', isActive:true, scheduleMode:'range', requiredAssignmentTypes:[], detailGroups:[], sortOrder:0 }, fieldMap:{ jobTypeKey:'job_type_key', jobTypeName:'job_type_name', isActive:'is_active', scheduleMode:'schedule_mode', requiredAssignmentTypes:'required_assignment_types', detailGroups:'detail_groups', sortOrder:'sort_order' }, booleanFields:['isActive'], numberFields:['sortOrder'], arrayFields:['requiredAssignmentTypes', 'detailGroups'] },
   jobs:{ table:'field_jobs', label:'Job', idPrefix:'job', defaults:{ fieldfxTicketId:'', clientId:'', projectId:'', siteId:'', jobType:'', jobStatus:'New', priority:'Normal', requestedDate:'', scheduledStart:'', scheduledEnd:'', actualStart:'', actualEnd:'', durationPlanned:null, durationActual:null, scopeSummary:'', workInstructions:'', apiStandardReference:'', custodyAllocation:'Allocation', samplesRequired:false, meterUnitId:'', provingRequired:false, maintenanceRequired:false, clientContactForJob:'', dispatchNotes:'', completionNotes:'', followUpRequired:false, followUpNotes:'' }, fieldMap:{ fieldfxTicketId:'fieldfx_ticket_id', clientId:'client_id', projectId:'project_id', siteId:'site_id', jobType:'job_type', jobStatus:'job_status', priority:'priority', requestedDate:'requested_date', scheduledStart:'scheduled_start', scheduledEnd:'scheduled_end', actualStart:'actual_start', actualEnd:'actual_end', durationPlanned:'duration_planned_minutes', durationActual:'duration_actual_minutes', scopeSummary:'scope_summary', workInstructions:'work_instructions', apiStandardReference:'api_standard_reference', custodyAllocation:'custody_allocation', samplesRequired:'samples_required', meterUnitId:'meter_unit_id', provingRequired:'proving_required', maintenanceRequired:'maintenance_required', clientContactForJob:'client_contact_for_job', dispatchNotes:'dispatch_notes', completionNotes:'completion_notes', followUpRequired:'follow_up_required', followUpNotes:'follow_up_notes' }, idFields:['clientId', 'projectId', 'siteId'], numberFields:['durationPlanned', 'durationActual'], booleanFields:['samplesRequired', 'provingRequired', 'maintenanceRequired', 'followUpRequired'], dateFields:['requestedDate'], dateTimeFields:['scheduledStart', 'scheduledEnd', 'actualStart', 'actualEnd'] },
   jobAssignments:{ table:'field_job_assignments', label:'Assignment', idPrefix:'asg', defaults:{ jobId:'', assignmentType:'Technician', resourceId:'', assignedStart:'', assignedEnd:'', assignmentStatus:'Assigned', assignmentNotes:'' }, fieldMap:{ jobId:'job_id', assignmentType:'assignment_type', resourceId:'resource_id', assignedStart:'assigned_start', assignedEnd:'assigned_end', assignmentStatus:'assignment_status', assignmentNotes:'assignment_notes' }, idFields:['jobId', 'resourceId'], dateTimeFields:['assignedStart', 'assignedEnd'] },
   employees:{ table:'employees', label:'Employee', idPrefix:'emp', defaults:{ employeeName:'', workScope:'Field', labRole:'', fieldRole:'Field Tech', canSampleTransport:false, phone:'', email:'', notes:'' }, fieldMap:{ employeeName:'employee_name', workScope:'work_scope', labRole:'lab_role', fieldRole:'field_role', canSampleTransport:'can_sample_transport', phone:'phone', email:'email', notes:'notes' }, booleanFields:['canSampleTransport'] },
@@ -66,14 +77,14 @@ const ENTITY_CONFIG = {
   maintenanceRecords:{ table:'field_maintenance_records', label:'Maintenance Record', idPrefix:'maint', defaults:{ assetType:'Equipment', assetId:'', maintenanceType:'Preventive', openDate:'', dueDate:'', completedDate:'', status:'Open', issueDescription:'', resolution:'', vendorInternal:'Internal', cost:null, assignedPerson:'', notes:'' }, fieldMap:{ assetType:'asset_type', assetId:'asset_id', maintenanceType:'maintenance_type', openDate:'open_date', dueDate:'due_date', completedDate:'completed_date', status:'status', issueDescription:'issue_description', resolution:'resolution', vendorInternal:'vendor_internal', cost:'cost', assignedPerson:'assigned_person', notes:'notes' }, idFields:['assetId'], numberFields:['cost'], dateFields:['openDate', 'dueDate', 'completedDate'] }
 };
 
-let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'overview', scheduleAnchorDate:getStartOfWeekISO(new Date()), filters:{ dispatchSearch:'', dispatchStatus:'all', dispatchPriority:'all', dispatchJobType:'all', directoryClient:'all', directoryProject:'all', directorySection:'overview' }, data:createEmptyData(), saveInFlight:false, autoRefreshInFlight:false, autoRefreshTimer:null };
+let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'overview', scheduleAnchorDate:getStartOfWeekISO(new Date()), filters:{ dispatchSearch:'', dispatchPriority:'all', dispatchJobType:'all', directoryClient:'all', directoryProject:'all', directorySection:'overview' }, data:createEmptyData(), saveInFlight:false, autoRefreshInFlight:false, autoRefreshTimer:null };
 let modalState = createClosedModalState();
 let lastLoadedSnapshot = '';
 let hideSaveStatusTimer = null;
 const remoteAssetPhotoUrlCache = new Map();
 const remoteAssetPhotoLoadPromises = new Map();
 
-function createEmptyData(){ return { clients:[], projects:[], contacts:[], billingProfiles:[], sites:[], jobs:[], jobAssignments:[], employees:[], trucks:[], trailers:[], equipment:[], samples:[], maintenanceRecords:[], technicians:[] }; }
+function createEmptyData(){ return { clients:[], projects:[], contacts:[], billingProfiles:[], sites:[], siteProjects:[], jobTypes:[], jobs:[], jobAssignments:[], employees:[], trucks:[], trailers:[], equipment:[], samples:[], maintenanceRecords:[], technicians:[] }; }
 function createClosedModalState(){ return { open:false, entity:'', id:'', formData:{}, assignments:[] }; }
 function uid(prefix = 'fld'){ return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
 function clone(value){ return JSON.parse(JSON.stringify(value)); }
@@ -81,6 +92,24 @@ function firstRow(payload){ return Array.isArray(payload) ? payload[0] || null :
 function normalizeBoolean(value){ return value === true || value === 'true' || value === 1 || value === '1'; }
 function normalizeNumber(value){ if(value === '' || value === null || value === undefined) return null; const parsed = Number(value); return Number.isFinite(parsed) ? parsed : null; }
 function normalizeClientCode(value){ return String(value || '').trim().toUpperCase(); }
+function normalizeStringArray(value){
+  if(Array.isArray(value)) return [...new Set(value.map((item) => String(item || '').trim()).filter(Boolean))];
+  if(typeof value === 'string'){
+    const raw = value.trim();
+    if(!raw) return [];
+    if(raw.startsWith('[') && raw.endsWith(']')){
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? normalizeStringArray(parsed) : [];
+      } catch {
+        return [];
+      }
+    }
+    return normalizeStringArray(raw.split(','));
+  }
+  return [];
+}
+function normalizeJobTypeKey(value){ return String(value || '').trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, ''); }
 function compareStrings(a, b){ return String(a || '').localeCompare(String(b || ''), undefined, { sensitivity:'base' }); }
 function compareOptionalDates(left, right){ if(!left && !right) return 0; if(!left) return 1; if(!right) return -1; return left - right; }
 function isRemoteMode(){ return !!(window.appAuth && typeof window.appAuth.getMode === 'function' && window.appAuth.getMode() === 'remote'); }
@@ -170,7 +199,9 @@ function getEntitySorter(entityKey){
     case 'contacts': return (a, b) => compareStrings(a.contactName, b.contactName);
     case 'billingProfiles': return (a, b) => Number(b.isDefault) - Number(a.isDefault) || compareStrings(a.billingName, b.billingName);
     case 'sites': return (a, b) => compareStrings(a.siteName, b.siteName);
-    case 'jobs': return (a, b) => compareOptionalDates(getJobPrimaryDate(a), getJobPrimaryDate(b)) || ((PRIORITY_RANK[a.priority] ?? 99) - (PRIORITY_RANK[b.priority] ?? 99)) || compareStrings(a.fieldfxTicketId || a.id, b.fieldfxTicketId || b.id);
+    case 'siteProjects': return (a, b) => compareStrings(a.siteId, b.siteId) || compareStrings(a.projectId, b.projectId);
+    case 'jobTypes': return (a, b) => (Number(a.sortOrder || 0) - Number(b.sortOrder || 0)) || compareStrings(a.jobTypeName, b.jobTypeName);
+    case 'jobs': return (a, b) => compareOptionalDates(getJobPrimaryDate(a), getJobPrimaryDate(b)) || ((PRIORITY_RANK[a.priority] ?? 99) - (PRIORITY_RANK[b.priority] ?? 99)) || compareStrings(a.scopeSummary || a.jobType || a.id, b.scopeSummary || b.jobType || b.id);
     case 'jobAssignments': return (a, b) => compareStrings(a.assignmentType, b.assignmentType) || compareStrings(a.resourceId, b.resourceId);
     case 'employees': return (a, b) => compareStrings(a.employeeName, b.employeeName);
     case 'trucks': return (a, b) => compareStrings(a.unitNumber, b.unitNumber);
@@ -191,6 +222,7 @@ function normalizeRecord(entityKey, source, options = {}){
     const raw = fromRemote ? source?.[remoteKey] : source?.[key];
     if((cfg.booleanFields || []).includes(key)) record[key] = normalizeBoolean(raw);
     else if((cfg.numberFields || []).includes(key)) record[key] = normalizeNumber(raw);
+    else if((cfg.arrayFields || []).includes(key)) record[key] = normalizeStringArray(raw);
     else if((cfg.idFields || []).includes(key)) record[key] = raw ? String(raw) : '';
     else if(isDateField(cfg, key, remoteKey)) record[key] = toInputDate(raw);
     else if(isDateTimeField(cfg, key, remoteKey)) record[key] = toInputDateTime(raw);
@@ -199,12 +231,55 @@ function normalizeRecord(entityKey, source, options = {}){
   return record;
 }
 
+function getDefaultJobTypeRecords(){
+  return DEFAULT_JOB_TYPE_DEFS.map((row) => normalizeRecord('jobTypes', { id:row.jobTypeKey, ...row }, { fromRemote:false })).sort(getEntitySorter('jobTypes'));
+}
+
+function resolveJobTypeValue(jobTypes, value){
+  const raw = String(value || '').trim();
+  if(!raw) return '';
+  const normalized = normalizeJobTypeKey(raw);
+  const match = (Array.isArray(jobTypes) ? jobTypes : []).find((jobType) => normalizeJobTypeKey(jobType.jobTypeKey) === normalized || normalizeJobTypeKey(jobType.jobTypeName) === normalized);
+  return match ? match.jobTypeKey : raw;
+}
+
+function syncSiteProjectLinks(data){
+  const nextLinks = [];
+  const seen = new Set();
+  const pushLink = (siteId, projectId) => {
+    const normalizedSiteId = String(siteId || '').trim();
+    const normalizedProjectId = String(projectId || '').trim();
+    if(!normalizedSiteId || !normalizedProjectId) return;
+    const key = `${normalizedSiteId}::${normalizedProjectId}`;
+    if(seen.has(key)) return;
+    seen.add(key);
+    nextLinks.push(normalizeRecord('siteProjects', { id:key, siteId:normalizedSiteId, projectId:normalizedProjectId }, { fromRemote:false }));
+  };
+  (Array.isArray(data.siteProjects) ? data.siteProjects : []).forEach((row) => pushLink(row.siteId, row.projectId));
+  (Array.isArray(data.sites) ? data.sites : []).forEach((site) => {
+    const linkedProjectIds = normalizeStringArray(site.projectIds);
+    if(linkedProjectIds.length){
+      linkedProjectIds.forEach((projectId) => pushLink(site.id, projectId));
+      return;
+    }
+    pushLink(site.id, site.projectId);
+  });
+  data.siteProjects = nextLinks.sort(getEntitySorter('siteProjects'));
+  data.sites.forEach((site) => {
+    const linkedProjectIds = data.siteProjects.filter((row) => row.siteId === site.id).map((row) => row.projectId);
+    const uniqueProjectIds = [...new Set(linkedProjectIds)];
+    site.projectIds = uniqueProjectIds;
+    site.projectId = uniqueProjectIds[0] || site.projectId || '';
+  });
+}
+
 function normalizeData(source, fromRemote = false){
   const normalized = createEmptyData();
   ENTITY_ORDER.forEach((entityKey) => {
     const rows = Array.isArray(source?.[entityKey]) ? source[entityKey] : [];
     normalized[entityKey] = rows.map((row) => normalizeRecord(entityKey, row, { fromRemote })).sort(getEntitySorter(entityKey));
   });
+  if(!normalized.jobTypes.length) normalized.jobTypes = getDefaultJobTypeRecords();
   if(!normalized.employees.length && Array.isArray(source?.technicians) && source.technicians.length){
     normalized.employees = source.technicians.map((row) => normalizeRecord('employees', {
       id:row?.id || uid('emp'),
@@ -242,6 +317,14 @@ function ensureLegacyProject(data, clientId){
 
 function repairDataRelationships(data){
   if(!data || typeof data !== 'object') return data;
+  if(!Array.isArray(data.jobTypes) || !data.jobTypes.length) data.jobTypes = getDefaultJobTypeRecords();
+  data.jobTypes = data.jobTypes.map((jobType, index) => normalizeRecord('jobTypes', {
+    ...jobType,
+    id:jobType.id || normalizeJobTypeKey(jobType.jobTypeKey || jobType.jobTypeName || `JOB_TYPE_${index + 1}`),
+    jobTypeKey:normalizeJobTypeKey(jobType.jobTypeKey || jobType.jobTypeName || `JOB_TYPE_${index + 1}`),
+    jobTypeName:jobType.jobTypeName || jobType.jobTypeKey || `Job Type ${index + 1}`,
+    sortOrder:Number.isFinite(Number(jobType.sortOrder)) ? Number(jobType.sortOrder) : index * 10
+  }, { fromRemote:false })).sort(getEntitySorter('jobTypes'));
   data.projects.forEach((project) => {
     if(!project.clientId && data.clients.length) project.clientId = data.clients[0].id;
     if(!project.serviceScope) project.serviceScope = 'Field';
@@ -251,9 +334,21 @@ function repairDataRelationships(data){
     client.clientCode = normalizeClientCode(client.clientCode);
   });
   data.sites.forEach((site) => {
-    if(site.clientId && !site.projectId) site.projectId = ensureLegacyProject(data, site.clientId);
+    if(site.clientId && !site.projectId && !normalizeStringArray(site.projectIds).length) site.projectId = ensureLegacyProject(data, site.clientId);
   });
+  syncSiteProjectLinks(data);
   data.jobs.forEach((job) => {
+    job.jobType = resolveJobTypeValue(data.jobTypes, job.jobType);
+    if(!job.jobStatus) job.jobStatus = 'New';
+    if(job.siteId){
+      const site = data.sites.find((row) => row.id === job.siteId) || null;
+      if(site){
+        if(!job.clientId) job.clientId = site.clientId;
+        const linkedProjectIds = normalizeStringArray(site.projectIds);
+        if(job.projectId && linkedProjectIds.length && !linkedProjectIds.includes(job.projectId)) job.projectId = '';
+        if(!job.projectId && linkedProjectIds.length === 1) job.projectId = linkedProjectIds[0];
+      }
+    }
     if(job.clientId && !job.projectId) job.projectId = ensureLegacyProject(data, job.clientId);
     if(job.projectId && !job.clientId){
       const project = data.projects.find((row) => row.id === job.projectId) || null;
@@ -268,7 +363,7 @@ function repairDataRelationships(data){
     if(contact.siteId && !contact.projectId){
       const site = data.sites.find((row) => row.id === contact.siteId) || null;
       if(site){
-        contact.projectId = site.projectId;
+        if(site.projectIds.length === 1) contact.projectId = site.projectIds[0];
         if(!contact.clientId) contact.clientId = site.clientId;
       }
     }
@@ -291,6 +386,7 @@ function toRemotePayload(entityKey, draft){
     const value = draft[key];
     if((cfg.booleanFields || []).includes(key)) payload[remoteKey] = !!value;
     else if((cfg.numberFields || []).includes(key)) payload[remoteKey] = normalizeNumber(value);
+    else if((cfg.arrayFields || []).includes(key)) payload[remoteKey] = normalizeStringArray(value);
     else if((cfg.idFields || []).includes(key)) payload[remoteKey] = value ? String(value) : null;
     else if(isDateField(cfg, key, remoteKey)) payload[remoteKey] = toRemoteDate(value);
     else if(isDateTimeField(cfg, key, remoteKey)) payload[remoteKey] = toRemoteDateTime(value);
@@ -334,15 +430,63 @@ function getJob(id){ return state.data.jobs.find((row) => row.id === id) || null
 function getAssignmentsForJob(jobId){ return state.data.jobAssignments.filter((row) => row.jobId === jobId); }
 function getClientLabel(clientId){ return getClient(clientId)?.clientName || 'Unknown client'; }
 function getProjectLabel(projectId){ return getProject(projectId)?.projectName || 'Unknown project'; }
-function getSiteLabel(siteId){ return getSite(siteId)?.siteName || 'Unknown site'; }
+function getSiteLabel(siteId){ return getSite(siteId)?.siteName || 'Unknown location'; }
+function getProjectIdsForSite(siteId){
+  const ids = state.data.siteProjects.filter((row) => row.siteId === siteId).map((row) => row.projectId);
+  const legacyProjectId = getSite(siteId)?.projectId || '';
+  if(legacyProjectId) ids.push(legacyProjectId);
+  return [...new Set(ids.filter(Boolean))];
+}
+function getLinkedProjectsForSite(siteId){ return getProjectIdsForSite(siteId).map((projectId) => getProject(projectId)).filter(Boolean).sort(getEntitySorter('projects')); }
+function getJobTypeRecord(value){
+  const resolvedValue = resolveJobTypeValue(state.data.jobTypes, value);
+  return state.data.jobTypes.find((jobType) => jobType.jobTypeKey === resolvedValue) || null;
+}
+function getActiveJobTypes(currentValue = ''){
+  const resolvedValue = resolveJobTypeValue(state.data.jobTypes, currentValue);
+  return state.data.jobTypes.filter((jobType) => jobType.isActive || jobType.jobTypeKey === resolvedValue).sort(getEntitySorter('jobTypes'));
+}
+function getJobTypeDisplayName(value){
+  const record = getJobTypeRecord(value);
+  if(record?.jobTypeName) return record.jobTypeName;
+  return String(value || '').trim() || 'Not set';
+}
+function getJobTypeScheduleMode(value){
+  const record = getJobTypeRecord(value);
+  if(record?.scheduleMode) return record.scheduleMode;
+  return isSampleTransportJobType(value) ? 'point_in_time' : 'range';
+}
+function getRequiredAssignmentTypes(value){
+  const record = getJobTypeRecord(value);
+  return record ? normalizeStringArray(record.requiredAssignmentTypes) : [];
+}
+function jobTypeHasDetailGroup(value, group){
+  const record = getJobTypeRecord(value);
+  return !!(record && normalizeStringArray(record.detailGroups).includes(group));
+}
+function getJobDisplayTitle(job){
+  const jobTypeLabel = getJobTypeDisplayName(job?.jobType);
+  if(jobTypeLabel && jobTypeLabel !== 'Not set') return jobTypeLabel;
+  if(String(job?.scopeSummary || '').trim()) return String(job.scopeSummary).trim();
+  return `Job ${(job?.id || '').slice(0, 8) || 'Draft'}`;
+}
+function getJobScheduleLabel(job){
+  const start = job?.scheduledStart || job?.requestedDate || '';
+  if(!start) return 'Not scheduled';
+  if(getJobTypeScheduleMode(job?.jobType) === 'point_in_time' || !job?.scheduledEnd) return fmtDateTime(start);
+  return `${fmtDateTime(start)} to ${fmtDateTime(job.scheduledEnd)}`;
+}
 function isFieldEligibleEmployee(employee){ return !!employee && ['Field', 'Both'].includes(employee.workScope || ''); }
-function isSampleTransportJobType(jobType){ return ['Sample Pickup', 'Sample Drop-Off'].includes(jobType); }
+function isSampleTransportJobType(jobType){
+  const normalized = normalizeJobTypeKey(jobType);
+  return ['SAMPLE_PICKUP', 'SAMPLE_DROP_OFF'].includes(normalized) || ['Sample Pickup', 'Sample Drop-Off'].includes(jobType);
+}
 function getDefaultTruckForTechnician(technicianId){
   return state.data.trucks.find((row) => row.assignedTechnicianId === technicianId) || null;
 }
 function getProjectIdsForClient(clientId){ return state.data.projects.filter((row) => row.clientId === clientId).map((row) => row.id); }
 function getSiteIdsForClient(clientId){ return state.data.sites.filter((row) => row.clientId === clientId).map((row) => row.id); }
-function getSitesForProject(projectId){ return state.data.sites.filter((row) => row.projectId === projectId); }
+function getSitesForProject(projectId){ return state.data.sites.filter((row) => getProjectIdsForSite(row.id).includes(projectId)); }
 function getJobsForProject(projectId){ return state.data.jobs.filter((row) => row.projectId === projectId); }
 function getContactsForClient(clientId){ return state.data.contacts.filter((row) => row.clientId === clientId); }
 function getBillingProfilesForClient(clientId){ return state.data.billingProfiles.filter((row) => row.clientId === clientId); }
@@ -361,13 +505,13 @@ function getProjectDeleteBlockMessage(projectId){
   const sites = getSitesForProject(projectId);
   const jobs = getJobsForProject(projectId);
   if(!sites.length && !jobs.length) return '';
-  return `This project cannot be deleted because it still has ${sites.length} linked site${sites.length === 1 ? '' : 's'} and ${jobs.length} linked job${jobs.length === 1 ? '' : 's'}. Clear or move those records first.`;
+  return `This project cannot be deleted because it still has ${sites.length} linked site/location record${sites.length === 1 ? '' : 's'} and ${jobs.length} linked job${jobs.length === 1 ? '' : 's'}. Clear or move those records first.`;
 }
 function getSiteDeleteBlockMessage(siteId){
   const jobs = getJobsForSite(siteId);
   const samples = getSamplesForSite(siteId, jobs.map((row) => row.id));
   if(!jobs.length && !samples.length) return '';
-  return `This site cannot be deleted because it still has ${jobs.length} linked job${jobs.length === 1 ? '' : 's'} and ${samples.length} linked sample${samples.length === 1 ? '' : 's'}. Clear those records first.`;
+  return `This site/location cannot be deleted because it still has ${jobs.length} linked job${jobs.length === 1 ? '' : 's'} and ${samples.length} linked sample${samples.length === 1 ? '' : 's'}. Clear those records first.`;
 }
 
 function getResourceRecord(assignmentType, resourceId){
@@ -387,7 +531,7 @@ function getResourceLabel(assignmentType, resourceId){
 
 function getJobLabel(jobId){
   const job = getJob(jobId);
-  return job ? (job.fieldfxTicketId || `${job.jobType || 'Job'} ${job.id.slice(0, 8)}`) : 'Unknown job';
+  return job ? getJobDisplayTitle(job) : 'Unknown job';
 }
 
 function getAssetLabel(assetType, assetId){
@@ -397,7 +541,7 @@ function getAssetLabel(assetType, assetId){
 }
 
 function getJobMissingRequirements(job, assignments = getAssignmentsForJob(job.id)){
-  const required = REQUIRED_ASSIGNMENTS_BY_JOB_TYPE[job.jobType] || [];
+  const required = getRequiredAssignmentTypes(job.jobType);
   const availableTypes = new Set(assignments.filter((row) => row.resourceId).map((row) => row.assignmentType));
   return required.filter((assignmentType) => !availableTypes.has(assignmentType));
 }
@@ -521,7 +665,7 @@ const FORM_DEFINITIONS = {
     { kind:'section', label:'Contact Details' },
     { key:'clientId', label:'Client', type:'select', options:() => buildClientOptions(), handler:'changeContactClient' },
     { key:'projectId', label:'Project', type:'select', options:() => buildProjectOptions(modalState.formData.clientId), handler:'changeContactProject' },
-    { key:'siteId', label:'Site', type:'select', options:() => buildSiteOptions(modalState.formData.clientId, modalState.formData.projectId) },
+    { key:'siteId', label:'Site/Location', type:'select', options:() => buildSiteOptions(modalState.formData.clientId, modalState.formData.projectId) },
     { key:'contactName', label:'Contact Name', type:'text', required:true },
     { key:'contactRole', label:'Role / Title', type:'text' },
     { key:'contactScope', label:'Contact Scope', type:'select', options:CONTACT_SCOPE_OPTIONS },
@@ -546,10 +690,10 @@ const FORM_DEFINITIONS = {
     { key:'labBillingNotes', label:'Lab Billing Notes', type:'textarea', full:true }
   ],
   sites:[
-    { kind:'section', label:'Location' },
+    { kind:'section', label:'Site / Location' },
     { key:'clientId', label:'Client', type:'select', options:() => buildClientOptions(), handler:'changeSiteClient' },
-    { key:'projectId', label:'Project', type:'select', options:() => buildProjectOptions(modalState.formData.clientId), handler:'changeSiteProject' },
-    { key:'siteName', label:'Site Name', type:'text', required:true },
+    { key:'projectIds', label:'Linked Projects', type:'checkbox-group', options:() => buildProjectOptions(modalState.formData.clientId), disabled:() => !modalState.formData.clientId },
+    { key:'siteName', label:'Site / Location Name', type:'text', required:true },
     { key:'siteType', label:'Site Type', type:'select', options:SITE_TYPE_OPTIONS },
     { key:'physicalAddress', label:'Physical Address', type:'text', full:true },
     { key:'countyState', label:'County / State', type:'text' },
@@ -565,37 +709,40 @@ const FORM_DEFINITIONS = {
   jobs:[
     { kind:'section', label:'Basics' },
     { key:'clientId', label:'Client', type:'select', options:() => buildClientOptions(), handler:'changeJobClient' },
-    { key:'projectId', label:'Project', type:'select', options:() => buildProjectOptions(modalState.formData.clientId), handler:'changeJobProject' },
-    { key:'siteId', label:'Site', type:'select', options:() => buildSiteOptions(modalState.formData.clientId, modalState.formData.projectId) },
-    { key:'fieldfxTicketId', label:'FieldFX / Salesforce Ticket ID', type:'text' },
-    { key:'jobType', label:'Job Type', type:'select', options:JOB_TYPE_OPTIONS, handler:'changeJobType' },
-    { key:'jobStatus', label:'Job Status', type:'select', options:JOB_STATUS_OPTIONS },
+    { key:'siteId', label:'Site/Location', type:'select', options:() => buildJobSiteOptions(modalState.formData.clientId), handler:'changeJobSite', disabled:() => !modalState.formData.clientId },
+    { key:'projectId', label:'Project', type:'select', options:() => buildJobProjectOptions(modalState.formData.clientId, modalState.formData.siteId), handler:'changeJobProject', disabled:() => !modalState.formData.clientId || !modalState.formData.siteId },
+    { key:'jobType', label:'Job Type', type:'select', options:() => buildJobTypeOptions(modalState.formData.jobType), handler:'changeJobType' },
     { key:'priority', label:'Priority', type:'select', options:PRIORITY_OPTIONS },
     { kind:'section', label:'Schedule' },
-    { key:'requestedDate', label:'Requested Date', type:'date' },
-    { key:'scheduledStart', label:'Scheduled Start', type:'datetime-local' },
-    { key:'scheduledEnd', label:'Scheduled End', type:'datetime-local' },
-    { key:'actualStart', label:'Actual Start', type:'datetime-local' },
-    { key:'actualEnd', label:'Actual End', type:'datetime-local' },
-    { key:'durationPlanned', label:'Duration Planned (min)', type:'number' },
-    { key:'durationActual', label:'Duration Actual (min)', type:'number' },
-    { kind:'section', label:'Proving Details', jobTypes:['Allocation Proving', 'LACT Proving', 'Multi-Service'] },
-    { key:'meterUnitId', label:'Meter / Unit ID', type:'text', jobTypes:['Allocation Proving', 'LACT Proving', 'Maintenance', 'Multi-Service'] },
-    { key:'apiStandardReference', label:'API Standard Reference', type:'text', jobTypes:['Allocation Proving', 'LACT Proving', 'Multi-Service'] },
-    { key:'custodyAllocation', label:'Custody vs Allocation', type:'select', options:CUSTODY_OPTIONS, jobTypes:['Allocation Proving', 'LACT Proving', 'Multi-Service'] },
-    { key:'provingRequired', label:'Proving Required', type:'checkbox', jobTypes:['Allocation Proving', 'LACT Proving', 'Multi-Service'] },
-    { kind:'section', label:'Sample Logistics', jobTypes:['Sample Pickup', 'Sample Drop-Off', 'Multi-Service'] },
-    { key:'samplesRequired', label:'Samples Required', type:'checkbox', jobTypes:['Sample Pickup', 'Sample Drop-Off', 'Multi-Service'] },
-    { kind:'section', label:'Maintenance Details', jobTypes:['Maintenance', 'Multi-Service'] },
-    { key:'maintenanceRequired', label:'Maintenance Required', type:'checkbox', jobTypes:['Maintenance', 'Multi-Service'] },
-    { kind:'section', label:'Execution', jobTypes:['Allocation Proving', 'LACT Proving', 'Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service'] },
-    { key:'clientContactForJob', label:'Client Contact For Job', type:'select', options:() => buildJobContactOptions(modalState.formData.clientId, modalState.formData.projectId), jobTypes:['Allocation Proving', 'LACT Proving', 'Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service'] },
-    { key:'followUpRequired', label:'Follow-Up Required', type:'checkbox', jobTypes:['Allocation Proving', 'LACT Proving', 'Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service'] },
-    { key:'scopeSummary', label:'Scope Summary', type:'textarea', full:true, jobTypes:['Allocation Proving', 'LACT Proving', 'Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service'] },
-    { key:'workInstructions', label:'Work Instructions', type:'textarea', full:true, jobTypes:['Allocation Proving', 'LACT Proving', 'Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service'] },
-    { key:'dispatchNotes', label:'Dispatch Notes', type:'textarea', full:true, jobTypes:['Allocation Proving', 'LACT Proving', 'Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service'] },
-    { key:'completionNotes', label:'Completion Notes', type:'textarea', full:true, jobTypes:['Allocation Proving', 'LACT Proving', 'Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service'] },
-    { key:'followUpNotes', label:'Follow-Up Notes', type:'textarea', full:true, jobTypes:['Allocation Proving', 'LACT Proving', 'Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service'] }
+    { key:'scheduledStart', label:'Start', type:'datetime-local' },
+    { key:'scheduledEnd', label:'End', type:'datetime-local', scheduleModes:['range'] },
+    { kind:'section', label:'Proving Details', detailGroup:'proving' },
+    { key:'meterUnitId', label:'Meter / Unit ID', type:'text', detailGroup:'proving' },
+    { key:'apiStandardReference', label:'API Standard Reference', type:'text', detailGroup:'proving' },
+    { key:'custodyAllocation', label:'Custody vs Allocation', type:'select', options:CUSTODY_OPTIONS, detailGroup:'proving' },
+    { key:'provingRequired', label:'Proving Required', type:'checkbox', detailGroup:'proving' },
+    { kind:'section', label:'Sample Logistics', detailGroup:'sample_logistics' },
+    { key:'samplesRequired', label:'Samples Required', type:'checkbox', detailGroup:'sample_logistics' },
+    { kind:'section', label:'Maintenance Details', detailGroup:'maintenance' },
+    { key:'maintenanceRequired', label:'Maintenance Required', type:'checkbox', detailGroup:'maintenance' },
+    { kind:'section', label:'Execution', detailGroup:'execution' },
+    { key:'clientContactForJob', label:'Client Contact For Job', type:'select', options:() => buildJobContactOptions(modalState.formData.clientId, modalState.formData.projectId), detailGroup:'execution' },
+    { key:'followUpRequired', label:'Follow-Up Required', type:'checkbox', detailGroup:'execution' },
+    { key:'scopeSummary', label:'Scope Summary', type:'textarea', full:true, detailGroup:'execution' },
+    { key:'workInstructions', label:'Work Instructions', type:'textarea', full:true, detailGroup:'execution' },
+    { key:'dispatchNotes', label:'Dispatch Notes', type:'textarea', full:true, detailGroup:'execution' },
+    { key:'completionNotes', label:'Completion Notes', type:'textarea', full:true, detailGroup:'execution' },
+    { key:'followUpNotes', label:'Follow-Up Notes', type:'textarea', full:true, detailGroup:'execution' }
+  ],
+  jobTypes:[
+    { kind:'section', label:'Job Type Catalog' },
+    { key:'jobTypeName', label:'Job Type Name', type:'text', required:true },
+    { key:'jobTypeKey', label:'Job Type Key', type:'text' },
+    { key:'isActive', label:'Active For New Jobs', type:'checkbox' },
+    { key:'scheduleMode', label:'Schedule Mode', type:'select', options:JOB_TYPE_SCHEDULE_MODE_OPTIONS },
+    { key:'requiredAssignmentTypes', label:'Required Assignments', type:'checkbox-group', options:ASSIGNMENT_TYPE_OPTIONS },
+    { key:'detailGroups', label:'Visible Detail Sections', type:'checkbox-group', options:JOB_TYPE_DETAIL_GROUP_OPTIONS },
+    { key:'sortOrder', label:'Sort Order', type:'number' }
   ],
   employees:[
     { kind:'section', label:'Personnel' },
@@ -657,7 +804,7 @@ const FORM_DEFINITIONS = {
     { kind:'section', label:'Sample Logistics' },
     { key:'jobId', label:'Job', type:'select', options:() => buildJobOptions(), handler:'changeSampleJob' },
     { key:'clientId', label:'Client', type:'select', options:() => buildClientOptions(), handler:'changeSampleClient' },
-    { key:'siteId', label:'Site', type:'select', options:() => buildSiteOptions(modalState.formData.clientId) },
+    { key:'siteId', label:'Site/Location', type:'select', options:() => buildSiteOptions(modalState.formData.clientId) },
     { key:'sampleType', label:'Sample Type', type:'select', options:SAMPLE_TYPE_OPTIONS },
     { key:'containerType', label:'Container Type', type:'select', options:CONTAINER_TYPE_OPTIONS },
     { key:'collectionDateTime', label:'Collection Date / Time', type:'datetime-local' },
@@ -704,8 +851,28 @@ function hideSaveStatusSoon(delay = 2600){
 
 function buildClientOptions(){ return state.data.clients.map((row) => ({ value:row.id, label:`${normalizeClientCode(row.clientCode) ? `${normalizeClientCode(row.clientCode)} | ` : ''}${row.clientName || 'Unnamed client'}` })); }
 function buildProjectOptions(clientId = ''){ return state.data.projects.filter((row) => !clientId || row.clientId === clientId).map((row) => ({ value:row.id, label:`${row.projectName || 'Unnamed project'} | ${getClientLabel(row.clientId)}` })); }
-function buildSiteOptions(clientId = '', projectId = ''){ return state.data.sites.filter((row) => (!clientId || row.clientId === clientId) && (!projectId || row.projectId === projectId)).map((row) => ({ value:row.id, label:`${row.siteName || 'Unnamed site'} | ${getProjectLabel(row.projectId)}` })); }
-function buildJobOptions(){ return state.data.jobs.map((row) => ({ value:row.id, label:`${row.fieldfxTicketId || row.jobType || 'Job'} | ${getSiteLabel(row.siteId)}` })); }
+function buildSiteOptions(clientId = '', projectId = ''){
+  return state.data.sites
+    .filter((row) => (!clientId || row.clientId === clientId) && (!projectId || getProjectIdsForSite(row.id).includes(projectId)))
+    .map((row) => {
+      const linkedProjects = getLinkedProjectsForSite(row.id).map((project) => project.projectName || 'Unnamed project');
+      return { value:row.id, label:`${row.siteName || 'Unnamed location'} | ${linkedProjects.join(', ') || 'No linked project'}` };
+    });
+}
+function buildJobSiteOptions(clientId = ''){
+  if(!clientId) return [];
+  return buildSiteOptions(clientId);
+}
+function buildJobProjectOptions(clientId = '', siteId = ''){
+  if(!clientId || !siteId) return [];
+  return getLinkedProjectsForSite(siteId)
+    .filter((project) => !clientId || project.clientId === clientId)
+    .map((project) => ({ value:project.id, label:`${project.projectName || 'Unnamed project'} | ${getClientLabel(project.clientId)}` }));
+}
+function buildJobTypeOptions(currentValue = ''){
+  return getActiveJobTypes(currentValue).map((jobType) => ({ value:jobType.jobTypeKey, label:jobType.jobTypeName || jobType.jobTypeKey }));
+}
+function buildJobOptions(){ return state.data.jobs.map((row) => ({ value:row.id, label:`${getJobDisplayTitle(row)} | ${getSiteLabel(row.siteId)}` })); }
 function matchesProjectScope(recordProjectId, projectId){ return !projectId || recordProjectId === projectId || !recordProjectId; }
 function buildContactOptions(clientId = '', projectId = ''){
   return state.data.contacts
@@ -788,7 +955,7 @@ function getJobWarnings(job, derived){
 
 function renderMiniJobList(jobs, derived, emptyText){
   if(!jobs.length) return `<div class="empty-state"><strong>Nothing to show</strong>${esc(emptyText)}</div>`;
-  return `<div class="mini-list">${[...jobs].sort(getEntitySorter('jobs')).map((job) => `<div class="mini-card"><div class="mini-head"><div><div class="item-title">${esc(job.fieldfxTicketId || job.jobType || 'Field job')}</div><div class="muted">${esc(getClientLabel(job.clientId))} | ${esc(getProjectLabel(job.projectId))} | ${esc(getSiteLabel(job.siteId))}</div></div>${getPriorityBadge(job.priority)}</div><div class="mini-tags">${getStatusBadge(job.jobStatus)}<span class="mini-tag">${esc(fmtDateTime(job.scheduledStart || job.requestedDate))}</span></div>${renderWarnings(getJobWarnings(job, derived))}</div>`).join('')}</div>`;
+  return `<div class="mini-list">${[...jobs].sort(getEntitySorter('jobs')).map((job) => `<div class="mini-card"><div class="mini-head"><div><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(getClientLabel(job.clientId))} | ${esc(getProjectLabel(job.projectId))} | ${esc(getSiteLabel(job.siteId))}</div></div>${getPriorityBadge(job.priority)}</div><div class="mini-tags"><span class="mini-tag">${esc(getJobScheduleLabel(job))}</span></div>${renderWarnings(getJobWarnings(job, derived))}</div>`).join('')}</div>`;
 }
 
 function renderIssueCard(label, value, copy){
@@ -806,11 +973,10 @@ function summarizeAssignments(jobId){
 function getFilteredDispatchJobs(){
   const search = state.filters.dispatchSearch.trim().toLowerCase();
   return state.data.jobs.filter((job) => {
-    if(state.filters.dispatchStatus !== 'all' && job.jobStatus !== state.filters.dispatchStatus) return false;
     if(state.filters.dispatchPriority !== 'all' && job.priority !== state.filters.dispatchPriority) return false;
-    if(state.filters.dispatchJobType !== 'all' && job.jobType !== state.filters.dispatchJobType) return false;
+    if(state.filters.dispatchJobType !== 'all' && resolveJobTypeValue(state.data.jobTypes, job.jobType) !== state.filters.dispatchJobType) return false;
     if(!search) return true;
-    const haystack = [job.fieldfxTicketId, job.jobType, job.scopeSummary, job.clientContactForJob, getClientLabel(job.clientId), getProjectLabel(job.projectId), getSiteLabel(job.siteId)].join(' ').toLowerCase();
+    const haystack = [getJobDisplayTitle(job), getJobTypeDisplayName(job.jobType), job.scopeSummary, job.clientContactForJob, getClientLabel(job.clientId), getProjectLabel(job.projectId), getSiteLabel(job.siteId)].join(' ').toLowerCase();
     return haystack.includes(search);
   }).sort(getEntitySorter('jobs'));
 }
@@ -819,8 +985,8 @@ function renderOverview(derived){
   const todayJobs = state.data.jobs.filter((job) => isSameDay(getJobPrimaryDate(job), todayISO()));
   const nextSevenJobs = state.data.jobs.filter((job) => { const date = getJobPrimaryDate(job); const today = parseDateOnly(todayISO()); const max = parseDateOnly(addDaysISO(todayISO(), 7)); return !!(date && today && max && date >= today && date <= max); });
   const samplesInTransit = state.data.samples.filter((row) => row.chainOfCustodyStatus === 'In Transit');
-  const jobsInProgress = state.data.jobs.filter((job) => job.jobStatus === 'In Progress');
-  document.getElementById('overview-stats').innerHTML = [{ label:'Jobs Today', value:todayJobs.length, cls:'' }, { label:'Jobs In Progress', value:jobsInProgress.length, cls:'ok' }, { label:'Jobs Overdue', value:derived.overdueJobs.length, cls:'danger' }, { label:'Samples In Transit', value:samplesInTransit.length, cls:'warn' }, { label:'Assets Down', value:derived.downAssets.length, cls:'danger' }].map((card) => `<div class="stat-card ${card.cls}"><div class="stat-label">${esc(card.label)}</div><div class="stat-value ${card.cls}">${esc(card.value)}</div></div>`).join('');
+  const openJobs = state.data.jobs.filter((job) => !isJobClosed(job));
+  document.getElementById('overview-stats').innerHTML = [{ label:'Jobs Today', value:todayJobs.length, cls:'' }, { label:'Open Jobs', value:openJobs.length, cls:'ok' }, { label:'Jobs Overdue', value:derived.overdueJobs.length, cls:'danger' }, { label:'Samples In Transit', value:samplesInTransit.length, cls:'warn' }, { label:'Assets Down', value:derived.downAssets.length, cls:'danger' }].map((card) => `<div class="stat-card ${card.cls}"><div class="stat-label">${esc(card.label)}</div><div class="stat-value ${card.cls}">${esc(card.value)}</div></div>`).join('');
   document.getElementById('overview-actions').innerHTML = `<button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button><button class="act-btn" type="button" onclick="window.location.href='clients.html'">Open Clients</button><button class="act-btn" type="button" onclick="window.location.href='employees.html'">Open Employees</button><button class="act-btn" type="button" onclick="openEntityModal('samples')">+ Add Sample</button>`;
   document.getElementById('today-jobs-panel').innerHTML = renderMiniJobList(todayJobs, derived, 'No field jobs are scheduled for today yet.');
   const assignedTechCount = state.data.trucks.filter((row) => row.assignedTechnicianId).length;
@@ -831,9 +997,9 @@ function renderOverview(derived){
 
 function renderDispatch(derived){
   const filteredJobs = getFilteredDispatchJobs();
-  document.getElementById('dispatch-toolbar').innerHTML = `<span class="label">Search</span><input type="text" value="${esc(state.filters.dispatchSearch)}" placeholder="Ticket, client, project, site, or scope..." oninput="setDispatchFilter('dispatchSearch', this.value)"><span class="label">Status</span><select onchange="setDispatchFilter('dispatchStatus', this.value)"><option value="all">All Statuses</option>${JOB_STATUS_OPTIONS.map((status) => `<option value="${esc(status)}" ${state.filters.dispatchStatus === status ? 'selected' : ''}>${esc(status)}</option>`).join('')}</select><span class="label">Priority</span><select onchange="setDispatchFilter('dispatchPriority', this.value)"><option value="all">All Priorities</option>${PRIORITY_OPTIONS.map((priority) => `<option value="${esc(priority)}" ${state.filters.dispatchPriority === priority ? 'selected' : ''}>${esc(priority)}</option>`).join('')}</select><span class="label">Type</span><select onchange="setDispatchFilter('dispatchJobType', this.value)"><option value="all">All Job Types</option>${JOB_TYPE_OPTIONS.map((jobType) => `<option value="${esc(jobType)}" ${state.filters.dispatchJobType === jobType ? 'selected' : ''}>${esc(jobType)}</option>`).join('')}</select><div class="toolbar-spacer"></div><button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button>`;
+  document.getElementById('dispatch-toolbar').innerHTML = `<span class="label">Search</span><input type="text" value="${esc(state.filters.dispatchSearch)}" placeholder="Job type, client, project, site/location, or scope..." oninput="setDispatchFilter('dispatchSearch', this.value)"><span class="label">Priority</span><select onchange="setDispatchFilter('dispatchPriority', this.value)"><option value="all">All Priorities</option>${PRIORITY_OPTIONS.map((priority) => `<option value="${esc(priority)}" ${state.filters.dispatchPriority === priority ? 'selected' : ''}>${esc(priority)}</option>`).join('')}</select><span class="label">Type</span><select onchange="setDispatchFilter('dispatchJobType', this.value)"><option value="all">All Job Types</option>${getActiveJobTypes().map((jobType) => `<option value="${esc(jobType.jobTypeKey)}" ${state.filters.dispatchJobType === jobType.jobTypeKey ? 'selected' : ''}>${esc(jobType.jobTypeName)}</option>`).join('')}</select><div class="toolbar-spacer"></div><button class="act-btn" type="button" onclick="openEntityModal('jobTypes')">Manage Job Types</button><button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button>`;
   document.getElementById('dispatch-summary').textContent = `${filteredJobs.length} visible / ${state.data.jobs.length} total`;
-  document.getElementById('dispatch-table').innerHTML = renderTable(['Ticket / Scope', 'Client / Project / Site', 'Job Type', 'Schedule', 'Priority', 'Status', 'Assignments / Alerts'], filteredJobs.map((job) => buildTableRow('jobs', job.id, [ `<div class="inline-stack"><div class="item-title">${esc(job.fieldfxTicketId || `${job.jobType || 'Job'} ${job.id.slice(0, 8)}`)}</div><div class="muted">${esc(job.scopeSummary || 'No scope summary')}</div></div>`, `<div class="inline-stack"><div class="item-title">${esc(getClientLabel(job.clientId))}</div><div class="muted">${esc(getProjectLabel(job.projectId))} | ${esc(getSiteLabel(job.siteId))}</div></div>`, `<div class="inline-stack">${getStatusBadge(job.jobType || 'Not set')}${job.custodyAllocation ? `<div class="muted">${esc(job.custodyAllocation)}</div>` : ''}</div>`, `<div class="inline-stack"><div>${esc(fmtDateTime(job.scheduledStart || job.requestedDate))}</div><div class="muted">${job.durationPlanned ? `${esc(job.durationPlanned)} min planned` : 'No duration set'}</div></div>`, getPriorityBadge(job.priority), `<div class="inline-stack">${getStatusBadge(job.jobStatus)}${isJobOverdue(job) ? '<div class="muted">Past due</div>' : ''}</div>`, `<div>${summarizeAssignments(job.id)}${renderWarnings(getJobWarnings(job, derived))}</div>` ])), '<strong>No dispatch jobs yet</strong>Use the Add Job button to start building the field schedule.');
+  document.getElementById('dispatch-table').innerHTML = renderTable(['Job / Scope', 'Client / Project / Site/Location', 'Job Type', 'Schedule', 'Priority', 'Assignments / Alerts'], filteredJobs.map((job) => buildTableRow('jobs', job.id, [ `<div class="inline-stack"><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(job.scopeSummary || 'No scope summary')}</div></div>`, `<div class="inline-stack"><div class="item-title">${esc(getClientLabel(job.clientId))}</div><div class="muted">${esc(getProjectLabel(job.projectId))} | ${esc(getSiteLabel(job.siteId))}</div></div>`, `<div class="inline-stack">${getStatusBadge(getJobTypeDisplayName(job.jobType) || 'Not set')}${job.custodyAllocation ? `<div class="muted">${esc(job.custodyAllocation)}</div>` : ''}</div>`, `<div class="inline-stack"><div>${esc(getJobScheduleLabel(job))}</div><div class="muted">${isJobOverdue(job) ? 'Past due' : 'Ready to dispatch'}</div></div>`, getPriorityBadge(job.priority), `<div>${summarizeAssignments(job.id)}${renderWarnings(getJobWarnings(job, derived))}</div>` ])), '<strong>No dispatch jobs yet</strong>Use the Add Job button to start building the field schedule.');
 }
 
 function renderSchedule(derived){
@@ -843,10 +1009,10 @@ function renderSchedule(derived){
   const weekJobs = state.data.jobs.filter((job) => { const jobDate = getJobPrimaryDate(job); return !!(jobDate && weekStart && weekEnd && jobDate >= weekStart && jobDate <= weekEnd); }).sort(getEntitySorter('jobs'));
   document.getElementById('schedule-toolbar').innerHTML = `<span class="label">Week</span><button class="act-btn" type="button" onclick="changeScheduleWeek(-1)">Prev</button><button class="act-btn" type="button" onclick="resetScheduleWeek()">Current</button><button class="act-btn" type="button" onclick="changeScheduleWeek(1)">Next</button><div class="toolbar-summary">${esc(fmtDate(weekStart))} - ${esc(fmtDate(weekEnd))}</div><div class="toolbar-spacer"></div><button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button>`;
   document.getElementById('schedule-summary').textContent = `${weekJobs.length} jobs this week`;
-  document.getElementById('schedule-board').innerHTML = `<div class="schedule-week">${weekDates.map((dateIso) => { const jobsForDay = weekJobs.filter((job) => isSameDay(getJobPrimaryDate(job), dateIso)); return `<div class="day-column"><div class="day-head"><strong>${esc(parseDateOnly(dateIso)?.toLocaleDateString('en-US', { weekday:'long' }) || '')}</strong><span>${esc(fmtDate(dateIso))}</span></div><div class="day-list">${jobsForDay.length ? jobsForDay.map((job) => { const warnings = getJobWarnings(job, derived); const cardClasses = ['schedule-card', derived.conflictJobIds.has(job.id) ? 'conflict' : '', warnings.length ? 'warning' : ''].filter(Boolean).join(' '); return `<div class="${cardClasses}"><div class="item-title">${esc(job.fieldfxTicketId || job.jobType || 'Field job')}</div><div class="muted">${esc(fmtTime(job.scheduledStart || job.requestedDate))} | ${esc(getSiteLabel(job.siteId))}</div><div class="mini-tags">${getStatusBadge(job.jobStatus)}${getPriorityBadge(job.priority)}</div>${renderWarnings(warnings)}</div>`; }).join('') : '<div class="empty-state">No scheduled jobs</div>'}</div></div>`; }).join('')}</div>`;
+  document.getElementById('schedule-board').innerHTML = `<div class="schedule-week">${weekDates.map((dateIso) => { const jobsForDay = weekJobs.filter((job) => isSameDay(getJobPrimaryDate(job), dateIso)); return `<div class="day-column"><div class="day-head"><strong>${esc(parseDateOnly(dateIso)?.toLocaleDateString('en-US', { weekday:'long' }) || '')}</strong><span>${esc(fmtDate(dateIso))}</span></div><div class="day-list">${jobsForDay.length ? jobsForDay.map((job) => { const warnings = getJobWarnings(job, derived); const cardClasses = ['schedule-card', derived.conflictJobIds.has(job.id) ? 'conflict' : '', warnings.length ? 'warning' : ''].filter(Boolean).join(' '); return `<div class="${cardClasses}"><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(fmtTime(job.scheduledStart || job.requestedDate))} | ${esc(getSiteLabel(job.siteId))}</div><div class="mini-tags">${getPriorityBadge(job.priority)}</div>${renderWarnings(warnings)}</div>`; }).join('') : '<div class="empty-state">No scheduled jobs</div>'}</div></div>`; }).join('')}</div>`;
   const weekConflictList = derived.conflicts.filter((conflict) => conflict.start >= weekStart && conflict.start <= weekEnd);
   const weekMissingJobs = derived.missingJobs.filter((job) => { const jobDate = getJobPrimaryDate(job); return !!(jobDate && weekStart && weekEnd && jobDate >= weekStart && jobDate <= weekEnd); });
-  document.getElementById('schedule-conflicts').innerHTML = `<div class="card-list"><div class="summary-card"><div class="label">Scheduling Conflicts</div><div class="value">${weekConflictList.length}</div><div class="muted">Double-booked resources inside the visible week.</div></div>${weekConflictList.length ? weekConflictList.map((conflict) => `<div class="issue-item"><div><div class="item-title">${esc(conflict.resourceLabel)}</div><div class="muted">${esc(conflict.jobA.fieldfxTicketId || conflict.jobA.jobType || 'Job')} overlaps ${esc(conflict.jobB.fieldfxTicketId || conflict.jobB.jobType || 'Job')}</div></div>${getStatusBadge(conflict.assignmentType)}</div>`).join('') : '<div class="empty-state">No resource conflicts for this week.</div>'}<div class="summary-card"><div class="label">Jobs Missing Required Resources</div><div class="value">${weekMissingJobs.length}</div><div class="muted">These jobs still need core resource assignments before dispatch.</div></div>${weekMissingJobs.length ? weekMissingJobs.map((job) => `<div class="issue-item clickable-card" role="button" tabindex="0" title="Open Job" onclick="openEntityModal('jobs','${esc(job.id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEntityModal('jobs','${esc(job.id)}'); }"><div><div class="item-title">${esc(job.fieldfxTicketId || job.jobType || 'Field job')}</div><div class="muted">${esc(getJobMissingRequirements(job).join(', '))}</div></div>${getStatusBadge(job.jobStatus || 'Not set')}</div>`).join('') : '<div class="empty-state">All visible jobs have their required resource types.</div>'}</div>`;
+  document.getElementById('schedule-conflicts').innerHTML = `<div class="card-list"><div class="summary-card"><div class="label">Scheduling Conflicts</div><div class="value">${weekConflictList.length}</div><div class="muted">Double-booked resources inside the visible week.</div></div>${weekConflictList.length ? weekConflictList.map((conflict) => `<div class="issue-item"><div><div class="item-title">${esc(conflict.resourceLabel)}</div><div class="muted">${esc(getJobDisplayTitle(conflict.jobA))} overlaps ${esc(getJobDisplayTitle(conflict.jobB))}</div></div>${getStatusBadge(conflict.assignmentType)}</div>`).join('') : '<div class="empty-state">No resource conflicts for this week.</div>'}<div class="summary-card"><div class="label">Jobs Missing Required Resources</div><div class="value">${weekMissingJobs.length}</div><div class="muted">These jobs still need core resource assignments before dispatch.</div></div>${weekMissingJobs.length ? weekMissingJobs.map((job) => `<div class="issue-item clickable-card" role="button" tabindex="0" title="Open Job" onclick="openEntityModal('jobs','${esc(job.id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEntityModal('jobs','${esc(job.id)}'); }"><div><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(getJobMissingRequirements(job).join(', '))}</div></div>${getPriorityBadge(job.priority)}</div>`).join('') : '<div class="empty-state">All visible jobs have their required resource types.</div>'}</div>`;
 }
 
 function getActiveDirectoryClientId(){
@@ -871,7 +1037,7 @@ function getDirectoryBillingProfiles(clientId, projectId = 'all'){
 }
 function getDirectorySites(clientId, projectId = 'all'){
   return state.data.sites
-    .filter((row) => row.clientId === clientId && (projectId === 'all' || row.projectId === projectId))
+    .filter((row) => row.clientId === clientId && (projectId === 'all' || getProjectIdsForSite(row.id).includes(projectId)))
     .sort(getEntitySorter('sites'));
 }
 function getDirectoryJobs(clientId, projectId = 'all'){
@@ -895,7 +1061,7 @@ function renderDirectorySectionNav(){
     { value:'projects', label:'Projects' },
     { value:'contacts', label:'Contacts' },
     { value:'billing', label:'Billing' },
-    { value:'sites', label:'Sites' }
+    { value:'sites', label:'Sites/Locations' }
   ];
   return `<div class="directory-section-nav">${sections.map((section) => `<button type="button" class="view-btn ${state.filters.directorySection === section.value ? 'active' : ''}" onclick="setDirectorySection('${section.value}')">${esc(section.label)}</button>`).join('')}</div>`;
 }
@@ -909,7 +1075,7 @@ function renderDirectoryOverviewSection(client, activeProjectId){
   const primaryContacts = contacts.filter((row) => row.isPrimary);
   const upcomingJobs = jobs.filter((row) => !isJobClosed(row)).slice(0, 4);
   const address = [client.hqStreet, [client.hqCity, client.hqState].filter(Boolean).join(', '), client.hqZip].filter(Boolean).join(' ');
-  return `<div class="summary-grid directory-summary-grid"><div class="summary-card"><div class="label">Service Scope</div><div class="value">${esc(client.serviceScope || 'Field')}</div><div class="muted">${esc(client.sector || 'No sector')}</div></div><div class="summary-card"><div class="label">Client Code</div><div class="value">${esc(normalizeClientCode(client.clientCode) || 'Missing')}</div><div class="muted">Lab samples tie back to this client through the shared code.</div></div><div class="summary-card"><div class="label">Focused Project</div><div class="value">${esc(focusedProject?.projectName || 'All Projects')}</div><div class="muted">${esc(focusedProject?.projectStatus || `${projects.length} total projects`)}</div></div><div class="summary-card"><div class="label">Contacts</div><div class="value">${contacts.length}</div><div class="muted">${esc(primaryContacts.length ? `${primaryContacts.length} primary contact${primaryContacts.length === 1 ? '' : 's'}` : 'No primary contacts flagged')}</div></div><div class="summary-card"><div class="label">Sites</div><div class="value">${sites.length}</div><div class="muted">${esc(jobs.length)} active workflow record(s) in this scope</div></div></div><div class="directory-section-grid"><div class="summary-card"><div class="label">Company Snapshot</div><div class="value">${esc(client.clientName || 'Unnamed client')}</div><div class="muted">${esc(normalizeClientCode(client.clientCode) || 'No client code')}</div><div class="muted">${esc(address || 'No HQ address on file')}</div><div class="muted">${esc(client.defaultServiceArea || 'No default service area')}</div><div class="mini-tags">${getStatusBadge(client.accountStatus)}${getStatusBadge(client.serviceScope || 'Field')}</div></div><div class="summary-card"><div class="label">Billing Snapshot</div><div class="value">${esc(billingProfiles[0]?.billingName || 'No billing profile')}</div><div class="muted">${esc(billingProfiles[0]?.billingEmail || billingProfiles[0]?.billingPhone || client.contactEmail || 'No billing contact on file')}</div><div class="muted">${esc(billingProfiles[0]?.poNumber || billingProfiles[0]?.referenceNumber || 'No PO / reference')}</div></div><div class="summary-card"><div class="label">Field Snapshot</div><div class="value">${esc(client.primaryContact || 'No primary contact')}</div><div class="muted">${esc(client.contactPhone || client.contactEmail || 'No client phone or email')}</div><div class="muted">${esc(client.operationalNotes || 'No field notes added yet')}</div></div></div><div class="directory-subsection"><div class="panel-header directory-subsection-head"><h2>Upcoming Jobs</h2><button class="act-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button></div><div class="panel-body">${upcomingJobs.length ? `<div class="mini-list">${upcomingJobs.map((job) => `<div class="mini-card clickable-card" role="button" tabindex="0" onclick="openEntityModal('jobs','${esc(job.id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEntityModal('jobs','${esc(job.id)}'); }"><div class="mini-head"><div><div class="item-title">${esc(job.fieldfxTicketId || job.jobType || 'Field job')}</div><div class="muted">${esc(getProjectLabel(job.projectId))} | ${esc(getSiteLabel(job.siteId))}</div></div>${getPriorityBadge(job.priority)}</div><div class="mini-tags">${getStatusBadge(job.jobStatus)}<span class="mini-tag">${esc(fmtDateTime(job.scheduledStart || job.requestedDate))}</span></div></div>`).join('')}</div>` : '<div class="empty-state">No jobs are queued for this client scope yet.</div>'}</div></div>`;
+  return `<div class="summary-grid directory-summary-grid"><div class="summary-card"><div class="label">Service Scope</div><div class="value">${esc(client.serviceScope || 'Field')}</div><div class="muted">${esc(client.sector || 'No sector')}</div></div><div class="summary-card"><div class="label">Client Code</div><div class="value">${esc(normalizeClientCode(client.clientCode) || 'Missing')}</div><div class="muted">Lab samples tie back to this client through the shared code.</div></div><div class="summary-card"><div class="label">Focused Project</div><div class="value">${esc(focusedProject?.projectName || 'All Projects')}</div><div class="muted">${esc(focusedProject?.projectStatus || `${projects.length} total projects`)}</div></div><div class="summary-card"><div class="label">Contacts</div><div class="value">${contacts.length}</div><div class="muted">${esc(primaryContacts.length ? `${primaryContacts.length} primary contact${primaryContacts.length === 1 ? '' : 's'}` : 'No primary contacts flagged')}</div></div><div class="summary-card"><div class="label">Site/Locations</div><div class="value">${sites.length}</div><div class="muted">${esc(jobs.length)} active workflow record(s) in this scope</div></div></div><div class="directory-section-grid"><div class="summary-card"><div class="label">Company Snapshot</div><div class="value">${esc(client.clientName || 'Unnamed client')}</div><div class="muted">${esc(normalizeClientCode(client.clientCode) || 'No client code')}</div><div class="muted">${esc(address || 'No HQ address on file')}</div><div class="muted">${esc(client.defaultServiceArea || 'No default service area')}</div><div class="mini-tags">${getStatusBadge(client.accountStatus)}${getStatusBadge(client.serviceScope || 'Field')}</div></div><div class="summary-card"><div class="label">Billing Snapshot</div><div class="value">${esc(billingProfiles[0]?.billingName || 'No billing profile')}</div><div class="muted">${esc(billingProfiles[0]?.billingEmail || billingProfiles[0]?.billingPhone || client.contactEmail || 'No billing contact on file')}</div><div class="muted">${esc(billingProfiles[0]?.poNumber || billingProfiles[0]?.referenceNumber || 'No PO / reference')}</div></div><div class="summary-card"><div class="label">Field Snapshot</div><div class="value">${esc(client.primaryContact || 'No primary contact')}</div><div class="muted">${esc(client.contactPhone || client.contactEmail || 'No client phone or email')}</div><div class="muted">${esc(client.operationalNotes || 'No field notes added yet')}</div></div></div><div class="directory-subsection"><div class="panel-header directory-subsection-head"><h2>Upcoming Jobs</h2><button class="act-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button></div><div class="panel-body">${upcomingJobs.length ? `<div class="mini-list">${upcomingJobs.map((job) => `<div class="mini-card clickable-card" role="button" tabindex="0" onclick="openEntityModal('jobs','${esc(job.id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEntityModal('jobs','${esc(job.id)}'); }"><div class="mini-head"><div><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(getProjectLabel(job.projectId))} | ${esc(getSiteLabel(job.siteId))}</div></div>${getPriorityBadge(job.priority)}</div><div class="mini-tags"><span class="mini-tag">${esc(getJobScheduleLabel(job))}</span></div></div>`).join('')}</div>` : '<div class="empty-state">No jobs are queued for this client scope yet.</div>'}</div></div>`;
 }
 function renderDirectoryProjectsSection(clientId, activeProjectId){
   const projects = getDirectoryProjects(clientId);
@@ -948,14 +1114,14 @@ function renderDirectoryBillingSection(clientId, activeProjectId){
 }
 function renderDirectorySitesSection(clientId, activeProjectId){
   const sites = getDirectorySites(clientId, activeProjectId);
-  return renderTable(['Site', 'Project', 'Type / Status', 'Location', 'Standard Job Types', 'Jobs'], sites.map((site) => buildTableRow('sites', site.id, [
+  return renderTable(['Site/Location', 'Linked Projects', 'Type / Status', 'Location', 'Standard Job Types', 'Jobs'], sites.map((site) => buildTableRow('sites', site.id, [
     `<div class="inline-stack"><div class="item-title">${esc(site.siteName || 'Unnamed site')}</div><div class="muted">${esc(site.clientSiteContact || 'No site contact')}</div></div>`,
-    esc(getProjectLabel(site.projectId)),
+    esc(getLinkedProjectsForSite(site.id).map((project) => project.projectName || 'Unnamed project').join(', ') || 'No linked project'),
     `<div class="inline-stack">${getStatusBadge(site.siteType || 'Other')}${getStatusBadge(site.siteStatus || 'Active')}</div>`,
     `<div class="inline-stack"><div>${esc(site.physicalAddress || 'No address')}</div><div class="muted">${esc(site.countyState || 'No county/state')}</div></div>`,
     renderTags(site.standardJobTypes),
     `<div class="inline-stack"><div>${esc(getJobsForSite(site.id).length)} job${getJobsForSite(site.id).length === 1 ? '' : 's'}</div><div class="muted">${esc(getSamplesForSite(site.id).length)} sample${getSamplesForSite(site.id).length === 1 ? '' : 's'}</div></div>`
-  ])), '<strong>No sites yet</strong>Add project-owned sites here so field jobs can be scheduled to real locations.');
+  ])), '<strong>No site/locations yet</strong>Add project-linked locations here so field jobs can be scheduled to real places.');
 }
 function renderDirectoryWorkspace(client, activeProjectId){
   const overview = renderDirectoryOverviewSection(client, activeProjectId);
@@ -987,7 +1153,7 @@ function renderDirectory(){
   const sites = getDirectorySites(activeClient.id, activeProjectId);
   document.getElementById('directory-detail-title').textContent = activeClient.clientName || 'Client Workspace';
   document.getElementById('directory-detail-meta').textContent = focusedProject ? `${normalizeClientCode(activeClient.clientCode) || 'No client code'} | ${focusedProject.projectName} | ${contacts.length} contacts | ${billingProfiles.length} billing profile(s) | ${sites.length} site(s)` : `${normalizeClientCode(activeClient.clientCode) || 'No client code'} | ${getDirectoryProjects(activeClient.id).length} projects | ${contacts.length} contacts | ${billingProfiles.length} billing profile(s) | ${sites.length} site(s)`;
-  document.getElementById('directory-detail-actions').innerHTML = `<button class="act-btn" type="button" onclick="openEntityModal('clients','${esc(activeClient.id)}')">Edit Client</button><button class="act-btn" type="button" onclick="openEntityModal('projects')">+ Project</button><button class="act-btn" type="button" onclick="openEntityModal('contacts')">+ Contact</button><button class="act-btn" type="button" onclick="openEntityModal('billingProfiles')">+ Billing</button><button class="act-btn" type="button" onclick="openEntityModal('sites')">+ Site</button><button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Job</button>`;
+  document.getElementById('directory-detail-actions').innerHTML = `<button class="act-btn" type="button" onclick="openEntityModal('clients','${esc(activeClient.id)}')">Edit Client</button><button class="act-btn" type="button" onclick="openEntityModal('projects')">+ Project</button><button class="act-btn" type="button" onclick="openEntityModal('contacts')">+ Contact</button><button class="act-btn" type="button" onclick="openEntityModal('billingProfiles')">+ Billing</button><button class="act-btn" type="button" onclick="openEntityModal('sites')">+ Site/Location</button><button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Job</button>`;
   document.getElementById('directory-workspace').innerHTML = `${renderDirectorySectionNav()}<div class="directory-hero"><div class="client-row-ident">${renderAssetPhoto(activeClient, { className:'client-logo-thumb', emptyLabel:'No logo', alt:getAssetPhotoAlt('clients', activeClient) })}<div class="inline-stack"><div class="item-title">${esc(activeClient.clientName || 'Unnamed client')}</div><div class="muted">${esc(normalizeClientCode(activeClient.clientCode) || 'No client code')} | ${esc(activeClient.primaryContact || 'No primary contact')} | ${esc(activeClient.contactPhone || activeClient.contactEmail || 'No phone or email')}</div><div class="mini-tags">${getStatusBadge(activeClient.accountStatus)}${getStatusBadge(activeClient.serviceScope || 'Field')}${activeProjectId !== 'all' ? `<span class="tag-chip">Project Focus: ${esc(getProjectLabel(activeProjectId))}</span>` : ''}</div></div></div><div class="directory-hero-copy">Build the account once, then keep projects, billing, contacts, sites, and jobs connected instead of split across separate screens.</div></div>${renderDirectoryWorkspace(activeClient, activeProjectId)}`;
   hydrateAssetPhotoPreviews(directoryScreen);
 }
@@ -1138,10 +1304,12 @@ function renderAssetPhotoField(field){
 }
 
 function renderResources(){
-  document.getElementById('employees-panel').innerHTML = renderResourceCards(state.data.employees.filter((employee) => isFieldEligibleEmployee(employee)), (employee) => `<div class="resource-card"><div class="resource-card-head"><div><div class="item-title">${esc(employee.employeeName || 'Unnamed employee')}</div><div class="muted">${esc(employee.fieldRole || employee.labRole || 'No role set')}</div></div><div class="mini-tags">${getStatusBadge(employee.workScope || 'Field')}${employee.canSampleTransport ? '<span class="warning-chip">Sample Pickup / Drop-Off</span>' : ''}</div></div><div class="muted">Default Truck: ${esc(getDefaultTruckForTechnician(employee.id)?.unitNumber || 'Pool')}</div><div class="muted">${esc(employee.phone || employee.email || 'No contact info')}</div><div class="table-actions"><button class="act-btn" type="button" onclick="window.location.href='employees.html'">Manage In Directory</button></div></div>`, 'No field-eligible employees yet');
+  document.getElementById('employees-panel').innerHTML = renderResourceCards(state.data.employees.filter((employee) => isFieldEligibleEmployee(employee)), (employee) => `<div class="resource-card clickable-card" role="button" tabindex="0" onclick="window.location.href='employees.html'" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); window.location.href='employees.html'; }"><div class="resource-card-head"><div><div class="item-title">${esc(employee.employeeName || 'Unnamed employee')}</div><div class="muted">${esc(employee.fieldRole || employee.labRole || 'No role set')}</div></div><div class="mini-tags">${getStatusBadge(employee.workScope || 'Field')}${employee.canSampleTransport ? '<span class="warning-chip">Sample Pickup / Drop-Off</span>' : ''}</div></div><div class="muted">Default Truck: ${esc(getDefaultTruckForTechnician(employee.id)?.unitNumber || 'Pool')}</div><div class="muted">${esc(employee.phone || employee.email || 'No contact info')}</div></div>`, 'No field-eligible employees yet');
   document.getElementById('trucks-panel').innerHTML = renderResourceCards(state.data.trucks, (truck) => `<div ${renderCardOpenAttrs('trucks', truck.id)}>${renderAssetPhoto(truck, { className:'resource-photo', emptyLabel:getAssetPhotoEmptyLabel('trucks'), alt:getAssetPhotoAlt('trucks', truck), fallbackImageSrc:getDefaultAssetIconSrc('trucks', truck) })}<div class="resource-card-head"><div><div class="item-title">${esc(truck.unitNumber || 'Unnamed truck')}</div><div class="muted">${esc([truck.color, truck.vehicleYear, truck.make, truck.model].filter(Boolean).join(' ') || truck.vehicleType)}</div></div>${getStatusBadge(truck.serviceStatus)}</div><div class="muted">${esc(truck.licensePlateNumber || 'No plate')} ${truck.registeredState ? `| ${esc(truck.registeredState)}` : ''}</div><div class="muted">${truck.vin ? `VIN: ${esc(truck.vin)}` : 'No VIN'}</div><div class="muted">Assigned Employee: ${esc(truck.assignedTechnicianId ? getTechnicianLabel(truck.assignedTechnicianId) : 'Pool')}</div></div>`, 'No trucks yet');
   document.getElementById('trailers-panel').innerHTML = renderResourceCards(state.data.trailers, (trailer) => `<div ${renderCardOpenAttrs('trailers', trailer.id)}>${renderAssetPhoto(trailer, { className:'resource-photo', emptyLabel:getAssetPhotoEmptyLabel('trailers'), alt:getAssetPhotoAlt('trailers', trailer), fallbackImageSrc:getDefaultAssetIconSrc('trailers', trailer) })}<div class="resource-card-head"><div><div class="item-title">${esc(trailer.trailerNumber || 'Unnamed trailer')}</div><div class="muted">${esc(trailer.trailerType || 'No trailer type')}</div></div>${getStatusBadge(trailer.serviceStatus)}</div><div class="muted">${esc(trailer.capacityConfiguration || 'No capacity/configuration')}</div><div class="muted">Assigned Truck: ${esc(trailer.assignedTruckId ? getTruckLabel(trailer.assignedTruckId) : 'Unassigned')}</div></div>`, 'No trailers yet');
   document.getElementById('equipment-panel').innerHTML = renderResourceCards(state.data.equipment, (item) => `<div ${renderCardOpenAttrs('equipment', item.id)}><div class="resource-card-head"><div><div class="item-title">${esc(item.equipmentName || 'Unnamed equipment')}</div><div class="muted">${esc(item.equipmentType)}</div></div>${getStatusBadge(item.maintenanceStatus)}</div><div class="mini-tags">${getStatusBadge(item.calibrationStatus)}${item.serialNumber ? `<span class="tag-chip">${esc(item.serialNumber)}</span>` : ''}</div><div class="muted">${esc([item.manufacturer, item.model].filter(Boolean).join(' | ') || 'No manufacturer or model')}</div><div class="muted">${esc(item.splInventoryBarcode ? `Barcode: ${item.splInventoryBarcode}` : 'No SPL inventory barcode')}</div><div class="muted">Truck: ${esc(item.assignedTruckId ? getTruckLabel(item.assignedTruckId) : 'Pool')} | Trailer: ${esc(item.assignedTrailerId ? getTrailerLabel(item.assignedTrailerId) : 'Pool')}</div></div>`, 'No equipment yet');
+  const jobTypesPanel = document.getElementById('job-types-panel');
+  if(jobTypesPanel) jobTypesPanel.innerHTML = renderResourceCards(state.data.jobTypes.sort(getEntitySorter('jobTypes')), (jobType) => `<div ${renderCardOpenAttrs('jobTypes', jobType.id || jobType.jobTypeKey)}><div class="resource-card-head"><div><div class="item-title">${esc(jobType.jobTypeName || jobType.jobTypeKey || 'Unnamed job type')}</div><div class="muted">${esc(jobType.jobTypeKey || 'No key')}</div></div><div class="mini-tags">${getStatusBadge(jobType.scheduleMode || 'range')}${jobType.isActive ? '<span class="tag-chip">Active</span>' : '<span class="warning-chip">Inactive</span>'}</div></div><div class="muted">Required: ${esc(normalizeStringArray(jobType.requiredAssignmentTypes).join(', ') || 'None')}</div><div class="muted">Details: ${esc(normalizeStringArray(jobType.detailGroups).join(', ') || 'None')}</div></div>`, 'No job types yet');
 }
 
 function renderSamples(){
@@ -1176,7 +1344,6 @@ function render(){
 
 function getNewRecordDraft(entityKey){
   const base = clone(ENTITY_CONFIG[entityKey].defaults);
-  if(entityKey === 'jobs') base.requestedDate = todayISO();
   if(entityKey === 'samples') base.collectionDateTime = nowInputDateTime();
   if(entityKey === 'maintenanceRecords') base.openDate = todayISO();
   return base;
@@ -1185,27 +1352,47 @@ function getNewRecordDraft(entityKey){
 function normalizeOptionsList(options){ return normalizeOptions(typeof options === 'function' ? options() : options); }
 function isEmptyOptionValue(value){ return value === '' || value === null || value === undefined; }
 function hasExplicitEmptyOption(options){ return options.some((option) => isEmptyOptionValue(option?.value)); }
+function isFieldDisabled(field){ return typeof field?.disabled === 'function' ? !!field.disabled() : !!field?.disabled; }
 function shouldRenderField(field){
   if(!field || modalState.entity !== 'jobs') return true;
-  if(!Array.isArray(field.jobTypes) || !field.jobTypes.length) return true;
-  return field.jobTypes.includes(modalState.formData.jobType);
+  if(Array.isArray(field.scheduleModes) && field.scheduleModes.length && !field.scheduleModes.includes(getJobTypeScheduleMode(modalState.formData.jobType))) return false;
+  if(field.detailGroup && !jobTypeHasDetailGroup(modalState.formData.jobType, field.detailGroup)) return false;
+  if(Array.isArray(field.jobTypes) && field.jobTypes.length){
+    const currentValue = resolveJobTypeValue(state.data.jobTypes, modalState.formData.jobType);
+    return field.jobTypes.map((value) => resolveJobTypeValue(state.data.jobTypes, value)).includes(currentValue);
+  }
+  return true;
+}
+
+function toggleModalArrayValue(key, optionValue, checked){
+  if(!modalState.open) return;
+  const values = normalizeStringArray(modalState.formData[key]);
+  const nextValues = checked ? [...new Set([...values, optionValue])] : values.filter((value) => value !== optionValue);
+  modalState.formData[key] = nextValues;
+  renderModal();
 }
 
 function renderFormField(field){
   if(!shouldRenderField(field)) return '';
   if(field.kind === 'section') return `<div class="form-section"><h4>${esc(field.label)}</h4></div>`;
   const fullClass = field.full ? ' full' : '';
-  if(field.type === 'checkbox') return `<div class="form-group${fullClass}"><label class="form-label">${esc(field.label)}</label><label class="toggle-card"><input type="checkbox" ${modalState.formData[field.key] ? 'checked' : ''} onchange="toggleModalField('${field.key}', this.checked)"><span>${esc(field.label)}</span></label></div>`;
+  const disabled = isFieldDisabled(field);
+  if(field.type === 'checkbox') return `<div class="form-group${fullClass}"><label class="form-label">${esc(field.label)}</label><label class="toggle-card ${disabled ? 'is-disabled' : ''}"><input type="checkbox" ${modalState.formData[field.key] ? 'checked' : ''} ${disabled ? 'disabled' : ''} onchange="toggleModalField('${field.key}', this.checked)"><span>${esc(field.label)}</span></label></div>`;
+  if(field.type === 'checkbox-group'){
+    const options = normalizeOptionsList(field.options || []);
+    const selectedValues = normalizeStringArray(modalState.formData[field.key]);
+    return `<div class="form-group${fullClass}"><label class="form-label">${esc(field.label)}</label><div class="checkbox-group ${disabled ? 'is-disabled' : ''}">${options.map((option) => `<label class="checkbox-chip"><input type="checkbox" value="${esc(option.value)}" ${selectedValues.includes(String(option.value)) ? 'checked' : ''} ${disabled ? 'disabled' : ''} onchange="toggleModalArrayValue('${field.key}', '${esc(option.value)}', this.checked)"><span>${esc(option.label)}</span></label>`).join('')}</div></div>`;
+  }
   if(field.type === 'image') return renderAssetPhotoField(field);
   const value = modalState.formData[field.key];
   const options = normalizeOptionsList(field.options || []);
   const includeEmptyOption = !hasExplicitEmptyOption(options);
   const emptyOptionLabel = field.placeholderLabel || (field.required ? 'Select...' : '');
   const control = field.type === 'textarea'
-    ? `<textarea class="form-input" oninput="setModalField('${field.key}', this.value)">${esc(value)}</textarea>`
+    ? `<textarea class="form-input" ${disabled ? 'disabled' : ''} oninput="setModalField('${field.key}', this.value)">${esc(value)}</textarea>`
     : field.type === 'select'
-      ? `<select class="form-input" onchange="${field.handler ? `${field.handler}(this.value)` : `setModalField('${field.key}', this.value)`}">${includeEmptyOption ? `<option value="">${esc(emptyOptionLabel)}</option>` : ''}${options.map((option) => `<option value="${esc(option.value)}" ${String(value) === String(option.value) ? 'selected' : ''}>${esc(option.label)}</option>`).join('')}</select>`
-      : `<input class="form-input" type="${field.type || 'text'}" value="${esc(value ?? '')}" oninput="setModalField('${field.key}', this.value, '${field.type === 'number' ? 'number' : 'text'}')">`;
+      ? `<select class="form-input" ${disabled ? 'disabled' : ''} onchange="${field.handler ? `${field.handler}(this.value)` : `setModalField('${field.key}', this.value)`}">${includeEmptyOption ? `<option value="">${esc(emptyOptionLabel)}</option>` : ''}${options.map((option) => `<option value="${esc(option.value)}" ${String(value) === String(option.value) ? 'selected' : ''}>${esc(option.label)}</option>`).join('')}</select>`
+      : `<input class="form-input" ${disabled ? 'disabled' : ''} type="${field.type || 'text'}" value="${esc(value ?? '')}" oninput="setModalField('${field.key}', this.value, '${field.type === 'number' ? 'number' : 'text'}')">`;
   return `<div class="form-group${fullClass}"><label class="form-label">${esc(field.label)}</label>${control}</div>`;
 }
 
@@ -1261,11 +1448,11 @@ function clearModalTruckAssignment(){
   renderModal();
 }
 function renderAssignmentEditor(){
-  const requirements = REQUIRED_ASSIGNMENTS_BY_JOB_TYPE[modalState.formData.jobType] || [];
+  const requirements = getRequiredAssignmentTypes(modalState.formData.jobType);
   const suggestions = getModalDefaultTruckSuggestions();
   const currentTruck = getModalTruckAssignment();
   const suggestionMarkup = suggestions.length ? `<div class="assignment-defaults">${suggestions.map(({ employee, defaultTruck }) => `<div class="assignment-default-row"><div><div class="item-title">${esc(employee.employeeName || 'Employee')}</div><div class="muted">Default truck ${esc(defaultTruck.unitNumber || 'Unnamed truck')}</div></div><div class="table-actions"><button class="act-btn" type="button" onclick="applyTechnicianDefaultTruck('${esc(employee.id)}', true)" ${currentTruck?.resourceId === defaultTruck.id ? 'disabled' : ''}>Use Default Truck</button>${currentTruck ? `<button class="act-btn danger" type="button" onclick="clearModalTruckAssignment()">Clear Truck</button>` : ''}</div></div>`).join('')}</div>` : '';
-  return `<div class="assignment-editor"><div class="assignment-head"><div><h4>Job Assignments</h4><div class="section-copy">${requirements.length ? `Required for ${modalState.formData.jobType}: ${requirements.join(', ')}.` : 'Choose a job type, then add employees, trucks, trailers, and equipment as needed.'}</div></div><button class="add-btn" type="button" onclick="addAssignmentRow()">+ Add Assignment</button></div>${suggestionMarkup}<div class="assignment-list">${modalState.assignments.length ? modalState.assignments.map((assignment) => renderAssignmentRow(assignment)).join('') : '<div class="empty-state">No assignments added yet.</div>'}</div><div class="form-hint">Selecting an employee auto-fills their default truck when no truck is assigned. You can swap to another vehicle or clear the truck from this editor at any time.</div></div>`;
+  return `<div class="assignment-editor"><div class="assignment-head"><div><h4>Job Assignments</h4><div class="section-copy">${requirements.length ? `Required for ${getJobTypeDisplayName(modalState.formData.jobType)}: ${requirements.join(', ')}.` : 'Choose a job type, then add employees, trucks, trailers, and equipment as needed.'}</div></div><button class="add-btn" type="button" onclick="addAssignmentRow()">+ Add Assignment</button></div>${suggestionMarkup}<div class="assignment-list">${modalState.assignments.length ? modalState.assignments.map((assignment) => renderAssignmentRow(assignment)).join('') : '<div class="empty-state">No assignments added yet.</div>'}</div><div class="form-hint">Selecting an employee auto-fills their default truck when no truck is assigned. You can swap to another vehicle or clear the truck from this editor at any time.</div></div>`;
 }
 
 function renderModal(){
@@ -1290,11 +1477,15 @@ function openEntityModal(entityKey, id = ''){
   const directoryProjectId = state.activeView === 'directory' ? getActiveDirectoryProjectId(directoryClientId) : (state.filters.directoryProject !== 'all' ? state.filters.directoryProject : '');
   if(!existing){
     if(['projects', 'contacts', 'billingProfiles', 'sites', 'jobs'].includes(entityKey) && directoryClientId) draft.clientId = directoryClientId;
-    if(['contacts', 'billingProfiles', 'sites', 'jobs'].includes(entityKey) && directoryProjectId && directoryProjectId !== 'all') draft.projectId = directoryProjectId;
+    if(['contacts', 'billingProfiles'].includes(entityKey) && directoryProjectId && directoryProjectId !== 'all') draft.projectId = directoryProjectId;
+    if(entityKey === 'sites' && directoryProjectId && directoryProjectId !== 'all') draft.projectIds = [directoryProjectId];
   }
   if(entityKey === 'sites' && draft.projectId && !draft.clientId){
     const project = getProject(draft.projectId);
     if(project) draft.clientId = project.clientId;
+  }
+  if(entityKey === 'sites'){
+    draft.projectIds = normalizeStringArray(draft.projectIds).length ? normalizeStringArray(draft.projectIds) : normalizeStringArray(draft.projectId);
   }
   if(entityKey === 'jobs' && draft.projectId && !draft.clientId){
     const project = getProject(draft.projectId);
@@ -1311,14 +1502,8 @@ function toggleModalField(key, checked){ if(modalState.open) modalState.formData
 
 function changeSiteClient(value){
   modalState.formData.clientId = value;
-  const project = getProject(modalState.formData.projectId);
-  if(project && project.clientId !== value) modalState.formData.projectId = '';
-  renderModal();
-}
-function changeSiteProject(value){
-  modalState.formData.projectId = value;
-  const project = getProject(value);
-  if(project) modalState.formData.clientId = project.clientId;
+  modalState.formData.projectIds = normalizeStringArray(modalState.formData.projectIds).filter((projectId) => getProject(projectId)?.clientId === value);
+  modalState.formData.projectId = modalState.formData.projectIds[0] || '';
   renderModal();
 }
 function changeContactClient(value){
@@ -1334,7 +1519,7 @@ function changeContactProject(value){
   const project = getProject(value);
   if(project) modalState.formData.clientId = project.clientId;
   const site = getSite(modalState.formData.siteId);
-  if(site && site.projectId !== value) modalState.formData.siteId = '';
+  if(site && value && !getProjectIdsForSite(site.id).includes(value)) modalState.formData.siteId = '';
   renderModal();
 }
 function changeBillingClient(value){
@@ -1353,23 +1538,35 @@ function changeJobClient(value){
   modalState.formData.clientId = value;
   const project = getProject(modalState.formData.projectId);
   if(project && project.clientId !== value) modalState.formData.projectId = '';
-  if(!modalState.formData.projectId){
-    const projectOptions = buildProjectOptions(value);
-    if(projectOptions.length === 1) modalState.formData.projectId = projectOptions[0].value;
-  }
   const site = getSite(modalState.formData.siteId);
   if(site && site.clientId !== value) modalState.formData.siteId = '';
+  if(modalState.formData.siteId){
+    const projectOptions = buildJobProjectOptions(value, modalState.formData.siteId);
+    if(projectOptions.length === 1) modalState.formData.projectId = projectOptions[0].value;
+    else if(!projectOptions.some((option) => option.value === modalState.formData.projectId)) modalState.formData.projectId = '';
+  }
+  renderModal();
+}
+function changeJobSite(value){
+  modalState.formData.siteId = value;
+  const site = getSite(value);
+  if(site) modalState.formData.clientId = site.clientId;
+  const projectOptions = buildJobProjectOptions(modalState.formData.clientId, value);
+  if(projectOptions.length === 1) modalState.formData.projectId = projectOptions[0].value;
+  else if(!projectOptions.some((option) => option.value === modalState.formData.projectId)) modalState.formData.projectId = '';
   renderModal();
 }
 function changeJobProject(value){
   modalState.formData.projectId = value;
   const project = getProject(value);
   if(project) modalState.formData.clientId = project.clientId;
-  const site = getSite(modalState.formData.siteId);
-  if(site && site.projectId !== value) modalState.formData.siteId = '';
   renderModal();
 }
-function changeJobType(value){ modalState.formData.jobType = value; renderModal(); }
+function changeJobType(value){
+  modalState.formData.jobType = value;
+  if(getJobTypeScheduleMode(value) === 'point_in_time') modalState.formData.scheduledEnd = '';
+  renderModal();
+}
 function changeSampleJob(value){ modalState.formData.jobId = value; const job = getJob(value); if(job){ modalState.formData.clientId = job.clientId; modalState.formData.siteId = job.siteId; } renderModal(); }
 function changeSampleClient(value){ modalState.formData.clientId = value; const site = getSite(modalState.formData.siteId); if(site && site.clientId !== value) modalState.formData.siteId = ''; renderModal(); }
 function changeMaintenanceAssetType(value){ modalState.formData.assetType = value; modalState.formData.assetId = ''; renderModal(); }
@@ -1437,22 +1634,22 @@ function validateModal(){
   }
   if(entityKey === 'sites'){
     if(!String(formData.clientId || '').trim()) return 'Client is required.';
-    if(!String(formData.projectId || '').trim()) return 'Project is required.';
-    if(!String(formData.siteName || '').trim()) return 'Site name is required.';
-    const project = getProject(formData.projectId);
-    if(project && project.clientId !== formData.clientId) return 'The selected project does not belong to the selected client.';
+    const projectIds = normalizeStringArray(formData.projectIds);
+    if(!projectIds.length) return 'At least one linked project is required.';
+    if(!String(formData.siteName || '').trim()) return 'Site / location name is required.';
+    const invalidProject = projectIds.find((projectId) => getProject(projectId)?.clientId !== formData.clientId);
+    if(invalidProject) return 'Each linked project must belong to the selected client.';
   }
   if(entityKey === 'jobs'){
     if(!String(formData.clientId || '').trim()) return 'Client is required.';
     if(!String(formData.projectId || '').trim()) return 'Project is required.';
-    if(!String(formData.siteId || '').trim()) return 'Site is required.';
+    if(!String(formData.siteId || '').trim()) return 'Site / location is required.';
     if(!String(formData.jobType || '').trim()) return 'Job type is required.';
-    if(!String(formData.jobStatus || '').trim()) return 'Job status is required.';
     const project = getProject(formData.projectId);
     if(project && project.clientId !== formData.clientId) return 'The selected project does not belong to the selected client.';
     const site = getSite(formData.siteId);
-    if(site && site.clientId !== formData.clientId) return 'The selected site does not belong to the selected client.';
-    if(site && site.projectId !== formData.projectId) return 'The selected site does not belong to the selected project.';
+    if(site && site.clientId !== formData.clientId) return 'The selected site/location does not belong to the selected client.';
+    if(site && !getProjectIdsForSite(site.id).includes(formData.projectId)) return 'The selected project is not linked to the selected site/location.';
     const assignmentKeys = new Set();
     for(const assignment of modalState.assignments){
       if((assignment.assignmentType && !assignment.resourceId) || (!assignment.assignmentType && assignment.resourceId)) return 'Each assignment row must include both a type and a resource.';
@@ -1464,11 +1661,18 @@ function validateModal(){
     const missing = getJobMissingRequirements({ ...formData, id:modalState.id || 'draft' }, modalState.assignments);
     if(missing.length) return `This ${formData.jobType} job still needs: ${missing.join(', ')}.`;
   }
+  if(entityKey === 'jobTypes'){
+    if(!String(formData.jobTypeName || '').trim()) return 'Job type name is required.';
+    const nextKey = normalizeJobTypeKey(formData.jobTypeKey || formData.jobTypeName);
+    if(!nextKey) return 'Job type key is required.';
+    const duplicate = state.data.jobTypes.find((row) => row.id !== modalState.id && normalizeJobTypeKey(row.jobTypeKey) === nextKey);
+    if(duplicate) return `Job type key ${nextKey} is already in use.`;
+  }
   if(entityKey === 'employees' && !String(formData.employeeName || '').trim()) return 'Employee name is required.';
   if(entityKey === 'trucks' && !String(formData.unitNumber || '').trim()) return 'Truck unit number is required.';
   if(entityKey === 'trailers' && !String(formData.trailerNumber || '').trim()) return 'Trailer number is required.';
   if(entityKey === 'equipment' && !String(formData.equipmentName || '').trim()) return 'Equipment name is required.';
-  if(entityKey === 'samples'){ if(!String(formData.jobId || '').trim()) return 'Job is required for a sample.'; if(!String(formData.clientId || '').trim()) return 'Client is required for a sample.'; if(!String(formData.siteId || '').trim()) return 'Site is required for a sample.'; }
+  if(entityKey === 'samples'){ if(!String(formData.jobId || '').trim()) return 'Job is required for a sample.'; if(!String(formData.clientId || '').trim()) return 'Client is required for a sample.'; if(!String(formData.siteId || '').trim()) return 'Site / location is required for a sample.'; }
   if(entityKey === 'maintenanceRecords'){ if(!String(formData.assetType || '').trim()) return 'Asset type is required.'; if(!String(formData.assetId || '').trim()) return 'Asset is required.'; if(!String(formData.maintenanceType || '').trim()) return 'Maintenance type is required.'; if(!String(formData.status || '').trim()) return 'Status is required.'; if(!String(formData.assignedPerson || '').trim()) return 'Assigned person is required.'; }
   return '';
 }
@@ -1519,12 +1723,37 @@ async function saveLocalRecord(entityKey, draft){
   return record.id;
 }
 
+function syncLocalSiteProjectLinks(next, siteId, projectIds){
+  next.siteProjects = next.siteProjects.filter((row) => row.siteId !== siteId);
+  projectIds.forEach((projectId) => next.siteProjects.push(normalizeRecord('siteProjects', { id:`${siteId}::${projectId}`, siteId, projectId }, { fromRemote:false })));
+}
+
+async function saveLocalSiteRecord(draft){
+  const next = clone(state.data);
+  const projectIds = normalizeStringArray(draft.projectIds);
+  const siteDraft = { ...draft, projectIds, projectId:projectIds[0] || '' };
+  const cfg = ENTITY_CONFIG.sites;
+  const existingIndex = next.sites.findIndex((row) => row.id === siteDraft.id);
+  const existing = existingIndex >= 0 ? next.sites[existingIndex] : null;
+  const now = new Date().toISOString();
+  const record = normalizeRecord('sites', { ...existing, ...siteDraft, id:siteDraft.id || existing?.id || uid(cfg.idPrefix), createdAt:existing?.createdAt || now, updatedAt:now }, { fromRemote:false });
+  record.projectIds = projectIds;
+  record.projectId = projectIds[0] || '';
+  if(existingIndex >= 0) next.sites[existingIndex] = record; else next.sites.unshift(record);
+  syncLocalSiteProjectLinks(next, record.id, projectIds);
+  repairDataRelationships(next);
+  await persistLocal(next);
+  return record.id;
+}
+
 async function saveLocalJob(draft, assignments){
   const next = clone(state.data);
   const jobIndex = next.jobs.findIndex((row) => row.id === draft.id);
   const existing = jobIndex >= 0 ? next.jobs[jobIndex] : null;
   const now = new Date().toISOString();
-  const jobRecord = normalizeRecord('jobs', { ...existing, ...draft, id:draft.id || existing?.id || uid(ENTITY_CONFIG.jobs.idPrefix), createdAt:existing?.createdAt || now, updatedAt:now });
+  const normalizedDraft = { ...draft, jobStatus:draft.jobStatus || existing?.jobStatus || 'New' };
+  if(getJobTypeScheduleMode(normalizedDraft.jobType) === 'point_in_time') normalizedDraft.scheduledEnd = '';
+  const jobRecord = normalizeRecord('jobs', { ...existing, ...normalizedDraft, id:draft.id || existing?.id || uid(ENTITY_CONFIG.jobs.idPrefix), createdAt:existing?.createdAt || now, updatedAt:now }, { fromRemote:false });
   if(jobIndex >= 0) next.jobs[jobIndex] = jobRecord; else next.jobs.unshift(jobRecord);
   next.jobAssignments = next.jobAssignments.filter((row) => row.jobId !== jobRecord.id);
   assignments.filter((row) => row.resourceId).forEach((assignment) => next.jobAssignments.push(normalizeRecord('jobAssignments', { ...assignment, id:assignment.id || uid(ENTITY_CONFIG.jobAssignments.idPrefix), jobId:jobRecord.id, createdAt:assignment.createdAt || now, updatedAt:now })));
@@ -1533,10 +1762,20 @@ async function saveLocalJob(draft, assignments){
 }
 
 async function saveRemoteJob(draft, assignments){
-  const jobId = await remoteRepository.saveRecord('jobs', draft);
+  const jobDraft = { ...draft, jobStatus:draft.jobStatus || 'New' };
+  if(getJobTypeScheduleMode(jobDraft.jobType) === 'point_in_time') jobDraft.scheduledEnd = '';
+  const jobId = await remoteRepository.saveRecord('jobs', jobDraft);
   await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'job_id', value:jobId }]);
   await remoteRepository.insertRows(ENTITY_CONFIG.jobAssignments.table, assignments.filter((row) => row.resourceId).map((row) => ({ job_id:jobId, assignment_type:row.assignmentType, resource_id:row.resourceId || null, assigned_start:toRemoteDateTime(row.assignedStart), assigned_end:toRemoteDateTime(row.assignedEnd), assignment_status:row.assignmentStatus, assignment_notes:row.assignmentNotes || '' })));
   return jobId;
+}
+
+async function saveRemoteSiteRecord(draft){
+  const projectIds = normalizeStringArray(draft.projectIds);
+  const siteId = await remoteRepository.saveRecord('sites', { ...draft, projectId:projectIds[0] || '' });
+  await remoteRepository.deleteWhere(ENTITY_CONFIG.siteProjects.table, [{ column:'site_id', value:siteId }]);
+  await remoteRepository.insertRows(ENTITY_CONFIG.siteProjects.table, projectIds.map((projectId) => ({ site_id:siteId, project_id:projectId })));
+  return siteId;
 }
 
 async function uploadRemoteAssetPhoto(path, dataUrl, type){
@@ -1610,6 +1849,9 @@ async function saveRemoteAssetRecord(entityKey, draft){
 
 async function saveEntityFromModal(){
   if(modalState.entity === 'clients') modalState.formData.clientCode = normalizeClientCode(modalState.formData.clientCode);
+  if(modalState.entity === 'jobTypes'){
+    modalState.formData.jobTypeKey = normalizeJobTypeKey(modalState.formData.jobTypeKey || modalState.formData.jobTypeName);
+  }
   const validationMessage = validateModal();
   if(validationMessage){ alert(validationMessage); return; }
   state.saveInFlight = true;
@@ -1618,6 +1860,9 @@ async function saveEntityFromModal(){
     if(modalState.entity === 'jobs'){
       if(isRemoteMode()){ await saveRemoteJob(modalState.formData, modalState.assignments); await loadData({ silent:true, force:true }); }
       else await saveLocalJob(modalState.formData, modalState.assignments);
+    } else if(modalState.entity === 'sites'){
+      if(isRemoteMode()){ await saveRemoteSiteRecord(modalState.formData); await loadData({ silent:true, force:true }); }
+      else await saveLocalSiteRecord(modalState.formData);
     } else if(isRemoteMode()){
       if(modalState.entity === 'employees') await saveRemoteTechnicianRecord(modalState.formData);
       else if(isAssetPhotoEntity(modalState.entity)) await saveRemoteAssetRecord(modalState.entity, modalState.formData);
@@ -1641,20 +1886,23 @@ async function saveEntityFromModal(){
 function buildLocalDeleteResult(entityKey, id){
   const next = clone(state.data);
   if(entityKey === 'clients'){
+    const clientSiteIds = new Set(next.sites.filter((row) => row.clientId === id).map((row) => row.id));
     next.clients = next.clients.filter((row) => row.id !== id);
     next.projects = next.projects.filter((row) => row.clientId !== id);
     next.contacts = next.contacts.filter((row) => row.clientId !== id);
     next.billingProfiles = next.billingProfiles.filter((row) => row.clientId !== id);
     next.sites = next.sites.filter((row) => row.clientId !== id);
+    next.siteProjects = next.siteProjects.filter((row) => !clientSiteIds.has(row.siteId));
   }
   else if(entityKey === 'projects'){
     next.projects = next.projects.filter((row) => row.id !== id);
     next.contacts = next.contacts.filter((row) => row.projectId !== id);
     next.billingProfiles = next.billingProfiles.filter((row) => row.projectId !== id);
-    next.sites = next.sites.filter((row) => row.projectId !== id);
+    next.siteProjects = next.siteProjects.filter((row) => row.projectId !== id);
   }
   else if(entityKey === 'sites'){
     next.sites = next.sites.filter((row) => row.id !== id);
+    next.siteProjects = next.siteProjects.filter((row) => row.siteId !== id);
     next.contacts = next.contacts.filter((row) => row.siteId !== id);
   }
   else if(entityKey === 'jobs'){ next.jobs = next.jobs.filter((row) => row.id !== id); next.jobAssignments = next.jobAssignments.filter((row) => row.jobId !== id); next.samples = next.samples.filter((row) => row.jobId !== id); }
@@ -1678,6 +1926,12 @@ async function deleteEntityRecord(entityKey, id){
   if(entityKey === 'sites'){
     const blockMessage = getSiteDeleteBlockMessage(id);
     if(blockMessage){ alert(blockMessage); return; }
+  }
+  if(entityKey === 'jobTypes'){
+    const jobType = state.data.jobTypes.find((row) => row.id === id) || null;
+    const targetKey = normalizeJobTypeKey(jobType?.jobTypeKey || id);
+    const inUse = state.data.jobs.some((job) => normalizeJobTypeKey(resolveJobTypeValue(state.data.jobTypes, job.jobType)) === targetKey);
+    if(inUse){ alert('This job type is still in use by existing jobs. Mark it inactive instead of deleting it.'); return; }
   }
   if(!confirm(`Delete this ${ENTITY_CONFIG[entityKey].label.toLowerCase()}? This cannot be undone.`)) return;
   state.saveInFlight = true;

@@ -300,7 +300,7 @@ function renderEmployeeCard(employee){
   const defaultTruck = getDefaultTruckForEmployee(employee.id);
   const transportBadge = employee.canSampleTransport ? '<span class="warning-chip">Sample Pickup / Drop-Off</span>' : '';
   return `
-    <div class="employee-card">
+    <div class="employee-card clickable-card" role="button" tabindex="0" onclick="openEmployeeModal('${esc(employee.id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEmployeeModal('${esc(employee.id)}'); }">
       <div class="employee-card-head">
         <div class="employee-card-copy">
           <div class="item-title">${esc(employee.employeeName || 'Unnamed employee')}</div>
@@ -319,9 +319,6 @@ function renderEmployeeCard(employee){
         </div>
       </div>
       <div class="muted">${esc(employee.notes || 'No profile notes added yet.')}</div>
-      <div class="employee-card-actions">
-        <button class="act-btn" type="button" onclick="openEmployeeModal('${esc(employee.id)}')">Edit</button>
-      </div>
     </div>
   `;
 }

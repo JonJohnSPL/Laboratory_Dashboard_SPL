@@ -25,27 +25,23 @@
       <div data-session-slot></div>
       <div class="nav-row">
         <button class="sec-btn" onclick="window.location.href='index.html'">Home</button>
-        <button class="sec-btn" onclick="window.location.href='clients.html'">Clients</button>
-        <button class="sec-btn" onclick="window.location.href='employees.html'">Employees</button>
+        <button class="sec-btn current" type="button">Field Ops</button>
         <button class="sec-btn" onclick="window.location.href='lab-dashboard.html'">Lab WIP</button>
         <button class="sec-btn" onclick="window.location.href='SureMap/SPLClientMap.HTML'">SureMap</button>
-        <button class="sec-btn" onclick="window.location.href='import.html'">Import</button>
-        <button class="sec-btn" onclick="window.location.href='test-types.html'">Test Types</button>
-        <button class="sec-btn" onclick="window.location.href='standards.html'">Standards</button>
-        <button class="sec-btn current" type="button">Field Ops</button>
+        <button class="sec-btn" onclick="window.location.href='employees.html'">Employees</button>
+        <button class="sec-btn" onclick="window.location.href='clients.html'">Clients</button>
+      </div>
+      <div class="page-nav-row view-tabs">
+        <button class="view-btn active" data-view="overview" onclick="switchView('overview')">Overview</button>
+        <button class="view-btn" data-view="dispatch" onclick="switchView('dispatch')">Dispatch</button>
+        <button class="view-btn" data-view="schedule" onclick="switchView('schedule')">Schedule</button>
+        <button class="view-btn" data-view="resources" onclick="switchView('resources')">Resources</button>
+        <button class="view-btn" data-view="samples" onclick="switchView('samples')">Samples</button>
+        <button class="view-btn" data-view="maintenance" onclick="switchView('maintenance')">Maintenance</button>
       </div>
       <div id="save-indicator" class="save-indicator" style="visibility:hidden;">Saved</div>
     </div>
   </header>
-
-  <div class="view-tabs">
-    <button class="view-btn active" data-view="overview" onclick="switchView('overview')">Overview</button>
-    <button class="view-btn" data-view="dispatch" onclick="switchView('dispatch')">Dispatch</button>
-    <button class="view-btn" data-view="schedule" onclick="switchView('schedule')">Schedule</button>
-    <button class="view-btn" data-view="resources" onclick="switchView('resources')">Resources</button>
-    <button class="view-btn" data-view="samples" onclick="switchView('samples')">Samples</button>
-    <button class="view-btn" data-view="maintenance" onclick="switchView('maintenance')">Maintenance</button>
-  </div>
 
   <div id="overview-screen" class="screen active">
     <div class="stats-bar" id="overview-stats"></div>
@@ -142,6 +138,13 @@
           <button class="act-btn" type="button" onclick="openEntityModal('equipment')">+ Add Equipment</button>
         </div>
         <div class="panel-body" id="equipment-panel"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Job Types</h2>
+          <button class="act-btn" type="button" onclick="openEntityModal('jobTypes')">+ Add Job Type</button>
+        </div>
+        <div class="panel-body" id="job-types-panel"></div>
       </section>
     </div>
   </div>

@@ -388,8 +388,8 @@
         initGoogleMap();
         return;
       } catch (error){
-        console.warn('Google Maps unavailable. Falling back to the default map.', error);
-        els['map-summary'].textContent = 'Google Maps unavailable. Using default map.';
+        console.warn('SureMap Google provider unavailable. Falling back to the default map.', error);
+        els['map-summary'].textContent = 'SureMap provider unavailable. Using default map.';
       }
     }
     initLeafletMap();
@@ -492,7 +492,7 @@
   function handleLoadError(error){
     console.error('SureMap load failed:', error);
     showSaveStatus('error', 'LOAD FAILED');
-    alert(error.message || 'Google Maps could not load shared client/site data.');
+    alert(error.message || 'SureMap could not load shared client/site data.');
   }
 
   function readLocalRaw(){
@@ -694,7 +694,7 @@
     }
     if(state.activeClientId){
       const client = getActiveClient();
-      els['toolbar-summary'].textContent = `${client?.name || 'Client'} selected. Use Google Maps to manage HQ pins and site geography from the shared directory.`;
+      els['toolbar-summary'].textContent = `${client?.name || 'Client'} selected. Use SureMap to manage HQ pins and site geography from the shared directory.`;
       return;
     }
     els['toolbar-summary'].textContent = 'Shared client and site directory synced with Field Ops.';
@@ -775,7 +775,7 @@
 
   function renderMapSummary(){
     const siteCount = state.filteredClients.reduce((sum, client) => sum + client.sublocations.length, 0);
-    const providerLabel = state.mapProvider === 'google' ? 'Google Maps' : 'Default map';
+    const providerLabel = state.mapProvider === 'google' ? 'SureMap' : 'Default map';
     els['map-summary'].textContent = `${state.filteredClients.length} clients / ${siteCount} sites visible | ${providerLabel}`;
   }
 

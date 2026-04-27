@@ -66,6 +66,30 @@
       letter-spacing:.3px;
     }
     .header-right{display:flex;flex-direction:column;align-items:flex-end;gap:10px;}
+    .nav-row,.page-nav-row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+    .nav-btn{
+      background:transparent;
+      color:var(--muted);
+      border:1px solid var(--border);
+      padding:9px 16px;
+      border-radius:6px;
+      cursor:pointer;
+      transition:all .18s ease;
+      font-family:var(--sans);
+      font-size:12px;
+      font-weight:700;
+      letter-spacing:1px;
+      text-transform:uppercase;
+    }
+    .nav-btn:hover,.nav-btn.current{
+      border-color:rgba(0,212,255,.35);
+      color:var(--accent);
+    }
     .clock{text-align:right;font-family:var(--mono);}
     .clock span{
       display:block;
@@ -227,6 +251,7 @@
       body{padding:14px;}
       header{flex-direction:column;align-items:stretch;}
       .header-right{align-items:flex-start;}
+      .nav-row,.page-nav-row{justify-content:flex-start;}
       .intro-card,.launch-grid,.hero-grid{grid-template-columns:1fr;}
       .spl-logo{width:138px;}
       h1{font-size:28px;}
@@ -251,11 +276,24 @@
           <em id="datedisp"></em>
         </div>
         <div data-session-slot></div>
+        <div class="nav-row">
+          <button class="nav-btn current" type="button">Home</button>
+          <button class="nav-btn" onclick="window.location.href='field-dashboard.html'">Field Ops</button>
+          <button class="nav-btn" onclick="window.location.href='lab-dashboard.html'">Lab WIP</button>
+          <button class="nav-btn" onclick="window.location.href='SureMap/SPLClientMap.HTML'">SureMap</button>
+          <button class="nav-btn" onclick="window.location.href='employees.html'">Employees</button>
+          <button class="nav-btn" onclick="window.location.href='clients.html'">Clients</button>
+        </div>
+        <div class="page-nav-row">
+          <button class="nav-btn" type="button" onclick="document.getElementById('launchpad-focus').scrollIntoView({ behavior:'smooth', block:'start' })">Operational Focus</button>
+          <button class="nav-btn" type="button" onclick="document.getElementById('launchpad-changes').scrollIntoView({ behavior:'smooth', block:'start' })">What Changed</button>
+          <button class="nav-btn" type="button" onclick="document.getElementById('launchpad-workspaces').scrollIntoView({ behavior:'smooth', block:'start' })">Workspaces</button>
+        </div>
       </div>
     </header>
 
     <section class="intro-card">
-      <div class="hero-panel">
+      <div class="hero-panel" id="launchpad-focus">
         <h2>Operational Focus</h2>
         <div class="hero-grid">
           <div class="hero-stat">
@@ -276,7 +314,7 @@
           </div>
         </div>
       </div>
-      <div class="status-panel">
+      <div class="status-panel" id="launchpad-changes">
         <h2>What Changed</h2>
         <div class="status-list">
           <div class="status-item">
@@ -295,7 +333,7 @@
       </div>
     </section>
 
-    <section class="launch-grid">
+    <section class="launch-grid" id="launchpad-workspaces">
       <a class="launch-card field" href="field-dashboard.html">
         <div class="launch-eyebrow">New Workspace</div>
         <h3>Field Ops</h3>

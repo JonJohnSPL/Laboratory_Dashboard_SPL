@@ -50,7 +50,8 @@ header{
   letter-spacing:1px;
 }
 .header-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px;}
-.nav-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
+.nav-row,.page-nav-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
+.page-nav-row.view-tabs{margin-bottom:0;}
 .live-clock{font-family:var(--mono);font-size:22px;color:var(--text);text-align:right;}
 .live-clock span,.date-display{font-size:11px;color:var(--muted);display:block;letter-spacing:2px;}
 .sec-btn{
@@ -468,7 +469,7 @@ tbody td{
   body{padding:14px;}
   header{flex-direction:column;align-items:stretch;}
   .header-right{align-items:flex-start;}
-  .nav-row{justify-content:flex-start;}
+  .nav-row,.page-nav-row{justify-content:flex-start;}
   .stats-bar{grid-template-columns:repeat(2,minmax(0,1fr));}
   .toolbar input[type=text]{max-width:none;}
   .toolbar-spacer{display:none;}

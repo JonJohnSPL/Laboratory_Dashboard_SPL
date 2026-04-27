@@ -18,9 +18,10 @@ h1{font-size:28px;letter-spacing:3px;text-transform:uppercase;color:var(--accent
 .sub{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px;letter-spacing:1px;}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.nav-row,.page-nav-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;}
 .btn{background:transparent;color:var(--muted);border:1px solid var(--border);padding:8px 16px;font-family:var(--sans);
   font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;border-radius:4px;cursor:pointer;transition:all .2s;}
-.btn:hover{border-color:var(--accent);color:var(--accent);}
+.btn:hover,.btn.current{border-color:var(--accent);color:var(--accent);}
 .btn.primary{background:var(--accent);color:#000;border:none;font-weight:700;}
 .btn.ok{border-color:rgba(6,214,160,.3);color:var(--ok);}
 .meta{font-family:var(--mono);font-size:12px;color:var(--muted);}
@@ -30,6 +31,11 @@ h1{font-size:28px;letter-spacing:3px;text-transform:uppercase;color:var(--accent
 .summary{margin-top:14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;}
 .summary h2{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
 .summary pre{font-family:var(--mono);font-size:11px;color:var(--text);white-space:pre-wrap;}
+@media (max-width:760px){
+  body{padding:14px;}
+  header{flex-direction:column;align-items:flex-start;}
+  .nav-row,.page-nav-row{justify-content:flex-start;}
+}
 </style>
 </head>
 <body>
@@ -40,18 +46,23 @@ h1{font-size:28px;letter-spacing:3px;text-transform:uppercase;color:var(--accent
   </div>
   <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
     <div data-session-slot></div>
-    <div class="row" style="justify-content:flex-end;">
+    <div class="nav-row">
       <button class="btn" onclick="window.location.href='index.html'">Home</button>
-      <button class="btn" onclick="window.location.href='lab-dashboard.html'">Dashboard</button>
       <button class="btn" onclick="window.location.href='field-dashboard.html'">Field Ops</button>
+      <button class="btn current" onclick="window.location.href='lab-dashboard.html'">Lab WIP</button>
       <button class="btn" onclick="window.location.href='SureMap/SPLClientMap.HTML'">SureMap</button>
-      <button class="btn" onclick="window.location.href='test-types.html'">Test Types</button>
+      <button class="btn" onclick="window.location.href='employees.html'">Employees</button>
+      <button class="btn" onclick="window.location.href='clients.html'">Clients</button>
+    </div>
+    <div class="page-nav-row">
       <button class="btn" onclick="window.location.href='standards.html'">Standards</button>
+      <button class="btn current" type="button">Import</button>
+      <button class="btn" onclick="window.location.href='test-types.html'">Test Types</button>
     </div>
   </div>
 </header>
 
-<div class="card">
+<div class="card" id="import-controls">
   <div class="row">
     <input id="csv-file" type="file" accept=".csv,text/csv" style="display:none" onchange="onCSVSelected(event)">
     <button class="btn primary" onclick="startImport('replace')">Import &amp; Replace</button>
@@ -63,7 +74,7 @@ h1{font-size:28px;letter-spacing:3px;text-transform:uppercase;color:var(--accent
     <h2>Import Summary</h2>
     <pre id="summary-text"></pre>
     <div class="row" style="margin-top:10px;">
-      <button class="btn ok" onclick="window.location.href='lab-dashboard.html'">Open Dashboard</button>
+      <button class="btn ok" onclick="window.location.href='lab-dashboard.html'">Open Lab WIP</button>
     </div>
   </div>
 </div>

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <title>SPL Pittsburgh Google Maps</title>
+  <title>SPL Pittsburgh SureMap</title>
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../field-dashboard.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -15,7 +15,7 @@
     <div class="header-left">
       <img class="spl-logo" src="../assets/spl-logo.svg" alt="SPL">
       <div class="header-brand">
-        <h1>Pittsburgh Google Maps</h1>
+        <h1>Pittsburgh SureMap</h1>
         <p>Shared client accounts, mapped sites, and field geography tied directly to Field Ops.</p>
       </div>
     </div>
@@ -28,12 +28,16 @@
       <div data-session-slot></div>
       <div class="nav-row">
         <button class="sec-btn" type="button" data-nav="../index.html">Home</button>
-        <button class="sec-btn" type="button" data-nav="../lab-dashboard.html">Lab WIP</button>
         <button class="sec-btn" type="button" data-nav="../field-dashboard.html">Field Ops</button>
-        <button class="sec-btn current" type="button">Google Maps</button>
-        <button class="sec-btn" type="button" data-nav="../import.html">Import</button>
-        <button class="sec-btn" type="button" data-nav="../test-types.html">Test Types</button>
-        <button class="sec-btn" type="button" data-nav="../standards.html">Standards</button>
+        <button class="sec-btn" type="button" data-nav="../lab-dashboard.html">Lab WIP</button>
+        <button class="sec-btn current" type="button">SureMap</button>
+        <button class="sec-btn" type="button" data-nav="../employees.html">Employees</button>
+        <button class="sec-btn" type="button" data-nav="../clients.html">Clients</button>
+      </div>
+      <div class="page-nav-row">
+        <button class="sec-btn" type="button" onclick="document.getElementById('suremap-directory-section').scrollIntoView({ behavior:'smooth', block:'start' })">Client Directory</button>
+        <button class="sec-btn" type="button" onclick="document.getElementById('suremap-map-section').scrollIntoView({ behavior:'smooth', block:'start' })">Map View</button>
+        <button class="sec-btn" type="button" onclick="document.getElementById('suremap-detail-section').scrollIntoView({ behavior:'smooth', block:'start' })">Details</button>
       </div>
       <div id="save-indicator" class="save-indicator" style="visibility:hidden;">Ready</div>
     </div>
@@ -52,7 +56,7 @@
   <div class="stats-bar suremap-stats" id="suremap-stats"></div>
 
   <div class="suremap-layout">
-    <section class="panel suremap-list-panel">
+    <section class="panel suremap-list-panel" id="suremap-directory-section">
       <div class="panel-header">
         <h2>Client Directory</h2>
         <div class="panel-meta" id="list-summary">0 clients</div>
@@ -63,7 +67,7 @@
       </div>
     </section>
 
-    <section class="panel suremap-map-panel">
+    <section class="panel suremap-map-panel" id="suremap-map-section">
       <div class="panel-header">
         <h2>Map View</h2>
         <div class="panel-meta" id="map-summary">Waiting for data</div>
@@ -78,7 +82,7 @@
       </div>
     </section>
 
-    <section class="panel suremap-detail-panel">
+    <section class="panel suremap-detail-panel" id="suremap-detail-section">
       <div class="panel-header">
         <h2>Details</h2>
         <div class="table-actions">
@@ -124,7 +128,7 @@
           </div>
           <div class="form-section">
             <h4>HQ Mapping</h4>
-            <p class="section-copy">Google Maps uses the client HQ for the main client pin. Search an address or enter coordinates manually.</p>
+            <p class="section-copy">SureMap uses the client HQ for the main client pin. Search an address or enter coordinates manually.</p>
           </div>
           <div class="form-group full autocomplete-wrap">
             <label class="form-label" for="client-address-search">Address Search</label>
@@ -229,7 +233,7 @@
   <script src="../app-config.js"></script>
   <script>
     window.APP_CONFIG = Object.assign({}, window.APP_CONFIG || {}, {
-      authTitle: 'SPL Google Maps',
+      authTitle: 'SPL SureMap',
       authHelpText: 'Sign in to access shared SPL client mapping and Field Ops directory data.'
     });
   </script>

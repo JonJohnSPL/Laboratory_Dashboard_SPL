@@ -24,6 +24,19 @@
   background:var(--surface2);
   display:grid;
   gap:10px;
+  cursor:pointer;
+  transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+
+.employee-card:hover{
+  transform:translateY(-2px);
+  border-color:rgba(0,212,255,.32);
+  box-shadow:0 18px 38px rgba(0,0,0,.22);
+}
+
+.employee-card:focus-visible{
+  outline:2px solid rgba(0,212,255,.75);
+  outline-offset:2px;
 }
 
 .employee-card-head{
@@ -36,12 +49,6 @@
 .employee-card-copy{
   display:grid;
   gap:6px;
-}
-
-.employee-card-actions{
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
 }
 
 .employee-card .item-title{
