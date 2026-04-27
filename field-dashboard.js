@@ -77,7 +77,7 @@ const ENTITY_CONFIG = {
   maintenanceRecords:{ table:'field_maintenance_records', label:'Maintenance Record', idPrefix:'maint', defaults:{ assetType:'Equipment', assetId:'', maintenanceType:'Preventive', openDate:'', dueDate:'', completedDate:'', status:'Open', issueDescription:'', resolution:'', vendorInternal:'Internal', cost:null, assignedPerson:'', notes:'' }, fieldMap:{ assetType:'asset_type', assetId:'asset_id', maintenanceType:'maintenance_type', openDate:'open_date', dueDate:'due_date', completedDate:'completed_date', status:'status', issueDescription:'issue_description', resolution:'resolution', vendorInternal:'vendor_internal', cost:'cost', assignedPerson:'assigned_person', notes:'notes' }, idFields:['assetId'], numberFields:['cost'], dateFields:['openDate', 'dueDate', 'completedDate'] }
 };
 
-let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'overview', scheduleAnchorDate:getStartOfWeekISO(new Date()), filters:{ dispatchSearch:'', dispatchPriority:'all', dispatchJobType:'all', directoryClient:'all', directoryProject:'all', directorySection:'overview' }, data:createEmptyData(), saveInFlight:false, autoRefreshInFlight:false, autoRefreshTimer:null };
+let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'overview', scheduleAnchorDate:getStartOfWeekISO(new Date()), filters:{ dispatchSearch:'', dispatchPriority:'all', dispatchJobType:'all', directoryClient:'all', directorySection:'overview', directoryClientSearch:'' }, data:createEmptyData(), saveInFlight:false, autoRefreshInFlight:false, autoRefreshTimer:null };
 let modalState = createClosedModalState();
 let lastLoadedSnapshot = '';
 let hideSaveStatusTimer = null;
@@ -906,17 +906,43 @@ function getTrailerLabel(id){ return state.data.trailers.find((row) => row.id ==
 function switchView(view){ state.activeView = view; render(); }
 function setDispatchFilter(key, value){ state.filters[key] = value; renderDispatch(buildDerivedState()); }
 function setDirectoryClientFilter(value){
+  state.filters.directoryClientSearch = '';
   state.filters.directoryClient = value;
-  if(value === 'all'){
-    state.filters.directoryProject = 'all';
-  } else if(state.filters.directoryProject !== 'all'){
-    const project = getProject(state.filters.directoryProject);
-    if(!project || project.clientId !== value) state.filters.directoryProject = 'all';
-  }
   renderDirectory();
 }
+function openDirectoryClientPicker(){
+  state.filters.directoryClientSearch = '';
+  const input = document.getElementById('directory-client-picker-input');
+  if(input){
+    input.value = '';
+    input.select();
+  }
+  updateDirectoryClientPickerResults();
+}
+function closeDirectoryClientPicker(){
+  const results = document.getElementById('directory-client-picker-results');
+  if(results) results.classList.remove('open');
+  const input = document.getElementById('directory-client-picker-input');
+  const activeClient = getClient(getActiveDirectoryClientId());
+  state.filters.directoryClientSearch = '';
+  if(input) input.value = activeClient?.clientName || '';
+}
+function setDirectoryClientPickerSearch(value){
+  state.filters.directoryClientSearch = String(value || '');
+  updateDirectoryClientPickerResults();
+}
+function chooseDirectoryClient(clientId){
+  if(!getClient(clientId)) return;
+  closeDirectoryClientPicker();
+  setDirectoryClientFilter(clientId);
+}
+function handleDirectoryClientPickerKey(event){
+  if(event.key !== 'Enter') return;
+  event.preventDefault();
+  const first = getDirectoryClientPickerMatches()[0];
+  if(first) chooseDirectoryClient(first.id);
+}
 function setDirectorySection(value){ state.filters.directorySection = value; renderDirectory(); }
-function setDirectoryProjectFilter(value){ state.filters.directoryProject = value; renderDirectory(); }
 function changeScheduleWeek(offset){ state.scheduleAnchorDate = addDaysISO(state.scheduleAnchorDate, Number(offset || 0) * 7); renderSchedule(buildDerivedState()); }
 function resetScheduleWeek(){ state.scheduleAnchorDate = getStartOfWeekISO(new Date()); renderSchedule(buildDerivedState()); }
 
@@ -1019,11 +1045,6 @@ function getActiveDirectoryClientId(){
   if(state.filters.directoryClient !== 'all' && getClient(state.filters.directoryClient)) return state.filters.directoryClient;
   return state.data.clients[0]?.id || '';
 }
-function getActiveDirectoryProjectId(clientId = getActiveDirectoryClientId()){
-  if(!clientId || state.filters.directoryProject === 'all') return 'all';
-  const project = getProject(state.filters.directoryProject);
-  return project && project.clientId === clientId ? project.id : 'all';
-}
 function getDirectoryProjects(clientId){ return state.data.projects.filter((row) => row.clientId === clientId).sort(getEntitySorter('projects')); }
 function getDirectoryContacts(clientId, projectId = 'all'){
   return state.data.contacts
@@ -1045,16 +1066,53 @@ function getDirectoryJobs(clientId, projectId = 'all'){
     .filter((row) => row.clientId === clientId && (projectId === 'all' || row.projectId === projectId))
     .sort(getEntitySorter('jobs'));
 }
-function renderDirectoryClientList(activeClientId){
-  if(!state.data.clients.length) return `<div class="empty-state"><strong>No clients yet</strong>Create a client first to start onboarding projects, contacts, billing, sites, and jobs.</div>`;
-  return `<div class="directory-client-list">${state.data.clients.map((client) => {
-    const projectCount = getDirectoryProjects(client.id).length;
-    const siteCount = getDirectorySites(client.id).length;
-    const jobCount = getDirectoryJobs(client.id).length;
-    const activeClass = client.id === activeClientId ? ' active' : '';
-    return `<button type="button" class="directory-client-card${activeClass}" onclick="setDirectoryClientFilter('${esc(client.id)}')"><div class="client-row-ident">${renderAssetPhoto(client, { className:'client-logo-thumb', emptyLabel:'No logo', alt:getAssetPhotoAlt('clients', client) })}<div class="inline-stack"><div class="item-title">${esc(client.clientName || 'Unnamed client')}</div><div class="muted">${esc(normalizeClientCode(client.clientCode) || 'No client code')} | ${esc(client.salesforceAccountId || client.defaultServiceArea || 'No CRM or region set')}</div></div></div><div class="mini-tags">${getStatusBadge(client.accountStatus)}${getStatusBadge(client.serviceScope || 'Field')}</div><div class="muted">${esc(client.primaryContact || 'No primary contact')} | ${esc(client.contactPhone || client.contactEmail || 'No phone or email')}</div><div class="tag-row"><span class="tag-chip">${esc(projectCount)} project${projectCount === 1 ? '' : 's'}</span><span class="tag-chip">${esc(siteCount)} site${siteCount === 1 ? '' : 's'}</span><span class="tag-chip">${esc(jobCount)} job${jobCount === 1 ? '' : 's'}</span></div></button>`;
-  }).join('')}</div>`;
+function getDirectoryClientPickerMatches(){
+  const query = String(state.filters.directoryClientSearch || '').trim().toLowerCase();
+  return [...state.data.clients].sort(getEntitySorter('clients')).filter((client) => {
+    if(!query) return true;
+    const haystack = [
+      client.clientName,
+      normalizeClientCode(client.clientCode),
+      client.salesforceAccountId,
+      client.defaultServiceArea,
+      client.primaryContact,
+      client.contactPhone,
+      client.contactEmail,
+      client.accountStatus,
+      client.serviceScope,
+      client.sector
+    ].join(' ').toLowerCase();
+    return haystack.includes(query);
+  });
 }
+
+function renderDirectoryClientPicker(activeClientId){
+  const activeClient = getClient(activeClientId);
+  const value = state.filters.directoryClientSearch || activeClient?.clientName || '';
+  return `<div class="client-picker directory-client-picker"><span class="label">Client</span><div class="client-picker-shell"><input id="directory-client-picker-input" type="text" value="${esc(value)}" placeholder="${state.data.clients.length ? 'Search clients...' : 'No clients yet'}" autocomplete="off" onfocus="openDirectoryClientPicker()" oninput="setDirectoryClientPickerSearch(this.value)" onkeydown="handleDirectoryClientPickerKey(event)" onblur="setTimeout(closeDirectoryClientPicker, 140)"><button class="act-btn client-picker-trigger" type="button" onclick="openDirectoryClientPicker()" aria-label="Open client picker">Select</button><div class="client-picker-results" id="directory-client-picker-results">${renderDirectoryClientPickerResults(activeClientId)}</div></div></div>`;
+}
+
+function renderDirectoryClientPickerResults(activeClientId){
+  if(!state.data.clients.length) return '<div class="client-picker-empty">Create a client to start onboarding.</div>';
+  const matches = getDirectoryClientPickerMatches();
+  if(!matches.length) return '<div class="client-picker-empty">No matching clients.</div>';
+  return matches.map((client) => renderDirectoryClientPickerOption(client, activeClientId)).join('');
+}
+
+function renderDirectoryClientPickerOption(client, activeClientId){
+  const projectCount = getDirectoryProjects(client.id).length;
+  const siteCount = getDirectorySites(client.id).length;
+  const activeClass = client.id === activeClientId ? ' active' : '';
+  return `<button type="button" class="client-picker-option${activeClass}" onmousedown="event.preventDefault(); chooseDirectoryClient('${esc(client.id)}')"><strong>${esc(client.clientName || 'Unnamed client')}</strong><span>${esc(normalizeClientCode(client.clientCode) || client.defaultServiceArea || 'No client code')} | ${esc(projectCount)} project${projectCount === 1 ? '' : 's'} | ${esc(siteCount)} site${siteCount === 1 ? '' : 's'}</span></button>`;
+}
+
+function updateDirectoryClientPickerResults(){
+  const results = document.getElementById('directory-client-picker-results');
+  if(!results) return;
+  results.innerHTML = renderDirectoryClientPickerResults(getActiveDirectoryClientId());
+  results.classList.add('open');
+}
+
 function renderDirectorySectionNav(){
   const sections = [
     { value:'overview', label:'Overview' },
@@ -1071,11 +1129,10 @@ function renderDirectoryOverviewSection(client, activeProjectId){
   const billingProfiles = getDirectoryBillingProfiles(client.id, activeProjectId);
   const sites = getDirectorySites(client.id, activeProjectId);
   const jobs = getDirectoryJobs(client.id, activeProjectId);
-  const focusedProject = activeProjectId !== 'all' ? getProject(activeProjectId) : null;
   const primaryContacts = contacts.filter((row) => row.isPrimary);
   const upcomingJobs = jobs.filter((row) => !isJobClosed(row)).slice(0, 4);
   const address = [client.hqStreet, [client.hqCity, client.hqState].filter(Boolean).join(', '), client.hqZip].filter(Boolean).join(' ');
-  return `<div class="summary-grid directory-summary-grid"><div class="summary-card"><div class="label">Service Scope</div><div class="value">${esc(client.serviceScope || 'Field')}</div><div class="muted">${esc(client.sector || 'No sector')}</div></div><div class="summary-card"><div class="label">Client Code</div><div class="value">${esc(normalizeClientCode(client.clientCode) || 'Missing')}</div><div class="muted">Lab samples tie back to this client through the shared code.</div></div><div class="summary-card"><div class="label">Focused Project</div><div class="value">${esc(focusedProject?.projectName || 'All Projects')}</div><div class="muted">${esc(focusedProject?.projectStatus || `${projects.length} total projects`)}</div></div><div class="summary-card"><div class="label">Contacts</div><div class="value">${contacts.length}</div><div class="muted">${esc(primaryContacts.length ? `${primaryContacts.length} primary contact${primaryContacts.length === 1 ? '' : 's'}` : 'No primary contacts flagged')}</div></div><div class="summary-card"><div class="label">Site/Locations</div><div class="value">${sites.length}</div><div class="muted">${esc(jobs.length)} active workflow record(s) in this scope</div></div></div><div class="directory-section-grid"><div class="summary-card"><div class="label">Company Snapshot</div><div class="value">${esc(client.clientName || 'Unnamed client')}</div><div class="muted">${esc(normalizeClientCode(client.clientCode) || 'No client code')}</div><div class="muted">${esc(address || 'No HQ address on file')}</div><div class="muted">${esc(client.defaultServiceArea || 'No default service area')}</div><div class="mini-tags">${getStatusBadge(client.accountStatus)}${getStatusBadge(client.serviceScope || 'Field')}</div></div><div class="summary-card"><div class="label">Billing Snapshot</div><div class="value">${esc(billingProfiles[0]?.billingName || 'No billing profile')}</div><div class="muted">${esc(billingProfiles[0]?.billingEmail || billingProfiles[0]?.billingPhone || client.contactEmail || 'No billing contact on file')}</div><div class="muted">${esc(billingProfiles[0]?.poNumber || billingProfiles[0]?.referenceNumber || 'No PO / reference')}</div></div><div class="summary-card"><div class="label">Field Snapshot</div><div class="value">${esc(client.primaryContact || 'No primary contact')}</div><div class="muted">${esc(client.contactPhone || client.contactEmail || 'No client phone or email')}</div><div class="muted">${esc(client.operationalNotes || 'No field notes added yet')}</div></div></div><div class="directory-subsection"><div class="panel-header directory-subsection-head"><h2>Upcoming Jobs</h2><button class="act-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button></div><div class="panel-body">${upcomingJobs.length ? `<div class="mini-list">${upcomingJobs.map((job) => `<div class="mini-card clickable-card" role="button" tabindex="0" onclick="openEntityModal('jobs','${esc(job.id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEntityModal('jobs','${esc(job.id)}'); }"><div class="mini-head"><div><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(getProjectLabel(job.projectId))} | ${esc(getSiteLabel(job.siteId))}</div></div>${getPriorityBadge(job.priority)}</div><div class="mini-tags"><span class="mini-tag">${esc(getJobScheduleLabel(job))}</span></div></div>`).join('')}</div>` : '<div class="empty-state">No jobs are queued for this client scope yet.</div>'}</div></div>`;
+  return `<div class="summary-grid directory-summary-grid"><div class="summary-card"><div class="label">Service Scope</div><div class="value">${esc(client.serviceScope || 'Field')}</div><div class="muted">${esc(client.sector || 'No sector')}</div></div><div class="summary-card"><div class="label">Client Code</div><div class="value">${esc(normalizeClientCode(client.clientCode) || 'Missing')}</div><div class="muted">Lab samples tie back to this client through the shared code.</div></div><div class="summary-card"><div class="label">Projects</div><div class="value">${projects.length}</div><div class="muted">Manage project scope from the Projects tab.</div></div><div class="summary-card"><div class="label">Contacts</div><div class="value">${contacts.length}</div><div class="muted">${esc(primaryContacts.length ? `${primaryContacts.length} primary contact${primaryContacts.length === 1 ? '' : 's'}` : 'No primary contacts flagged')}</div></div><div class="summary-card"><div class="label">Site/Locations</div><div class="value">${sites.length}</div><div class="muted">${esc(jobs.length)} active workflow record(s) for this client</div></div></div><div class="directory-section-grid"><div class="summary-card"><div class="label">Company Snapshot</div><div class="value">${esc(client.clientName || 'Unnamed client')}</div><div class="muted">${esc(normalizeClientCode(client.clientCode) || 'No client code')}</div><div class="muted">${esc(address || 'No HQ address on file')}</div><div class="muted">${esc(client.defaultServiceArea || 'No default service area')}</div><div class="mini-tags">${getStatusBadge(client.accountStatus)}${getStatusBadge(client.serviceScope || 'Field')}</div></div><div class="summary-card"><div class="label">Billing Snapshot</div><div class="value">${esc(billingProfiles[0]?.billingName || 'No billing profile')}</div><div class="muted">${esc(billingProfiles[0]?.billingEmail || billingProfiles[0]?.billingPhone || client.contactEmail || 'No billing contact on file')}</div><div class="muted">${esc(billingProfiles[0]?.poNumber || billingProfiles[0]?.referenceNumber || 'No PO / reference')}</div></div><div class="summary-card"><div class="label">Field Snapshot</div><div class="value">${esc(client.primaryContact || 'No primary contact')}</div><div class="muted">${esc(client.contactPhone || client.contactEmail || 'No client phone or email')}</div><div class="muted">${esc(client.operationalNotes || 'No field notes added yet')}</div></div></div><div class="directory-subsection"><div class="panel-header directory-subsection-head"><h2>Upcoming Jobs</h2><button class="act-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button></div><div class="panel-body">${upcomingJobs.length ? `<div class="mini-list">${upcomingJobs.map((job) => `<div class="mini-card clickable-card" role="button" tabindex="0" onclick="openEntityModal('jobs','${esc(job.id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEntityModal('jobs','${esc(job.id)}'); }"><div class="mini-head"><div><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(getProjectLabel(job.projectId))} | ${esc(getSiteLabel(job.siteId))}</div></div>${getPriorityBadge(job.priority)}</div><div class="mini-tags"><span class="mini-tag">${esc(getJobScheduleLabel(job))}</span></div></div>`).join('')}</div>` : '<div class="empty-state">No jobs are queued for this client yet.</div>'}</div></div>`;
 }
 function renderDirectoryProjectsSection(clientId, activeProjectId){
   const projects = getDirectoryProjects(clientId);
@@ -1083,7 +1140,7 @@ function renderDirectoryProjectsSection(clientId, activeProjectId){
     const siteCount = getSitesForProject(project.id).length;
     const jobCount = getJobsForProject(project.id).length;
     return buildTableRow('projects', project.id, [
-      `<div class="inline-stack"><div class="item-title">${esc(project.projectName || 'Unnamed project')}</div><div class="muted">${project.id === activeProjectId ? 'Focused project' : getClientLabel(project.clientId)}</div></div>`,
+      `<div class="inline-stack"><div class="item-title">${esc(project.projectName || 'Unnamed project')}</div><div class="muted">${esc(getClientLabel(project.clientId))}</div></div>`,
       `<div class="inline-stack">${getStatusBadge(project.serviceScope || 'Field')}${getStatusBadge(project.projectStatus || 'Active')}</div>`,
       `<div class="inline-stack"><div>${esc(fmtDate(project.startDate))}</div><div class="muted">${esc(project.endDate ? `Ends ${fmtDate(project.endDate)}` : 'No end date')}</div></div>`,
       `<div class="inline-stack"><div>${esc(siteCount)} site${siteCount === 1 ? '' : 's'}</div><div class="muted">${esc(jobCount)} job${jobCount === 1 ? '' : 's'}</div></div>`,
@@ -1135,10 +1192,8 @@ function renderDirectory(){
   const directoryScreen = document.getElementById('directory-screen') || document;
   const activeClientId = getActiveDirectoryClientId();
   const activeClient = getClient(activeClientId);
-  const activeProjectId = getActiveDirectoryProjectId(activeClientId);
-  const projectOptions = activeClient ? getDirectoryProjects(activeClient.id) : [];
-  document.getElementById('directory-toolbar').innerHTML = `<div class="toolbar-summary">Onboard the client, define the project scope, then add contacts, billing, sites, and jobs from one shared workspace for field and lab.</div>${activeClient ? `<span class="label">Project Focus</span><select onchange="setDirectoryProjectFilter(this.value)"><option value="all">All Projects</option>${projectOptions.map((project) => `<option value="${esc(project.id)}" ${activeProjectId === project.id ? 'selected' : ''}>${esc(project.projectName || 'Unnamed project')}</option>`).join('')}</select>` : ''}<div class="toolbar-spacer"></div><button class="add-btn" type="button" onclick="openEntityModal('clients')">+ Add Client</button>`;
-  document.getElementById('directory-client-list').innerHTML = renderDirectoryClientList(activeClientId);
+  const activeProjectId = 'all';
+  document.getElementById('directory-toolbar').innerHTML = `${renderDirectoryClientPicker(activeClientId)}<div class="toolbar-spacer"></div><button class="add-btn" type="button" onclick="openEntityModal('clients')">+ Add Client</button>`;
   if(!activeClient){
     document.getElementById('directory-detail-title').textContent = 'Client Workspace';
     document.getElementById('directory-detail-meta').textContent = 'Pick or create a client to start onboarding.';
@@ -1147,14 +1202,13 @@ function renderDirectory(){
     hydrateAssetPhotoPreviews(directoryScreen);
     return;
   }
-  const focusedProject = activeProjectId !== 'all' ? getProject(activeProjectId) : null;
   const contacts = getDirectoryContacts(activeClient.id, activeProjectId);
   const billingProfiles = getDirectoryBillingProfiles(activeClient.id, activeProjectId);
   const sites = getDirectorySites(activeClient.id, activeProjectId);
   document.getElementById('directory-detail-title').textContent = activeClient.clientName || 'Client Workspace';
-  document.getElementById('directory-detail-meta').textContent = focusedProject ? `${normalizeClientCode(activeClient.clientCode) || 'No client code'} | ${focusedProject.projectName} | ${contacts.length} contacts | ${billingProfiles.length} billing profile(s) | ${sites.length} site(s)` : `${normalizeClientCode(activeClient.clientCode) || 'No client code'} | ${getDirectoryProjects(activeClient.id).length} projects | ${contacts.length} contacts | ${billingProfiles.length} billing profile(s) | ${sites.length} site(s)`;
+  document.getElementById('directory-detail-meta').textContent = `${normalizeClientCode(activeClient.clientCode) || 'No client code'} | ${getDirectoryProjects(activeClient.id).length} projects | ${contacts.length} contacts | ${billingProfiles.length} billing profile(s) | ${sites.length} site(s)`;
   document.getElementById('directory-detail-actions').innerHTML = `<button class="act-btn" type="button" onclick="openEntityModal('clients','${esc(activeClient.id)}')">Edit Client</button><button class="act-btn" type="button" onclick="openEntityModal('projects')">+ Project</button><button class="act-btn" type="button" onclick="openEntityModal('contacts')">+ Contact</button><button class="act-btn" type="button" onclick="openEntityModal('billingProfiles')">+ Billing</button><button class="act-btn" type="button" onclick="openEntityModal('sites')">+ Site/Location</button><button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Job</button>`;
-  document.getElementById('directory-workspace').innerHTML = `${renderDirectorySectionNav()}<div class="directory-hero"><div class="client-row-ident">${renderAssetPhoto(activeClient, { className:'client-logo-thumb', emptyLabel:'No logo', alt:getAssetPhotoAlt('clients', activeClient) })}<div class="inline-stack"><div class="item-title">${esc(activeClient.clientName || 'Unnamed client')}</div><div class="muted">${esc(normalizeClientCode(activeClient.clientCode) || 'No client code')} | ${esc(activeClient.primaryContact || 'No primary contact')} | ${esc(activeClient.contactPhone || activeClient.contactEmail || 'No phone or email')}</div><div class="mini-tags">${getStatusBadge(activeClient.accountStatus)}${getStatusBadge(activeClient.serviceScope || 'Field')}${activeProjectId !== 'all' ? `<span class="tag-chip">Project Focus: ${esc(getProjectLabel(activeProjectId))}</span>` : ''}</div></div></div><div class="directory-hero-copy">Build the account once, then keep projects, billing, contacts, sites, and jobs connected instead of split across separate screens.</div></div>${renderDirectoryWorkspace(activeClient, activeProjectId)}`;
+  document.getElementById('directory-workspace').innerHTML = `${renderDirectorySectionNav()}<div class="directory-hero"><div class="client-row-ident">${renderAssetPhoto(activeClient, { className:'client-logo-thumb', emptyLabel:'No logo', alt:getAssetPhotoAlt('clients', activeClient) })}<div class="inline-stack"><div class="item-title">${esc(activeClient.clientName || 'Unnamed client')}</div><div class="muted">${esc(normalizeClientCode(activeClient.clientCode) || 'No client code')} | ${esc(activeClient.primaryContact || 'No primary contact')} | ${esc(activeClient.contactPhone || activeClient.contactEmail || 'No phone or email')}</div><div class="mini-tags">${getStatusBadge(activeClient.accountStatus)}${getStatusBadge(activeClient.serviceScope || 'Field')}</div></div></div><div class="directory-hero-copy">Build the account once, then keep projects, billing, contacts, sites, and jobs connected instead of split across separate screens.</div></div>${renderDirectoryWorkspace(activeClient, activeProjectId)}`;
   hydrateAssetPhotoPreviews(directoryScreen);
 }
 
@@ -1474,11 +1528,8 @@ function openEntityModal(entityKey, id = ''){
   const existing = id ? state.data[entityKey].find((row) => row.id === id) : null;
   const draft = existing ? clone(existing) : getNewRecordDraft(entityKey);
   const directoryClientId = state.activeView === 'directory' ? getActiveDirectoryClientId() : (state.filters.directoryClient !== 'all' ? state.filters.directoryClient : '');
-  const directoryProjectId = state.activeView === 'directory' ? getActiveDirectoryProjectId(directoryClientId) : (state.filters.directoryProject !== 'all' ? state.filters.directoryProject : '');
   if(!existing){
     if(['projects', 'contacts', 'billingProfiles', 'sites', 'jobs'].includes(entityKey) && directoryClientId) draft.clientId = directoryClientId;
-    if(['contacts', 'billingProfiles'].includes(entityKey) && directoryProjectId && directoryProjectId !== 'all') draft.projectId = directoryProjectId;
-    if(entityKey === 'sites' && directoryProjectId && directoryProjectId !== 'all') draft.projectIds = [directoryProjectId];
   }
   if(entityKey === 'sites' && draft.projectId && !draft.clientId){
     const project = getProject(draft.projectId);

@@ -31,25 +31,13 @@
         <button class="sec-btn" onclick="window.location.href='employees.html'">Employees</button>
         <button class="sec-btn current" type="button">Clients</button>
       </div>
-      <div class="page-nav-row">
-        <button class="sec-btn" type="button" onclick="document.getElementById('directory-toolbar').scrollIntoView({ behavior:'smooth', block:'start' })">Directory Tools</button>
-        <button class="sec-btn" type="button" onclick="document.getElementById('clients-directory-panel').scrollIntoView({ behavior:'smooth', block:'start' })">Client Directory</button>
-        <button class="sec-btn" type="button" onclick="document.getElementById('clients-workspace-panel').scrollIntoView({ behavior:'smooth', block:'start' })">Client Workspace</button>
-      </div>
       <div id="save-indicator" class="save-indicator" style="visibility:hidden;">Saved</div>
     </div>
   </header>
 
-  <div id="directory-screen" class="screen active">
+  <div id="directory-screen" class="screen active client-directory-screen">
     <div class="toolbar" id="directory-toolbar"></div>
     <div class="directory-layout">
-      <section class="panel" id="clients-directory-panel">
-        <div class="panel-header">
-          <h2>Clients</h2>
-          <button class="act-btn" type="button" onclick="openEntityModal('clients')">+ Add Client</button>
-        </div>
-        <div class="panel-body" id="directory-client-list"></div>
-      </section>
       <section class="panel" id="clients-workspace-panel">
         <div class="panel-header">
           <div>

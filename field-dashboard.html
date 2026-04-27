@@ -31,17 +31,18 @@
         <button class="sec-btn" onclick="window.location.href='employees.html'">Employees</button>
         <button class="sec-btn" onclick="window.location.href='clients.html'">Clients</button>
       </div>
-      <div class="page-nav-row view-tabs">
-        <button class="view-btn active" data-view="overview" onclick="switchView('overview')">Overview</button>
-        <button class="view-btn" data-view="dispatch" onclick="switchView('dispatch')">Dispatch</button>
-        <button class="view-btn" data-view="schedule" onclick="switchView('schedule')">Schedule</button>
-        <button class="view-btn" data-view="resources" onclick="switchView('resources')">Resources</button>
-        <button class="view-btn" data-view="samples" onclick="switchView('samples')">Samples</button>
-        <button class="view-btn" data-view="maintenance" onclick="switchView('maintenance')">Maintenance</button>
-      </div>
       <div id="save-indicator" class="save-indicator" style="visibility:hidden;">Saved</div>
     </div>
   </header>
+
+  <div class="view-tabs">
+    <button class="view-btn active" data-view="overview" onclick="switchView('overview')">Overview</button>
+    <button class="view-btn" data-view="dispatch" onclick="switchView('dispatch')">Dispatch</button>
+    <button class="view-btn" data-view="schedule" onclick="switchView('schedule')">Schedule</button>
+    <button class="view-btn" data-view="resources" onclick="switchView('resources')">Resources</button>
+    <button class="view-btn" data-view="samples" onclick="switchView('samples')">Samples</button>
+    <button class="view-btn" data-view="maintenance" onclick="switchView('maintenance')">Maintenance</button>
+  </div>
 
   <div id="overview-screen" class="screen active">
     <div class="stats-bar" id="overview-stats"></div>

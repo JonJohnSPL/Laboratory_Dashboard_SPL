@@ -7,6 +7,24 @@
   const CLIENT_SECTOR_OPTIONS = ['Upstream', 'Midstream', 'Downstream', 'Other'];
   const SITE_TYPE_OPTIONS = ['Well Site', 'Meter Station', 'Field Site', 'Well Pad', 'LACT Unit', 'Facility', 'Pipeline Location', 'Office / Yard', 'Other'];
   const SITE_STATUS_OPTIONS = ['Active', 'Restricted', 'Inactive'];
+  const DEFAULT_JOB_TYPE_DEFS = [
+    { jobTypeKey:'ALLOCATION_PROVING', jobTypeName:'Allocation Proving', isActive:true, sortOrder:10 },
+    { jobTypeKey:'LACT_PROVING', jobTypeName:'LACT Proving', isActive:true, sortOrder:20 },
+    { jobTypeKey:'SAMPLE_PICKUP', jobTypeName:'Sample Pickup', isActive:true, sortOrder:30 },
+    { jobTypeKey:'SAMPLE_DROP_OFF', jobTypeName:'Sample Drop-Off', isActive:true, sortOrder:40 },
+    { jobTypeKey:'MAINTENANCE', jobTypeName:'Maintenance', isActive:true, sortOrder:50 },
+    { jobTypeKey:'MULTI_SERVICE', jobTypeName:'Multi-Service', isActive:true, sortOrder:60 }
+  ];
+  const SITE_TYPE_JOB_TYPE_NAMES = {
+    'Well Site': ['Allocation Proving', 'Sample Pickup', 'Maintenance', 'Multi-Service'],
+    'Meter Station': ['Allocation Proving', 'Maintenance', 'Multi-Service'],
+    'Field Site': ['Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service'],
+    'Well Pad': ['Allocation Proving', 'Sample Pickup', 'Maintenance', 'Multi-Service'],
+    'LACT Unit': ['LACT Proving', 'Maintenance', 'Multi-Service'],
+    'Facility': ['Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service'],
+    'Pipeline Location': ['Allocation Proving', 'Maintenance', 'Multi-Service'],
+    'Office / Yard': ['Sample Drop-Off', 'Maintenance']
+  };
   const AVATAR_COLORS = ['#59d67d', '#b0f28f', '#ffd166', '#6fe3ff', '#ff8fa3', '#c9b6ff'];
   const HOME_BASE = {
     name: 'SPL Pittsburgh',
@@ -25,6 +43,7 @@
     filteredClients: [],
     filterTag: 'All',
     searchQuery: '',
+    clientPickerQuery: '',
     activeClientId: '',
     activeSiteId: '',
     expandedIds: new Set(),
@@ -33,6 +52,8 @@
     baseLayer: null,
     googleInfoWindow: null,
     geocoder: null,
+    placesLibraryPromise: null,
+    placesSessionToken: null,
     homeMarker: null,
     markerCache: new Map(),
     booted: false,
@@ -64,20 +85,19 @@
 
   function cacheElements(){
     [
-      'clock', 'datedisp', 'save-indicator', 'toolbar-summary', 'search-input', 'add-client-btn', 'modify-selection-btn',
-      'reset-shared-btn', 'suremap-stats', 'list-summary', 'map-summary', 'filter-row', 'client-list', 'map',
-      'map-placeholder', 'detail-panel', 'detail-primary-btn', 'client-modal-overlay', 'client-modal-title',
-      'client-id', 'client-name', 'client-sector', 'client-status', 'client-contact', 'client-phone', 'client-email',
-      'client-address-search', 'client-address-results', 'client-street', 'client-city', 'client-state', 'client-zip',
-      'client-delete-btn', 'client-save-btn', 'client-form', 'site-modal-overlay', 'site-modal-title', 'site-id',
-      'site-client-id', 'site-name', 'site-type', 'site-status', 'site-notes', 'site-address-search',
-      'site-address-results', 'site-street', 'site-city', 'site-state', 'site-zip', 'site-lat', 'site-lng',
-      'site-delete-btn', 'site-save-btn', 'site-form'
+      'clock', 'datedisp', 'save-indicator', 'toolbar-summary', 'client-picker',
+      'list-summary', 'map-summary', 'fit-sites-btn', 'filter-row', 'client-list', 'map',
+      'map-placeholder', 'detail-panel', 'site-modal-overlay', 'site-modal-title', 'site-id',
+      'site-client-id', 'site-project-options', 'site-project-hint', 'site-name', 'site-type', 'site-status', 'site-job-type-options',
+      'site-job-type-hint', 'site-notes', 'site-address-search',
+      'site-address-summary', 'site-edit-address-btn', 'site-gps-mode', 'site-street', 'site-city', 'site-state', 'site-zip', 'site-lat', 'site-lng',
+      'site-delete-btn', 'site-save-btn', 'site-form', 'address-modal-overlay', 'address-form', 'address-gps-mode', 'address-search',
+      'address-results', 'address-street', 'address-city', 'address-state', 'address-zip', 'address-lat', 'address-lng', 'address-save-btn'
     ].forEach((id) => { els[id] = document.getElementById(id); });
   }
 
   function createEmptyData(){
-    return { clients: [], sites: [], jobs: [], jobAssignments: [], samples: [] };
+    return { clients: [], projects: [], sites: [], siteProjects: [], jobTypes: getDefaultJobTypeRecords(), jobs: [], jobAssignments: [], samples: [] };
   }
 
   function clone(value){
@@ -106,6 +126,10 @@
     return Number.isFinite(Number(lat)) && Number.isFinite(Number(lng));
   }
 
+  function hasUsableCoords(lat, lng){
+    return hasCoords(lat, lng) && !(Number(lat) === 0 && Number(lng) === 0);
+  }
+
   function normalizeOption(value, options, fallback){
     const raw = String(value ?? '').trim();
     if(!raw) return fallback;
@@ -127,11 +151,11 @@
     if(!match) return null;
     const lat = Number(match[1]);
     const lng = Number(match[2]);
-    return hasCoords(lat, lng) ? { lat, lng } : null;
+    return hasUsableCoords(lat, lng) ? { lat, lng } : null;
   }
 
   function formatGps(lat, lng){
-    return hasCoords(lat, lng) ? `${Number(lat).toFixed(6)}, ${Number(lng).toFixed(6)}` : '';
+    return hasUsableCoords(lat, lng) ? `${Number(lat).toFixed(6)}, ${Number(lng).toFixed(6)}` : '';
   }
 
   function formatAddress(street, city, stateCode, zip){
@@ -152,10 +176,6 @@
       state: match ? match[1].toUpperCase() : '',
       zip: match ? match[2].trim() : ''
     };
-  }
-
-  function initials(name){
-    return String(name || '').split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'CL';
   }
 
   function getAvatarColor(id){
@@ -224,8 +244,6 @@
   }
 
   function hydrateSelects(){
-    fillSelect(els['client-sector'], CLIENT_SECTOR_OPTIONS);
-    fillSelect(els['client-status'], CLIENT_STATUS_OPTIONS);
     fillSelect(els['site-type'], SITE_TYPE_OPTIONS);
     fillSelect(els['site-status'], SITE_STATUS_OPTIONS);
   }
@@ -242,15 +260,42 @@
   }
 
   function bindToolbar(){
-    els['search-input'].addEventListener('input', () => {
-      state.searchQuery = els['search-input'].value.trim().toLowerCase();
-      clearTimeout(state.searchTimer);
-      state.searchTimer = setTimeout(() => refreshFilteredView({ syncMap:true, preserveSelection:true, focusSelection:false }), 120);
+    els['client-picker'].addEventListener('focusin', (event) => {
+      if(!event.target.closest('#suremap-client-picker-input')) return;
+      state.clientPickerQuery = '';
+      event.target.value = '';
+      renderClientPickerResults(true);
     });
-    els['add-client-btn'].addEventListener('click', () => openClientModal());
-    els['modify-selection-btn'].addEventListener('click', handleModifySelection);
-    els['reset-shared-btn'].addEventListener('click', resetSharedData);
-    els['detail-primary-btn'].addEventListener('click', handleDetailPrimaryAction);
+    els['client-picker'].addEventListener('focusout', () => {
+      setTimeout(() => closeClientPickerResults(), 140);
+    });
+    els['client-picker'].addEventListener('input', (event) => {
+      if(!event.target.closest('#suremap-client-picker-input')) return;
+      state.clientPickerQuery = event.target.value.trim();
+      renderClientPickerResults(true);
+    });
+    els['client-picker'].addEventListener('keydown', (event) => {
+      if(event.key !== 'Enter' || !event.target.closest('#suremap-client-picker-input')) return;
+      event.preventDefault();
+      const first = getClientPickerMatches()[0];
+      if(first) selectClientFromPicker(first.id);
+    });
+    els['client-picker'].addEventListener('click', (event) => {
+      const trigger = event.target.closest('[data-client-picker-trigger]');
+      if(trigger){
+        const input = els['client-picker'].querySelector('#suremap-client-picker-input');
+        state.clientPickerQuery = '';
+        if(input){
+          input.value = '';
+          input.focus();
+        }
+        renderClientPickerResults(true);
+        return;
+      }
+      const option = event.target.closest('[data-client-picker-id]');
+      if(option) selectClientFromPicker(option.dataset.clientPickerId);
+    });
+    els['fit-sites-btn'].addEventListener('click', fitVisibleSites);
   }
 
   function bindPanels(){
@@ -262,22 +307,10 @@
     });
 
     els['client-list'].addEventListener('click', (event) => {
-      const toggle = event.target.closest('[data-toggle-client]');
-      if(toggle){
-        const clientId = toggle.dataset.toggleClient;
-        if(state.expandedIds.has(clientId)) state.expandedIds.delete(clientId);
-        else state.expandedIds.add(clientId);
-        renderList();
-        return;
-      }
       const siteCard = event.target.closest('[data-site-id]');
       if(siteCard){
         selectSite(siteCard.dataset.clientId, siteCard.dataset.siteId, { focusMap:true });
         return;
-      }
-      const clientCard = event.target.closest('[data-client-id]');
-      if(clientCard){
-        selectClient(clientCard.dataset.clientId, { focusMap:true });
       }
     });
 
@@ -289,10 +322,9 @@
       if(actionName === 'copy-coords') copyToClipboard(getSiteCoords(siteId), 'Coordinates copied.');
       if(actionName === 'open-directions-client') openDirections(getClientAddress(clientId));
       if(actionName === 'open-directions-site') openDirections(getSiteDirections(siteId));
-      if(actionName === 'edit-client') openClientModal(clientId);
+      if(actionName === 'open-client') openClientInDirectory(clientId);
       if(actionName === 'edit-site') openSiteModal(clientId, siteId);
       if(actionName === 'add-site') openSiteModal(clientId);
-      if(actionName === 'delete-client') deleteClientRecord(clientId);
       if(actionName === 'delete-site') deleteSiteRecord(clientId, siteId);
     });
   }
@@ -301,26 +333,23 @@
     document.querySelectorAll('[data-close-modal]').forEach((button) => {
       button.addEventListener('click', () => closeModal(button.dataset.closeModal));
     });
-    [els['client-modal-overlay'], els['site-modal-overlay']].forEach((overlay) => {
+    [els['site-modal-overlay'], els['address-modal-overlay']].forEach((overlay) => {
       overlay.addEventListener('click', (event) => {
         if(event.target === overlay) closeModal(overlay.id);
       });
     });
-    els['client-save-btn'].addEventListener('click', saveClientFromModal);
     els['site-save-btn'].addEventListener('click', saveSiteFromModal);
-    els['client-delete-btn'].addEventListener('click', () => deleteClientRecord(els['client-id'].value));
     els['site-delete-btn'].addEventListener('click', () => deleteSiteRecord(els['site-client-id'].value, els['site-id'].value));
-    els['client-form'].addEventListener('submit', (event) => { event.preventDefault(); saveClientFromModal(); });
     els['site-form'].addEventListener('submit', (event) => { event.preventDefault(); saveSiteFromModal(); });
+    els['site-type'].addEventListener('change', () => renderSiteJobTypeOptions(els['site-type'].value, getSelectedSiteJobTypeNames()));
+    els['site-edit-address-btn'].addEventListener('click', openAddressModal);
+    els['address-save-btn'].addEventListener('click', applyAddressModal);
+    els['address-form'].addEventListener('submit', (event) => { event.preventDefault(); applyAddressModal(); });
+    els['address-gps-mode'].addEventListener('change', handleAddressModeChange);
     bindAutocomplete({
-      input: els['client-address-search'],
-      results: els['client-address-results'],
-      onPick: (item) => applyAddressPick(item, { street:'client-street', city:'client-city', state:'client-state', zip:'client-zip', input:'client-address-search' })
-    });
-    bindAutocomplete({
-      input: els['site-address-search'],
-      results: els['site-address-results'],
-      onPick: (item) => applyAddressPick(item, { street:'site-street', city:'site-city', state:'site-state', zip:'site-zip', input:'site-address-search', lat:'site-lat', lng:'site-lng' })
+      input: els['address-search'],
+      results: els['address-results'],
+      onPick: (item) => applyAddressPick(item, { street:'address-street', city:'address-city', state:'address-state', zip:'address-zip', input:'address-search', lat:'address-lat', lng:'address-lng' })
     });
   }
 
@@ -378,6 +407,30 @@
       throw error;
     });
     return googleMapsLoadPromise;
+  }
+
+  async function loadPlacesLibrary(){
+    if(state.placesLibraryPromise) return state.placesLibraryPromise;
+    state.placesLibraryPromise = (async () => {
+      await loadGoogleMapsApi();
+      if(!window.google?.maps?.importLibrary) throw new Error('Google Places library is unavailable.');
+      return window.google.maps.importLibrary('places');
+    })().catch((error) => {
+      state.placesLibraryPromise = null;
+      throw error;
+    });
+    return state.placesLibraryPromise;
+  }
+
+  function getPlacesSessionToken(places){
+    const TokenCtor = places?.AutocompleteSessionToken || window.google?.maps?.places?.AutocompleteSessionToken;
+    if(!TokenCtor) return null;
+    if(!state.placesSessionToken) state.placesSessionToken = new TokenCtor();
+    return state.placesSessionToken;
+  }
+
+  function resetPlacesSessionToken(){
+    state.placesSessionToken = null;
   }
 
   async function initMap(){
@@ -508,30 +561,48 @@
   function readLocalData(){
     const raw = readLocalRaw();
     localStorage.removeItem(LEGACY_STORAGE_KEY);
-    return {
+    const data = {
       clients: Array.isArray(raw.clients) ? raw.clients.map(normalizeClient).sort(sortByClientName) : [],
+      projects: Array.isArray(raw.projects) ? raw.projects.map(normalizeProject).sort(sortByProjectName) : [],
       sites: Array.isArray(raw.sites) ? raw.sites.map(normalizeSite).sort(sortBySiteName) : [],
-      jobs: Array.isArray(raw.jobs) ? raw.jobs.map((row) => ({ id:String(row?.id || ''), clientId:String(row?.clientId || ''), siteId:String(row?.siteId || '') })) : [],
+      siteProjects: Array.isArray(raw.siteProjects) ? raw.siteProjects.map(normalizeSiteProject).sort(sortBySiteProject) : [],
+      jobTypes: Array.isArray(raw.jobTypes) ? raw.jobTypes.map(normalizeJobType).filter((row) => row.jobTypeName).sort(sortByJobType) : [],
+      jobs: Array.isArray(raw.jobs) ? raw.jobs.map((row) => ({ id:String(row?.id || ''), clientId:String(row?.clientId || ''), projectId:String(row?.projectId || ''), siteId:String(row?.siteId || '') })) : [],
       jobAssignments: Array.isArray(raw.jobAssignments) ? raw.jobAssignments.map((row) => ({ id:String(row?.id || ''), jobId:String(row?.jobId || '') })) : [],
       samples: Array.isArray(raw.samples) ? raw.samples.map((row) => ({ id:String(row?.id || ''), jobId:String(row?.jobId || ''), clientId:String(row?.clientId || ''), siteId:String(row?.siteId || '') })) : []
     };
+    ensureJobTypes(data);
+    syncSiteProjectLinks(data);
+    return data;
   }
 
   async function readRemoteData(){
-    const [clients, sites, jobs, jobAssignments, samples] = await Promise.all([
+    const [clients, projects, sites, siteProjects, jobTypes, jobs, jobAssignments, samples] = await Promise.all([
       window.appAuth.requestJson('/rest/v1/field_clients?select=*'),
+      window.appAuth.requestJson('/rest/v1/field_projects?select=*'),
       window.appAuth.requestJson('/rest/v1/field_sites?select=*'),
-      window.appAuth.requestJson('/rest/v1/field_jobs?select=id,client_id,site_id'),
+      window.appAuth.requestJson('/rest/v1/field_site_projects?select=*'),
+      window.appAuth.requestJson('/rest/v1/field_job_types?select=*').catch((error) => {
+        console.warn('Unable to load SureMap job types. Using defaults.', error);
+        return [];
+      }),
+      window.appAuth.requestJson('/rest/v1/field_jobs?select=id,client_id,project_id,site_id'),
       window.appAuth.requestJson('/rest/v1/field_job_assignments?select=id,job_id'),
       window.appAuth.requestJson('/rest/v1/field_samples?select=id,job_id,client_id,site_id')
     ]);
-    return {
+    const data = {
       clients: (clients || []).map((row) => normalizeClient(row, true)).sort(sortByClientName),
+      projects: (projects || []).map((row) => normalizeProject(row, true)).sort(sortByProjectName),
       sites: (sites || []).map((row) => normalizeSite(row, true)).sort(sortBySiteName),
-      jobs: (jobs || []).map((row) => ({ id:String(row?.id || ''), clientId:String(row?.client_id || ''), siteId:String(row?.site_id || '') })),
+      siteProjects: (siteProjects || []).map((row) => normalizeSiteProject(row, true)).sort(sortBySiteProject),
+      jobTypes: (jobTypes || []).map((row) => normalizeJobType(row, true)).filter((row) => row.jobTypeName).sort(sortByJobType),
+      jobs: (jobs || []).map((row) => ({ id:String(row?.id || ''), clientId:String(row?.client_id || ''), projectId:String(row?.project_id || ''), siteId:String(row?.site_id || '') })),
       jobAssignments: (jobAssignments || []).map((row) => ({ id:String(row?.id || ''), jobId:String(row?.job_id || '') })),
       samples: (samples || []).map((row) => ({ id:String(row?.id || ''), jobId:String(row?.job_id || ''), clientId:String(row?.client_id || ''), siteId:String(row?.site_id || '') }))
     };
+    ensureJobTypes(data);
+    syncSiteProjectLinks(data);
+    return data;
   }
 
   function normalizeClient(row, fromRemote = false){
@@ -562,11 +633,13 @@
     return {
       id: String(row?.id || ''),
       clientId: String((fromRemote ? row?.client_id : row?.clientId) || ''),
+      projectId: String((fromRemote ? row?.project_id : row?.projectId) || ''),
+      projectIds: normalizeStringArray(fromRemote ? [] : row?.projectIds),
       siteName: String((fromRemote ? row?.site_name : row?.siteName) || '').trim(),
       siteType: normalizeSiteType(fromRemote ? row?.site_type : row?.siteType),
       physicalAddress: String((fromRemote ? row?.physical_address : row?.physicalAddress) || '').trim(),
       countyState: String((fromRemote ? row?.county_state : row?.countyState) || '').trim(),
-      gpsCoordinates: parsed ? formatGps(parsed.lat, parsed.lng) : gps,
+      gpsCoordinates: parsed ? formatGps(parsed.lat, parsed.lng) : '',
       accessInstructions: String((fromRemote ? row?.access_instructions : row?.accessInstructions) || '').trim(),
       safetyPpeNotes: String((fromRemote ? row?.safety_ppe_notes : row?.safetyPpeNotes) || '').trim(),
       gateCodeEntryRequirements: String((fromRemote ? row?.gate_code_entry_requirements : row?.gateCodeEntryRequirements) || '').trim(),
@@ -577,20 +650,109 @@
     };
   }
 
+  function normalizeProject(row, fromRemote = false){
+    return {
+      id: String(row?.id || ''),
+      clientId: String((fromRemote ? row?.client_id : row?.clientId) || ''),
+      projectName: String((fromRemote ? row?.project_name : row?.projectName) || '').trim(),
+      serviceScope: String((fromRemote ? row?.service_scope : row?.serviceScope) || 'Field').trim() || 'Field',
+      projectStatus: String((fromRemote ? row?.project_status : row?.projectStatus) || 'Active').trim() || 'Active'
+    };
+  }
+
+  function normalizeSiteProject(row, fromRemote = false){
+    const siteId = String((fromRemote ? row?.site_id : row?.siteId) || '').trim();
+    const projectId = String((fromRemote ? row?.project_id : row?.projectId) || '').trim();
+    return {
+      id: String(row?.id || `${siteId}::${projectId}`),
+      siteId,
+      projectId
+    };
+  }
+
+  function normalizeStringArray(value){
+    if(Array.isArray(value)) return [...new Set(value.map((item) => String(item || '').trim()).filter(Boolean))];
+    const raw = String(value || '').trim();
+    return raw ? [raw] : [];
+  }
+
+  function parseStandardJobTypes(value){
+    if(Array.isArray(value)) return normalizeStringArray(value);
+    return [...new Set(String(value || '').split(',').map((item) => item.trim()).filter(Boolean))];
+  }
+
+  function serializeStandardJobTypes(values){
+    return parseStandardJobTypes(values).join(', ');
+  }
+
+  function normalizeJobType(row, fromRemote = false){
+    return {
+      id: String(row?.id || row?.jobTypeKey || row?.job_type_key || ''),
+      jobTypeKey: String((fromRemote ? row?.job_type_key : row?.jobTypeKey) || row?.jobTypeKey || row?.job_type_key || '').trim(),
+      jobTypeName: String((fromRemote ? row?.job_type_name : row?.jobTypeName) || row?.jobTypeName || row?.job_type_name || '').trim(),
+      isActive: (fromRemote ? row?.is_active : row?.isActive) !== false,
+      sortOrder: normalizeNumber((fromRemote ? row?.sort_order : row?.sortOrder) ?? row?.sortOrder ?? row?.sort_order) || 0
+    };
+  }
+
+  function getDefaultJobTypeRecords(){
+    return DEFAULT_JOB_TYPE_DEFS.map((row) => normalizeJobType(row)).sort(sortByJobType);
+  }
+
+  function ensureJobTypes(data){
+    data.jobTypes = Array.isArray(data.jobTypes) ? data.jobTypes.filter((row) => row.jobTypeName) : [];
+    if(!data.jobTypes.length) data.jobTypes = getDefaultJobTypeRecords();
+    data.jobTypes = data.jobTypes.sort(sortByJobType);
+    return data;
+  }
+
+  function syncSiteProjectLinks(data){
+    const links = [];
+    const seen = new Set();
+    const addLink = (siteId, projectId) => {
+      const normalizedSiteId = String(siteId || '').trim();
+      const normalizedProjectId = String(projectId || '').trim();
+      if(!normalizedSiteId || !normalizedProjectId) return;
+      const key = `${normalizedSiteId}::${normalizedProjectId}`;
+      if(seen.has(key)) return;
+      seen.add(key);
+      links.push({ id:key, siteId:normalizedSiteId, projectId:normalizedProjectId });
+    };
+    (Array.isArray(data.siteProjects) ? data.siteProjects : []).forEach((link) => addLink(link.siteId, link.projectId));
+    (Array.isArray(data.sites) ? data.sites : []).forEach((site) => {
+      normalizeStringArray(site.projectIds).forEach((projectId) => addLink(site.id, projectId));
+      addLink(site.id, site.projectId);
+    });
+    data.siteProjects = links.sort(sortBySiteProject);
+    data.sites.forEach((site) => {
+      const projectIds = data.siteProjects.filter((link) => link.siteId === site.id).map((link) => link.projectId);
+      site.projectIds = [...new Set(projectIds.filter(Boolean))];
+      site.projectId = site.projectIds[0] || site.projectId || '';
+    });
+  }
+
   function sortByClientName(left, right){ return left.clientName.localeCompare(right.clientName); }
+  function sortByProjectName(left, right){ return left.projectName.localeCompare(right.projectName); }
   function sortBySiteName(left, right){ return left.siteName.localeCompare(right.siteName); }
+  function sortBySiteProject(left, right){ return left.siteId.localeCompare(right.siteId) || left.projectId.localeCompare(right.projectId); }
+  function sortByJobType(left, right){ return (Number(left.sortOrder || 0) - Number(right.sortOrder || 0)) || left.jobTypeName.localeCompare(right.jobTypeName); }
 
   function buildViewClients(data){
     const sitesByClient = new Map();
     data.sites.forEach((site) => {
       const list = sitesByClient.get(site.clientId) || [];
       const coords = parseGps(site.gpsCoordinates);
+      const projectIds = getProjectIdsForSite(site.id, data);
+      const projectNames = projectIds.map((projectId) => getProjectRecord(projectId, data)?.projectName || '').filter(Boolean);
       list.push({
         id: site.id,
         clientId: site.clientId,
+        projectIds,
+        projectNames,
         name: site.siteName || 'Unnamed Site',
         type: site.siteType,
         status: site.siteStatus,
+        standardJobTypes: site.standardJobTypes || '',
         notes: site.notes || '',
         address: site.physicalAddress || '',
         coordsLabel: site.gpsCoordinates || '',
@@ -618,29 +780,32 @@
   function refreshFilteredView(options = {}){
     state.filteredClients = getFilteredClients();
     normalizeSelection(options.preserveSelection !== false);
-    renderStats();
     renderToolbarSummary();
+    renderClientPicker();
     renderFilterRow();
     renderList();
     renderMapSummary();
     renderDetailPanel();
-    updateActionButtons();
     if(options.syncMap !== false) syncMarkers();
     if(options.focusSelection !== false) focusSelectionOnMap();
   }
 
   function getFilteredClients(){
     const query = state.searchQuery;
-    return state.viewClients.filter((client) => {
-      const matchesTag = state.filterTag === 'All' || client.sector === state.filterTag || client.accountStatus === state.filterTag;
-      if(!matchesTag) return false;
-      if(!query) return true;
-      const haystack = [
-        client.name, client.sector, client.accountStatus, client.contact, client.phone, client.email, client.address,
-        ...client.sublocations.flatMap((site) => [site.name, site.type, site.status, site.address, site.notes])
-      ].join(' ').toLowerCase();
-      return haystack.includes(query);
-    });
+    const clients = state.activeClientId ? state.viewClients.filter((client) => client.id === state.activeClientId) : state.viewClients;
+    return clients.map((client) => ({
+      ...client,
+      sublocations: client.sublocations.filter((site) => {
+        if(!siteMatchesTypeFilter(site)) return false;
+        if(!query) return true;
+        const haystack = [site.name, site.type, site.status, site.address, site.notes, site.standardJobTypes, site.coordsLabel, ...(site.projectNames || [])].join(' ').toLowerCase();
+        return haystack.includes(query);
+      })
+    }));
+  }
+
+  function siteMatchesTypeFilter(site){
+    return state.filterTag === 'All' || normalizeSiteType(site?.type) === state.filterTag;
   }
 
   function normalizeSelection(preserveSelection){
@@ -667,24 +832,6 @@
     state.activeSiteId = '';
   }
 
-  function renderStats(){
-    const totalSites = state.viewClients.reduce((sum, client) => sum + client.sublocations.length, 0);
-    const activeClients = state.viewClients.filter((client) => client.accountStatus === 'Active').length;
-    const pendingClients = state.viewClients.filter((client) => client.accountStatus === 'Pending' || client.accountStatus === 'On Hold').length;
-    const activeSites = state.data.sites.filter((site) => site.siteStatus === 'Active').length;
-    els['suremap-stats'].innerHTML = [
-      statCard('Shared Clients', state.viewClients.length, 'loaded'),
-      statCard('Mapped Sites', totalSites, 'loaded'),
-      statCard('Active Clients', activeClients, 'ok'),
-      statCard('Pending / Hold', pendingClients, pendingClients ? 'warn' : 'loaded'),
-      statCard('Active Sites', activeSites, 'ok')
-    ].join('');
-  }
-
-  function statCard(label, value, tone){
-    return `<div class="stat-card ${esc(tone)}"><div class="stat-label">${esc(label)}</div><div class="stat-value ${esc(tone === 'loaded' ? '' : tone)}">${esc(value)}</div></div>`;
-  }
-
   function renderToolbarSummary(){
     if(state.activeSiteId){
       const site = getActiveSite();
@@ -694,68 +841,108 @@
     }
     if(state.activeClientId){
       const client = getActiveClient();
-      els['toolbar-summary'].textContent = `${client?.name || 'Client'} selected. Use SureMap to manage HQ pins and site geography from the shared directory.`;
+      els['toolbar-summary'].textContent = `${client?.name || 'Client'} selected. SureMap adds mapped sites back to the shared Clients directory.`;
       return;
     }
     els['toolbar-summary'].textContent = 'Shared client and site directory synced with Field Ops.';
   }
 
+  function renderClientPicker(){
+    const activeClient = getActiveClient();
+    const value = state.clientPickerQuery || activeClient?.name || '';
+    els['client-picker'].innerHTML = `
+      <div class="client-picker-shell">
+        <input id="suremap-client-picker-input" type="text" value="${esc(value)}" placeholder="${state.viewClients.length ? 'Search clients...' : 'No clients yet'}" autocomplete="off">
+        <button class="act-btn client-picker-trigger" type="button" data-client-picker-trigger aria-label="Open client picker">Select</button>
+        <div class="client-picker-results" id="suremap-client-picker-results">${getClientPickerResultsMarkup()}</div>
+      </div>
+    `;
+  }
+
+  function getClientPickerMatches(){
+    const query = state.clientPickerQuery.trim().toLowerCase();
+    return [...state.viewClients].sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''))).filter((client) => {
+      if(!query) return true;
+      const haystack = [client.name, client.sector, client.accountStatus, client.contact, client.phone, client.email, client.address].join(' ').toLowerCase();
+      return haystack.includes(query);
+    });
+  }
+
+  function getClientPickerResultsMarkup(){
+    if(!state.viewClients.length) return '<div class="client-picker-empty">Add clients from the Clients page to start mapping.</div>';
+    const matches = getClientPickerMatches();
+    if(!matches.length) return '<div class="client-picker-empty">No matching clients.</div>';
+    return matches.map((client) => {
+      const active = client.id === state.activeClientId ? ' active' : '';
+      return `<button type="button" class="client-picker-option${active}" data-client-picker-id="${esc(client.id)}"><strong>${esc(client.name || 'Unnamed client')}</strong><span>${esc(client.sector || 'No sector')} | ${esc(client.sublocations.length)} site${client.sublocations.length === 1 ? '' : 's'} | ${esc(client.accountStatus)}</span></button>`;
+    }).join('');
+  }
+
+  function renderClientPickerResults(open = false){
+    const results = document.getElementById('suremap-client-picker-results');
+    if(!results) return;
+    results.innerHTML = getClientPickerResultsMarkup();
+    results.classList.toggle('open', !!open);
+  }
+
+  function closeClientPickerResults(){
+    document.getElementById('suremap-client-picker-results')?.classList.remove('open');
+    const input = document.getElementById('suremap-client-picker-input');
+    const activeClient = getActiveClient();
+    state.clientPickerQuery = '';
+    if(input) input.value = activeClient?.name || '';
+  }
+
+  function selectClientFromPicker(clientId){
+    state.clientPickerQuery = '';
+    state.searchQuery = '';
+    closeClientPickerResults();
+    selectClient(clientId, { focusMap:true });
+  }
+
   function renderFilterRow(){
-    const tags = ['All', ...new Set([...state.viewClients.map((client) => client.sector), ...state.viewClients.map((client) => client.accountStatus)].filter(Boolean))];
+    const tags = ['All', ...SITE_TYPE_OPTIONS];
     if(!tags.includes(state.filterTag)) state.filterTag = 'All';
     els['filter-row'].innerHTML = tags.map((tag) => `<button class="suremap-chip ${state.filterTag === tag ? 'active' : ''}" type="button" data-filter="${esc(tag)}">${esc(tag)}</button>`).join('');
   }
 
   function renderList(){
-    els['list-summary'].textContent = `${state.filteredClients.length} visible / ${state.viewClients.length} total`;
     if(!state.viewClients.length){
-      els['client-list'].innerHTML = `<div class="empty-state"><strong>No shared clients yet</strong>Add a client here or from Field Ops to start mapping.</div>`;
+      els['list-summary'].textContent = '0 clients';
+      els['client-list'].innerHTML = `<div class="empty-state"><strong>No shared clients yet</strong>Add clients from the Clients page to start mapping.</div>`;
       return;
     }
-    if(!state.filteredClients.length){
-      els['client-list'].innerHTML = `<div class="empty-state"><strong>No matches</strong>Try a different search or filter.</div>`;
+    const client = getActiveClient();
+    if(!client){
+      els['list-summary'].textContent = `${state.viewClients.length} clients`;
+      els['client-list'].innerHTML = `<div class="empty-state"><strong>No client selected</strong>Choose a client above to view its mapped sites.</div>`;
       return;
     }
-    els['client-list'].innerHTML = state.filteredClients.map(renderClientCardMarkup).join('');
-  }
-
-  function renderClientCardMarkup(client){
+    const visibleClient = state.filteredClients.find((row) => row.id === client.id) || client;
+    const sites = visibleClient.sublocations || [];
+    const totalSites = client.sublocations.length;
+    els['list-summary'].textContent = state.filterTag === 'All' ? `${totalSites} site${totalSites === 1 ? '' : 's'}` : `${sites.length} visible / ${totalSites} sites`;
+    if(!totalSites){
+      els['client-list'].innerHTML = `<div class="empty-state"><strong>No sites yet</strong>Add a mapped site from the details card.</div>`;
+      return;
+    }
+    if(!sites.length){
+      els['client-list'].innerHTML = `<div class="empty-state"><strong>No ${esc(state.filterTag)} sites</strong>Choose another site type or add a matching site from the details card.</div>`;
+      return;
+    }
     const color = getAvatarColor(client.id);
-    const expanded = state.expandedIds.has(client.id);
-    const activeClient = state.activeClientId === client.id && !state.activeSiteId;
-    const siteRows = client.sublocations.map((site) => renderSiteCardMarkup(client, site, color)).join('');
-    const toggleLabel = client.sublocations.length ? `${client.sublocations.length} site${client.sublocations.length === 1 ? '' : 's'}` : 'No sites yet';
-    return `
-      <article class="suremap-client-card ${activeClient ? 'active' : ''}" data-client-id="${esc(client.id)}">
-        <div class="suremap-client-head">
-          <div class="suremap-avatar" style="background:${color}22;color:${color}">${esc(initials(client.name))}</div>
-          <div class="suremap-client-copy">
-            <div class="item-title">${esc(client.name)}</div>
-            <div class="item-sub">${esc(client.sector)} | ${esc(client.contact)}</div>
-            <div class="tag-row">
-              <span class="status-badge ${esc(clientStatusClass(client.accountStatus))}">${esc(client.accountStatus)}</span>
-            </div>
-          </div>
-        </div>
-        <div class="suremap-client-address">${esc(client.address || 'No HQ address set')}</div>
-        <div class="suremap-site-toggle ${expanded ? 'open' : ''}" data-toggle-client="${esc(client.id)}">
-          <span class="arrow">&gt;</span>
-          <span>${esc(toggleLabel)}</span>
-        </div>
-        <div class="suremap-site-list ${expanded ? 'open' : ''}">
-          ${siteRows || `<div class="muted">Add a site from the details panel or modify menu.</div>`}
-        </div>
-      </article>
-    `;
+    els['client-list'].innerHTML = sites.map((site) => renderSiteCardMarkup(client, site, color)).join('');
   }
 
   function renderSiteCardMarkup(client, site, color){
     const active = state.activeSiteId === site.id;
+    const projectLabel = (site.projectNames || []).join(', ') || 'No linked project';
     return `
       <div class="suremap-site-card ${active ? 'active' : ''}" data-client-id="${esc(client.id)}" data-site-id="${esc(site.id)}">
         <div class="suremap-site-icon" style="background:${color}22;color:${color}">${esc(getSiteIconToken(site.type))}</div>
         <div class="suremap-site-copy">
           <div class="item-title">${esc(site.name)}</div>
+          <div class="item-sub">${esc(projectLabel)}</div>
           <div class="item-sub">${esc(site.type)} | ${esc(site.address || site.coordsLabel || 'No location yet')}</div>
           <div class="tag-row">
             <span class="status-badge ${esc(siteStatusClass(site.status))}">${esc(site.status)}</span>
@@ -765,18 +952,10 @@
     `;
   }
 
-  function renderClientCard(client){
-    return renderClientCardMarkup(client);
-  }
-
-  function renderSiteCard(client, site, color){
-    return renderSiteCardMarkup(client, site, color);
-  }
-
   function renderMapSummary(){
     const siteCount = state.filteredClients.reduce((sum, client) => sum + client.sublocations.length, 0);
     const providerLabel = state.mapProvider === 'google' ? 'SureMap' : 'Default map';
-    els['map-summary'].textContent = `${state.filteredClients.length} clients / ${siteCount} sites visible | ${providerLabel}`;
+    els['map-summary'].textContent = `${siteCount} site${siteCount === 1 ? '' : 's'} visible | ${providerLabel}`;
   }
 
   function renderDetailPanel(){
@@ -816,14 +995,15 @@
           <button class="act-btn" type="button" data-action="copy-address" data-client-id="${esc(client.id)}">Copy Address</button>
           <button class="act-btn" type="button" data-action="open-directions-client" data-client-id="${esc(client.id)}">Directions</button>
           <button class="act-btn" type="button" data-action="add-site" data-client-id="${esc(client.id)}">+ Add Site</button>
-          <button class="act-btn" type="button" data-action="edit-client" data-client-id="${esc(client.id)}">Edit Client</button>
-          <button class="act-btn danger" type="button" data-action="delete-client" data-client-id="${esc(client.id)}">Delete Client</button>
+          <button class="act-btn" type="button" data-action="open-client" data-client-id="${esc(client.id)}">Open In Clients</button>
         </div>
       </div>
     `;
   }
 
   function renderSiteDetail(client, site){
+    const projectLabel = (site.projectNames || []).join(', ') || 'No linked project';
+    const jobTypes = site.standardJobTypes || 'No standard job types set';
     return `
       <div class="suremap-detail-card">
         <div class="suremap-detail-title">
@@ -837,6 +1017,8 @@
         <div class="suremap-detail-grid">
           <div class="suremap-detail-item"><label>Coordinates</label><span>${esc(site.coordsLabel || 'Not mapped')}</span></div>
           <div class="suremap-detail-item"><label>Type</label><span>${esc(site.type)}</span></div>
+          <div class="suremap-detail-item full"><label>Linked Projects</label><span>${esc(projectLabel)}</span></div>
+          <div class="suremap-detail-item full"><label>Standard Job Types</label><span>${esc(jobTypes)}</span></div>
           <div class="suremap-detail-item full"><label>Address</label><span>${esc(site.address || 'No address set')}</span></div>
           <div class="suremap-detail-item full"><label>Notes</label><span>${esc(site.notes || 'No notes')}</span></div>
           <div class="suremap-detail-item"><label>Directions From</label><span>${esc(HOME_BASE.name)}</span></div>
@@ -849,44 +1031,6 @@
         </div>
       </div>
     `;
-  }
-
-  function updateActionButtons(){
-    const hasSelection = !!state.activeClientId;
-    els['modify-selection-btn'].disabled = !hasSelection;
-    els['modify-selection-btn'].textContent = state.activeSiteId ? 'Modify Site' : 'Modify Client';
-    if(state.activeSiteId){
-      els['detail-primary-btn'].disabled = false;
-      els['detail-primary-btn'].textContent = 'Edit Site';
-      return;
-    }
-    if(state.activeClientId){
-      els['detail-primary-btn'].disabled = false;
-      els['detail-primary-btn'].textContent = 'Add Site';
-      return;
-    }
-    els['detail-primary-btn'].disabled = true;
-    els['detail-primary-btn'].textContent = 'Modify Selection';
-  }
-
-  function handleModifySelection(){
-    if(state.activeSiteId){
-      openSiteModal(state.activeClientId, state.activeSiteId);
-      return;
-    }
-    if(state.activeClientId){
-      openClientModal(state.activeClientId);
-    }
-  }
-
-  function handleDetailPrimaryAction(){
-    if(state.activeSiteId){
-      openSiteModal(state.activeClientId, state.activeSiteId);
-      return;
-    }
-    if(state.activeClientId){
-      openSiteModal(state.activeClientId);
-    }
   }
 
   function syncMarkers(){
@@ -1068,30 +1212,75 @@
     els['map-placeholder'].classList.remove('hidden');
   }
 
+  function getVisibleMappedSites(){
+    return state.filteredClients.flatMap((client) => (client.sublocations || []).map((site) => ({ client, site })))
+      .filter(({ site }) => hasUsableCoords(site.lat, site.lng));
+  }
+
+  function fitVisibleSites(){
+    if(!state.map) return;
+    const visibleSites = getVisibleMappedSites();
+    if(!visibleSites.length){
+      alert('No visible mapped sites have GPS coordinates to fit on the map.');
+      return;
+    }
+    els['map-placeholder'].classList.add('hidden');
+    if(state.mapProvider === 'google'){
+      if(visibleSites.length === 1){
+        const site = visibleSites[0].site;
+        state.map.panTo({ lat:site.lat, lng:site.lng });
+        state.map.setZoom(13);
+        return;
+      }
+      const bounds = new google.maps.LatLngBounds();
+      visibleSites.forEach(({ site }) => bounds.extend({ lat:site.lat, lng:site.lng }));
+      state.map.fitBounds(bounds);
+      return;
+    }
+    const points = visibleSites.map(({ site }) => [site.lat, site.lng]);
+    if(points.length === 1){
+      state.map.flyTo(points[0], 13, { animate:true, duration:.6 });
+      return;
+    }
+    state.map.fitBounds(L.latLngBounds(points), { padding:[28, 28] });
+  }
+
   function selectClient(clientId, options = {}){
-    const client = state.filteredClients.find((row) => row.id === String(clientId));
+    const client = state.viewClients.find((row) => row.id === String(clientId));
     if(!client) return;
     state.activeClientId = client.id;
     state.activeSiteId = '';
     state.expandedIds.add(client.id);
+    state.filteredClients = getFilteredClients();
+    renderClientPicker();
     renderList();
     renderToolbarSummary();
     renderDetailPanel();
-    updateActionButtons();
+    syncMarkers();
     if(options.focusMap !== false) focusSelectionOnMap();
   }
 
   function selectSite(clientId, siteId, options = {}){
-    const client = state.filteredClients.find((row) => row.id === String(clientId));
-    const site = client?.sublocations.find((row) => row.id === String(siteId));
-    if(!client || !site) return;
-    state.activeClientId = client.id;
-    state.activeSiteId = site.id;
-    state.expandedIds.add(client.id);
+    const sourceClient = state.viewClients.find((row) => row.id === String(clientId));
+    const sourceSite = sourceClient?.sublocations.find((row) => row.id === String(siteId));
+    if(!sourceClient || !sourceSite) return;
+    state.activeClientId = sourceClient.id;
+    state.activeSiteId = sourceSite.id;
+    state.expandedIds.add(sourceClient.id);
+    state.filteredClients = getFilteredClients();
+    const visibleSite = state.filteredClients.find((row) => row.id === sourceClient.id)?.sublocations.find((row) => row.id === String(siteId));
+    if(!visibleSite && state.filterTag !== 'All'){
+      state.filterTag = 'All';
+      state.filteredClients = getFilteredClients();
+    } else if(!visibleSite && state.searchQuery){
+      state.searchQuery = '';
+      state.filteredClients = getFilteredClients();
+    }
+    renderClientPicker();
     renderList();
     renderToolbarSummary();
     renderDetailPanel();
-    updateActionButtons();
+    syncMarkers();
     if(options.focusMap !== false) focusSelectionOnMap();
   }
 
@@ -1105,139 +1294,300 @@
   }
 
   function getClientRecord(id){ return state.data.clients.find((row) => row.id === String(id)) || null; }
+  function getProjectRecord(id, data = state.data){ return (data.projects || []).find((row) => row.id === String(id)) || null; }
   function getSiteRecord(id){ return state.data.sites.find((row) => row.id === String(id)) || null; }
+  function getProjectsForClient(clientId){ return state.data.projects.filter((project) => project.clientId === String(clientId)).sort(sortByProjectName); }
+  function getProjectIdsForSite(siteId, data = state.data){
+    const ids = (data.siteProjects || []).filter((row) => row.siteId === String(siteId)).map((row) => row.projectId);
+    const legacyProjectId = (data.sites || []).find((row) => row.id === String(siteId))?.projectId || '';
+    if(legacyProjectId) ids.push(legacyProjectId);
+    return [...new Set(ids.filter(Boolean))];
+  }
+  function getLinkedProjectsForSite(siteId, data = state.data){
+    return getProjectIdsForSite(siteId, data).map((projectId) => getProjectRecord(projectId, data)).filter(Boolean).sort(sortByProjectName);
+  }
   function getClientAddress(id){ const client = getClientRecord(id); return formatAddress(client?.hqStreet, client?.hqCity, client?.hqState, client?.hqZip); }
   function getSiteCoords(id){ return getSiteRecord(id)?.gpsCoordinates || ''; }
   function getSiteDirections(id){ const site = getSiteRecord(id); return site?.physicalAddress || site?.gpsCoordinates || ''; }
+  function openClientInDirectory(clientId){
+    const suffix = clientId ? `#client=${encodeURIComponent(clientId)}` : '';
+    window.location.href = `../clients.html${suffix}`;
+  }
 
   function openModal(id){ document.getElementById(id).classList.add('open'); }
   function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 
-  function resetClientForm(){
-    els['client-form'].reset();
-    els['client-id'].value = '';
-    els['client-sector'].value = 'Upstream';
-    els['client-status'].value = 'Active';
-    clearAutocompleteSelection(els['client-address-search']);
-    els['client-address-results'].innerHTML = '';
-    els['client-address-results'].classList.remove('open');
-    els['client-delete-btn'].style.display = 'none';
-    els['client-modal-title'].textContent = 'Add Client';
-    els['client-save-btn'].textContent = 'Save';
+  function setSiteGpsMode(value){
+    els['site-gps-mode'].value = value ? 'true' : 'false';
   }
 
-  function openClientModal(clientId = ''){
-    resetClientForm();
-    if(clientId){
-      const client = getClientRecord(clientId);
-      if(!client) return;
-      els['client-id'].value = client.id;
-      els['client-name'].value = client.clientName;
-      els['client-sector'].value = client.sector;
-      els['client-status'].value = client.accountStatus;
-      els['client-contact'].value = client.primaryContact;
-      els['client-phone'].value = client.contactPhone;
-      els['client-email'].value = client.contactEmail;
-      els['client-street'].value = client.hqStreet;
-      els['client-city'].value = client.hqCity;
-      els['client-state'].value = client.hqState;
-      els['client-zip'].value = client.hqZip;
-      els['client-modal-title'].textContent = 'Edit Client';
-      els['client-delete-btn'].style.display = '';
+  function isSiteGpsMode(){
+    return String(els['site-gps-mode']?.value || '').toLowerCase() === 'true';
+  }
+
+  function getSiteAddressDraft(){
+    return {
+      gpsOnly:isSiteGpsMode(),
+      search:els['site-address-search'].value || '',
+      street:els['site-street'].value || '',
+      city:els['site-city'].value || '',
+      state:els['site-state'].value || '',
+      zip:els['site-zip'].value || '',
+      lat:els['site-lat'].value || '',
+      lng:els['site-lng'].value || ''
+    };
+  }
+
+  function setSiteAddressDraft(draft = {}){
+    setSiteGpsMode(!!draft.gpsOnly);
+    els['site-address-search'].value = String(draft.search || '');
+    els['site-street'].value = String(draft.street || '');
+    els['site-city'].value = String(draft.city || '');
+    els['site-state'].value = String(draft.state || '').toUpperCase();
+    els['site-zip'].value = String(draft.zip || '');
+    els['site-lat'].value = String(draft.lat ?? '');
+    els['site-lng'].value = String(draft.lng ?? '');
+    setAutocompleteCoords(els['site-address-search'], draft.lat, draft.lng);
+    renderSiteAddressSummary();
+  }
+
+  function renderSiteAddressSummary(){
+    const draft = getSiteAddressDraft();
+    const lat = normalizeNumber(draft.lat);
+    const lng = normalizeNumber(draft.lng);
+    const address = formatAddress(draft.street, draft.city, draft.state, draft.zip);
+    const coords = hasUsableCoords(lat, lng) ? formatGps(lat, lng) : '';
+    if(draft.gpsOnly){
+      els['site-address-summary'].innerHTML = coords
+        ? `<strong>GPS override</strong><span>${esc(coords)}</span>`
+        : '<strong>GPS override</strong><span>No coordinates set</span>';
+      return;
     }
-    openModal('client-modal-overlay');
+    els['site-address-summary'].innerHTML = address
+      ? `<strong>${esc(address)}</strong>${coords ? `<span>${esc(coords)}</span>` : ''}`
+      : '<strong>No address set</strong><span>Choose Edit Address before saving the site.</span>';
   }
 
   function resetSiteForm(){
     els['site-form'].reset();
     els['site-id'].value = '';
     els['site-client-id'].value = '';
+    els['site-project-options'].innerHTML = '';
+    els['site-project-hint'].textContent = '';
+    els['site-job-type-options'].innerHTML = '';
+    els['site-job-type-hint'].textContent = '';
     els['site-type'].value = 'Well Site';
     els['site-status'].value = 'Active';
     clearAutocompleteSelection(els['site-address-search']);
-    els['site-address-results'].innerHTML = '';
-    els['site-address-results'].classList.remove('open');
+    setSiteAddressDraft({ gpsOnly:false });
+    renderSiteJobTypeOptions(els['site-type'].value, []);
     els['site-delete-btn'].style.display = 'none';
     els['site-modal-title'].textContent = 'Add Site';
   }
 
   function openSiteModal(clientId, siteId = ''){
     resetSiteForm();
-    els['site-client-id'].value = String(clientId || state.activeClientId || '');
+    const resolvedClientId = String(clientId || state.activeClientId || '');
+    els['site-client-id'].value = resolvedClientId;
+    let selectedProjectIds = [];
     if(siteId){
       const site = getSiteRecord(siteId);
       if(!site) return;
       const address = splitAddress(site.physicalAddress);
       const coords = parseGps(site.gpsCoordinates);
+      selectedProjectIds = getProjectIdsForSite(site.id);
       els['site-id'].value = site.id;
       els['site-name'].value = site.siteName;
       els['site-type'].value = site.siteType;
       els['site-status'].value = site.siteStatus;
       els['site-notes'].value = site.notes;
-      els['site-street'].value = address.street;
-      els['site-city'].value = address.city;
-      els['site-state'].value = address.state;
-      els['site-zip'].value = address.zip;
-      els['site-lat'].value = coords?.lat ?? '';
-      els['site-lng'].value = coords?.lng ?? '';
-      els['site-address-search'].value = site.physicalAddress || '';
+      renderSiteJobTypeOptions(site.siteType, parseStandardJobTypes(site.standardJobTypes));
+      setSiteAddressDraft({
+        gpsOnly:!site.physicalAddress && hasUsableCoords(coords?.lat, coords?.lng),
+        search:site.physicalAddress || '',
+        street:address.street,
+        city:address.city,
+        state:address.state,
+        zip:address.zip,
+        lat:hasUsableCoords(coords?.lat, coords?.lng) ? coords.lat : '',
+        lng:hasUsableCoords(coords?.lat, coords?.lng) ? coords.lng : ''
+      });
       els['site-modal-title'].textContent = 'Edit Site';
       els['site-delete-btn'].style.display = '';
     }
+    if(!selectedProjectIds.length){
+      const projects = getProjectsForClient(resolvedClientId);
+      if(projects.length === 1) selectedProjectIds = [projects[0].id];
+    }
+    renderSiteProjectOptions(resolvedClientId, selectedProjectIds);
+    renderSiteJobTypeOptions(els['site-type'].value, getSelectedSiteJobTypeNames());
     openModal('site-modal-overlay');
   }
 
-  async function saveClientFromModal(){
-    const id = els['client-id'].value;
-    const existing = id ? getClientRecord(id) : null;
-    const street = els['client-street'].value.trim();
-    const city = els['client-city'].value.trim();
-    const stateCode = els['client-state'].value.trim().toUpperCase();
-    const zip = els['client-zip'].value.trim();
-    const name = els['client-name'].value.trim();
-    if(!name || !street || !city){
-      alert('Client name, HQ street, and HQ city are required.');
+  function openAddressModal(){
+    const draft = getSiteAddressDraft();
+    els['address-form'].reset();
+    els['address-gps-mode'].checked = draft.gpsOnly;
+    els['address-search'].value = draft.search || formatAddress(draft.street, draft.city, draft.state, draft.zip);
+    els['address-street'].value = draft.street;
+    els['address-city'].value = draft.city;
+    els['address-state'].value = draft.state;
+    els['address-zip'].value = draft.zip;
+    els['address-lat'].value = draft.lat;
+    els['address-lng'].value = draft.lng;
+    setAutocompleteCoords(els['address-search'], draft.lat, draft.lng);
+    els['address-results'].innerHTML = '';
+    els['address-results'].classList.remove('open');
+    updateAddressModalMode();
+    openModal('address-modal-overlay');
+    setTimeout(() => (els['address-gps-mode'].checked ? els['address-lat'] : els['address-search']).focus(), 50);
+  }
+
+  function updateAddressModalMode(){
+    const gpsOnly = !!els['address-gps-mode']?.checked;
+    ['address-search', 'address-street', 'address-city', 'address-state', 'address-zip'].forEach((id) => {
+      const input = els[id];
+      if(!input) return;
+      input.disabled = gpsOnly;
+      input.closest('.form-group')?.classList.toggle('suremap-gps-address-disabled', gpsOnly);
+    });
+    ['address-lat', 'address-lng'].forEach((id) => {
+      const input = els[id];
+      if(!input) return;
+      input.disabled = !gpsOnly;
+      input.required = gpsOnly;
+      input.closest('.form-group')?.classList.toggle('suremap-gps-coord-disabled', !gpsOnly);
+    });
+    if(gpsOnly){
+      els['address-results'].innerHTML = '';
+      els['address-results'].classList.remove('open');
+      clearAutocompleteSelection(els['address-search']);
+    }
+  }
+
+  function handleAddressModeChange(){
+    if(!els['address-gps-mode'].checked && isSiteGpsMode()){
+      els['address-lat'].value = '';
+      els['address-lng'].value = '';
+      clearAutocompleteSelection(els['address-search']);
+    }
+    updateAddressModalMode();
+  }
+
+  function applyAddressModal(){
+    const gpsOnly = !!els['address-gps-mode'].checked;
+    const lat = normalizeNumber(els['address-lat'].value);
+    const lng = normalizeNumber(els['address-lng'].value);
+    if(gpsOnly && !hasUsableCoords(lat, lng)){
+      alert('Enter valid GPS coordinates before using GPS override.');
       return;
     }
-    const saveButton = els['client-save-btn'];
-    saveButton.disabled = true;
-    showSaveStatus('saving', 'SAVING');
-    try {
-      let coords = getAutocompleteCoords(els['client-address-search']);
-      if(!coords){
-        coords = await geocodeAddress(street, city, stateCode, zip);
+    if(!gpsOnly){
+      const street = els['address-street'].value.trim();
+      const city = els['address-city'].value.trim();
+      if(!street || !city){
+        alert('Select or enter a site address before saving it.');
+        return;
       }
-      if(!hasCoords(coords?.lat, coords?.lng)) throw new Error('Unable to geocode that HQ address. Use address search or verify the address details.');
-      const record = {
-        ...(existing || {
-          billingNotes: '', operationalNotes: '', salesforceAccountId: '', defaultServiceArea: ''
-        }),
-        id: existing?.id || '',
-        clientName: name,
-        sector: els['client-sector'].value,
-        accountStatus: els['client-status'].value,
-        primaryContact: els['client-contact'].value.trim(),
-        contactPhone: els['client-phone'].value.trim(),
-        contactEmail: els['client-email'].value.trim(),
-        hqStreet: street,
-        hqCity: city,
-        hqState: stateCode,
-        hqZip: zip,
-        hqLatitude: coords.lat,
-        hqLongitude: coords.lng
-      };
-      const clientId = await saveClientRecord(record);
-      closeModal('client-modal-overlay');
-      await loadData({ preserveSelection:false, focusSelection:false });
-      selectClient(clientId, { focusMap:true });
-      showSaveStatus('saved', 'SAVED');
-    } catch (error){
-      console.error('SureMap client save failed:', error);
-      showSaveStatus('error', 'SAVE FAILED');
-      alert(error.message || 'Unable to save the client.');
-    } finally {
-      saveButton.disabled = false;
     }
+    setSiteAddressDraft({
+      gpsOnly,
+      search:gpsOnly ? '' : els['address-search'].value.trim(),
+      street:gpsOnly ? '' : els['address-street'].value.trim(),
+      city:gpsOnly ? '' : els['address-city'].value.trim(),
+      state:gpsOnly ? '' : els['address-state'].value.trim().toUpperCase(),
+      zip:gpsOnly ? '' : els['address-zip'].value.trim(),
+      lat:hasUsableCoords(lat, lng) ? lat : '',
+      lng:hasUsableCoords(lat, lng) ? lng : ''
+    });
+    closeModal('address-modal-overlay');
+  }
+
+  function renderSiteProjectOptions(clientId, selectedProjectIds = []){
+    const projects = getProjectsForClient(clientId);
+    const selected = new Set(selectedProjectIds);
+    if(!projects.length){
+      els['site-project-options'].innerHTML = '<div class="empty-state">No projects exist for this client yet.</div>';
+      els['site-project-hint'].innerHTML = 'Create a project from the Clients page before adding a mapped site.';
+      return;
+    }
+    els['site-project-options'].innerHTML = projects.map((project) => `
+      <label class="suremap-project-option">
+        <input type="checkbox" value="${esc(project.id)}" ${selected.has(project.id) ? 'checked' : ''}>
+        <span>
+          <strong>${esc(project.projectName || 'Unnamed project')}</strong>
+          <small>${esc(project.projectStatus || 'Active')} | ${esc(project.serviceScope || 'Field')}</small>
+        </span>
+      </label>
+    `).join('');
+    els['site-project-hint'].textContent = projects.length === 1 ? 'This client has one project, so it is selected automatically.' : 'Select every project that uses this site. The first selected project is saved as the primary site project.';
+  }
+
+  function getSelectedSiteProjectIds(){
+    const ids = Array.from(els['site-project-options'].querySelectorAll('input[type="checkbox"]:checked')).map((node) => String(node.value || '').trim()).filter(Boolean);
+    const existingPrimaryId = getSiteRecord(els['site-id'].value)?.projectId || '';
+    if(existingPrimaryId && ids.includes(existingPrimaryId)){
+      return [existingPrimaryId, ...ids.filter((projectId) => projectId !== existingPrimaryId)];
+    }
+    return ids;
+  }
+
+  function getActiveJobTypes(){
+    return (Array.isArray(state.data.jobTypes) ? state.data.jobTypes : getDefaultJobTypeRecords())
+      .filter((jobType) => jobType.isActive && jobType.jobTypeName)
+      .sort(sortByJobType);
+  }
+
+  function getJobTypeOptionsForSiteType(siteType, selectedNames = []){
+    const normalizedType = normalizeSiteType(siteType);
+    const activeTypes = getActiveJobTypes();
+    const byName = new Map(activeTypes.map((jobType) => [jobType.jobTypeName.toLowerCase(), jobType]));
+    const mappedNames = normalizedType === 'Other'
+      ? activeTypes.map((jobType) => jobType.jobTypeName)
+      : (SITE_TYPE_JOB_TYPE_NAMES[normalizedType] || []);
+    const options = [];
+    const seen = new Set();
+    mappedNames.forEach((name) => {
+      const jobType = byName.get(String(name || '').toLowerCase());
+      if(!jobType || seen.has(jobType.jobTypeName.toLowerCase())) return;
+      seen.add(jobType.jobTypeName.toLowerCase());
+      options.push({ name:jobType.jobTypeName, existing:false });
+    });
+    parseStandardJobTypes(selectedNames).forEach((name) => {
+      const key = name.toLowerCase();
+      if(seen.has(key)) return;
+      seen.add(key);
+      options.push({ name, existing:true });
+    });
+    return options;
+  }
+
+  function getSelectedSiteJobTypeNames(){
+    return Array.from(els['site-job-type-options'].querySelectorAll('input[type="checkbox"]:checked'))
+      .map((node) => String(node.value || '').trim())
+      .filter(Boolean);
+  }
+
+  function renderSiteJobTypeOptions(siteType, selectedNames = []){
+    const selected = new Set(parseStandardJobTypes(selectedNames).map((name) => name.toLowerCase()));
+    const options = getJobTypeOptionsForSiteType(siteType, selectedNames);
+    if(!options.length){
+      els['site-job-type-options'].innerHTML = '<div class="empty-state">No active job types are available for this site type.</div>';
+      els['site-job-type-hint'].textContent = 'Manage job types from Field Ops, then return to SureMap.';
+      return;
+    }
+    els['site-job-type-options'].innerHTML = options.map((option) => `
+      <label class="suremap-job-type-option">
+        <input type="checkbox" value="${esc(option.name)}" ${selected.has(option.name.toLowerCase()) ? 'checked' : ''}>
+        <span>
+          <strong>${esc(option.name)}</strong>
+          <small>${option.existing ? 'Existing saved value' : `${esc(normalizeSiteType(siteType))} standard`}</small>
+        </span>
+      </label>
+    `).join('');
+    els['site-job-type-hint'].textContent = options.some((option) => option.existing)
+      ? 'Existing values outside the current site type are kept checked until you remove them.'
+      : 'Select the standard job types normally performed at this site.';
   }
 
   async function saveSiteFromModal(){
@@ -1249,8 +1599,18 @@
     const city = els['site-city'].value.trim();
     const stateCode = els['site-state'].value.trim().toUpperCase();
     const zip = els['site-zip'].value.trim();
+    const gpsOnly = isSiteGpsMode();
     if(!clientId || !siteName){
       alert('Select a client first and enter a site name.');
+      return;
+    }
+    const projectIds = getSelectedSiteProjectIds();
+    if(!getProjectsForClient(clientId).length){
+      alert('This client has no projects yet. Create a project from the Clients page before adding a mapped site.');
+      return;
+    }
+    if(!projectIds.length){
+      alert('Select at least one linked project for this site.');
       return;
     }
     const saveButton = els['site-save-btn'];
@@ -1259,11 +1619,14 @@
     try {
       let lat = normalizeNumber(els['site-lat'].value);
       let lng = normalizeNumber(els['site-lng'].value);
-      const address = formatAddress(street, city, stateCode, zip) || existing?.physicalAddress || '';
-      if(!hasCoords(lat, lng)){
+      if(gpsOnly && !hasUsableCoords(lat, lng)){
+        throw new Error('Enter valid latitude and longitude before saving a GPS-only site.');
+      }
+      const address = gpsOnly ? '' : (formatAddress(street, city, stateCode, zip) || existing?.physicalAddress || '');
+      if(!gpsOnly && !hasUsableCoords(lat, lng)){
         const picked = getAutocompleteCoords(els['site-address-search']);
         const coords = picked || (street && city ? await geocodeAddress(street, city, stateCode, zip) : null);
-        if(!hasCoords(coords?.lat, coords?.lng)) throw new Error('Enter site coordinates directly or provide an address that can be geocoded.');
+        if(!hasUsableCoords(coords?.lat, coords?.lng)) throw new Error('Select an address from Edit Address or use GPS override.');
         lat = coords.lat;
         lng = coords.lng;
       }
@@ -1273,12 +1636,15 @@
         }),
         id: existing?.id || '',
         clientId,
+        projectId: projectIds[0],
+        projectIds,
         siteName,
         siteType: els['site-type'].value,
         siteStatus: els['site-status'].value,
+        standardJobTypes: serializeStandardJobTypes(getSelectedSiteJobTypeNames()),
         notes: els['site-notes'].value.trim(),
         physicalAddress: address,
-        countyState: [city, stateCode].filter(Boolean).join(', '),
+        countyState: gpsOnly ? '' : [city, stateCode].filter(Boolean).join(', '),
         gpsCoordinates: formatGps(lat, lng)
       };
       const siteId = await saveSiteRecord(record);
@@ -1295,47 +1661,6 @@
     }
   }
 
-  async function saveClientRecord(record){
-    if(isRemoteMode()){
-      const url = record.id ? `/rest/v1/field_clients?id=eq.${encodeURIComponent(record.id)}&select=*` : '/rest/v1/field_clients?select=*';
-      const payload = await window.appAuth.requestJson(url, {
-        method: record.id ? 'PATCH' : 'POST',
-        headers: { 'Content-Type':'application/json', Prefer:'return=representation' },
-        body: JSON.stringify({
-          client_name: record.clientName,
-          account_status: record.accountStatus,
-          sector: record.sector,
-          primary_contact: record.primaryContact,
-          contact_phone: record.contactPhone,
-          contact_email: record.contactEmail,
-          billing_notes: record.billingNotes,
-          operational_notes: record.operationalNotes,
-          salesforce_account_id: record.salesforceAccountId,
-          default_service_area: record.defaultServiceArea,
-          hq_street: record.hqStreet,
-          hq_city: record.hqCity,
-          hq_state: record.hqState,
-          hq_zip: record.hqZip,
-          hq_latitude: normalizeNumber(record.hqLatitude),
-          hq_longitude: normalizeNumber(record.hqLongitude)
-        })
-      });
-      const row = Array.isArray(payload) ? payload[0] : payload;
-      return String(row?.id || record.id);
-    }
-    const raw = readLocalRaw();
-    const normalized = normalizeClient(record);
-    const next = raw.clients ? raw.clients.map(normalizeClient) : [];
-    const nextRecord = { ...normalized, id: normalized.id || uid('client') };
-    const index = next.findIndex((row) => row.id === nextRecord.id);
-    if(index >= 0) next[index] = nextRecord;
-    else next.push(nextRecord);
-    raw.clients = next;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(raw));
-    localStorage.removeItem(LEGACY_STORAGE_KEY);
-    return nextRecord.id;
-  }
-
   async function saveSiteRecord(record){
     if(isRemoteMode()){
       const url = record.id ? `/rest/v1/field_sites?id=eq.${encodeURIComponent(record.id)}&select=*` : '/rest/v1/field_sites?select=*';
@@ -1344,6 +1669,7 @@
         headers: { 'Content-Type':'application/json', Prefer:'return=representation' },
         body: JSON.stringify({
           client_id: record.clientId,
+          project_id: record.projectId,
           site_name: record.siteName,
           site_type: record.siteType,
           physical_address: record.physicalAddress,
@@ -1359,7 +1685,9 @@
         })
       });
       const row = Array.isArray(payload) ? payload[0] : payload;
-      return String(row?.id || record.id);
+      const siteId = String(row?.id || record.id);
+      await replaceRemoteSiteProjectLinks(siteId, record.projectIds);
+      return siteId;
     }
     const raw = readLocalRaw();
     const normalized = normalizeSite(record);
@@ -1369,39 +1697,29 @@
     if(index >= 0) next[index] = nextRecord;
     else next.push(nextRecord);
     raw.sites = next;
+    raw.siteProjects = replaceLocalSiteProjectLinks(raw.siteProjects, nextRecord.id, nextRecord.projectIds);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(raw));
     localStorage.removeItem(LEGACY_STORAGE_KEY);
     return nextRecord.id;
   }
 
-  async function deleteClientRecord(clientId){
-    const id = String(clientId || '');
-    if(!id) return;
-    const block = getClientDeleteBlock(id);
-    if(block){
-      alert(block);
-      return;
-    }
-    const siteCount = state.data.sites.filter((site) => site.clientId === id).length;
-    if(!confirm(`Delete this client${siteCount ? ` and ${siteCount} mapped site${siteCount === 1 ? '' : 's'}` : ''}?`)) return;
-    showSaveStatus('saving', 'DELETING');
-    try {
-      if(isRemoteMode()){
-        await window.appAuth.requestJson(`/rest/v1/field_clients?id=eq.${encodeURIComponent(id)}`, { method:'DELETE' });
-      } else {
-        const raw = readLocalRaw();
-        raw.clients = (raw.clients || []).filter((row) => String(row?.id || '') !== id);
-        raw.sites = (raw.sites || []).filter((row) => String(row?.clientId || '') !== id);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(raw));
-      }
-      closeModal('client-modal-overlay');
-      await loadData({ preserveSelection:false, focusSelection:false });
-      showSaveStatus('saved', 'DELETED');
-    } catch (error){
-      console.error('SureMap client delete failed:', error);
-      showSaveStatus('error', 'DELETE FAILED');
-      alert(error.message || 'Unable to delete the client.');
-    }
+  async function replaceRemoteSiteProjectLinks(siteId, projectIds){
+    await window.appAuth.requestJson(`/rest/v1/field_site_projects?site_id=eq.${encodeURIComponent(siteId)}`, { method:'DELETE' });
+    const rows = normalizeStringArray(projectIds).map((projectId) => ({ site_id:siteId, project_id:projectId }));
+    if(!rows.length) return;
+    await window.appAuth.requestJson('/rest/v1/field_site_projects', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
+      body:JSON.stringify(rows)
+    });
+  }
+
+  function replaceLocalSiteProjectLinks(existingLinks, siteId, projectIds){
+    const kept = (Array.isArray(existingLinks) ? existingLinks : []).map(normalizeSiteProject).filter((link) => link.siteId !== siteId);
+    normalizeStringArray(projectIds).forEach((projectId) => {
+      kept.push({ id:`${siteId}::${projectId}`, siteId, projectId });
+    });
+    return kept.sort(sortBySiteProject);
   }
 
   async function deleteSiteRecord(clientId, siteId){
@@ -1420,6 +1738,7 @@
       } else {
         const raw = readLocalRaw();
         raw.sites = (raw.sites || []).filter((row) => String(row?.id || '') !== id);
+        raw.siteProjects = (raw.siteProjects || []).filter((row) => String(row?.siteId || '') !== id);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(raw));
       }
       closeModal('site-modal-overlay');
@@ -1433,14 +1752,6 @@
     }
   }
 
-  function getClientDeleteBlock(clientId){
-    const siteIds = state.data.sites.filter((site) => site.clientId === clientId).map((site) => site.id);
-    const jobIds = state.data.jobs.filter((job) => job.clientId === clientId || siteIds.includes(job.siteId)).map((job) => job.id);
-    const jobs = jobIds.length;
-    const samples = state.data.samples.filter((sample) => sample.clientId === clientId || siteIds.includes(sample.siteId) || jobIds.includes(sample.jobId)).length;
-    return jobs || samples ? `This client cannot be deleted because it still has ${jobs} linked job${jobs === 1 ? '' : 's'} and ${samples} linked sample${samples === 1 ? '' : 's'}. Clear those records first.` : '';
-  }
-
   function getSiteDeleteBlock(siteId){
     const jobIds = state.data.jobs.filter((job) => job.siteId === siteId).map((job) => job.id);
     const jobs = jobIds.length;
@@ -1448,51 +1759,15 @@
     return jobs || samples ? `This site cannot be deleted because it still has ${jobs} linked job${jobs === 1 ? '' : 's'} and ${samples} linked sample${samples === 1 ? '' : 's'}. Clear those records first.` : '';
   }
 
-  async function resetSharedData(){
-    if(!confirm('This will permanently clear shared clients, sites, jobs, job assignments, and samples. Continue?')) return;
-    if(window.prompt('Type RESET to confirm clearing the shared client/site data.', '') !== 'RESET'){
-      alert('Reset canceled.');
-      return;
-    }
-    els['reset-shared-btn'].disabled = true;
-    showSaveStatus('saving', 'RESETTING');
-    try {
-      if(isRemoteMode()){
-        for(const table of ['field_job_assignments', 'field_samples', 'field_jobs', 'field_sites', 'field_clients']){
-          await window.appAuth.requestJson(`/rest/v1/${table}?id=not.is.null`, { method:'DELETE' });
-        }
-      } else {
-        const raw = readLocalRaw();
-        raw.clients = [];
-        raw.sites = [];
-        raw.jobs = [];
-        raw.jobAssignments = [];
-        raw.samples = [];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(raw));
-        localStorage.removeItem(LEGACY_STORAGE_KEY);
-      }
-      closeModal('client-modal-overlay');
-      closeModal('site-modal-overlay');
-      await loadData({ preserveSelection:false, focusSelection:false });
-      showSaveStatus('saved', 'RESET');
-      alert('Shared client/site data has been reset.');
-    } catch (error){
-      console.error('SureMap reset failed:', error);
-      showSaveStatus('error', 'RESET FAILED');
-      alert(error.message || 'Unable to reset the shared client/site data.');
-    } finally {
-      els['reset-shared-btn'].disabled = false;
-    }
-  }
-
   function bindAutocomplete(config){
     let timer = null;
     let seq = 0;
     config.input.addEventListener('input', () => {
+      if(config.input.disabled) return;
       clearAutocompleteSelection(config.input);
       clearTimeout(timer);
       const query = config.input.value.trim();
-      if(query.length < 4){
+      if(query.length < 3){
         config.results.classList.remove('open');
         config.results.innerHTML = '';
         return;
@@ -1500,22 +1775,30 @@
       timer = setTimeout(async () => {
         const current = ++seq;
         try {
-          const rows = await lookupAddressSuggestions(query);
+          const { rows, message } = await lookupAddressSuggestions(query);
           if(current !== seq) return;
-          config.results.innerHTML = (Array.isArray(rows) ? rows : []).map((item, index) => `<div class="suremap-autocomplete-item" data-index="${index}"><strong>${esc(item.display_name)}</strong><span>${esc(item.type || 'address')}</span></div>`).join('');
+          config.results.innerHTML = (message ? `<div class="suremap-autocomplete-item muted"><strong>${esc(message.title)}</strong><span>${esc(message.copy)}</span></div>` : '')
+            + (Array.isArray(rows) ? rows : []).map((item, index) => `<div class="suremap-autocomplete-item" data-index="${index}"><strong>${esc(item.display_name)}</strong><span>${esc(item.type || 'address')}</span></div>`).join('');
           if(!config.results.innerHTML){
-            config.results.innerHTML = '<div class="suremap-autocomplete-item"><strong>No matches found</strong><span>Keep typing or enter the address manually.</span></div>';
+            config.results.innerHTML = '<div class="suremap-autocomplete-item muted"><strong>No matches found</strong><span>Keep typing or enter the address manually.</span></div>';
           }
           config.results.classList.toggle('open', !!config.results.innerHTML);
           config.results.querySelectorAll('[data-index]').forEach((row) => {
-            row.addEventListener('mousedown', (event) => {
+            row.addEventListener('mousedown', async (event) => {
               event.preventDefault();
               const item = rows[Number(row.dataset.index)];
               if(!item) return;
-              config.onPick(item);
-              setAutocompleteCoords(config.input, item.lat, item.lon);
-              config.input.value = item.display_name;
+              const valueBeforePick = config.input.value;
+              try {
+                await config.onPick(item);
+              } catch (error){
+                console.warn('Unable to apply selected address:', error);
+                alert(error.message || 'Unable to load that address.');
+                return;
+              }
+              if(!config.input.value.trim() || config.input.value === valueBeforePick) config.input.value = item.display_name;
               config.results.classList.remove('open');
+              resetPlacesSessionToken();
             });
           });
         } catch (_error){
@@ -1527,16 +1810,20 @@
     config.input.addEventListener('blur', () => setTimeout(() => config.results.classList.remove('open'), 120));
   }
 
-  function applyAddressPick(item, ids){
+  async function applyAddressPick(item, ids){
     if(!item) return;
-    const address = item.address || {};
+    const place = item.placePrediction ? await resolveGooglePlace(item) : null;
+    const address = place?.address || item.address || {};
     document.getElementById(ids.street).value = buildStreet(address);
     document.getElementById(ids.city).value = address.city || address.town || address.village || address.hamlet || '';
     document.getElementById(ids.state).value = getStateCode(address);
     document.getElementById(ids.zip).value = address.postcode || '';
-    if(ids.lat) document.getElementById(ids.lat).value = item.lat || '';
-    if(ids.lng) document.getElementById(ids.lng).value = item.lon || '';
-    setAutocompleteCoords(document.getElementById(ids.input), item.lat, item.lon);
+    const lat = place?.lat ?? item.lat ?? '';
+    const lng = place?.lng ?? item.lon ?? '';
+    if(ids.lat) document.getElementById(ids.lat).value = lat;
+    if(ids.lng) document.getElementById(ids.lng).value = lng;
+    setAutocompleteCoords(document.getElementById(ids.input), lat, lng);
+    if(place?.displayName) document.getElementById(ids.input).value = place.displayName;
   }
 
   function buildStreet(address){
@@ -1558,20 +1845,97 @@
 
   function setAutocompleteCoords(input, lat, lng){
     if(!input) return;
-    input.dataset.selLat = String(lat || '');
-    input.dataset.selLng = String(lng || '');
+    input.dataset.selLat = hasUsableCoords(lat, lng) ? String(lat) : '';
+    input.dataset.selLng = hasUsableCoords(lat, lng) ? String(lng) : '';
   }
 
   function getAutocompleteCoords(input){
     if(!input) return null;
     const lat = normalizeNumber(input.dataset.selLat);
     const lng = normalizeNumber(input.dataset.selLng);
-    return hasCoords(lat, lng) ? { lat, lng } : null;
+    return hasUsableCoords(lat, lng) ? { lat, lng } : null;
   }
 
   async function lookupAddressSuggestions(query){
-    const candidates = await requestCensusAddressMatches(query);
-    return candidates.slice(0, 5);
+    try {
+      const googleRows = await requestGooglePlaceSuggestions(query);
+      if(googleRows.length) return { rows:googleRows.slice(0, 5), message:null };
+    } catch (error){
+      console.warn('Google Places autocomplete unavailable. Falling back to Census lookup.', error);
+      const censusRows = await requestCensusAddressMatches(query).catch(() => []);
+      return {
+        rows:censusRows.slice(0, 5),
+        message:{
+          title:'Google address lookup unavailable',
+          copy:censusRows.length ? 'Showing Census matches instead.' : 'Enter coordinates or keep typing the address manually.'
+        }
+      };
+    }
+    const censusRows = await requestCensusAddressMatches(query).catch(() => []);
+    return { rows:censusRows.slice(0, 5), message:null };
+  }
+
+  async function requestGooglePlaceSuggestions(query){
+    const places = await loadPlacesLibrary();
+    const AutocompleteSuggestion = places?.AutocompleteSuggestion || window.google?.maps?.places?.AutocompleteSuggestion;
+    if(!AutocompleteSuggestion?.fetchAutocompleteSuggestions) throw new Error('Google Places suggestions are not available.');
+    const request = {
+      input:query,
+      includedRegionCodes:['us'],
+      locationBias:{ center:{ lat:HOME_BASE.lat, lng:HOME_BASE.lng }, radius:250000 }
+    };
+    const sessionToken = getPlacesSessionToken(places);
+    if(sessionToken) request.sessionToken = sessionToken;
+    const response = await AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
+    const suggestions = Array.isArray(response?.suggestions) ? response.suggestions : [];
+    return suggestions.map((suggestion) => {
+      const prediction = suggestion?.placePrediction || null;
+      const text = prediction?.text?.text || prediction?.text?.toString?.() || prediction?.text || prediction?.mainText?.text || prediction?.mainText?.toString?.() || '';
+      return {
+        display_name:String(text || '').trim(),
+        type:'Google Places',
+        placePrediction:prediction
+      };
+    }).filter((item) => item.display_name && item.placePrediction);
+  }
+
+  async function resolveGooglePlace(item){
+    const place = item?.placePrediction?.toPlace?.();
+    if(!place) throw new Error('Unable to load the selected Google address.');
+    await place.fetchFields({ fields:['formattedAddress', 'location', 'addressComponents'] });
+    const location = place.location || null;
+    const lat = typeof location?.lat === 'function' ? location.lat() : normalizeNumber(location?.lat);
+    const lng = typeof location?.lng === 'function' ? location.lng() : normalizeNumber(location?.lng);
+    return {
+      displayName:String(place.formattedAddress || item.display_name || '').trim(),
+      lat:hasUsableCoords(lat, lng) ? lat : '',
+      lng:hasUsableCoords(lat, lng) ? lng : '',
+      address:buildGoogleAddressObject(place.addressComponents || [])
+    };
+  }
+
+  function buildGoogleAddressObject(components){
+    const findComponent = (...types) => {
+      const row = (Array.isArray(components) ? components : []).find((component) => {
+        const componentTypes = Array.isArray(component?.types) ? component.types : [];
+        return types.some((type) => componentTypes.includes(type));
+      }) || {};
+      return {
+        long: row.longText || row.long_name || '',
+        short: row.shortText || row.short_name || row.longText || row.long_name || ''
+      };
+    };
+    const streetNumber = findComponent('street_number').long;
+    const route = findComponent('route').long;
+    const city = findComponent('locality').long || findComponent('postal_town').long || findComponent('sublocality', 'neighborhood').long || findComponent('administrative_area_level_3').long;
+    return {
+      house_number: streetNumber,
+      road: route,
+      city,
+      town: city,
+      state_code: findComponent('administrative_area_level_1').short,
+      postcode: findComponent('postal_code').long
+    };
   }
 
   async function geocodeAddress(street, city, stateCode, zip){
@@ -1583,7 +1947,7 @@
         const location = first?.geometry?.location || null;
         const lat = typeof location?.lat === 'function' ? location.lat() : normalizeNumber(location?.lat);
         const lng = typeof location?.lng === 'function' ? location.lng() : normalizeNumber(location?.lng);
-        if(hasCoords(lat, lng)) return { lat, lng };
+        if(hasUsableCoords(lat, lng)) return { lat, lng };
       } catch (_error){
         // Fall through to the existing Census geocoder.
       }
@@ -1593,7 +1957,7 @@
       if(!rows.length) return null;
       const lat = normalizeNumber(rows[0].lat);
       const lng = normalizeNumber(rows[0].lon);
-      return hasCoords(lat, lng) ? { lat, lng } : null;
+      return hasUsableCoords(lat, lng) ? { lat, lng } : null;
     } catch (_error){
       return null;
     }
@@ -1618,7 +1982,7 @@
         lon: lon ?? '',
         address
       };
-    }).filter((item) => hasCoords(item.lat, item.lon));
+    }).filter((item) => hasUsableCoords(item.lat, item.lon));
   }
 
   function buildCensusAddressObject(components){

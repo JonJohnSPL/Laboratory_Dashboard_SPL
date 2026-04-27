@@ -6,8 +6,12 @@
   width:min(320px, 100%);
 }
 
-.suremap-stats{
-  margin-bottom:14px;
+.suremap-client-picker{
+  width:min(380px, 100%);
+}
+
+.suremap-client-picker .client-picker-shell input{
+  min-width:min(250px, 46vw);
 }
 
 .suremap-layout{
@@ -70,93 +74,6 @@
   gap:10px;
   padding:14px 12px 16px;
   overflow:auto;
-}
-
-.suremap-client-card{
-  display:grid;
-  gap:10px;
-  padding:14px;
-  border-radius:12px;
-  border:1px solid var(--border);
-  background:var(--surface2);
-  cursor:pointer;
-  transition:border-color .18s ease, transform .18s ease, box-shadow .18s ease;
-}
-
-.suremap-client-card:hover{
-  border-color:rgba(89,214,125,.34);
-  box-shadow:0 12px 28px rgba(0,0,0,.18);
-  transform:translateY(-1px);
-}
-
-.suremap-client-card.active{
-  border-color:rgba(89,214,125,.44);
-  box-shadow:0 0 0 1px rgba(89,214,125,.2) inset;
-}
-
-.suremap-client-head{
-  display:flex;
-  gap:10px;
-  align-items:flex-start;
-}
-
-.suremap-avatar{
-  width:40px;
-  height:40px;
-  border-radius:10px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-family:var(--mono);
-  font-size:13px;
-  font-weight:700;
-  flex-shrink:0;
-}
-
-.suremap-client-copy{
-  min-width:0;
-  flex:1;
-}
-
-.suremap-client-address{
-  font-family:var(--mono);
-  font-size:11px;
-  color:var(--muted);
-}
-
-.suremap-site-toggle{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  font-family:var(--mono);
-  font-size:10px;
-  letter-spacing:1px;
-  text-transform:uppercase;
-  color:var(--muted);
-  cursor:pointer;
-}
-
-.suremap-site-toggle:hover{
-  color:var(--accent);
-}
-
-.suremap-site-toggle .arrow{
-  display:inline-block;
-  transition:transform .18s ease;
-}
-
-.suremap-site-toggle.open .arrow{
-  transform:rotate(90deg);
-}
-
-.suremap-site-list{
-  display:none;
-  gap:8px;
-  padding-top:2px;
-}
-
-.suremap-site-list.open{
-  display:grid;
 }
 
 .suremap-site-card{
@@ -314,6 +231,14 @@
   background:var(--surface2);
 }
 
+.suremap-autocomplete-item.muted{
+  cursor:default;
+}
+
+.suremap-autocomplete-item.muted:hover{
+  background:transparent;
+}
+
 .suremap-autocomplete-item strong{
   font-family:var(--mono);
   font-size:11px;
@@ -325,6 +250,122 @@
   font-family:var(--mono);
   font-size:10px;
   color:var(--muted);
+}
+
+.suremap-project-options,
+.suremap-job-type-options{
+  display:grid;
+  gap:8px;
+}
+
+.suremap-project-option,
+.suremap-job-type-option{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  padding:10px 12px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--surface2);
+  cursor:pointer;
+}
+
+.suremap-project-option input,
+.suremap-job-type-option input{
+  margin-top:2px;
+}
+
+.suremap-project-option span,
+.suremap-job-type-option span{
+  display:grid;
+  gap:4px;
+  min-width:0;
+}
+
+.suremap-project-option strong,
+.suremap-project-option small,
+.suremap-job-type-option strong,
+.suremap-job-type-option small{
+  font-family:var(--mono);
+  line-height:1.35;
+}
+
+.suremap-project-option strong,
+.suremap-job-type-option strong{
+  font-size:11px;
+  color:var(--text);
+}
+
+.suremap-project-option small,
+.suremap-job-type-option small{
+  font-size:10px;
+  color:var(--muted);
+}
+
+.suremap-address-summary{
+  display:grid;
+  gap:4px;
+  min-height:58px;
+  padding:10px 12px;
+  margin-bottom:10px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--surface2);
+}
+
+.suremap-address-summary strong,
+.suremap-address-summary span{
+  font-family:var(--mono);
+  line-height:1.35;
+}
+
+.suremap-address-summary strong{
+  font-size:11px;
+  font-weight:400;
+  color:var(--text);
+}
+
+.suremap-address-summary span{
+  font-size:10px;
+  color:var(--muted);
+}
+
+.suremap-toggle-option{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  width:max-content;
+  max-width:100%;
+  padding:9px 12px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--surface2);
+  color:var(--text);
+  font-family:var(--mono);
+  font-size:11px;
+  cursor:pointer;
+}
+
+.suremap-toggle-option input{
+  margin:0;
+}
+
+.suremap-gps-address-disabled label,
+.suremap-gps-address-disabled input{
+  opacity:.52;
+}
+
+.suremap-gps-address-disabled input{
+  cursor:not-allowed;
+}
+
+.suremap-gps-coord-disabled label,
+.suremap-gps-coord-disabled input{
+  opacity:.52;
+}
+
+.suremap-gps-coord-disabled input{
+  cursor:not-allowed;
 }
 
 .suremap-modal-card{
