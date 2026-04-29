@@ -6,7 +6,7 @@ const TEST_MINS = { 'AS-BFV_DENSITY':15, 'AS-BFV_MW':15, 'C6GAS':15, 'GC-BFVC6MZ
 };
 const COLUMN_STORAGE_KEY = 'lab-wip-column-visibility';
 let columnVisibility = {};
-const COLUMN_DEFS = [ {key:'number', label:'Work Order', width:190, fixed:true}, {key:'priority', label:'Priority', width:120}, {key:'client', label:'Client', width:200}, {key:'assignedTo', label:'Assigned To', width:180}, {key:'AS-BFV_DENSITY', label:'AS-BFV_DENSITY', width:130}, {key:'AS-BFV_MW', label:'AS-BFV_MW', width:130}, {key:'C6GAS', label:'C6GAS', width:110}, {key:'GC-BFVC6MZ', label:'GC-BFVC6MZ', width:130}, {key:'GC-BFVC7MZ', label:'GC-BFVC7MZ', width:130}, {key:'GC-BFVC10MZ', label:'GC-BFVC10MZ', width:130}, {key:'GC-2103-C10MZ', label:'GC-2103-C10MZ', width:150}, {key:'C6LIQ', label:'C6LIQ', width:110}, {key:'C10LIQ', label:'C10LIQ', width:110}, {key:'estTime', label:'Est. Time', width:120}, {key:'dueDate', label:'Due Date', width:130}, {key:'status', label:'Status', width:170},
+const COLUMN_DEFS = [ {key:'number', label:'Work Order', width:170, fixed:true}, {key:'priority', label:'Priority', width:108}, {key:'client', label:'Client', width:175}, {key:'assignedTo', label:'Assigned To', width:160}, {key:'AS-BFV_DENSITY', label:'AS-BFV_DENSITY', width:118}, {key:'AS-BFV_MW', label:'AS-BFV_MW', width:118}, {key:'C6GAS', label:'C6GAS', width:100}, {key:'GC-BFVC6MZ', label:'GC-BFVC6MZ', width:118}, {key:'GC-BFVC7MZ', label:'GC-BFVC7MZ', width:118}, {key:'GC-BFVC10MZ', label:'GC-BFVC10MZ', width:118}, {key:'GC-2103-C10MZ', label:'GC-2103-C10MZ', width:136}, {key:'C6LIQ', label:'C6LIQ', width:100}, {key:'C10LIQ', label:'C10LIQ', width:100}, {key:'estTime', label:'Est. Time', width:108}, {key:'dueDate', label:'Due Date', width:118}, {key:'status', label:'Status', width:148},
 ];
 const TEST_DEFINITION_STORAGE_KEY = 'lab-wip-test-definitions';
 const FIXED_COLUMN_KEYS = ['number','priority','client','assignedTo'];
@@ -517,16 +517,11 @@ sortState.field = select.value;
 }
 function renderWorkOrderTableHeaders(){ const buildHeader = () => COLUMN_DEFS.map(col => { if(FIXED_COLUMN_KEYS.includes(col.key) || TRAILING_COLUMN_KEYS.includes(col.key)){ return `<th class="sortable col-${col.key}" onclick="clickSort('${col.key}')">${esc(col.label)}</th>`; } const def = getTestDefinitionByKey(col.key); const meta = def ? getTestHeaderMeta(def) : ''; return `<th class="num sortable col-${col.key}" onclick="clickSort('${col.key}')">${esc(col.label)}<br><span style="font-size:9px;font-weight:400;color:#4a5568">${esc(meta)}</span></th>`; }).join(''); const queueHead = document.getElementById('wo-table-head'); const pendingHead = document.getElementById('pending-wo-table-head'); if(queueHead) queueHead.innerHTML = `<tr>${buildHeader()}</tr>`; if(pendingHead) pendingHead.innerHTML = `<tr>${buildHeader()}</tr>`; }
 function renderTestTypeOptions(){ const options = getTestDefinitions().map(def => `<option value="${esc(def.key)}">${esc(def.label)}</option>`).join(''); ['f-test-type','e-test-type'].forEach(id => { const select = document.getElementById(id); if(!select) return; const current = select.value; const normalizedCurrent = normalizeTestCode(current); select.innerHTML = options; select.value = getTestDefinitionByKey(current)?.key || getTestDefinitionByKey(normalizedCurrent)?.key || getDefaultTestKey(); }); }
-function renderTestEstimateFooter(){ const footer = document.getElementById('test-estimates-footer');
-if(!footer) return;
-const parts = getTestDefinitions().map(def => `${def.label} = ${def.minutes} min${def.groupKey ? ' grouped by highest rank per sample' : def.countMode === 'perRow' ? ' per row' : ''}`);
-footer.textContent = `TIME ESTIMATES: ${parts.join(' | ')}`;
-}
 function renderTestCatalogList(){ const container = document.getElementById('test-catalog-list');
 if(!container) return;
 container.innerHTML = getTestDefinitions().map(def => { const detail = [`${def.minutes} min`, def.countMode === 'perRow' ? 'per row' : 'per sample', def.groupKey ? `group ${def.groupKey} rank ${def.groupRank}` : 'standalone'].join(' | '); return `<div style="border:1px solid var(--border);border-radius:6px;padding:8px;background:var(--surface);"> <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;"> <div> <div style="color:var(--text);font-family:var(--sans);font-size:14px;">${esc(def.label)}</div> <div style="color:var(--muted);font-family:var(--mono);font-size:11px;">${esc(def.key)} | ${esc(detail)}</div> </div> <button type="button" class="act-btn" onclick="editTestCatalogEntry('${esc(def.id)}')">Edit</button> </div> </div>`; }).join('');
 }
-function renderDynamicTestUI(){ renderSortFieldOptions(); renderWorkOrderTableHeaders(); renderTestTypeOptions(); renderTestEstimateFooter(); renderColumnSelector(); renderTestCatalogList(); applyColumnVisibility(); }
+function renderDynamicTestUI(){ renderSortFieldOptions(); renderWorkOrderTableHeaders(); renderTestTypeOptions(); renderColumnSelector(); renderTestCatalogList(); applyColumnVisibility(); }
 function initColumnVisibility(){ const defaults = {}; COLUMN_DEFS.forEach(col => { defaults[col.key] = true; }); try { const raw = localStorage.getItem(COLUMN_STORAGE_KEY);
 const parsed = raw ? JSON.parse(raw) : {}; columnVisibility = {...defaults, ...(parsed && typeof parsed === 'object' ? parsed : {})}; } catch { columnVisibility = defaults; }
 reconcileColumnVisibility();
@@ -537,7 +532,7 @@ function persistColumnVisibility(){ try { localStorage.setItem(COLUMN_STORAGE_KE
 }
 function applyColumnVisibility(){ COLUMN_DEFS.forEach(col => { const visible = col.fixed ? true : columnVisibility[col.key] !== false; document.querySelectorAll(`.col-${col.key}`).forEach(el => { el.style.display = visible ? '' : 'none'; }); });
 const tbl = document.getElementById('wo-table');
-if(tbl){ const width = COLUMN_DEFS.reduce((sum,col)=> sum + (columnVisibility[col.key] !== false ? col.width : 0), 0); tbl.style.minWidth = `${Math.max(580, width)}px`; }
+if(tbl){ const width = COLUMN_DEFS.reduce((sum,col)=> sum + (columnVisibility[col.key] !== false ? col.width : 0), 0); tbl.style.minWidth = `${Math.max(520, width)}px`; }
 }
 function renderColumnSelector(){ const grid = document.getElementById('column-grid');
 if(!grid) return; grid.innerHTML = COLUMN_DEFS.filter(col => !col.fixed).map(col => ` <label class="column-opt"> <input type="checkbox" ${columnVisibility[col.key] === false ? '' : 'checked'} onchange="setColumnVisibility('${col.key}', this.checked)"> <span>${col.label}</span> </label> `).join('');

@@ -29,6 +29,17 @@ thead th{background:var(--surface2);padding:9px 11px;font-size:10px;font-weight:
 .view-btn.active{background:rgba(0,212,255,.1);border-color:rgba(0,212,255,.35);color:var(--accent);}
 .screen{display:none;}
 .screen.active{display:block;} /* DAILY SCHEDULING */
+#queue-screen{padding-bottom:18px;}
+.screen.active .table-container::-webkit-scrollbar{height:0;width:0;}
+.screen.active .table-container{scrollbar-width:none;-ms-overflow-style:none;}
+#queue-screen .table-header{padding:10px 14px;}
+#queue-screen thead th{padding:8px 9px;}
+#queue-screen tbody td{padding:9px 9px;font-size:12px;}
+#queue-screen .wo-num{font-size:14px;}
+#queue-screen .wo-sub{font-size:10px;}
+#queue-screen .sb{padding:2px 8px;font-size:9px;}
+#queue-screen .est-time{font-size:12px;}
+#queue-screen .stat-value{font-size:24px;}
 .schedule-toolbar{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px; display:flex;flex-direction:column;gap:10px;}
 .schedule-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
 .schedule-date{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
