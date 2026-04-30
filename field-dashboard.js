@@ -1520,9 +1520,51 @@ function renderModal(){
   hydrateAssetPhotoPreviews(document.getElementById('entity-modal-body'));
 }
 
+function openSharedSiteEditor(siteId = ''){
+  const existing = siteId ? getSite(siteId) : null;
+  let clientId = existing?.clientId || '';
+  if(!clientId && existing?.projectId){
+    const project = getProject(existing.projectId);
+    if(project) clientId = project.clientId;
+  }
+  if(!clientId && state.activeView === 'directory') clientId = getActiveDirectoryClientId();
+  if(!clientId && state.filters.directoryClient !== 'all') clientId = state.filters.directoryClient;
+  window.SiteEditor.open({
+    siteId,
+    clientId,
+    data:state.data,
+    getProjectsForClient:(targetClientId) => state.data.projects.filter((project) => project.clientId === String(targetClientId || '')).sort(getEntitySorter('projects')),
+    getProjectIdsForSite,
+    getActiveJobTypes,
+    saveSite:async (record) => {
+      state.saveInFlight = true;
+      showSaveStatus('saving', 'SAVING');
+      try {
+        if(isRemoteMode()){
+          const savedSiteId = await saveRemoteSiteRecord(record);
+          await loadData({ silent:true, force:true });
+          return savedSiteId;
+        }
+        return saveLocalSiteRecord(record);
+      } finally {
+        state.saveInFlight = false;
+      }
+    },
+    deleteSite:async (id) => deleteEntityRecord('sites', id),
+    afterSave:async () => {
+      hideSaveStatusSoon();
+    },
+    showStatus:showSaveStatus
+  });
+}
+
 function openEntityModal(entityKey, id = ''){
   if(entityKey === 'employees'){
     window.location.href = 'employees.html';
+    return;
+  }
+  if(entityKey === 'sites' && window.SiteEditor && (id || state.activeView === 'directory' || state.filters.directoryClient !== 'all')){
+    openSharedSiteEditor(id);
     return;
   }
   const existing = id ? state.data[entityKey].find((row) => row.id === id) : null;
@@ -1968,23 +2010,23 @@ function buildLocalDeleteResult(entityKey, id){
 async function deleteEntityRecord(entityKey, id){
   if(entityKey === 'clients'){
     const blockMessage = getClientDeleteBlockMessage(id);
-    if(blockMessage){ alert(blockMessage); return; }
+    if(blockMessage){ alert(blockMessage); return false; }
   }
   if(entityKey === 'projects'){
     const blockMessage = getProjectDeleteBlockMessage(id);
-    if(blockMessage){ alert(blockMessage); return; }
+    if(blockMessage){ alert(blockMessage); return false; }
   }
   if(entityKey === 'sites'){
     const blockMessage = getSiteDeleteBlockMessage(id);
-    if(blockMessage){ alert(blockMessage); return; }
+    if(blockMessage){ alert(blockMessage); return false; }
   }
   if(entityKey === 'jobTypes'){
     const jobType = state.data.jobTypes.find((row) => row.id === id) || null;
     const targetKey = normalizeJobTypeKey(jobType?.jobTypeKey || id);
     const inUse = state.data.jobs.some((job) => normalizeJobTypeKey(resolveJobTypeValue(state.data.jobTypes, job.jobType)) === targetKey);
-    if(inUse){ alert('This job type is still in use by existing jobs. Mark it inactive instead of deleting it.'); return; }
+    if(inUse){ alert('This job type is still in use by existing jobs. Mark it inactive instead of deleting it.'); return false; }
   }
-  if(!confirm(`Delete this ${ENTITY_CONFIG[entityKey].label.toLowerCase()}? This cannot be undone.`)) return;
+  if(!confirm(`Delete this ${ENTITY_CONFIG[entityKey].label.toLowerCase()}? This cannot be undone.`)) return false;
   state.saveInFlight = true;
   showSaveStatus('saving', 'DELETING');
   try {
@@ -2001,11 +2043,13 @@ async function deleteEntityRecord(entityKey, id){
     if(modalState.open && modalState.entity === entityKey && modalState.id === id) closeEntityModal();
     showSaveStatus('saved', 'DELETED');
     hideSaveStatusSoon();
+    return true;
   } catch (error){
     console.error('Unable to delete Field Ops record:', error);
     showSaveStatus('error', 'DELETE FAILED');
     hideSaveStatusSoon(4200);
     alert(error.message || 'Unable to delete the Field Ops record.');
+    return false;
   } finally {
     state.saveInFlight = false;
   }
@@ -2013,7 +2057,7 @@ async function deleteEntityRecord(entityKey, id){
 
 async function deleteCurrentModalEntity(){ if(modalState.id) await deleteEntityRecord(modalState.entity, modalState.id); }
 
-function isInteractionOverlayOpen(){ return !!document.getElementById('entity-modal-overlay')?.classList.contains('open'); }
+function isInteractionOverlayOpen(){ return !!document.getElementById('entity-modal-overlay')?.classList.contains('open') || !!document.getElementById('site-editor-overlay')?.classList.contains('open') || !!document.getElementById('site-editor-address-overlay')?.classList.contains('open'); }
 
 async function loadData(options = {}){
   try {

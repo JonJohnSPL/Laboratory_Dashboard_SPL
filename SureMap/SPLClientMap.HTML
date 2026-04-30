@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="../field-dashboard.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
   <link rel="stylesheet" href="suremap.css">
+  <link rel="stylesheet" href="../site-editor.css">
 </head>
 <body>
   <header>
@@ -83,121 +84,6 @@
     </section>
   </div>
 
-  <div class="modal-overlay" id="site-modal-overlay">
-    <div class="modal suremap-modal-card">
-      <div class="modal-header">
-        <h3 id="site-modal-title">Add Site</h3>
-        <button class="modal-close" type="button" data-close-modal="site-modal-overlay">X</button>
-      </div>
-      <div class="modal-body">
-        <form id="site-form" class="form-grid" novalidate>
-          <input type="hidden" id="site-id">
-          <input type="hidden" id="site-client-id">
-          <div class="form-group full">
-            <label class="form-label">Linked Projects</label>
-            <div class="suremap-project-options" id="site-project-options"></div>
-            <div class="form-hint" id="site-project-hint"></div>
-          </div>
-          <div class="form-group full">
-            <label class="form-label" for="site-name">Site Name</label>
-            <input class="form-input" id="site-name" type="text" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="site-type">Site Type</label>
-            <select class="form-input" id="site-type"></select>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="site-status">Site Status</label>
-            <select class="form-input" id="site-status"></select>
-          </div>
-          <div class="form-group full">
-            <label class="form-label">Standard Job Types</label>
-            <div class="suremap-job-type-options" id="site-job-type-options"></div>
-            <div class="form-hint" id="site-job-type-hint"></div>
-          </div>
-          <div class="form-group full">
-            <label class="form-label" for="site-notes">Notes</label>
-            <textarea class="form-input" id="site-notes"></textarea>
-          </div>
-          <div class="form-section">
-            <h4>Address And Coordinates</h4>
-            <p class="section-copy">Use the address editor to search for a site address or switch to GPS override when no address is available.</p>
-          </div>
-          <div class="form-group full">
-            <label class="form-label">Site Address</label>
-            <div class="suremap-address-summary" id="site-address-summary">No address set</div>
-            <button class="act-btn" type="button" id="site-edit-address-btn">Edit Address</button>
-            <input id="site-address-search" type="hidden">
-            <input id="site-street" type="hidden">
-            <input id="site-city" type="hidden">
-            <input id="site-state" type="hidden">
-            <input id="site-zip" type="hidden">
-            <input id="site-lat" type="hidden">
-            <input id="site-lng" type="hidden">
-            <input id="site-gps-mode" type="hidden" value="false">
-          </div>
-        </form>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-del" type="button" id="site-delete-btn" style="display:none;">Delete</button>
-        <button class="btn-cancel" type="button" data-close-modal="site-modal-overlay">Cancel</button>
-        <button class="btn-save" type="button" id="site-save-btn">Save</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="address-modal-overlay">
-    <div class="modal suremap-modal-card">
-      <div class="modal-header">
-        <h3>Edit Address</h3>
-        <button class="modal-close" type="button" data-close-modal="address-modal-overlay">X</button>
-      </div>
-      <div class="modal-body">
-        <form id="address-form" class="form-grid" novalidate>
-          <div class="form-group full">
-            <label class="suremap-toggle-option" for="address-gps-mode">
-              <input id="address-gps-mode" type="checkbox">
-              <span>Use GPS coordinates</span>
-            </label>
-          </div>
-          <div class="form-group full autocomplete-wrap" data-address-field>
-            <label class="form-label" for="address-search">Address Search</label>
-            <input class="form-input" id="address-search" type="text" autocomplete="off">
-            <div class="suremap-autocomplete" id="address-results"></div>
-          </div>
-          <div class="form-group full" data-address-field>
-            <label class="form-label" for="address-street">Street Address</label>
-            <input class="form-input" id="address-street" type="text">
-          </div>
-          <div class="form-group" data-address-field>
-            <label class="form-label" for="address-city">City</label>
-            <input class="form-input" id="address-city" type="text">
-          </div>
-          <div class="form-group" data-address-field>
-            <label class="form-label" for="address-state">State</label>
-            <input class="form-input" id="address-state" type="text" maxlength="2">
-          </div>
-          <div class="form-group" data-address-field>
-            <label class="form-label" for="address-zip">ZIP</label>
-            <input class="form-input" id="address-zip" type="text">
-          </div>
-          <div class="form-group" data-gps-field>
-            <label class="form-label" for="address-lat">Latitude</label>
-            <input class="form-input" id="address-lat" type="number" step="any">
-          </div>
-          <div class="form-group" data-gps-field>
-            <label class="form-label" for="address-lng">Longitude</label>
-            <input class="form-input" id="address-lng" type="number" step="any">
-          </div>
-        </form>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-cancel" type="button" data-close-modal="address-modal-overlay">Cancel</button>
-        <button class="btn-save" type="button" id="address-save-btn">Use Address</button>
-      </div>
-    </div>
-  </div>
-
   <script src="../app-config.js"></script>
   <script>
     window.APP_CONFIG = Object.assign({}, window.APP_CONFIG || {}, {
@@ -207,6 +93,7 @@
   </script>
   <script src="../cloud-auth.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="../site-editor.js"></script>
   <script src="suremap.js"></script>
 </body>
 </html>

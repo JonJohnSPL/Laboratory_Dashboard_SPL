@@ -87,12 +87,7 @@
     [
       'clock', 'datedisp', 'save-indicator', 'toolbar-summary', 'client-picker',
       'list-summary', 'map-summary', 'fit-sites-btn', 'filter-row', 'client-list', 'map',
-      'map-placeholder', 'detail-panel', 'site-modal-overlay', 'site-modal-title', 'site-id',
-      'site-client-id', 'site-project-options', 'site-project-hint', 'site-name', 'site-type', 'site-status', 'site-job-type-options',
-      'site-job-type-hint', 'site-notes', 'site-address-search',
-      'site-address-summary', 'site-edit-address-btn', 'site-gps-mode', 'site-street', 'site-city', 'site-state', 'site-zip', 'site-lat', 'site-lng',
-      'site-delete-btn', 'site-save-btn', 'site-form', 'address-modal-overlay', 'address-form', 'address-gps-mode', 'address-search',
-      'address-results', 'address-street', 'address-city', 'address-state', 'address-zip', 'address-lat', 'address-lng', 'address-save-btn'
+      'map-placeholder', 'detail-panel'
     ].forEach((id) => { els[id] = document.getElementById(id); });
   }
 
@@ -329,29 +324,7 @@
     });
   }
 
-  function bindModals(){
-    document.querySelectorAll('[data-close-modal]').forEach((button) => {
-      button.addEventListener('click', () => closeModal(button.dataset.closeModal));
-    });
-    [els['site-modal-overlay'], els['address-modal-overlay']].forEach((overlay) => {
-      overlay.addEventListener('click', (event) => {
-        if(event.target === overlay) closeModal(overlay.id);
-      });
-    });
-    els['site-save-btn'].addEventListener('click', saveSiteFromModal);
-    els['site-delete-btn'].addEventListener('click', () => deleteSiteRecord(els['site-client-id'].value, els['site-id'].value));
-    els['site-form'].addEventListener('submit', (event) => { event.preventDefault(); saveSiteFromModal(); });
-    els['site-type'].addEventListener('change', () => renderSiteJobTypeOptions(els['site-type'].value, getSelectedSiteJobTypeNames()));
-    els['site-edit-address-btn'].addEventListener('click', openAddressModal);
-    els['address-save-btn'].addEventListener('click', applyAddressModal);
-    els['address-form'].addEventListener('submit', (event) => { event.preventDefault(); applyAddressModal(); });
-    els['address-gps-mode'].addEventListener('change', handleAddressModeChange);
-    bindAutocomplete({
-      input: els['address-search'],
-      results: els['address-results'],
-      onPick: (item) => applyAddressPick(item, { street:'address-street', city:'address-city', state:'address-state', zip:'address-zip', input:'address-search', lat:'address-lat', lng:'address-lng' })
-    });
-  }
+  function bindModals(){}
 
   function bindPageRefresh(){
     window.addEventListener('storage', (event) => {
@@ -1314,8 +1287,8 @@
     window.location.href = `../clients.html${suffix}`;
   }
 
-  function openModal(id){ document.getElementById(id).classList.add('open'); }
-  function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+  function openModal(id){ document.getElementById(id)?.classList.add('open'); }
+  function closeModal(id){ document.getElementById(id)?.classList.remove('open'); }
 
   function setSiteGpsMode(value){
     els['site-gps-mode'].value = value ? 'true' : 'false';
@@ -1386,42 +1359,34 @@
   }
 
   function openSiteModal(clientId, siteId = ''){
-    resetSiteForm();
-    const resolvedClientId = String(clientId || state.activeClientId || '');
-    els['site-client-id'].value = resolvedClientId;
-    let selectedProjectIds = [];
-    if(siteId){
-      const site = getSiteRecord(siteId);
-      if(!site) return;
-      const address = splitAddress(site.physicalAddress);
-      const coords = parseGps(site.gpsCoordinates);
-      selectedProjectIds = getProjectIdsForSite(site.id);
-      els['site-id'].value = site.id;
-      els['site-name'].value = site.siteName;
-      els['site-type'].value = site.siteType;
-      els['site-status'].value = site.siteStatus;
-      els['site-notes'].value = site.notes;
-      renderSiteJobTypeOptions(site.siteType, parseStandardJobTypes(site.standardJobTypes));
-      setSiteAddressDraft({
-        gpsOnly:!site.physicalAddress && hasUsableCoords(coords?.lat, coords?.lng),
-        search:site.physicalAddress || '',
-        street:address.street,
-        city:address.city,
-        state:address.state,
-        zip:address.zip,
-        lat:hasUsableCoords(coords?.lat, coords?.lng) ? coords.lat : '',
-        lng:hasUsableCoords(coords?.lat, coords?.lng) ? coords.lng : ''
+    if(window.SiteEditor){
+      const resolvedClientId = String(clientId || state.activeClientId || '');
+      window.SiteEditor.open({
+        siteId,
+        clientId:resolvedClientId,
+        data:state.data,
+        getProjectsForClient,
+        getProjectIdsForSite,
+        getActiveJobTypes,
+        saveSite:async (record) => {
+          showSaveStatus('saving', 'SAVING');
+          return saveSiteRecord(record);
+        },
+        deleteSite:async (id, record) => deleteSiteRecord(record.clientId || resolvedClientId, id),
+        afterSave:async ({ siteId: savedSiteId, record }) => {
+          await loadData({ preserveSelection:false, focusSelection:false });
+          selectSite(record.clientId, savedSiteId, { focusMap:true });
+          showSaveStatus('saved', 'SAVED');
+        },
+        afterDelete:async ({ record }) => {
+          if(record.clientId) selectClient(record.clientId, { focusMap:true });
+        },
+        showStatus:showSaveStatus
       });
-      els['site-modal-title'].textContent = 'Edit Site';
-      els['site-delete-btn'].style.display = '';
+      return;
     }
-    if(!selectedProjectIds.length){
-      const projects = getProjectsForClient(resolvedClientId);
-      if(projects.length === 1) selectedProjectIds = [projects[0].id];
-    }
-    renderSiteProjectOptions(resolvedClientId, selectedProjectIds);
-    renderSiteJobTypeOptions(els['site-type'].value, getSelectedSiteJobTypeNames());
-    openModal('site-modal-overlay');
+    alert('The shared site editor is unavailable. Refresh the page and try again.');
+    return;
   }
 
   function openAddressModal(){
@@ -1724,13 +1689,13 @@
 
   async function deleteSiteRecord(clientId, siteId){
     const id = String(siteId || '');
-    if(!id) return;
+    if(!id) return false;
     const block = getSiteDeleteBlock(id);
     if(block){
       alert(block);
-      return;
+      return false;
     }
-    if(!confirm('Delete this mapped site?')) return;
+    if(!confirm('Delete this mapped site?')) return false;
     showSaveStatus('saving', 'DELETING');
     try {
       if(isRemoteMode()){
@@ -1741,14 +1706,15 @@
         raw.siteProjects = (raw.siteProjects || []).filter((row) => String(row?.siteId || '') !== id);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(raw));
       }
-      closeModal('site-modal-overlay');
       await loadData({ preserveSelection:false, focusSelection:false });
       if(clientId) selectClient(clientId, { focusMap:true });
       showSaveStatus('saved', 'DELETED');
+      return true;
     } catch (error){
       console.error('SureMap site delete failed:', error);
       showSaveStatus('error', 'DELETE FAILED');
       alert(error.message || 'Unable to delete the site.');
+      return false;
     }
   }
 
