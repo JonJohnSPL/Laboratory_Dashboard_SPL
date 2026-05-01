@@ -3,6 +3,7 @@ window.APP_CONFIG = {
   supabaseAnonKey: 'YOUR_SUPABASE_ANON_KEY',
   googleMapsApiKey: 'YOUR_GOOGLE_MAPS_API_KEY',
   googleMapsMapId: '',
+  fieldOpsTeamsWebhookUrl: 'YOUR_POWER_AUTOMATE_TEAMS_WEBHOOK_URL',
   authEmailSuffix: '@lab.local',
   authTitle: 'Pittsburgh Lab WIP Dashboard',
   authHelpText: 'Use your assigned username and password to open the shared dashboard.'
