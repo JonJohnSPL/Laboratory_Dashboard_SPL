@@ -67,7 +67,7 @@ const ENTITY_CONFIG = {
   sites:{ table:'field_sites', label:'Site/Location', idPrefix:'site', defaults:{ clientId:'', projectId:'', projectIds:[], siteName:'', siteType:'Other', physicalAddress:'', countyState:'', gpsCoordinates:'', accessInstructions:'', safetyPpeNotes:'', gateCodeEntryRequirements:'', clientSiteContact:'', siteStatus:'Active', standardJobTypes:'', notes:'' }, fieldMap:{ clientId:'client_id', projectId:'project_id', siteName:'site_name', siteType:'site_type', physicalAddress:'physical_address', countyState:'county_state', gpsCoordinates:'gps_coordinates', accessInstructions:'access_instructions', safetyPpeNotes:'safety_ppe_notes', gateCodeEntryRequirements:'gate_code_entry_requirements', clientSiteContact:'client_site_contact', siteStatus:'site_status', standardJobTypes:'standard_job_types', notes:'notes' }, idFields:['clientId', 'projectId'], arrayFields:['projectIds'], localOnlyFields:['projectIds'] },
   siteProjects:{ table:'field_site_projects', label:'Site Project Link', idPrefix:'siteproj', defaults:{ siteId:'', projectId:'' }, fieldMap:{ siteId:'site_id', projectId:'project_id' }, idFields:['siteId', 'projectId'] },
   jobTypes:{ table:'field_job_types', label:'Job Type', idPrefix:'jobtype', defaults:{ jobTypeKey:'', jobTypeName:'', isActive:true, scheduleMode:'range', requiredAssignmentTypes:[], detailGroups:[], sortOrder:0 }, fieldMap:{ jobTypeKey:'job_type_key', jobTypeName:'job_type_name', isActive:'is_active', scheduleMode:'schedule_mode', requiredAssignmentTypes:'required_assignment_types', detailGroups:'detail_groups', sortOrder:'sort_order' }, booleanFields:['isActive'], numberFields:['sortOrder'], arrayFields:['requiredAssignmentTypes', 'detailGroups'] },
-  jobs:{ table:'field_jobs', label:'Job', idPrefix:'job', defaults:{ fieldfxTicketId:'', clientId:'', projectId:'', siteId:'', jobType:'', jobStatus:'New', priority:'Normal', requestedDate:'', scheduledStart:'', scheduledEnd:'', actualStart:'', actualEnd:'', durationPlanned:null, durationActual:null, scopeSummary:'', workInstructions:'', apiStandardReference:'', custodyAllocation:'Allocation', samplesRequired:false, meterUnitId:'', provingRequired:false, maintenanceRequired:false, clientContactForJob:'', dispatchNotes:'', completionNotes:'', followUpRequired:false, followUpNotes:'' }, fieldMap:{ fieldfxTicketId:'fieldfx_ticket_id', clientId:'client_id', projectId:'project_id', siteId:'site_id', jobType:'job_type', jobStatus:'job_status', priority:'priority', requestedDate:'requested_date', scheduledStart:'scheduled_start', scheduledEnd:'scheduled_end', actualStart:'actual_start', actualEnd:'actual_end', durationPlanned:'duration_planned_minutes', durationActual:'duration_actual_minutes', scopeSummary:'scope_summary', workInstructions:'work_instructions', apiStandardReference:'api_standard_reference', custodyAllocation:'custody_allocation', samplesRequired:'samples_required', meterUnitId:'meter_unit_id', provingRequired:'proving_required', maintenanceRequired:'maintenance_required', clientContactForJob:'client_contact_for_job', dispatchNotes:'dispatch_notes', completionNotes:'completion_notes', followUpRequired:'follow_up_required', followUpNotes:'follow_up_notes' }, idFields:['clientId', 'projectId', 'siteId'], numberFields:['durationPlanned', 'durationActual'], booleanFields:['samplesRequired', 'provingRequired', 'maintenanceRequired', 'followUpRequired'], dateFields:['requestedDate'], dateTimeFields:['scheduledStart', 'scheduledEnd', 'actualStart', 'actualEnd'] },
+  jobs:{ table:'field_jobs', label:'Job', idPrefix:'job', defaults:{ fieldfxTicketId:'', clientId:'', projectId:'', siteId:'', jobType:'', priority:'Normal', requestedDate:'', scheduledStart:'', scheduledEnd:'', actualStart:'', actualEnd:'', durationPlanned:null, durationActual:null, scopeSummary:'', workInstructions:'', apiStandardReference:'', custodyAllocation:'Allocation', samplesRequired:false, meterUnitId:'', provingRequired:false, maintenanceRequired:false, clientContactForJob:'', dispatchNotes:'', completionNotes:'', followUpRequired:false, followUpNotes:'' }, fieldMap:{ fieldfxTicketId:'fieldfx_ticket_id', clientId:'client_id', projectId:'project_id', siteId:'site_id', jobType:'job_type', priority:'priority', requestedDate:'requested_date', scheduledStart:'scheduled_start', scheduledEnd:'scheduled_end', actualStart:'actual_start', actualEnd:'actual_end', durationPlanned:'duration_planned_minutes', durationActual:'duration_actual_minutes', scopeSummary:'scope_summary', workInstructions:'work_instructions', apiStandardReference:'api_standard_reference', custodyAllocation:'custody_allocation', samplesRequired:'samples_required', meterUnitId:'meter_unit_id', provingRequired:'proving_required', maintenanceRequired:'maintenance_required', clientContactForJob:'client_contact_for_job', dispatchNotes:'dispatch_notes', completionNotes:'completion_notes', followUpRequired:'follow_up_required', followUpNotes:'follow_up_notes' }, idFields:['clientId', 'projectId', 'siteId'], numberFields:['durationPlanned', 'durationActual'], booleanFields:['samplesRequired', 'provingRequired', 'maintenanceRequired', 'followUpRequired'], dateFields:['requestedDate'], dateTimeFields:['scheduledStart', 'scheduledEnd', 'actualStart', 'actualEnd'] },
   jobAssignments:{ table:'field_job_assignments', label:'Assignment', idPrefix:'asg', defaults:{ jobId:'', assignmentType:'Technician', resourceId:'', assignedStart:'', assignedEnd:'', assignmentStatus:'Assigned', assignmentNotes:'' }, fieldMap:{ jobId:'job_id', assignmentType:'assignment_type', resourceId:'resource_id', assignedStart:'assigned_start', assignedEnd:'assigned_end', assignmentStatus:'assignment_status', assignmentNotes:'assignment_notes' }, idFields:['jobId', 'resourceId'], dateTimeFields:['assignedStart', 'assignedEnd'] },
   employees:{ table:'employees', label:'Employee', idPrefix:'emp', defaults:{ employeeName:'', workScope:'Field', labRole:'', fieldRole:'Field Tech', canSampleTransport:false, phone:'', email:'', notes:'' }, fieldMap:{ employeeName:'employee_name', workScope:'work_scope', labRole:'lab_role', fieldRole:'field_role', canSampleTransport:'can_sample_transport', phone:'phone', email:'email', notes:'notes' }, booleanFields:['canSampleTransport'] },
   trucks:{ table:'field_trucks', label:'Truck', idPrefix:'truck', defaults:{ unitNumber:'', vehicleType:'Pickup', serviceStatus:'Available', currentDriver:'', assignedTechnicianId:'', model:'', licensePlateNumber:'', make:'', color:'', registeredState:'', vin:'', vehicleId:'', vehicleYear:null, assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ unitNumber:'unit_number', vehicleType:'vehicle_type', serviceStatus:'service_status', currentDriver:'current_driver', assignedTechnicianId:'assigned_technician_id', model:'model', licensePlateNumber:'license_plate_number', make:'make', color:'color', registeredState:'registered_state', vin:'vin', vehicleId:'vehicle_id', vehicleYear:'vehicle_year', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTechnicianId'], numberFields:['vehicleYear'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
@@ -77,7 +77,7 @@ const ENTITY_CONFIG = {
   maintenanceRecords:{ table:'field_maintenance_records', label:'Maintenance Record', idPrefix:'maint', defaults:{ assetType:'Equipment', assetId:'', maintenanceType:'Preventive', openDate:'', dueDate:'', completedDate:'', status:'Open', issueDescription:'', resolution:'', vendorInternal:'Internal', cost:null, assignedPerson:'', notes:'' }, fieldMap:{ assetType:'asset_type', assetId:'asset_id', maintenanceType:'maintenance_type', openDate:'open_date', dueDate:'due_date', completedDate:'completed_date', status:'status', issueDescription:'issue_description', resolution:'resolution', vendorInternal:'vendor_internal', cost:'cost', assignedPerson:'assigned_person', notes:'notes' }, idFields:['assetId'], numberFields:['cost'], dateFields:['openDate', 'dueDate', 'completedDate'] }
 };
 
-let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'overview', scheduleAnchorDate:getStartOfWeekISO(new Date()), filters:{ dispatchSearch:'', dispatchPriority:'all', dispatchJobType:'all', directoryClient:'all', directorySection:'overview', directoryClientSearch:'' }, data:createEmptyData(), saveInFlight:false, autoRefreshInFlight:false, autoRefreshTimer:null };
+let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'overview', scheduleAnchorDate:getStartOfWeekISO(new Date()), filters:{ dispatchSearch:'', dispatchPriority:'all', dispatchJobType:'all', dispatchAlertFilter:'all', dispatchAssignmentFilter:'all', dispatchSortKey:'schedule', dispatchSortDirection:'asc', directoryClient:'all', directorySection:'overview', directoryClientSearch:'' }, data:createEmptyData(), saveInFlight:false, autoRefreshInFlight:false, autoRefreshTimer:null };
 let modalState = createClosedModalState();
 let lastLoadedSnapshot = '';
 let hideSaveStatusTimer = null;
@@ -339,7 +339,6 @@ function repairDataRelationships(data){
   syncSiteProjectLinks(data);
   data.jobs.forEach((job) => {
     job.jobType = resolveJobTypeValue(data.jobTypes, job.jobType);
-    if(!job.jobStatus) job.jobStatus = 'New';
     if(job.siteId){
       const site = data.sites.find((row) => row.id === job.siteId) || null;
       if(site){
@@ -546,14 +545,7 @@ function getJobMissingRequirements(job, assignments = getAssignmentsForJob(job.i
   return required.filter((assignmentType) => !availableTypes.has(assignmentType));
 }
 
-function isJobClosed(job){ return ['Complete', 'Closed', 'Canceled'].includes(job.jobStatus); }
-
-function isJobOverdue(job){
-  if(isJobClosed(job)) return false;
-  const target = getJobSecondaryDate(job);
-  const today = parseDateOnly(todayISO());
-  return !!(target && today && target < today);
-}
+function isJobClosed(job){ return false; }
 
 function isMaintenanceClosed(record){ return ['Complete', 'Canceled'].includes(record.status); }
 
@@ -610,7 +602,6 @@ function buildDerivedState(){
     conflicts,
     conflictJobIds,
     missingJobs:state.data.jobs.filter((job) => !isJobClosed(job) && getJobMissingRequirements(job).length > 0),
-    overdueJobs:state.data.jobs.filter(isJobOverdue),
     overdueMaintenance:state.data.maintenanceRecords.filter((record) => !isMaintenanceClosed(record) && parseDateOnly(record.dueDate) && parseDateOnly(record.dueDate) < parseDateOnly(todayISO())),
     overdueCalibration:state.data.equipment.filter((item) => item.calibrationStatus === 'Overdue'),
     downAssets:[...state.data.trucks.filter((item) => ['Maintenance', 'Out of Service'].includes(item.serviceStatus)), ...state.data.trailers.filter((item) => ['Maintenance', 'Out of Service'].includes(item.serviceStatus)), ...state.data.equipment.filter((item) => ['Needs Repair', 'Out of Service'].includes(item.maintenanceStatus))],
@@ -903,8 +894,17 @@ function getTechnicianLabel(id){ return state.data.employees.find((row) => row.i
 function getTruckLabel(id){ return state.data.trucks.find((row) => row.id === id)?.unitNumber || 'Unassigned'; }
 function getTrailerLabel(id){ return state.data.trailers.find((row) => row.id === id)?.trailerNumber || 'Unassigned'; }
 
-function switchView(view){ state.activeView = view; render(); }
+function switchView(view){ state.activeView = view === 'dispatch' ? 'schedule' : view; render(); }
 function setDispatchFilter(key, value){ state.filters[key] = value; renderDispatch(buildDerivedState()); }
+function setDispatchSort(key){
+  if(state.filters.dispatchSortKey === key){
+    state.filters.dispatchSortDirection = state.filters.dispatchSortDirection === 'asc' ? 'desc' : 'asc';
+  } else {
+    state.filters.dispatchSortKey = key;
+    state.filters.dispatchSortDirection = 'asc';
+  }
+  renderDispatch(buildDerivedState());
+}
 function setDirectoryClientFilter(value){
   state.filters.directoryClientSearch = '';
   state.filters.directoryClient = value;
@@ -949,10 +949,24 @@ function resetScheduleWeek(){ state.scheduleAnchorDate = getStartOfWeekISO(new D
 function getPriorityBadge(priority){ const value = priority || 'Low'; const cls = value.toLowerCase().replace(/\s+/g, '-'); return `<span class="priority-badge ${cls}">${esc(value)}</span>`; }
 function getStatusTone(status){ if(['In Progress', 'Available', 'Current', 'Logged In'].includes(status)) return 'ok'; if(['Waiting', 'Scheduled', 'Due Soon', 'Collected', 'Delivered', 'Assigned'].includes(status)) return 'warn'; if(['Urgent', 'Overdue', 'Out of Service', 'Needs Repair', 'Canceled', 'Exception'].includes(status)) return 'danger'; if(['Complete', 'Closed', 'Inactive'].includes(status)) return 'muted'; return 'info'; }
 function getStatusBadge(status){ return `<span class="status-badge ${getStatusTone(status)}">${esc(status || 'Not set')}</span>`; }
+function getJobTypeBadge(jobType){
+  const label = getJobTypeDisplayName(jobType);
+  const key = normalizeJobTypeKey(jobType);
+  const cls = key ? key.toLowerCase().replace(/_/g, '-') : 'unknown';
+  return `<span class="job-type-badge job-type-${esc(cls)}">${esc(label)}</span>`;
+}
+function getJobTypeClassName(jobType){
+  const key = normalizeJobTypeKey(jobType);
+  return key ? `job-type-${key.toLowerCase().replace(/_/g, '-')}` : 'job-type-unknown';
+}
 function normalizeOptions(options){ if(!Array.isArray(options)) return []; return options.map((option) => typeof option === 'string' ? { value:option, label:option } : option); }
 function renderTags(csvText){ const tags = String(csvText || '').split(',').map((value) => value.trim()).filter(Boolean); return tags.length ? `<div class="tag-row">${tags.map((tag) => `<span class="tag-chip">${esc(tag)}</span>`).join('')}</div>` : '<span class="muted">None listed</span>'; }
 function renderWarnings(warnings){ return warnings.length ? `<div class="warning-row">${warnings.map((warning) => `<span class="warning-chip">${esc(warning)}</span>`).join('')}</div>` : ''; }
 function renderCardOpenAttrs(entityKey, id){ return `class="resource-card clickable-card" role="button" tabindex="0" onclick="openEntityModal('${entityKey}','${esc(id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEntityModal('${entityKey}','${esc(id)}'); }"`; }
+function renderSelectableOpenAttrs(entityKey, id, className, title = ''){
+  const label = title || `Open ${ENTITY_CONFIG[entityKey].label}`;
+  return `class="${esc(className)}" role="button" tabindex="0" title="${esc(label)}" onclick="openEntityModal('${entityKey}','${esc(id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEntityModal('${entityKey}','${esc(id)}'); }"`;
+}
 function buildTableRow(entityKey, id, cells){
   return {
     cells,
@@ -975,7 +989,6 @@ function getJobWarnings(job, derived){
   if(missing.length) warnings.push(`Missing: ${missing.join(', ')}`);
   if(derived.conflictJobIds.has(job.id)) warnings.push('Resource conflict');
   warnings.push(...getAssignedResourceWarnings(job));
-  if(isJobOverdue(job)) warnings.push('Overdue');
   return [...new Set(warnings)];
 }
 
@@ -996,15 +1009,88 @@ function summarizeAssignments(jobId){
   return Object.keys(grouped).map((key) => `<span class="tag-chip">${esc(key)}: ${esc(grouped[key].join(' | '))}</span>`).join('');
 }
 
-function getFilteredDispatchJobs(){
+function getDispatchAssignmentLabels(jobId, assignmentTypes){
+  const typeSet = new Set(assignmentTypes);
+  return getAssignmentsForJob(jobId)
+    .filter((assignment) => assignment.resourceId && typeSet.has(assignment.assignmentType))
+    .map((assignment) => assignmentTypes.length > 1 ? `${assignment.assignmentType}: ${getResourceLabel(assignment.assignmentType, assignment.resourceId)}` : getResourceLabel(assignment.assignmentType, assignment.resourceId));
+}
+
+function renderDispatchAssignmentCell(labels){
+  return labels.length ? `<div class="mini-tags dispatch-assignment-tags">${labels.map((label) => `<span class="tag-chip">${esc(label)}</span>`).join('')}</div>` : '<span class="muted">Unassigned</span>';
+}
+
+function renderScheduleTechnicianLine(jobId){
+  const techLabels = getDispatchAssignmentLabels(jobId, ['Technician']);
+  return `<div class="schedule-tech muted">Tech: ${esc(techLabels.join(' | ') || 'Unassigned')}</div>`;
+}
+
+function renderDispatchAlertsCell(warnings){
+  return warnings.length ? renderWarnings(warnings) : '<span class="muted">None</span>';
+}
+
+function buildDispatchJobView(job, derived){
+  const warnings = getJobWarnings(job, derived);
+  const techLabels = getDispatchAssignmentLabels(job.id, ['Technician']);
+  const truckLabels = getDispatchAssignmentLabels(job.id, ['Truck', 'Trailer']);
+  const equipmentLabels = getDispatchAssignmentLabels(job.id, ['Equipment']);
+  const missingRequirements = getJobMissingRequirements(job);
+  return {
+    job,
+    warnings,
+    missingRequirements,
+    techLabels,
+    truckLabels,
+    equipmentLabels,
+    values:{
+      job:[getJobTypeDisplayName(job.jobType), job.scopeSummary, job.custodyAllocation].filter(Boolean).join(' '),
+      client:[getClientLabel(job.clientId), getProjectLabel(job.projectId), getSiteLabel(job.siteId)].join(' '),
+      schedule:getJobPrimaryDate(job)?.getTime() ?? null,
+      priority:PRIORITY_RANK[job.priority] ?? 99,
+      tech:techLabels.join(' | '),
+      truck:truckLabels.join(' | '),
+      equipment:equipmentLabels.join(' | '),
+      alerts:warnings.length ? `${warnings.length} ${warnings.join(' ')}` : ''
+    }
+  };
+}
+
+function compareDispatchValues(left, right, direction = 'asc'){
+  const leftMissing = left === null || left === undefined || left === '';
+  const rightMissing = right === null || right === undefined || right === '';
+  if(leftMissing && rightMissing) return 0;
+  if(leftMissing) return 1;
+  if(rightMissing) return -1;
+  const base = typeof left === 'number' && typeof right === 'number'
+    ? left - right
+    : String(left).localeCompare(String(right), undefined, { numeric:true, sensitivity:'base' });
+  return direction === 'desc' ? -base : base;
+}
+
+function compareDispatchRows(left, right){
+  const sortKey = state.filters.dispatchSortKey || 'schedule';
+  const direction = state.filters.dispatchSortDirection || 'asc';
+  return compareDispatchValues(left.values[sortKey], right.values[sortKey], direction)
+    || compareDispatchValues(left.values.schedule, right.values.schedule, 'asc')
+    || compareDispatchValues(left.values.priority, right.values.priority, 'asc')
+    || compareDispatchValues(left.values.job, right.values.job, 'asc')
+    || compareStrings(left.job.id, right.job.id);
+}
+
+function getFilteredDispatchRows(derived){
   const search = state.filters.dispatchSearch.trim().toLowerCase();
-  return state.data.jobs.filter((job) => {
+  return state.data.jobs.map((job) => buildDispatchJobView(job, derived)).filter((row) => {
+    const job = row.job;
     if(state.filters.dispatchPriority !== 'all' && job.priority !== state.filters.dispatchPriority) return false;
     if(state.filters.dispatchJobType !== 'all' && resolveJobTypeValue(state.data.jobTypes, job.jobType) !== state.filters.dispatchJobType) return false;
+    if(state.filters.dispatchAlertFilter === 'has' && !row.warnings.length) return false;
+    if(state.filters.dispatchAlertFilter === 'none' && row.warnings.length) return false;
+    if(state.filters.dispatchAssignmentFilter === 'missing' && !row.missingRequirements.length) return false;
+    if(state.filters.dispatchAssignmentFilter === 'complete' && row.missingRequirements.length) return false;
     if(!search) return true;
-    const haystack = [getJobDisplayTitle(job), getJobTypeDisplayName(job.jobType), job.scopeSummary, job.clientContactForJob, getClientLabel(job.clientId), getProjectLabel(job.projectId), getSiteLabel(job.siteId)].join(' ').toLowerCase();
+    const haystack = [getJobDisplayTitle(job), getJobTypeDisplayName(job.jobType), job.scopeSummary, job.clientContactForJob, getClientLabel(job.clientId), getProjectLabel(job.projectId), getSiteLabel(job.siteId), row.techLabels.join(' '), row.truckLabels.join(' '), row.equipmentLabels.join(' '), row.warnings.join(' ')].join(' ').toLowerCase();
     return haystack.includes(search);
-  }).sort(getEntitySorter('jobs'));
+  }).sort(compareDispatchRows);
 }
 
 function renderOverview(derived){
@@ -1012,7 +1098,7 @@ function renderOverview(derived){
   const nextSevenJobs = state.data.jobs.filter((job) => { const date = getJobPrimaryDate(job); const today = parseDateOnly(todayISO()); const max = parseDateOnly(addDaysISO(todayISO(), 7)); return !!(date && today && max && date >= today && date <= max); });
   const samplesInTransit = state.data.samples.filter((row) => row.chainOfCustodyStatus === 'In Transit');
   const openJobs = state.data.jobs.filter((job) => !isJobClosed(job));
-  document.getElementById('overview-stats').innerHTML = [{ label:'Jobs Today', value:todayJobs.length, cls:'' }, { label:'Open Jobs', value:openJobs.length, cls:'ok' }, { label:'Jobs Overdue', value:derived.overdueJobs.length, cls:'danger' }, { label:'Samples In Transit', value:samplesInTransit.length, cls:'warn' }, { label:'Assets Down', value:derived.downAssets.length, cls:'danger' }].map((card) => `<div class="stat-card ${card.cls}"><div class="stat-label">${esc(card.label)}</div><div class="stat-value ${card.cls}">${esc(card.value)}</div></div>`).join('');
+  document.getElementById('overview-stats').innerHTML = [{ label:'Jobs Today', value:todayJobs.length, cls:'' }, { label:'Open Jobs', value:openJobs.length, cls:'ok' }, { label:'Samples In Transit', value:samplesInTransit.length, cls:'warn' }, { label:'Assets Down', value:derived.downAssets.length, cls:'danger' }].map((card) => `<div class="stat-card ${card.cls}"><div class="stat-label">${esc(card.label)}</div><div class="stat-value ${card.cls}">${esc(card.value)}</div></div>`).join('');
   document.getElementById('overview-actions').innerHTML = `<button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button><button class="act-btn" type="button" onclick="window.location.href='clients.html'">Open Clients</button><button class="act-btn" type="button" onclick="window.location.href='employees.html'">Open Employees</button><button class="act-btn" type="button" onclick="openEntityModal('samples')">+ Add Sample</button>`;
   document.getElementById('today-jobs-panel').innerHTML = renderMiniJobList(todayJobs, derived, 'No field jobs are scheduled for today yet.');
   const assignedTechCount = state.data.trucks.filter((row) => row.assignedTechnicianId).length;
@@ -1021,11 +1107,46 @@ function renderOverview(derived){
   document.getElementById('next-seven-panel').innerHTML = renderMiniJobList(nextSevenJobs, derived, 'No upcoming jobs are scheduled in the next seven days.');
 }
 
+function renderDispatchSortHeader(column){
+  const active = state.filters.dispatchSortKey === column.key;
+  const direction = active ? state.filters.dispatchSortDirection : '';
+  const indicator = active ? (direction === 'desc' ? 'v' : '^') : '';
+  return `<button class="sort-header-btn ${active ? 'active' : ''}" type="button" onclick="setDispatchSort('${esc(column.key)}')" aria-label="Sort by ${esc(column.label)}">${esc(column.label)}${indicator ? `<span>${esc(indicator)}</span>` : ''}</button>`;
+}
+
+function renderDispatchTable(rows){
+  if(!rows.length) return '<div class="empty-state"><strong>No dispatch jobs yet</strong>Use the Add Job button to start building the field schedule.</div>';
+  const columns = [
+    { key:'job', label:'Job' },
+    { key:'client', label:'Client / Project / Site' },
+    { key:'schedule', label:'Schedule' },
+    { key:'priority', label:'Priority' },
+    { key:'tech', label:'Tech' },
+    { key:'truck', label:'Truck' },
+    { key:'equipment', label:'Equipment' },
+    { key:'alerts', label:'Alerts' }
+  ];
+  return `<div class="table-wrap"><table class="dispatch-table"><thead><tr>${columns.map((column) => `<th>${renderDispatchSortHeader(column)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => {
+    const job = row.job;
+    const cells = [
+      `<div class="inline-stack dispatch-job-cell"><div>${getJobTypeBadge(job.jobType)}</div><div class="muted">${esc(job.scopeSummary || 'No scope summary')}</div>${job.custodyAllocation ? `<div class="muted">${esc(job.custodyAllocation)}</div>` : ''}</div>`,
+      `<div class="inline-stack"><div class="item-title">${esc(getClientLabel(job.clientId))}</div><div class="muted">${esc(getProjectLabel(job.projectId))} | ${esc(getSiteLabel(job.siteId))}</div></div>`,
+      `<div class="inline-stack"><div>${esc(getJobScheduleLabel(job))}</div></div>`,
+      getPriorityBadge(job.priority),
+      renderDispatchAssignmentCell(row.techLabels),
+      renderDispatchAssignmentCell(row.truckLabels),
+      renderDispatchAssignmentCell(row.equipmentLabels),
+      renderDispatchAlertsCell(row.warnings)
+    ];
+    return `<tr class="clickable-table-row" role="button" tabindex="0" title="Open Job" onclick="openEntityModal('jobs','${esc(job.id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEntityModal('jobs','${esc(job.id)}'); }">${cells.map((cell) => `<td>${cell}</td>`).join('')}</tr>`;
+  }).join('')}</tbody></table></div>`;
+}
+
 function renderDispatch(derived){
-  const filteredJobs = getFilteredDispatchJobs();
-  document.getElementById('dispatch-toolbar').innerHTML = `<span class="label">Search</span><input type="text" value="${esc(state.filters.dispatchSearch)}" placeholder="Job type, client, project, site/location, or scope..." oninput="setDispatchFilter('dispatchSearch', this.value)"><span class="label">Priority</span><select onchange="setDispatchFilter('dispatchPriority', this.value)"><option value="all">All Priorities</option>${PRIORITY_OPTIONS.map((priority) => `<option value="${esc(priority)}" ${state.filters.dispatchPriority === priority ? 'selected' : ''}>${esc(priority)}</option>`).join('')}</select><span class="label">Type</span><select onchange="setDispatchFilter('dispatchJobType', this.value)"><option value="all">All Job Types</option>${getActiveJobTypes().map((jobType) => `<option value="${esc(jobType.jobTypeKey)}" ${state.filters.dispatchJobType === jobType.jobTypeKey ? 'selected' : ''}>${esc(jobType.jobTypeName)}</option>`).join('')}</select><div class="toolbar-spacer"></div><button class="act-btn" type="button" onclick="openEntityModal('jobTypes')">Manage Job Types</button><button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button>`;
-  document.getElementById('dispatch-summary').textContent = `${filteredJobs.length} visible / ${state.data.jobs.length} total`;
-  document.getElementById('dispatch-table').innerHTML = renderTable(['Job / Scope', 'Client / Project / Site/Location', 'Job Type', 'Schedule', 'Priority', 'Assignments / Alerts'], filteredJobs.map((job) => buildTableRow('jobs', job.id, [ `<div class="inline-stack"><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(job.scopeSummary || 'No scope summary')}</div></div>`, `<div class="inline-stack"><div class="item-title">${esc(getClientLabel(job.clientId))}</div><div class="muted">${esc(getProjectLabel(job.projectId))} | ${esc(getSiteLabel(job.siteId))}</div></div>`, `<div class="inline-stack">${getStatusBadge(getJobTypeDisplayName(job.jobType) || 'Not set')}${job.custodyAllocation ? `<div class="muted">${esc(job.custodyAllocation)}</div>` : ''}</div>`, `<div class="inline-stack"><div>${esc(getJobScheduleLabel(job))}</div><div class="muted">${isJobOverdue(job) ? 'Past due' : 'Ready to dispatch'}</div></div>`, getPriorityBadge(job.priority), `<div>${summarizeAssignments(job.id)}${renderWarnings(getJobWarnings(job, derived))}</div>` ])), '<strong>No dispatch jobs yet</strong>Use the Add Job button to start building the field schedule.');
+  const filteredRows = getFilteredDispatchRows(derived);
+  document.getElementById('dispatch-toolbar').innerHTML = `<span class="label">Search</span><input type="text" value="${esc(state.filters.dispatchSearch)}" placeholder="Job type, client, project, site/location, resource, alert, or scope..." oninput="setDispatchFilter('dispatchSearch', this.value)"><span class="label">Priority</span><select onchange="setDispatchFilter('dispatchPriority', this.value)"><option value="all">All Priorities</option>${PRIORITY_OPTIONS.map((priority) => `<option value="${esc(priority)}" ${state.filters.dispatchPriority === priority ? 'selected' : ''}>${esc(priority)}</option>`).join('')}</select><span class="label">Type</span><select onchange="setDispatchFilter('dispatchJobType', this.value)"><option value="all">All Job Types</option>${getActiveJobTypes().map((jobType) => `<option value="${esc(jobType.jobTypeKey)}" ${state.filters.dispatchJobType === jobType.jobTypeKey ? 'selected' : ''}>${esc(jobType.jobTypeName)}</option>`).join('')}</select><span class="label">Alerts</span><select onchange="setDispatchFilter('dispatchAlertFilter', this.value)"><option value="all" ${state.filters.dispatchAlertFilter === 'all' ? 'selected' : ''}>All</option><option value="has" ${state.filters.dispatchAlertFilter === 'has' ? 'selected' : ''}>Has Alerts</option><option value="none" ${state.filters.dispatchAlertFilter === 'none' ? 'selected' : ''}>No Alerts</option></select><span class="label">Assignments</span><select onchange="setDispatchFilter('dispatchAssignmentFilter', this.value)"><option value="all" ${state.filters.dispatchAssignmentFilter === 'all' ? 'selected' : ''}>All</option><option value="missing" ${state.filters.dispatchAssignmentFilter === 'missing' ? 'selected' : ''}>Missing Required</option><option value="complete" ${state.filters.dispatchAssignmentFilter === 'complete' ? 'selected' : ''}>Fully Assigned</option></select><div class="toolbar-spacer"></div><button class="act-btn" type="button" onclick="openEntityModal('jobTypes')">Manage Job Types</button><button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button>`;
+  document.getElementById('dispatch-summary').textContent = `${filteredRows.length} visible / ${state.data.jobs.length} total`;
+  document.getElementById('dispatch-table').innerHTML = renderDispatchTable(filteredRows);
 }
 
 function renderSchedule(derived){
@@ -1033,17 +1154,14 @@ function renderSchedule(derived){
   const weekStart = parseDateOnly(state.scheduleAnchorDate);
   const weekEnd = parseDateOnly(addDaysISO(state.scheduleAnchorDate, 6));
   const weekJobs = state.data.jobs.filter((job) => { const jobDate = getJobPrimaryDate(job); return !!(jobDate && weekStart && weekEnd && jobDate >= weekStart && jobDate <= weekEnd); }).sort(getEntitySorter('jobs'));
-  document.getElementById('schedule-toolbar').innerHTML = `<span class="label">Week</span><button class="act-btn" type="button" onclick="changeScheduleWeek(-1)">Prev</button><button class="act-btn" type="button" onclick="resetScheduleWeek()">Current</button><button class="act-btn" type="button" onclick="changeScheduleWeek(1)">Next</button><div class="toolbar-summary">${esc(fmtDate(weekStart))} - ${esc(fmtDate(weekEnd))}</div><div class="toolbar-spacer"></div><button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button>`;
+  document.getElementById('schedule-toolbar').innerHTML = `<span class="label">Week</span><button class="act-btn" type="button" onclick="changeScheduleWeek(-1)">Prev</button><button class="act-btn" type="button" onclick="resetScheduleWeek()">Current</button><button class="act-btn" type="button" onclick="changeScheduleWeek(1)">Next</button><div class="toolbar-summary">${esc(fmtDate(weekStart))} - ${esc(fmtDate(weekEnd))}</div>`;
   document.getElementById('schedule-summary').textContent = `${weekJobs.length} jobs this week`;
-  document.getElementById('schedule-board').innerHTML = `<div class="schedule-week">${weekDates.map((dateIso) => { const jobsForDay = weekJobs.filter((job) => isSameDay(getJobPrimaryDate(job), dateIso)); return `<div class="day-column"><div class="day-head"><strong>${esc(parseDateOnly(dateIso)?.toLocaleDateString('en-US', { weekday:'long' }) || '')}</strong><span>${esc(fmtDate(dateIso))}</span></div><div class="day-list">${jobsForDay.length ? jobsForDay.map((job) => { const warnings = getJobWarnings(job, derived); const cardClasses = ['schedule-card', derived.conflictJobIds.has(job.id) ? 'conflict' : '', warnings.length ? 'warning' : ''].filter(Boolean).join(' '); return `<div class="${cardClasses}"><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(fmtTime(job.scheduledStart || job.requestedDate))} | ${esc(getSiteLabel(job.siteId))}</div><div class="mini-tags">${getPriorityBadge(job.priority)}</div>${renderWarnings(warnings)}</div>`; }).join('') : '<div class="empty-state">No scheduled jobs</div>'}</div></div>`; }).join('')}</div>`;
-  const weekConflictList = derived.conflicts.filter((conflict) => conflict.start >= weekStart && conflict.start <= weekEnd);
-  const weekMissingJobs = derived.missingJobs.filter((job) => { const jobDate = getJobPrimaryDate(job); return !!(jobDate && weekStart && weekEnd && jobDate >= weekStart && jobDate <= weekEnd); });
-  document.getElementById('schedule-conflicts').innerHTML = `<div class="card-list"><div class="summary-card"><div class="label">Scheduling Conflicts</div><div class="value">${weekConflictList.length}</div><div class="muted">Double-booked resources inside the visible week.</div></div>${weekConflictList.length ? weekConflictList.map((conflict) => `<div class="issue-item"><div><div class="item-title">${esc(conflict.resourceLabel)}</div><div class="muted">${esc(getJobDisplayTitle(conflict.jobA))} overlaps ${esc(getJobDisplayTitle(conflict.jobB))}</div></div>${getStatusBadge(conflict.assignmentType)}</div>`).join('') : '<div class="empty-state">No resource conflicts for this week.</div>'}<div class="summary-card"><div class="label">Jobs Missing Required Resources</div><div class="value">${weekMissingJobs.length}</div><div class="muted">These jobs still need core resource assignments before dispatch.</div></div>${weekMissingJobs.length ? weekMissingJobs.map((job) => `<div class="issue-item clickable-card" role="button" tabindex="0" title="Open Job" onclick="openEntityModal('jobs','${esc(job.id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEntityModal('jobs','${esc(job.id)}'); }"><div><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(getJobMissingRequirements(job).join(', '))}</div></div>${getPriorityBadge(job.priority)}</div>`).join('') : '<div class="empty-state">All visible jobs have their required resource types.</div>'}</div>`;
+  document.getElementById('schedule-board').innerHTML = `<div class="schedule-week">${weekDates.map((dateIso) => { const jobsForDay = weekJobs.filter((job) => isSameDay(getJobPrimaryDate(job), dateIso)); return `<div class="day-column"><div class="day-head"><strong>${esc(parseDateOnly(dateIso)?.toLocaleDateString('en-US', { weekday:'long' }) || '')}</strong><span>${esc(fmtDate(dateIso))}</span></div><div class="day-list">${jobsForDay.length ? jobsForDay.map((job) => { const warnings = getJobWarnings(job, derived); const missingEquipment = getJobMissingRequirements(job).includes('Equipment'); const cardClasses = ['schedule-card', 'clickable-card', getJobTypeClassName(job.jobType), missingEquipment ? 'missing-equipment' : '', derived.conflictJobIds.has(job.id) ? 'conflict' : '', warnings.length ? 'warning' : ''].filter(Boolean).join(' '); return `<div ${renderSelectableOpenAttrs('jobs', job.id, cardClasses, 'Open Job')}><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(fmtTime(job.scheduledStart || job.requestedDate))} | ${esc(getSiteLabel(job.siteId))}</div>${renderScheduleTechnicianLine(job.id)}${renderWarnings(warnings)}</div>`; }).join('') : '<div class="empty-state">No scheduled jobs</div>'}</div></div>`; }).join('')}</div>`;
 }
 
 function getActiveDirectoryClientId(){
   if(state.filters.directoryClient !== 'all' && getClient(state.filters.directoryClient)) return state.filters.directoryClient;
-  return state.data.clients[0]?.id || '';
+  return '';
 }
 function getDirectoryProjects(clientId){ return state.data.projects.filter((row) => row.clientId === clientId).sort(getEntitySorter('projects')); }
 function getDirectoryContacts(clientId, projectId = 'all'){
@@ -1844,7 +1962,7 @@ async function saveLocalJob(draft, assignments){
   const jobIndex = next.jobs.findIndex((row) => row.id === draft.id);
   const existing = jobIndex >= 0 ? next.jobs[jobIndex] : null;
   const now = new Date().toISOString();
-  const normalizedDraft = { ...draft, jobStatus:draft.jobStatus || existing?.jobStatus || 'New' };
+  const normalizedDraft = { ...draft };
   if(getJobTypeScheduleMode(normalizedDraft.jobType) === 'point_in_time') normalizedDraft.scheduledEnd = '';
   const jobRecord = normalizeRecord('jobs', { ...existing, ...normalizedDraft, id:draft.id || existing?.id || uid(ENTITY_CONFIG.jobs.idPrefix), createdAt:existing?.createdAt || now, updatedAt:now }, { fromRemote:false });
   if(jobIndex >= 0) next.jobs[jobIndex] = jobRecord; else next.jobs.unshift(jobRecord);
@@ -1855,7 +1973,7 @@ async function saveLocalJob(draft, assignments){
 }
 
 async function saveRemoteJob(draft, assignments){
-  const jobDraft = { ...draft, jobStatus:draft.jobStatus || 'New' };
+  const jobDraft = { ...draft };
   if(getJobTypeScheduleMode(jobDraft.jobType) === 'point_in_time') jobDraft.scheduledEnd = '';
   const jobId = await remoteRepository.saveRecord('jobs', jobDraft);
   await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'job_id', value:jobId }]);

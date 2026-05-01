@@ -38,7 +38,6 @@
 
   <div class="view-tabs">
     <button class="view-btn active" data-view="overview" onclick="switchView('overview')">Overview</button>
-    <button class="view-btn" data-view="dispatch" onclick="switchView('dispatch')">Dispatch</button>
     <button class="view-btn" data-view="schedule" onclick="switchView('schedule')">Schedule</button>
     <button class="view-btn" data-view="resources" onclick="switchView('resources')">Resources</button>
     <button class="view-btn" data-view="samples" onclick="switchView('samples')">Samples</button>
@@ -52,7 +51,7 @@
       <section class="panel">
         <div class="panel-header">
           <h2>Today's Dispatch</h2>
-          <button class="act-btn" type="button" onclick="switchView('dispatch')">Open Dispatch</button>
+          <button class="act-btn" type="button" onclick="switchView('schedule')">Open Schedule</button>
         </div>
         <div class="panel-body" id="today-jobs-panel"></div>
       </section>
@@ -80,17 +79,6 @@
     </div>
   </div>
 
-  <div id="dispatch-screen" class="screen">
-    <div class="toolbar" id="dispatch-toolbar"></div>
-    <section class="panel table-panel">
-      <div class="panel-header">
-        <h2>Jobs / Dispatch Board</h2>
-        <div class="panel-meta" id="dispatch-summary"></div>
-      </div>
-      <div class="panel-body" id="dispatch-table"></div>
-    </section>
-  </div>
-
   <div id="schedule-screen" class="screen">
     <div class="toolbar schedule-toolbar" id="schedule-toolbar"></div>
     <div class="schedule-layout">
@@ -101,14 +89,15 @@
         </div>
         <div class="panel-body" id="schedule-board"></div>
       </section>
-      <section class="panel">
-        <div class="panel-header">
-          <h2>Conflicts & Gaps</h2>
-          <button class="act-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button>
-        </div>
-        <div class="panel-body" id="schedule-conflicts"></div>
-      </section>
     </div>
+    <div class="toolbar dispatch-toolbar" id="dispatch-toolbar"></div>
+    <section class="panel table-panel schedule-dispatch-panel">
+      <div class="panel-header">
+        <h2>Jobs / Dispatch Board</h2>
+        <div class="panel-meta" id="dispatch-summary"></div>
+      </div>
+      <div class="panel-body" id="dispatch-table"></div>
+    </section>
   </div>
 
   <div id="resources-screen" class="screen">

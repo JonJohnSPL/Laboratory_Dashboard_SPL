@@ -266,12 +266,19 @@ header{
 }
 .schedule-layout{
   display:grid;
-  grid-template-columns:minmax(0, 1.5fr) minmax(300px, .95fr);
+  grid-template-columns:minmax(0, 1fr);
   gap:14px;
 }
+.dispatch-toolbar{margin-top:16px;}
+.schedule-dispatch-panel{margin-top:14px;}
 .simple-toolbar{justify-content:space-between;}
 .table-wrap{overflow:auto;}
 table{width:100%;border-collapse:collapse;min-width:760px;}
+.dispatch-table{min-width:1180px;}
+.dispatch-table thead th{
+  font-size:13px;
+  text-align:center;
+}
 thead th{
   padding:12px 13px;
   text-align:left;
@@ -286,6 +293,21 @@ thead th{
   z-index:1;
   white-space:nowrap;
 }
+.sort-header-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  border:0;
+  background:transparent;
+  color:inherit;
+  cursor:pointer;
+  font:inherit;
+  letter-spacing:inherit;
+  text-transform:inherit;
+  padding:0;
+}
+.sort-header-btn:hover,.sort-header-btn.active{color:var(--accent);}
+.sort-header-btn span{font-size:10px;color:var(--accent);}
 tbody td{
   padding:13px;
   border-bottom:1px solid var(--border);
@@ -325,16 +347,19 @@ tbody tr.clickable-table-row:focus-visible{
   gap:6px;
   margin-top:8px;
 }
-.tag-chip,.warning-chip,.mini-tag,.status-badge,.priority-badge{
+.tag-chip,.warning-chip,.mini-tag,.status-badge,.priority-badge,.job-type-badge{
   display:inline-flex;
   align-items:center;
+  justify-content:center;
   gap:6px;
   padding:4px 10px;
   border-radius:999px;
   border:1px solid rgba(100,116,139,.25);
   font-family:var(--mono);
   font-size:11px;
+  line-height:1.25;
   letter-spacing:1px;
+  text-align:center;
   text-transform:uppercase;
 }
 .tag-chip{color:var(--muted);}
@@ -344,6 +369,15 @@ tbody tr.clickable-table-row:focus-visible{
 .priority-badge.high{color:#ffb347;border-color:rgba(255,179,71,.28);background:rgba(255,179,71,.1);}
 .priority-badge.normal{color:var(--accent);border-color:rgba(89,214,125,.28);background:rgba(89,214,125,.1);}
 .priority-badge.low{color:var(--muted);background:rgba(100,116,139,.1);}
+.job-type-badge{color:var(--muted);background:rgba(100,116,139,.1);}
+.job-type-badge.job-type-allocation-proving{color:var(--ok);border-color:rgba(78,226,154,.28);background:rgba(78,226,154,.1);}
+.job-type-badge.job-type-lact-proving{color:#52e0d4;border-color:rgba(82,224,212,.28);background:rgba(82,224,212,.1);}
+.job-type-badge.job-type-sample-pickup{color:var(--warn);border-color:rgba(255,209,102,.3);background:rgba(255,209,102,.1);}
+.job-type-badge.job-type-sample-drop-off{color:#7bc4ff;border-color:rgba(123,196,255,.3);background:rgba(123,196,255,.1);}
+.job-type-badge.job-type-maintenance{color:var(--danger);border-color:rgba(255,93,115,.3);background:rgba(255,93,115,.12);}
+.job-type-badge.job-type-multi-service{color:var(--accent2);border-color:rgba(176,242,143,.3);background:rgba(176,242,143,.1);}
+.dispatch-table .tag-row,.dispatch-table .warning-row,.dispatch-table .mini-tags{justify-content:center;}
+.dispatch-assignment-tags{margin-top:0;}
 .status-badge.ok{color:var(--ok);border-color:rgba(78,226,154,.26);background:rgba(78,226,154,.1);}
 .status-badge.info{color:var(--accent);border-color:rgba(89,214,125,.26);background:rgba(89,214,125,.1);}
 .status-badge.warn{color:var(--warn);border-color:rgba(255,209,102,.28);background:rgba(255,209,102,.1);}
@@ -466,14 +500,43 @@ tbody tr.clickable-table-row:focus-visible{
 }
 .day-list{display:grid;gap:8px;}
 .schedule-card{
+  --schedule-card-color:var(--accent);
+  --schedule-card-border:rgba(89,214,125,.28);
+  --schedule-card-bg:rgba(89,214,125,.08);
+  position:relative;
   padding:12px;
   border-radius:10px;
-  border:1px solid rgba(45,58,49,.95);
-  background:rgba(18,26,21,.96);
+  border:1px solid var(--schedule-card-border);
+  border-left:4px solid var(--schedule-card-color);
+  background:linear-gradient(90deg, var(--schedule-card-bg), rgba(18,26,21,.96) 54%);
 }
+.schedule-card.job-type-allocation-proving{--schedule-card-color:var(--ok);--schedule-card-border:rgba(78,226,154,.28);--schedule-card-bg:rgba(78,226,154,.1);}
+.schedule-card.job-type-lact-proving{--schedule-card-color:#52e0d4;--schedule-card-border:rgba(82,224,212,.28);--schedule-card-bg:rgba(82,224,212,.1);}
+.schedule-card.job-type-sample-pickup{--schedule-card-color:var(--warn);--schedule-card-border:rgba(255,209,102,.3);--schedule-card-bg:rgba(255,209,102,.1);}
+.schedule-card.job-type-sample-drop-off{--schedule-card-color:#7bc4ff;--schedule-card-border:rgba(123,196,255,.3);--schedule-card-bg:rgba(123,196,255,.1);}
+.schedule-card.job-type-maintenance{--schedule-card-color:var(--danger);--schedule-card-border:rgba(255,93,115,.3);--schedule-card-bg:rgba(255,93,115,.12);}
+.schedule-card.job-type-multi-service{--schedule-card-color:var(--accent2);--schedule-card-border:rgba(176,242,143,.3);--schedule-card-bg:rgba(176,242,143,.1);}
 .schedule-card.conflict{border-color:rgba(255,93,115,.28);}
 .schedule-card.warning{border-color:rgba(255,209,102,.28);}
-.schedule-card .item-title{color:var(--accent);}
+.schedule-card.missing-equipment{
+  outline:2px solid rgba(255,209,102,.5);
+  outline-offset:2px;
+  animation:missing-equipment-pulse 1.2s ease-in-out infinite;
+}
+.schedule-card .item-title{color:var(--schedule-card-color);}
+.schedule-card .schedule-tech{
+  color:#d4dfd6;
+}
+@keyframes missing-equipment-pulse{
+  0%,100%{
+    outline-color:rgba(255,209,102,.5);
+    box-shadow:0 0 0 0 rgba(255,209,102,.12);
+  }
+  50%{
+    outline-color:rgba(255,209,102,.95);
+    box-shadow:0 0 0 3px rgba(255,209,102,.26);
+  }
+}
 .resource-cards,.card-list{display:grid;gap:10px;}
 .resource-card{
   padding:14px;

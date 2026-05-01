@@ -464,7 +464,6 @@ create table if not exists public.field_jobs (
   project_id uuid not null references public.field_projects(id) on delete cascade,
   site_id uuid not null references public.field_sites(id) on delete cascade,
   job_type text not null default '' check (job_type in ('', 'Allocation Proving', 'LACT Proving', 'Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service')),
-  job_status text not null default 'New' check (job_status in ('New', 'Scheduled', 'Dispatched', 'In Progress', 'Waiting', 'Complete', 'Closed', 'Canceled')),
   priority text not null default 'Normal' check (priority in ('Low', 'Normal', 'High', 'Urgent')),
   requested_date date,
   scheduled_start timestamptz,
@@ -797,7 +796,6 @@ create index if not exists field_site_projects_project_id_idx on public.field_si
 create index if not exists field_jobs_client_id_idx on public.field_jobs(client_id);
 create index if not exists field_jobs_project_id_idx on public.field_jobs(project_id);
 create index if not exists field_jobs_site_id_idx on public.field_jobs(site_id);
-create index if not exists field_jobs_status_schedule_idx on public.field_jobs(job_status, scheduled_start);
 create unique index if not exists field_job_assignments_unique_resource_per_job_idx on public.field_job_assignments(job_id, assignment_type, resource_id);
 create unique index if not exists field_job_types_job_type_key_lower_unique_idx on public.field_job_types (lower(job_type_key));
 create index if not exists field_job_types_sort_order_idx on public.field_job_types(sort_order);
