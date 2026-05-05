@@ -588,7 +588,6 @@ create table if not exists public.field_job_types (
   schedule_mode text not null default 'range' check (schedule_mode in ('range', 'point_in_time')),
   required_assignment_types text[] not null default '{}'::text[],
   detail_groups text[] not null default '{}'::text[],
-  sort_order integer not null default 0,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
   created_by uuid,
@@ -600,7 +599,7 @@ alter table public.field_job_types add column if not exists is_active boolean no
 alter table public.field_job_types add column if not exists schedule_mode text not null default 'range';
 alter table public.field_job_types add column if not exists required_assignment_types text[] not null default '{}'::text[];
 alter table public.field_job_types add column if not exists detail_groups text[] not null default '{}'::text[];
-alter table public.field_job_types add column if not exists sort_order integer not null default 0;
+alter table public.field_job_types drop column if exists sort_order;
 alter table public.field_job_types drop constraint if exists field_job_types_schedule_mode_check;
 alter table public.field_job_types add constraint field_job_types_schedule_mode_check check (schedule_mode in ('range', 'point_in_time'));
 create unique index if not exists field_job_types_job_type_key_unique_idx on public.field_job_types(job_type_key);
@@ -611,23 +610,21 @@ insert into public.field_job_types (
   is_active,
   schedule_mode,
   required_assignment_types,
-  detail_groups,
-  sort_order
+  detail_groups
 )
 values
-  ('ALLOCATION_PROVING', 'Allocation Proving', true, 'range', array['Technician', 'Truck', 'Equipment'], array['proving', 'execution'], 10),
-  ('LACT_PROVING', 'LACT Proving', true, 'range', array['Technician', 'Truck', 'Equipment'], array['proving', 'execution'], 20),
-  ('SAMPLE_PICKUP', 'Sample Pickup', true, 'point_in_time', array['Technician', 'Truck'], array['sample_logistics', 'execution'], 30),
-  ('SAMPLE_DROP_OFF', 'Sample Drop-Off', true, 'point_in_time', array['Technician', 'Truck'], array['sample_logistics', 'execution'], 40),
-  ('MAINTENANCE', 'Maintenance', true, 'range', '{}'::text[], array['maintenance', 'execution'], 50),
-  ('MULTI_SERVICE', 'Multi-Service', true, 'range', '{}'::text[], array['proving', 'sample_logistics', 'maintenance', 'execution'], 60)
+  ('ALLOCATION_PROVING', 'Allocation Proving', true, 'range', array['Technician', 'Truck', 'Equipment'], array['proving', 'execution']),
+  ('LACT_PROVING', 'LACT Proving', true, 'range', array['Technician', 'Truck', 'Equipment'], array['proving', 'execution']),
+  ('SAMPLE_PICKUP', 'Sample Pickup', true, 'point_in_time', array['Technician', 'Truck'], array['sample_logistics', 'execution']),
+  ('SAMPLE_DROP_OFF', 'Sample Drop-Off', true, 'point_in_time', array['Technician', 'Truck'], array['sample_logistics', 'execution']),
+  ('MAINTENANCE', 'Maintenance', true, 'range', '{}'::text[], array['maintenance', 'execution']),
+  ('MULTI_SERVICE', 'Multi-Service', true, 'range', '{}'::text[], array['proving', 'sample_logistics', 'maintenance', 'execution'])
 on conflict (job_type_key) do update
 set job_type_name = excluded.job_type_name,
     is_active = excluded.is_active,
     schedule_mode = excluded.schedule_mode,
     required_assignment_types = excluded.required_assignment_types,
-    detail_groups = excluded.detail_groups,
-    sort_order = excluded.sort_order;
+    detail_groups = excluded.detail_groups;
 
 alter table public.employees add column if not exists employee_name text not null default '';
 alter table public.employees add column if not exists work_scope text not null default 'Field';
@@ -852,7 +849,7 @@ create index if not exists field_jobs_project_id_idx on public.field_jobs(projec
 create index if not exists field_jobs_site_id_idx on public.field_jobs(site_id);
 create unique index if not exists field_job_assignments_unique_resource_per_job_idx on public.field_job_assignments(job_id, assignment_type, resource_id);
 create unique index if not exists field_job_types_job_type_key_lower_unique_idx on public.field_job_types (lower(job_type_key));
-create index if not exists field_job_types_sort_order_idx on public.field_job_types(sort_order);
+drop index if exists public.field_job_types_sort_order_idx;
 
 create table if not exists public.field_site_type_job_types (
   id uuid primary key default gen_random_uuid(),
