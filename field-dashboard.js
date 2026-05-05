@@ -22,7 +22,6 @@ const JOB_STATUS_OPTIONS = ['New', 'Scheduled', 'Dispatched', 'In Progress', 'Wa
 const PRIORITY_OPTIONS = ['Low', 'Normal', 'High', 'Urgent'];
 const CUSTODY_OPTIONS = ['Allocation', 'Custody', 'Both'];
 const ASSIGNMENT_TYPE_OPTIONS = ['Technician', 'Truck', 'Trailer', 'Equipment'];
-const ASSIGNMENT_STATUS_OPTIONS = ['Assigned', 'Confirmed', 'In Progress', 'Complete'];
 const WORK_SCOPE_OPTIONS = ['Lab', 'Field', 'Both'];
 const LAB_ROLE_OPTIONS = ['Lab Tech', 'Senior Lab Tech', 'Lab Lead', 'Lab Supervisor'];
 const FIELD_ROLE_OPTIONS = ['Field Tech', 'Senior Field Tech', 'Supervisor', 'Manager'];
@@ -68,7 +67,7 @@ const ENTITY_CONFIG = {
   siteProjects:{ table:'field_site_projects', label:'Site Project Link', idPrefix:'siteproj', defaults:{ siteId:'', projectId:'' }, fieldMap:{ siteId:'site_id', projectId:'project_id' }, idFields:['siteId', 'projectId'] },
   jobTypes:{ table:'field_job_types', label:'Job Type', idPrefix:'jobtype', defaults:{ jobTypeKey:'', jobTypeName:'', isActive:true, scheduleMode:'range', requiredAssignmentTypes:[], detailGroups:[], sortOrder:0 }, fieldMap:{ jobTypeKey:'job_type_key', jobTypeName:'job_type_name', isActive:'is_active', scheduleMode:'schedule_mode', requiredAssignmentTypes:'required_assignment_types', detailGroups:'detail_groups', sortOrder:'sort_order' }, booleanFields:['isActive'], numberFields:['sortOrder'], arrayFields:['requiredAssignmentTypes', 'detailGroups'] },
   jobs:{ table:'field_jobs', label:'Job', idPrefix:'job', defaults:{ fieldfxTicketId:'', clientId:'', projectId:'', siteId:'', jobType:'', priority:'Normal', requestedDate:'', scheduledStart:'', scheduledEnd:'', actualStart:'', actualEnd:'', durationPlanned:null, durationActual:null, scopeSummary:'', workInstructions:'', apiStandardReference:'', custodyAllocation:'Allocation', samplesRequired:false, meterUnitId:'', provingRequired:false, maintenanceRequired:false, clientContactForJob:'', dispatchNotes:'', completionNotes:'', followUpRequired:false, followUpNotes:'' }, fieldMap:{ fieldfxTicketId:'fieldfx_ticket_id', clientId:'client_id', projectId:'project_id', siteId:'site_id', jobType:'job_type', priority:'priority', requestedDate:'requested_date', scheduledStart:'scheduled_start', scheduledEnd:'scheduled_end', actualStart:'actual_start', actualEnd:'actual_end', durationPlanned:'duration_planned_minutes', durationActual:'duration_actual_minutes', scopeSummary:'scope_summary', workInstructions:'work_instructions', apiStandardReference:'api_standard_reference', custodyAllocation:'custody_allocation', samplesRequired:'samples_required', meterUnitId:'meter_unit_id', provingRequired:'proving_required', maintenanceRequired:'maintenance_required', clientContactForJob:'client_contact_for_job', dispatchNotes:'dispatch_notes', completionNotes:'completion_notes', followUpRequired:'follow_up_required', followUpNotes:'follow_up_notes' }, idFields:['clientId', 'projectId', 'siteId'], numberFields:['durationPlanned', 'durationActual'], booleanFields:['samplesRequired', 'provingRequired', 'maintenanceRequired', 'followUpRequired'], dateFields:['requestedDate'], dateTimeFields:['scheduledStart', 'scheduledEnd', 'actualStart', 'actualEnd'] },
-  jobAssignments:{ table:'field_job_assignments', label:'Assignment', idPrefix:'asg', defaults:{ jobId:'', assignmentType:'Technician', resourceId:'', assignedStart:'', assignedEnd:'', assignmentStatus:'Assigned', assignmentNotes:'' }, fieldMap:{ jobId:'job_id', assignmentType:'assignment_type', resourceId:'resource_id', assignedStart:'assigned_start', assignedEnd:'assigned_end', assignmentStatus:'assignment_status', assignmentNotes:'assignment_notes' }, idFields:['jobId', 'resourceId'], dateTimeFields:['assignedStart', 'assignedEnd'] },
+  jobAssignments:{ table:'field_job_assignments', label:'Assignment', idPrefix:'asg', defaults:{ jobId:'', assignmentType:'Technician', resourceId:'' }, fieldMap:{ jobId:'job_id', assignmentType:'assignment_type', resourceId:'resource_id' }, idFields:['jobId', 'resourceId'] },
   employees:{ table:'employees', label:'Employee', idPrefix:'emp', defaults:{ employeeName:'', workScope:'Field', labRole:'', fieldRole:'Field Tech', canSampleTransport:false, phone:'', email:'', notes:'' }, fieldMap:{ employeeName:'employee_name', workScope:'work_scope', labRole:'lab_role', fieldRole:'field_role', canSampleTransport:'can_sample_transport', phone:'phone', email:'email', notes:'notes' }, booleanFields:['canSampleTransport'] },
   trucks:{ table:'field_trucks', label:'Truck', idPrefix:'truck', defaults:{ unitNumber:'', vehicleType:'Pickup', serviceStatus:'Available', currentDriver:'', assignedTechnicianId:'', model:'', licensePlateNumber:'', make:'', color:'', registeredState:'', vin:'', vehicleId:'', vehicleYear:null, assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ unitNumber:'unit_number', vehicleType:'vehicle_type', serviceStatus:'service_status', currentDriver:'current_driver', assignedTechnicianId:'assigned_technician_id', model:'model', licensePlateNumber:'license_plate_number', make:'make', color:'color', registeredState:'registered_state', vin:'vin', vehicleId:'vehicle_id', vehicleYear:'vehicle_year', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTechnicianId'], numberFields:['vehicleYear'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
   trailers:{ table:'field_trailers', label:'Trailer', idPrefix:'trailer', defaults:{ trailerNumber:'', trailerType:'', capacityConfiguration:'', serviceStatus:'Available', assignedTruckId:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ trailerNumber:'trailer_number', trailerType:'trailer_type', capacityConfiguration:'capacity_configuration', serviceStatus:'service_status', assignedTruckId:'assigned_truck_id', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTruckId'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
@@ -667,8 +666,8 @@ function getScheduleConflicts(){
     if(!assignment.resourceId) return;
     const job = getJob(assignment.jobId);
     if(!job || isJobClosed(job)) return;
-    const start = parseDateTime(assignment.assignedStart) || getJobPrimaryDate(job);
-    const end = parseDateTime(assignment.assignedEnd) || getJobSecondaryDate(job) || start;
+    const start = getJobPrimaryDate(job);
+    const end = getJobSecondaryDate(job) || start;
     if(!start || !end) return;
     const key = `${assignment.assignmentType}:${assignment.resourceId}`;
     if(!rowsByResource.has(key)) rowsByResource.set(key, []);
@@ -1777,14 +1776,14 @@ function renderFormField(field){
 }
 
 function renderAssignmentRow(assignment){
-  return `<div class="assignment-row"><div class="form-group"><label class="form-label">Assignment Type</label><select class="form-input" onchange="updateModalAssignmentField('${assignment.id}', 'assignmentType', this.value)">${ASSIGNMENT_TYPE_OPTIONS.map((option) => `<option value="${esc(option)}" ${assignment.assignmentType === option ? 'selected' : ''}>${esc(option)}</option>`).join('')}</select></div><div class="form-group"><label class="form-label">Resource</label><select class="form-input" onchange="updateModalAssignmentField('${assignment.id}', 'resourceId', this.value)"><option value="">Select resource...</option>${buildResourceOptions(assignment.assignmentType).map((option) => `<option value="${esc(option.value)}" ${assignment.resourceId === option.value ? 'selected' : ''}>${esc(option.label)}</option>`).join('')}</select></div><div class="form-group"><label class="form-label">Assigned Start</label><input class="form-input" type="datetime-local" value="${esc(assignment.assignedStart)}" oninput="updateModalAssignmentField('${assignment.id}', 'assignedStart', this.value)"></div><div class="form-group"><label class="form-label">Assigned End</label><input class="form-input" type="datetime-local" value="${esc(assignment.assignedEnd)}" oninput="updateModalAssignmentField('${assignment.id}', 'assignedEnd', this.value)"></div><div class="form-group"><label class="form-label">Status</label><select class="form-input" onchange="updateModalAssignmentField('${assignment.id}', 'assignmentStatus', this.value)">${ASSIGNMENT_STATUS_OPTIONS.map((option) => `<option value="${esc(option)}" ${assignment.assignmentStatus === option ? 'selected' : ''}>${esc(option)}</option>`).join('')}</select></div><div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" oninput="updateModalAssignmentField('${assignment.id}', 'assignmentNotes', this.value)">${esc(assignment.assignmentNotes)}</textarea></div><div class="form-group"><label class="form-label">Remove</label><button class="act-btn danger" type="button" onclick="removeAssignmentRow('${assignment.id}')">Delete</button></div></div>`;
+  return `<div class="assignment-row"><div class="form-group"><label class="form-label">Assignment Type</label><select class="form-input" onchange="updateModalAssignmentField('${assignment.id}', 'assignmentType', this.value)">${ASSIGNMENT_TYPE_OPTIONS.map((option) => `<option value="${esc(option)}" ${assignment.assignmentType === option ? 'selected' : ''}>${esc(option)}</option>`).join('')}</select></div><div class="form-group"><label class="form-label">Resource</label><select class="form-input" onchange="updateModalAssignmentField('${assignment.id}', 'resourceId', this.value)"><option value="">Select resource...</option>${buildResourceOptions(assignment.assignmentType).map((option) => `<option value="${esc(option.value)}" ${assignment.resourceId === option.value ? 'selected' : ''}>${esc(option.label)}</option>`).join('')}</select></div><div class="form-group"><label class="form-label">Remove</label><button class="act-btn danger" type="button" onclick="removeAssignmentRow('${assignment.id}')">Delete</button></div></div>`;
 }
 
 function getModalTruckAssignment(){ return modalState.assignments.find((item) => item.assignmentType === 'Truck' && item.resourceId) || null; }
 function getOrCreateModalTruckAssignment(){
   let row = modalState.assignments.find((item) => item.assignmentType === 'Truck' && item.resourceId) || modalState.assignments.find((item) => item.assignmentType === 'Truck');
   if(row) return row;
-  row = normalizeRecord('jobAssignments', { id:uid(ENTITY_CONFIG.jobAssignments.idPrefix), assignmentType:'Truck', resourceId:'', assignedStart:modalState.formData.scheduledStart || '', assignedEnd:modalState.formData.scheduledEnd || '', assignmentStatus:'Assigned', assignmentNotes:'' });
+  row = normalizeRecord('jobAssignments', { id:uid(ENTITY_CONFIG.jobAssignments.idPrefix), assignmentType:'Truck', resourceId:'' });
   modalState.assignments.push(row);
   return row;
 }
@@ -1817,8 +1816,6 @@ function applyTechnicianDefaultTruck(technicianId, replace = false){
   const target = getOrCreateModalTruckAssignment();
   target.assignmentType = 'Truck';
   target.resourceId = defaultTruck.id;
-  target.assignedStart = target.assignedStart || modalState.formData.scheduledStart || '';
-  target.assignedEnd = target.assignedEnd || modalState.formData.scheduledEnd || '';
   renderModal();
 }
 function clearModalTruckAssignment(){
@@ -2052,7 +2049,7 @@ function changeEquipmentAssignedTrailer(value){
   renderModal();
 }
 
-function addAssignmentRow(){ modalState.assignments.push(normalizeRecord('jobAssignments', { id:uid(ENTITY_CONFIG.jobAssignments.idPrefix), assignmentType:'Technician', resourceId:'', assignedStart:modalState.formData.scheduledStart || '', assignedEnd:modalState.formData.scheduledEnd || '', assignmentStatus:'Assigned', assignmentNotes:'' })); renderModal(); }
+function addAssignmentRow(){ modalState.assignments.push(normalizeRecord('jobAssignments', { id:uid(ENTITY_CONFIG.jobAssignments.idPrefix), assignmentType:'Technician', resourceId:'' })); renderModal(); }
 function removeAssignmentRow(id){ modalState.assignments = modalState.assignments.filter((row) => row.id !== id); renderModal(); }
 function updateModalAssignmentField(id, key, value){
   const row = modalState.assignments.find((item) => item.id === id);
@@ -2226,7 +2223,7 @@ async function saveRemoteJob(draft, assignments){
   if(getJobTypeScheduleMode(jobDraft.jobType) === 'point_in_time') jobDraft.scheduledEnd = '';
   const jobId = await remoteRepository.saveRecord('jobs', jobDraft);
   await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'job_id', value:jobId }]);
-  await remoteRepository.insertRows(ENTITY_CONFIG.jobAssignments.table, assignments.filter((row) => row.resourceId).map((row) => ({ job_id:jobId, assignment_type:row.assignmentType, resource_id:row.resourceId || null, assigned_start:toRemoteDateTime(row.assignedStart), assigned_end:toRemoteDateTime(row.assignedEnd), assignment_status:row.assignmentStatus, assignment_notes:row.assignmentNotes || '' })));
+  await remoteRepository.insertRows(ENTITY_CONFIG.jobAssignments.table, assignments.filter((row) => row.resourceId).map((row) => ({ job_id:jobId, assignment_type:row.assignmentType, resource_id:row.resourceId || null, assigned_start:null, assigned_end:null, assignment_status:'Assigned', assignment_notes:'' })));
   return jobId;
 }
 
