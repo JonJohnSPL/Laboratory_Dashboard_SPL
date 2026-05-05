@@ -6,6 +6,8 @@
   const CLIENT_STATUS_OPTIONS = ['Active', 'Pending', 'On Hold', 'Inactive'];
   const CLIENT_SECTOR_OPTIONS = ['Upstream', 'Midstream', 'Downstream', 'Other'];
   const SITE_TYPE_OPTIONS = ['Well Site', 'Meter Station', 'Field Site', 'Well Pad', 'LACT Unit', 'Facility', 'Pipeline Location', 'Office / Yard', 'Other'];
+  const SITE_TYPE_KEY_BY_LABEL = Object.fromEntries(SITE_TYPE_OPTIONS.map((label) => [label, label.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '')]));
+  const SITE_TYPE_LABEL_BY_KEY = Object.fromEntries(Object.entries(SITE_TYPE_KEY_BY_LABEL).map(([label, key]) => [key, label]));
   const SITE_STATUS_OPTIONS = ['Active', 'Restricted', 'Inactive'];
   const DEFAULT_JOB_TYPE_DEFS = [
     { jobTypeKey:'ALLOCATION_PROVING', jobTypeName:'Allocation Proving', isActive:true, sortOrder:10 },
@@ -137,8 +139,11 @@
   function normalizeSiteStatus(value){ return normalizeOption(value, SITE_STATUS_OPTIONS, 'Active'); }
   function normalizeSiteType(value){
     const legacy = { well:'Well Site', meter:'Meter Station', facility:'Facility', field:'Field Site', other:'Other' };
-    return normalizeOption(legacy[String(value ?? '').trim()] || value, SITE_TYPE_OPTIONS, 'Other');
+    const raw = String(value ?? '').trim();
+    const key = raw.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+    return normalizeOption(legacy[raw] || SITE_TYPE_LABEL_BY_KEY[key] || value, SITE_TYPE_OPTIONS, 'Other');
   }
+  function toSiteTypeKey(value){ return SITE_TYPE_KEY_BY_LABEL[normalizeSiteType(value)] || 'OTHER'; }
 
   function parseGps(value){
     if(!value) return null;
@@ -1636,7 +1641,7 @@
           client_id: record.clientId,
           project_id: record.projectId,
           site_name: record.siteName,
-          site_type: record.siteType,
+          site_type: toSiteTypeKey(record.siteType),
           physical_address: record.physicalAddress,
           county_state: record.countyState,
           gps_coordinates: record.gpsCoordinates,

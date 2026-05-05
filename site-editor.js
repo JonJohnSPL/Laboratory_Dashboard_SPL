@@ -1,18 +1,7 @@
 (function(){
   'use strict';
 
-  const SITE_TYPE_OPTIONS = ['Well Site', 'Meter Station', 'Field Site', 'Well Pad', 'LACT Unit', 'Facility', 'Pipeline Location', 'Office / Yard', 'Other'];
   const SITE_STATUS_OPTIONS = ['Active', 'Restricted', 'Inactive'];
-  const SITE_TYPE_JOB_TYPE_NAMES = {
-    'Well Site': ['Allocation Proving', 'Sample Pickup', 'Maintenance', 'Multi-Service'],
-    'Meter Station': ['Allocation Proving', 'Maintenance', 'Multi-Service'],
-    'Field Site': ['Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service'],
-    'Well Pad': ['Allocation Proving', 'Sample Pickup', 'Maintenance', 'Multi-Service'],
-    'LACT Unit': ['LACT Proving', 'Maintenance', 'Multi-Service'],
-    'Facility': ['Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service'],
-    'Pipeline Location': ['Allocation Proving', 'Maintenance', 'Multi-Service'],
-    'Office / Yard': ['Sample Drop-Off', 'Maintenance']
-  };
   const HOME_BASE = { lat:40.435349, lng:-80.130022 };
 
   let ctx = null;
@@ -39,8 +28,13 @@
     return String(value || '').split(/[,|]/).map((item) => item.trim()).filter(Boolean);
   }
 
+  function normalizeCatalogKey(value){
+    return String(value || '').trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+  }
+
   function normalizeSiteType(value){
-    return SITE_TYPE_OPTIONS.includes(value) ? value : 'Other';
+    if(typeof ctx?.resolveSiteTypeValue === 'function') return ctx.resolveSiteTypeValue(value);
+    return normalizeCatalogKey(value) || 'OTHER';
   }
 
   function normalizeSiteStatus(value){
@@ -85,12 +79,29 @@
     return { street, city, state, zip };
   }
 
-  function parseStandardJobTypes(value){
-    return normalizeStringArray(value);
+  function getSiteTypeOptions(currentValue = ''){
+    if(typeof ctx?.getSiteTypeOptions === 'function'){
+      const options = ctx.getSiteTypeOptions(currentValue) || [];
+      if(options.length) return options;
+    }
+    const rows = Array.isArray(ctx?.data?.siteTypes) ? ctx.data.siteTypes : [];
+      const options = rows
+      .filter((row) => row?.isActive !== false || normalizeSiteType(row?.siteTypeKey) === normalizeSiteType(currentValue))
+      .sort((a, b) => String(a.siteTypeName || a.siteTypeKey || '').localeCompare(String(b.siteTypeName || b.siteTypeKey || ''), undefined, { sensitivity:'base' }))
+      .map((row) => ({ value:String(row.siteTypeKey || ''), label:String(row.siteTypeName || 'Unnamed site type') }))
+      .filter((option) => option.value && option.label);
+    return options.length ? options : [{ value:normalizeSiteType(currentValue), label:'Other' }];
   }
 
-  function serializeStandardJobTypes(values){
-    return normalizeStringArray(values).join(', ');
+  function getSiteTypeDefaultJobTypeLabels(siteType){
+    if(typeof ctx?.getSiteTypeDefaultJobTypes === 'function') return normalizeStringArray(ctx.getSiteTypeDefaultJobTypes(siteType));
+    const siteTypeKey = normalizeSiteType(siteType);
+    const links = Array.isArray(ctx?.data?.siteTypeJobTypes) ? ctx.data.siteTypeJobTypes : [];
+    const jobTypes = Array.isArray(ctx?.data?.jobTypes) ? ctx.data.jobTypes : [];
+    return links
+      .filter((link) => normalizeCatalogKey(link.siteTypeKey) === siteTypeKey)
+      .map((link) => jobTypes.find((jobType) => normalizeCatalogKey(jobType.jobTypeKey) === normalizeCatalogKey(link.jobTypeKey))?.jobTypeName || 'Unknown job type')
+      .filter(Boolean);
   }
 
   function showStatus(type, label){
@@ -158,24 +169,12 @@
     return normalizeStringArray(site?.projectIds).concat(normalizeStringArray(site?.projectId)).filter((value, index, list) => list.indexOf(value) === index);
   }
 
-  function getActiveJobTypes(){
-    const rows = typeof ctx?.getActiveJobTypes === 'function' ? ctx.getActiveJobTypes() : (ctx?.data?.jobTypes || []);
-    return (rows || []).filter((row) => row?.isActive !== false && (row.jobTypeName || row.name)).sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0) || String(a.jobTypeName || a.name || '').localeCompare(String(b.jobTypeName || b.name || '')));
-  }
-
   function normalizeProjectOption(project){
     return {
       id:String(project?.id || ''),
       name:String(project?.projectName || project?.name || 'Unnamed project'),
       status:String(project?.projectStatus || project?.status || 'Active'),
       serviceScope:String(project?.serviceScope || 'Field')
-    };
-  }
-
-  function normalizeJobTypeOption(jobType){
-    return {
-      name:String(jobType?.jobTypeName || jobType?.name || jobType?.jobTypeKey || '').trim(),
-      sortOrder:Number(jobType?.sortOrder || 0)
     };
   }
 
@@ -196,7 +195,7 @@
       projectId:String(existing?.projectId || projectIds[0] || ''),
       projectIds,
       siteName:String(existing?.siteName || ''),
-      siteType:normalizeSiteType(existing?.siteType || 'Well Site'),
+      siteType:normalizeSiteType(existing?.siteType || 'OTHER'),
       siteStatus:normalizeSiteStatus(existing?.siteStatus || 'Active'),
       standardJobTypes:String(existing?.standardJobTypes || ''),
       notes:String(existing?.notes || ''),
@@ -239,6 +238,8 @@
   }
 
   function render(){
+    const siteTypeOptions = getSiteTypeOptions(draft.siteType);
+    const siteTypeDefaults = getSiteTypeDefaultJobTypeLabels(draft.siteType);
     document.getElementById('site-editor-title').textContent = draft.id ? 'Edit Site' : 'Add Site';
     document.getElementById('site-editor-delete').style.display = draft.id ? '' : 'none';
     document.getElementById('site-editor-body').innerHTML = `
@@ -254,16 +255,12 @@
         </div>
         <div class="form-group">
           <label class="form-label" for="site-editor-site-type">Site Type</label>
-          <select class="form-input" id="site-editor-site-type">${SITE_TYPE_OPTIONS.map((value) => `<option value="${esc(value)}" ${draft.siteType === value ? 'selected' : ''}>${esc(value)}</option>`).join('')}</select>
+          <select class="form-input" id="site-editor-site-type">${siteTypeOptions.map((option) => `<option value="${esc(option.value)}" ${draft.siteType === option.value ? 'selected' : ''}>${esc(option.label)}</option>`).join('')}</select>
+          <div class="form-hint">${esc(siteTypeDefaults.length ? `Default job types: ${siteTypeDefaults.join(', ')}` : 'No default job types assigned for this site type.')}</div>
         </div>
         <div class="form-group">
           <label class="form-label" for="site-editor-site-status">Site Status</label>
           <select class="form-input" id="site-editor-site-status">${SITE_STATUS_OPTIONS.map((value) => `<option value="${esc(value)}" ${draft.siteStatus === value ? 'selected' : ''}>${esc(value)}</option>`).join('')}</select>
-        </div>
-        <div class="form-group full">
-          <label class="form-label">Standard Job Types</label>
-          <div class="site-editor-job-type-options">${renderJobTypeOptions()}</div>
-          <div class="form-hint">${esc(getJobTypeHint())}</div>
         </div>
         <div class="form-group full">
           <label class="form-label" for="site-editor-notes">Notes</label>
@@ -322,51 +319,6 @@
     `).join('');
   }
 
-  function getJobTypeOptionsForSiteType(siteType, selectedNames = []){
-    const normalizedType = normalizeSiteType(siteType);
-    const activeTypes = getActiveJobTypes().map(normalizeJobTypeOption).filter((item) => item.name);
-    const byName = new Map(activeTypes.map((item) => [item.name.toLowerCase(), item]));
-    const mappedNames = normalizedType === 'Other' ? activeTypes.map((item) => item.name) : (SITE_TYPE_JOB_TYPE_NAMES[normalizedType] || []);
-    const options = [];
-    const seen = new Set();
-    mappedNames.forEach((name) => {
-      const option = byName.get(String(name || '').toLowerCase());
-      if(!option || seen.has(option.name.toLowerCase())) return;
-      seen.add(option.name.toLowerCase());
-      options.push({ name:option.name, existing:false });
-    });
-    parseStandardJobTypes(selectedNames).forEach((name) => {
-      const key = name.toLowerCase();
-      if(seen.has(key)) return;
-      seen.add(key);
-      options.push({ name, existing:true });
-    });
-    return options;
-  }
-
-  function renderJobTypeOptions(){
-    const selectedNames = parseStandardJobTypes(draft.standardJobTypes);
-    const selected = new Set(selectedNames.map((name) => name.toLowerCase()));
-    const options = getJobTypeOptionsForSiteType(draft.siteType, selectedNames);
-    if(!options.length) return '<div class="empty-state">No active job types are available for this site type.</div>';
-    return options.map((option) => `
-      <label class="site-editor-job-type-option">
-        <input type="checkbox" value="${esc(option.name)}" ${selected.has(option.name.toLowerCase()) ? 'checked' : ''} data-site-editor-job-type>
-        <span>
-          <strong>${esc(option.name)}</strong>
-          <small>${option.existing ? 'Existing saved value' : `${esc(draft.siteType)} standard`}</small>
-        </span>
-      </label>
-    `).join('');
-  }
-
-  function getJobTypeHint(){
-    const options = getJobTypeOptionsForSiteType(draft.siteType, parseStandardJobTypes(draft.standardJobTypes));
-    return options.some((option) => option.existing)
-      ? 'Existing values outside the current site type are kept checked until you remove them.'
-      : 'Select the standard job types normally performed at this site.';
-  }
-
   function renderAddressSummary(){
     const lat = normalizeNumber(addressDraft.lat);
     const lng = normalizeNumber(addressDraft.lng);
@@ -389,7 +341,6 @@
     draft.gateCodeEntryRequirements = document.getElementById('site-editor-gate')?.value.trim() || '';
     draft.projectIds = Array.from(document.querySelectorAll('[data-site-editor-project]:checked')).map((node) => node.value).filter(Boolean);
     draft.projectId = draft.projectIds[0] || '';
-    draft.standardJobTypes = serializeStandardJobTypes(Array.from(document.querySelectorAll('[data-site-editor-job-type]:checked')).map((node) => node.value));
   }
 
   function bindEditorControls(){
@@ -402,7 +353,7 @@
       syncDraftFromDom();
       render();
     };
-    document.querySelectorAll('[data-site-editor-project], [data-site-editor-job-type]').forEach((input) => {
+    document.querySelectorAll('[data-site-editor-project]').forEach((input) => {
       input.onchange = () => syncDraftFromDom();
     });
   }

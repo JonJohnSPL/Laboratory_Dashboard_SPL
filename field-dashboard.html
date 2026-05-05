@@ -42,6 +42,7 @@
     <button class="view-btn" data-view="resources" onclick="switchView('resources')">Resources</button>
     <button class="view-btn" data-view="samples" onclick="switchView('samples')">Samples</button>
     <button class="view-btn" data-view="maintenance" onclick="switchView('maintenance')">Maintenance</button>
+    <button class="view-btn" data-view="setup" onclick="switchView('setup')">Setup</button>
   </div>
 
   <div id="overview-screen" class="screen active">
@@ -129,6 +130,18 @@
           <button class="act-btn" type="button" onclick="openEntityModal('equipment')">+ Add Equipment</button>
         </div>
         <div class="panel-body" id="equipment-panel"></div>
+      </section>
+    </div>
+  </div>
+
+  <div id="setup-screen" class="screen">
+    <div class="setup-grid">
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Site Types</h2>
+          <button class="act-btn" type="button" onclick="openEntityModal('siteTypes')">+ Add Site Type</button>
+        </div>
+        <div class="panel-body" id="site-types-panel"></div>
       </section>
       <section class="panel">
         <div class="panel-header">

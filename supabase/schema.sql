@@ -308,8 +308,6 @@ create table if not exists public.field_projects (
   project_name text not null default '',
   service_scope text not null default 'Field' check (service_scope in ('Lab', 'Field', 'Both')),
   project_status text not null default 'Active' check (project_status in ('Planning', 'Active', 'On Hold', 'Complete', 'Inactive')),
-  start_date date,
-  end_date date,
   notes text not null default '',
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
@@ -321,8 +319,6 @@ alter table public.field_projects add column if not exists service_scope text no
 alter table public.field_projects add column if not exists project_status text not null default 'Active';
 alter table public.field_projects add column if not exists client_id uuid;
 alter table public.field_projects add column if not exists project_name text not null default '';
-alter table public.field_projects add column if not exists start_date date;
-alter table public.field_projects add column if not exists end_date date;
 alter table public.field_projects add column if not exists notes text not null default '';
 alter table public.field_projects drop constraint if exists field_projects_client_id_fkey;
 alter table public.field_projects add constraint field_projects_client_id_fkey foreign key (client_id) references public.field_clients(id) on delete cascade;
@@ -403,12 +399,55 @@ alter table public.field_billing_profiles add constraint field_billing_profiles_
 alter table public.field_billing_profiles drop constraint if exists field_billing_profiles_project_id_fkey;
 alter table public.field_billing_profiles add constraint field_billing_profiles_project_id_fkey foreign key (project_id) references public.field_projects(id) on delete cascade;
 
+create or replace function public.field_ops_catalog_key(raw_value text)
+returns text
+language sql
+immutable
+as $$
+  select trim(both '_' from regexp_replace(upper(coalesce(raw_value, '')), '[^A-Z0-9]+', '_', 'g'));
+$$;
+
+create table if not exists public.field_site_types (
+  id uuid primary key default gen_random_uuid(),
+  site_type_key text not null default '',
+  site_type_name text not null default '',
+  is_active boolean not null default true,
+  notes text not null default '',
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+alter table public.field_site_types add column if not exists site_type_key text not null default '';
+alter table public.field_site_types add column if not exists site_type_name text not null default '';
+alter table public.field_site_types add column if not exists is_active boolean not null default true;
+alter table public.field_site_types add column if not exists notes text not null default '';
+alter table public.field_site_types drop column if exists sort_order;
+create unique index if not exists field_site_types_site_type_key_unique_idx on public.field_site_types(site_type_key);
+create unique index if not exists field_site_types_site_type_key_lower_unique_idx on public.field_site_types(lower(site_type_key));
+drop index if exists public.field_site_types_sort_order_idx;
+
+insert into public.field_site_types (site_type_key, site_type_name, is_active)
+values
+  ('WELL_SITE', 'Well Site', true),
+  ('METER_STATION', 'Meter Station', true),
+  ('FIELD_SITE', 'Field Site', true),
+  ('WELL_PAD', 'Well Pad', true),
+  ('LACT_UNIT', 'LACT Unit', true),
+  ('FACILITY', 'Facility', true),
+  ('PIPELINE_LOCATION', 'Pipeline Location', true),
+  ('OFFICE_YARD', 'Office / Yard', true),
+  ('OTHER', 'Other', true)
+on conflict (site_type_key) do update
+set site_type_name = excluded.site_type_name,
+    is_active = excluded.is_active;
+
 create table if not exists public.field_sites (
   id uuid primary key default gen_random_uuid(),
   client_id uuid not null references public.field_clients(id) on delete cascade,
   project_id uuid not null references public.field_projects(id) on delete cascade,
   site_name text not null default '',
-  site_type text not null default 'Other' check (site_type in ('Well Site', 'Meter Station', 'Field Site', 'Well Pad', 'LACT Unit', 'Facility', 'Pipeline Location', 'Office / Yard', 'Other')),
+  site_type text not null default 'OTHER',
   physical_address text not null default '',
   county_state text not null default '',
   gps_coordinates text not null default '',
@@ -426,7 +465,22 @@ create table if not exists public.field_sites (
 );
 
 alter table public.field_sites drop constraint if exists field_sites_site_type_check;
-alter table public.field_sites add constraint field_sites_site_type_check check (site_type in ('Well Site', 'Meter Station', 'Field Site', 'Well Pad', 'LACT Unit', 'Facility', 'Pipeline Location', 'Office / Yard', 'Other'));
+alter table public.field_sites add column if not exists site_type text not null default 'OTHER';
+alter table public.field_sites add column if not exists standard_job_types text not null default '';
+update public.field_sites
+set site_type = coalesce(nullif(public.field_ops_catalog_key(site_type), ''), 'OTHER');
+insert into public.field_site_types (site_type_key, site_type_name, is_active)
+select distinct s.site_type, initcap(replace(lower(s.site_type), '_', ' ')), true
+from public.field_sites s
+where coalesce(s.site_type, '') <> ''
+  and not exists (
+    select 1
+    from public.field_site_types st
+    where st.site_type_key = s.site_type
+  )
+on conflict (site_type_key) do nothing;
+alter table public.field_sites drop constraint if exists field_sites_site_type_fkey;
+alter table public.field_sites add constraint field_sites_site_type_fkey foreign key (site_type) references public.field_site_types(site_type_key) on update cascade;
 alter table public.field_sites add column if not exists project_id uuid;
 alter table public.field_sites drop constraint if exists field_sites_project_id_fkey;
 alter table public.field_sites add constraint field_sites_project_id_fkey foreign key (project_id) references public.field_projects(id) on delete cascade;
@@ -799,6 +853,39 @@ create index if not exists field_jobs_site_id_idx on public.field_jobs(site_id);
 create unique index if not exists field_job_assignments_unique_resource_per_job_idx on public.field_job_assignments(job_id, assignment_type, resource_id);
 create unique index if not exists field_job_types_job_type_key_lower_unique_idx on public.field_job_types (lower(job_type_key));
 create index if not exists field_job_types_sort_order_idx on public.field_job_types(sort_order);
+
+create table if not exists public.field_site_type_job_types (
+  id uuid primary key default gen_random_uuid(),
+  site_type_key text not null default '',
+  job_type_key text not null default '',
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid,
+  unique (site_type_key, job_type_key)
+);
+alter table public.field_site_type_job_types add column if not exists site_type_key text not null default '';
+alter table public.field_site_type_job_types add column if not exists job_type_key text not null default '';
+alter table public.field_site_type_job_types drop constraint if exists field_site_type_job_types_site_type_key_fkey;
+alter table public.field_site_type_job_types add constraint field_site_type_job_types_site_type_key_fkey foreign key (site_type_key) references public.field_site_types(site_type_key) on update cascade on delete cascade;
+alter table public.field_site_type_job_types drop constraint if exists field_site_type_job_types_job_type_key_fkey;
+alter table public.field_site_type_job_types add constraint field_site_type_job_types_job_type_key_fkey foreign key (job_type_key) references public.field_job_types(job_type_key) on update cascade on delete cascade;
+create unique index if not exists field_site_type_job_types_unique_idx on public.field_site_type_job_types(site_type_key, job_type_key);
+create index if not exists field_site_type_job_types_site_type_key_idx on public.field_site_type_job_types(site_type_key);
+create index if not exists field_site_type_job_types_job_type_key_idx on public.field_site_type_job_types(job_type_key);
+
+insert into public.field_site_type_job_types (site_type_key, job_type_key)
+select distinct
+  coalesce(nullif(public.field_ops_catalog_key(s.site_type), ''), 'OTHER') as site_type_key,
+  jt.job_type_key
+from public.field_sites s
+cross join lateral regexp_split_to_table(coalesce(s.standard_job_types, ''), '\s*,\s*') as raw_job_type(job_type_text)
+join public.field_job_types jt
+  on public.field_ops_catalog_key(raw_job_type.job_type_text) = public.field_ops_catalog_key(jt.job_type_key)
+  or public.field_ops_catalog_key(raw_job_type.job_type_text) = public.field_ops_catalog_key(jt.job_type_name)
+where btrim(coalesce(raw_job_type.job_type_text, '')) <> ''
+on conflict (site_type_key, job_type_key) do nothing;
+
 create index if not exists field_samples_job_id_idx on public.field_samples(job_id);
 create index if not exists field_samples_coc_status_idx on public.field_samples(chain_of_custody_status);
 create index if not exists field_maintenance_asset_idx on public.field_maintenance_records(asset_type, asset_id);
@@ -812,11 +899,13 @@ declare
     'field_projects',
     'field_contacts',
     'field_billing_profiles',
+    'field_site_types',
     'field_sites',
     'field_site_projects',
     'field_jobs',
     'field_job_assignments',
     'field_job_types',
+    'field_site_type_job_types',
     'employees',
     'field_technicians',
     'field_trucks',
