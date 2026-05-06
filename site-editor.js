@@ -187,7 +187,10 @@
   }
 
   function getContactOptionValue(contact){
-    return String(contact?.contactName || contact?.name || 'Unnamed contact').trim() || 'Unnamed contact';
+    const firstName = String(contact?.contactFirstName || '').trim();
+    const lastName = String(contact?.contactLastName || '').trim();
+    const splitName = [firstName, lastName].filter(Boolean).join(' ');
+    return String(contact?.contactName || contact?.name || splitName || 'Unnamed contact').trim() || 'Unnamed contact';
   }
 
   function renderSiteContactOptions(){
@@ -199,8 +202,8 @@
       const value = getContactOptionValue(contact);
       if(seenValues.has(value)) return;
       seenValues.add(value);
-      const detail = String(contact.contactRole || contact.contactScope || contact.email || contact.phone || 'Contact').trim();
-      options.push({ value, label:[value, detail].filter(Boolean).join(' | ') });
+      const title = String(contact.contactRole || '').trim();
+      options.push({ value, label:title ? `${value} | ${title}` : value });
     });
     if(currentValue && !seenValues.has(currentValue)){
       options.push({ value:currentValue, label:`Current: ${currentValue}` });

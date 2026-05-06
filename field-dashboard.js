@@ -974,7 +974,7 @@ const FORM_DEFINITIONS = {
     { key:'contactFirstName', label:'First Name', type:'text' },
     { key:'contactLastName', label:'Last Name', type:'text' },
     { key:'clientId', label:'Client', type:'select', options:() => buildClientOptions(), handler:'changeContactClient' },
-    { key:'projectIds', label:'Linked Projects', type:'multi-select', options:() => buildProjectOptions(modalState.formData.clientId), disabled:() => !modalState.formData.clientId },
+    { key:'projectIds', label:'Linked Projects', type:'multi-select', options:() => buildContactProjectOptions(modalState.formData.clientId), disabled:() => !modalState.formData.clientId },
     { key:'siteIds', label:'Linked Sites/Locations', type:'multi-select', options:() => buildContactSiteOptions(modalState.formData.clientId), disabled:() => !modalState.formData.clientId },
     { key:'managerContactId', label:'Reports To', type:'select', options:() => buildContactManagerOptions(modalState.formData.clientId, modalState.id) },
     { key:'contactRole', label:'Role / Title', type:'text' },
@@ -1165,6 +1165,11 @@ function hideSaveStatusSoon(delay = 2600){
 
 function buildClientOptions(){ return state.data.clients.map((row) => ({ value:row.id, label:`${normalizeClientCode(row.clientCode) ? `${normalizeClientCode(row.clientCode)} | ` : ''}${row.clientName || 'Unnamed client'}` })); }
 function buildProjectOptions(clientId = ''){ return state.data.projects.filter((row) => !clientId || row.clientId === clientId).map((row) => ({ value:row.id, label:`${row.projectName || 'Unnamed project'} | ${getClientLabel(row.clientId)}` })); }
+function buildContactProjectOptions(clientId = ''){
+  return state.data.projects
+    .filter((row) => !clientId || row.clientId === clientId)
+    .map((row) => ({ value:row.id, label:row.projectName || 'Unnamed project' }));
+}
 function buildSiteOptions(clientId = '', projectId = ''){
   return state.data.sites
     .filter((row) => (!clientId || row.clientId === clientId) && (!projectId || getProjectIdsForSite(row.id).includes(projectId)))
@@ -1189,10 +1194,7 @@ function buildJobTypeOptions(currentValue = ''){
 function buildContactSiteOptions(clientId = ''){
   return state.data.sites
     .filter((row) => !clientId || row.clientId === clientId)
-    .map((row) => {
-      const linkedProjects = getLinkedProjectsForSite(row.id).map((project) => project.projectName || 'Unnamed project');
-      return { value:row.id, label:`${row.siteName || 'Unnamed location'} | ${linkedProjects.join(', ') || 'No linked project'}` };
-    });
+    .map((row) => ({ value:row.id, label:row.siteName || 'Unnamed location' }));
 }
 function buildAllJobTypeOptions(){
   return [...state.data.jobTypes].sort(getEntitySorter('jobTypes')).map((jobType) => ({ value:jobType.jobTypeKey, label:jobType.jobTypeName || 'Unnamed job type' }));
@@ -2495,10 +2497,12 @@ function validateModal(){
     if(invalidSite) return 'Each linked site/location must belong to the selected client.';
     const manager = getContact(formData.managerContactId);
     if(manager && manager.clientId !== formData.clientId) return 'The manager contact must belong to the selected client.';
-    if(formData.managerContactId && formData.managerContactId === modalState.id) return 'A contact cannot report to themselves.';
-    if(formData.managerContactId && getContactDescendantIds(modalState.id).has(formData.managerContactId)) return 'A contact cannot report to someone below them in the hierarchy.';
-    const reportWithDifferentClient = state.data.contacts.find((row) => row.managerContactId === modalState.id && row.clientId !== formData.clientId);
-    if(reportWithDifferentClient) return 'Existing report contacts must belong to the same client.';
+    if(modalState.id && formData.managerContactId && formData.managerContactId === modalState.id) return 'A contact cannot report to themselves.';
+    if(modalState.id && formData.managerContactId && getContactDescendantIds(modalState.id).has(formData.managerContactId)) return 'A contact cannot report to someone below them in the hierarchy.';
+    if(modalState.id){
+      const reportWithDifferentClient = state.data.contacts.find((row) => row.managerContactId === modalState.id && row.clientId !== formData.clientId);
+      if(reportWithDifferentClient) return 'Existing report contacts must belong to the same client.';
+    }
   }
   if(entityKey === 'billingProfiles'){
     if(!String(formData.clientId || '').trim()) return 'Client is required.';

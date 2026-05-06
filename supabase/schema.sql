@@ -400,13 +400,17 @@ declare
   manager_client_id uuid;
   has_cycle boolean;
 begin
-  if exists (
-    select 1
-    from public.field_contacts child
-    where child.manager_contact_id = new.id
-      and child.client_id <> new.client_id
-  ) then
-    raise exception 'Existing report contacts must belong to the same client.';
+  if tg_op = 'UPDATE' then
+    if old.client_id is distinct from new.client_id
+      and exists (
+        select 1
+        from public.field_contacts child
+        where child.manager_contact_id = new.id
+          and child.id <> new.id
+          and child.client_id <> new.client_id
+      ) then
+      raise exception 'Existing report contacts must belong to the same client.';
+    end if;
   end if;
 
   if new.manager_contact_id is null then
