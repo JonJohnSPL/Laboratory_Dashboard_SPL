@@ -737,6 +737,7 @@ create table if not exists public.field_job_types (
   id uuid primary key default gen_random_uuid(),
   job_type_key text not null default '',
   job_type_name text not null default '',
+  job_type_color text not null default '#59d67d',
   is_active boolean not null default true,
   schedule_mode text not null default 'range' check (schedule_mode in ('range', 'point_in_time')),
   required_assignment_types text[] not null default '{}'::text[],
@@ -748,6 +749,7 @@ create table if not exists public.field_job_types (
 );
 alter table public.field_job_types add column if not exists job_type_key text not null default '';
 alter table public.field_job_types add column if not exists job_type_name text not null default '';
+alter table public.field_job_types add column if not exists job_type_color text not null default '#59d67d';
 alter table public.field_job_types add column if not exists is_active boolean not null default true;
 alter table public.field_job_types add column if not exists schedule_mode text not null default 'range';
 alter table public.field_job_types add column if not exists required_assignment_types text[] not null default '{}'::text[];
@@ -760,20 +762,22 @@ create unique index if not exists field_job_types_job_type_key_unique_idx on pub
 insert into public.field_job_types (
   job_type_key,
   job_type_name,
+  job_type_color,
   is_active,
   schedule_mode,
   required_assignment_types,
   detail_groups
 )
 values
-  ('ALLOCATION_PROVING', 'Allocation Proving', true, 'range', array['Technician', 'Truck', 'Equipment'], array['proving', 'execution']),
-  ('LACT_PROVING', 'LACT Proving', true, 'range', array['Technician', 'Truck', 'Equipment'], array['proving', 'execution']),
-  ('SAMPLE_PICKUP', 'Sample Pickup', true, 'point_in_time', array['Technician', 'Truck'], array['sample_logistics', 'execution']),
-  ('SAMPLE_DROP_OFF', 'Sample Drop-Off', true, 'point_in_time', array['Technician', 'Truck'], array['sample_logistics', 'execution']),
-  ('MAINTENANCE', 'Maintenance', true, 'range', '{}'::text[], array['maintenance', 'execution']),
-  ('MULTI_SERVICE', 'Multi-Service', true, 'range', '{}'::text[], array['proving', 'sample_logistics', 'maintenance', 'execution'])
+  ('ALLOCATION_PROVING', 'Allocation Proving', '#4ee29a', true, 'range', array['Technician', 'Truck', 'Equipment'], array['proving', 'execution']),
+  ('LACT_PROVING', 'LACT Proving', '#52e0d4', true, 'range', array['Technician', 'Truck', 'Equipment'], array['proving', 'execution']),
+  ('SAMPLE_PICKUP', 'Sample Pickup', '#ffd166', true, 'point_in_time', array['Technician', 'Truck'], array['sample_logistics', 'execution']),
+  ('SAMPLE_DROP_OFF', 'Sample Drop-Off', '#7bc4ff', true, 'point_in_time', array['Technician', 'Truck'], array['sample_logistics', 'execution']),
+  ('MAINTENANCE', 'Maintenance', '#ff5d73', true, 'range', '{}'::text[], array['maintenance', 'execution']),
+  ('MULTI_SERVICE', 'Multi-Service', '#b0f28f', true, 'range', '{}'::text[], array['proving', 'sample_logistics', 'maintenance', 'execution'])
 on conflict (job_type_key) do update
 set job_type_name = excluded.job_type_name,
+    job_type_color = excluded.job_type_color,
     is_active = excluded.is_active,
     schedule_mode = excluded.schedule_mode,
     required_assignment_types = excluded.required_assignment_types,

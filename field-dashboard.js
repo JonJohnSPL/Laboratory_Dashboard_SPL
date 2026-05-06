@@ -65,13 +65,31 @@ const DEFAULT_SITE_TYPE_DEFS = [
   { siteTypeKey:'OFFICE_YARD', siteTypeName:'Office / Yard', isActive:true },
   { siteTypeKey:'OTHER', siteTypeName:'Other', isActive:true }
 ];
+const DEFAULT_JOB_TYPE_COLOR = '#59d67d';
+const BUILT_IN_JOB_TYPE_COLORS = {
+  ALLOCATION_PROVING:'#4ee29a',
+  LACT_PROVING:'#52e0d4',
+  SAMPLE_PICKUP:'#ffd166',
+  SAMPLE_DROP_OFF:'#7bc4ff',
+  MAINTENANCE:'#ff5d73',
+  MULTI_SERVICE:'#b0f28f'
+};
+const JOB_TYPE_COLOR_OPTIONS = [
+  { value:'#4ee29a', label:'Allocation Proving' },
+  { value:'#52e0d4', label:'LACT Proving' },
+  { value:'#ffd166', label:'Sample Pickup' },
+  { value:'#7bc4ff', label:'Sample Drop-Off' },
+  { value:'#ff5d73', label:'Maintenance' },
+  { value:'#b0f28f', label:'Multi-Service' },
+  { value:DEFAULT_JOB_TYPE_COLOR, label:'Default' }
+];
 const DEFAULT_JOB_TYPE_DEFS = [
-  { jobTypeKey:'ALLOCATION_PROVING', jobTypeName:'Allocation Proving', isActive:true, scheduleMode:'range', requiredAssignmentTypes:['Technician', 'Truck', 'Equipment'], detailGroups:['proving', 'execution'] },
-  { jobTypeKey:'LACT_PROVING', jobTypeName:'LACT Proving', isActive:true, scheduleMode:'range', requiredAssignmentTypes:['Technician', 'Truck', 'Equipment'], detailGroups:['proving', 'execution'] },
-  { jobTypeKey:'SAMPLE_PICKUP', jobTypeName:'Sample Pickup', isActive:true, scheduleMode:'point_in_time', requiredAssignmentTypes:['Technician', 'Truck'], detailGroups:['sample_logistics', 'execution'] },
-  { jobTypeKey:'SAMPLE_DROP_OFF', jobTypeName:'Sample Drop-Off', isActive:true, scheduleMode:'point_in_time', requiredAssignmentTypes:['Technician', 'Truck'], detailGroups:['sample_logistics', 'execution'] },
-  { jobTypeKey:'MAINTENANCE', jobTypeName:'Maintenance', isActive:true, scheduleMode:'range', requiredAssignmentTypes:[], detailGroups:['maintenance', 'execution'] },
-  { jobTypeKey:'MULTI_SERVICE', jobTypeName:'Multi-Service', isActive:true, scheduleMode:'range', requiredAssignmentTypes:[], detailGroups:['proving', 'sample_logistics', 'maintenance', 'execution'] }
+  { jobTypeKey:'ALLOCATION_PROVING', jobTypeName:'Allocation Proving', jobTypeColor:'#4ee29a', isActive:true, scheduleMode:'range', requiredAssignmentTypes:['Technician', 'Truck', 'Equipment'], detailGroups:['proving', 'execution'] },
+  { jobTypeKey:'LACT_PROVING', jobTypeName:'LACT Proving', jobTypeColor:'#52e0d4', isActive:true, scheduleMode:'range', requiredAssignmentTypes:['Technician', 'Truck', 'Equipment'], detailGroups:['proving', 'execution'] },
+  { jobTypeKey:'SAMPLE_PICKUP', jobTypeName:'Sample Pickup', jobTypeColor:'#ffd166', isActive:true, scheduleMode:'point_in_time', requiredAssignmentTypes:['Technician', 'Truck'], detailGroups:['sample_logistics', 'execution'] },
+  { jobTypeKey:'SAMPLE_DROP_OFF', jobTypeName:'Sample Drop-Off', jobTypeColor:'#7bc4ff', isActive:true, scheduleMode:'point_in_time', requiredAssignmentTypes:['Technician', 'Truck'], detailGroups:['sample_logistics', 'execution'] },
+  { jobTypeKey:'MAINTENANCE', jobTypeName:'Maintenance', jobTypeColor:'#ff5d73', isActive:true, scheduleMode:'range', requiredAssignmentTypes:[], detailGroups:['maintenance', 'execution'] },
+  { jobTypeKey:'MULTI_SERVICE', jobTypeName:'Multi-Service', jobTypeColor:'#b0f28f', isActive:true, scheduleMode:'range', requiredAssignmentTypes:[], detailGroups:['proving', 'sample_logistics', 'maintenance', 'execution'] }
 ];
 
 const PRIORITY_RANK = { Urgent:0, High:1, Normal:2, Low:3 };
@@ -87,7 +105,7 @@ const ENTITY_CONFIG = {
   siteTypes:{ table:'field_site_types', label:'Site Type', idPrefix:'sitetype', defaults:{ siteTypeKey:'', siteTypeName:'', isActive:true, siteTypeStatus:'active', defaultJobTypes:[], notes:'' }, fieldMap:{ siteTypeKey:'site_type_key', siteTypeName:'site_type_name', isActive:'is_active', notes:'notes' }, booleanFields:['isActive'], arrayFields:['defaultJobTypes'], localOnlyFields:['siteTypeStatus', 'defaultJobTypes'] },
   sites:{ table:'field_sites', label:'Site/Location', idPrefix:'site', defaults:{ clientId:'', projectId:'', projectIds:[], siteName:'', siteType:'OTHER', physicalAddress:'', countyState:'', gpsCoordinates:'', accessInstructions:'', safetyPpeNotes:'', gateCodeEntryRequirements:'', clientSiteContact:'', siteStatus:'Active', standardJobTypes:'', notes:'' }, fieldMap:{ clientId:'client_id', projectId:'project_id', siteName:'site_name', siteType:'site_type', physicalAddress:'physical_address', countyState:'county_state', gpsCoordinates:'gps_coordinates', accessInstructions:'access_instructions', safetyPpeNotes:'safety_ppe_notes', gateCodeEntryRequirements:'gate_code_entry_requirements', clientSiteContact:'client_site_contact', siteStatus:'site_status', standardJobTypes:'standard_job_types', notes:'notes' }, idFields:['clientId', 'projectId'], arrayFields:['projectIds'], localOnlyFields:['projectIds'] },
   siteProjects:{ table:'field_site_projects', label:'Site Project Link', idPrefix:'siteproj', defaults:{ siteId:'', projectId:'' }, fieldMap:{ siteId:'site_id', projectId:'project_id' }, idFields:['siteId', 'projectId'] },
-  jobTypes:{ table:'field_job_types', label:'Job Type', idPrefix:'jobtype', defaults:{ jobTypeKey:'', jobTypeName:'', isActive:true, jobTypeStatus:'active', scheduleMode:'range', requiredAssignmentTypes:[], detailGroups:[] }, fieldMap:{ jobTypeKey:'job_type_key', jobTypeName:'job_type_name', isActive:'is_active', scheduleMode:'schedule_mode', requiredAssignmentTypes:'required_assignment_types', detailGroups:'detail_groups' }, booleanFields:['isActive'], arrayFields:['requiredAssignmentTypes', 'detailGroups'], localOnlyFields:['jobTypeStatus'] },
+  jobTypes:{ table:'field_job_types', label:'Job Type', idPrefix:'jobtype', defaults:{ jobTypeKey:'', jobTypeName:'', jobTypeColor:DEFAULT_JOB_TYPE_COLOR, isActive:true, jobTypeStatus:'active', scheduleMode:'range', requiredAssignmentTypes:[], detailGroups:[] }, fieldMap:{ jobTypeKey:'job_type_key', jobTypeName:'job_type_name', jobTypeColor:'job_type_color', isActive:'is_active', scheduleMode:'schedule_mode', requiredAssignmentTypes:'required_assignment_types', detailGroups:'detail_groups' }, booleanFields:['isActive'], arrayFields:['requiredAssignmentTypes', 'detailGroups'], localOnlyFields:['jobTypeStatus'] },
   siteTypeJobTypes:{ table:'field_site_type_job_types', label:'Site Type Job Type Link', idPrefix:'sitetypejob', defaults:{ siteTypeKey:'', jobTypeKey:'' }, fieldMap:{ siteTypeKey:'site_type_key', jobTypeKey:'job_type_key' } },
   jobs:{ table:'field_jobs', label:'Job', idPrefix:'job', defaults:{ fieldfxTicketId:'', clientId:'', projectId:'', siteId:'', jobType:'', priority:'Normal', requestedDate:'', scheduledStart:'', scheduledEnd:'', actualStart:'', actualEnd:'', durationPlanned:null, durationActual:null, scopeSummary:'', workInstructions:'', apiStandardReference:'', custodyAllocation:'Allocation', samplesRequired:false, meterUnitId:'', provingRequired:false, maintenanceRequired:false, clientContactForJob:'', dispatchNotes:'', completionNotes:'', followUpRequired:false, followUpNotes:'' }, fieldMap:{ fieldfxTicketId:'fieldfx_ticket_id', clientId:'client_id', projectId:'project_id', siteId:'site_id', jobType:'job_type', priority:'priority', requestedDate:'requested_date', scheduledStart:'scheduled_start', scheduledEnd:'scheduled_end', actualStart:'actual_start', actualEnd:'actual_end', durationPlanned:'duration_planned_minutes', durationActual:'duration_actual_minutes', scopeSummary:'scope_summary', workInstructions:'work_instructions', apiStandardReference:'api_standard_reference', custodyAllocation:'custody_allocation', samplesRequired:'samples_required', meterUnitId:'meter_unit_id', provingRequired:'proving_required', maintenanceRequired:'maintenance_required', clientContactForJob:'client_contact_for_job', dispatchNotes:'dispatch_notes', completionNotes:'completion_notes', followUpRequired:'follow_up_required', followUpNotes:'follow_up_notes' }, idFields:['clientId', 'projectId', 'siteId'], numberFields:['durationPlanned', 'durationActual'], booleanFields:['samplesRequired', 'provingRequired', 'maintenanceRequired', 'followUpRequired'], dateFields:['requestedDate'], dateTimeFields:['scheduledStart', 'scheduledEnd', 'actualStart', 'actualEnd'] },
   jobAssignments:{ table:'field_job_assignments', label:'Assignment', idPrefix:'asg', defaults:{ jobId:'', assignmentType:'Technician', resourceId:'' }, fieldMap:{ jobId:'job_id', assignmentType:'assignment_type', resourceId:'resource_id' }, idFields:['jobId', 'resourceId'] },
@@ -133,6 +151,43 @@ function normalizeStringArray(value){
 }
 function normalizeJobTypeKey(value){ return String(value || '').trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, ''); }
 function normalizeSiteTypeKey(value){ return normalizeJobTypeKey(value); }
+function normalizeHexColor(value, fallback = DEFAULT_JOB_TYPE_COLOR){
+  const raw = String(value || '').trim();
+  const normalized = raw.startsWith('#') ? raw : `#${raw}`;
+  return /^#[0-9a-fA-F]{6}$/.test(normalized) ? normalized.toLowerCase() : fallback;
+}
+function getDefaultJobTypeColor(value){
+  return BUILT_IN_JOB_TYPE_COLORS[normalizeJobTypeKey(value)] || DEFAULT_JOB_TYPE_COLOR;
+}
+function getJobTypeColor(jobType){
+  const record = typeof jobType === 'object' && jobType !== null ? jobType : getJobTypeRecord(jobType);
+  const key = record?.jobTypeKey || jobType;
+  return normalizeHexColor(record?.jobTypeColor, getDefaultJobTypeColor(key));
+}
+function hexToRgbParts(value){
+  const hex = normalizeHexColor(value).slice(1);
+  return [
+    parseInt(hex.slice(0, 2), 16),
+    parseInt(hex.slice(2, 4), 16),
+    parseInt(hex.slice(4, 6), 16)
+  ];
+}
+function rgbaFromHex(value, alpha){
+  const [red, green, blue] = hexToRgbParts(value);
+  return `rgba(${red},${green},${blue},${alpha})`;
+}
+function getJobTypeScheduleStyle(jobType){
+  const color = getJobTypeColor(jobType);
+  return `--schedule-card-color:${color};--schedule-card-border:${rgbaFromHex(color, .32)};--schedule-card-bg:${rgbaFromHex(color, .12)};`;
+}
+function getJobTypeBadgeStyle(jobType){
+  const color = getJobTypeColor(jobType);
+  return `color:${color};border-color:${rgbaFromHex(color, .34)};background:${rgbaFromHex(color, .12)};`;
+}
+function getJobTypeCatalogCardStyle(jobType){
+  const color = getJobTypeColor(jobType);
+  return `border-left:4px solid ${color};box-shadow:inset 0 1px 0 ${rgbaFromHex(color, .1)};`;
+}
 function catalogKeyToLabel(value){ return String(value || '').trim().toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()); }
 function normalizeCatalogStatus(value){
   return String(value || '').trim().toLowerCase() === 'inactive' ? 'inactive' : 'active';
@@ -535,6 +590,7 @@ function repairDataRelationships(data){
     id:jobType.id || normalizeJobTypeKey(jobType.jobTypeKey || jobType.jobTypeName || `JOB_TYPE_${index + 1}`),
     jobTypeKey:normalizeJobTypeKey(jobType.jobTypeKey || jobType.jobTypeName || `JOB_TYPE_${index + 1}`),
     jobTypeName:jobType.jobTypeName || catalogKeyToLabel(jobType.jobTypeKey) || `Job Type ${index + 1}`,
+    jobTypeColor:normalizeHexColor(jobType.jobTypeColor, getDefaultJobTypeColor(jobType.jobTypeKey || jobType.jobTypeName)),
     isActive:jobType.jobTypeStatus ? statusToIsActive(jobType.jobTypeStatus) : jobType.isActive
   }, { fromRemote:false })).sort(getEntitySorter('jobTypes'));
   data.employees.forEach((employee) => {
@@ -724,6 +780,7 @@ function getActiveJobTypes(currentValue = ''){
   return state.data.jobTypes.filter((jobType) => jobType.isActive || jobType.jobTypeKey === resolvedValue).sort(getEntitySorter('jobTypes'));
 }
 function getJobTypeDisplayName(value){
+  if(value && typeof value === 'object') return value.jobTypeName || catalogKeyToLabel(value.jobTypeKey) || 'Unknown job type';
   const record = getJobTypeRecord(value);
   if(record?.jobTypeName) return record.jobTypeName;
   return String(value || '').trim() ? 'Unknown job type' : 'Not set';
@@ -1077,6 +1134,7 @@ const FORM_DEFINITIONS = {
     { kind:'section', label:'Job Type Catalog' },
     { key:'jobTypeName', label:'Job Type Name', type:'text', required:true },
     { key:'jobTypeStatus', label:'Job Type Status', type:'select', options:JOB_TYPE_STATUS_OPTIONS },
+    { key:'jobTypeColor', label:'Job Type Color', type:'color', full:true },
     { key:'scheduleMode', label:'Schedule Mode', type:'select', options:JOB_TYPE_SCHEDULE_MODE_OPTIONS },
     { key:'requiredAssignmentTypes', label:'Required Assignments', type:'checkbox-group', options:ASSIGNMENT_TYPE_OPTIONS },
     { key:'detailGroups', label:'Visible Detail Sections', type:'checkbox-group', options:JOB_TYPE_DETAIL_GROUP_OPTIONS }
@@ -1382,21 +1440,21 @@ function getStatusTone(status){ if(['In Progress', 'Available', 'Current', 'Logg
 function getStatusBadge(status){ return `<span class="status-badge ${getStatusTone(status)}">${esc(status || 'Not set')}</span>`; }
 function getJobTypeBadge(jobType){
   const label = getJobTypeDisplayName(jobType);
-  const key = normalizeJobTypeKey(jobType);
+  const key = normalizeJobTypeKey(typeof jobType === 'object' && jobType !== null ? (jobType.jobTypeKey || jobType.jobTypeName) : jobType);
   const cls = key ? key.toLowerCase().replace(/_/g, '-') : 'unknown';
-  return `<span class="job-type-badge job-type-${esc(cls)}">${esc(label)}</span>`;
+  return `<span class="job-type-badge job-type-${esc(cls)}" style="${esc(getJobTypeBadgeStyle(jobType))}">${esc(label)}</span>`;
 }
 function getJobTypeClassName(jobType){
-  const key = normalizeJobTypeKey(jobType);
+  const key = normalizeJobTypeKey(typeof jobType === 'object' && jobType !== null ? (jobType.jobTypeKey || jobType.jobTypeName) : jobType);
   return key ? `job-type-${key.toLowerCase().replace(/_/g, '-')}` : 'job-type-unknown';
 }
 function normalizeOptions(options){ if(!Array.isArray(options)) return []; return options.map((option) => typeof option === 'string' ? { value:option, label:option } : option); }
 function renderTags(csvText){ const tags = String(csvText || '').split(',').map((value) => value.trim()).filter(Boolean); return tags.length ? `<div class="tag-row">${tags.map((tag) => `<span class="tag-chip">${esc(tag)}</span>`).join('')}</div>` : '<span class="muted">None listed</span>'; }
 function renderWarnings(warnings){ return warnings.length ? `<div class="warning-row">${warnings.map((warning) => `<span class="warning-chip">${esc(warning)}</span>`).join('')}</div>` : ''; }
 function renderCardOpenAttrs(entityKey, id){ return `class="resource-card clickable-card" role="button" tabindex="0" onclick="openEntityModal('${entityKey}','${esc(id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEntityModal('${entityKey}','${esc(id)}'); }"`; }
-function renderSelectableOpenAttrs(entityKey, id, className, title = ''){
+function renderSelectableOpenAttrs(entityKey, id, className, title = '', style = ''){
   const label = title || `Open ${ENTITY_CONFIG[entityKey].label}`;
-  return `class="${esc(className)}" role="button" tabindex="0" title="${esc(label)}" onclick="openEntityModal('${entityKey}','${esc(id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEntityModal('${entityKey}','${esc(id)}'); }"`;
+  return `class="${esc(className)}" ${style ? `style="${esc(style)}" ` : ''}role="button" tabindex="0" title="${esc(label)}" onclick="openEntityModal('${entityKey}','${esc(id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEntityModal('${entityKey}','${esc(id)}'); }"`;
 }
 function buildTableRow(entityKey, id, cells){
   return {
@@ -1683,7 +1741,7 @@ function renderSchedule(derived){
   const filterLabel = getScheduleFilterOptions().find((option) => option.value === state.scheduleJobFilter)?.label || 'All';
   document.getElementById('schedule-toolbar').innerHTML = `${renderScheduleSegmentedControl('View', getScheduleViewOptions(), state.scheduleView, 'setScheduleView')}${renderScheduleSegmentedControl('Jobs', getScheduleFilterOptions(), state.scheduleJobFilter, 'setScheduleJobFilter')}<span class="label">Period</span><button class="act-btn" type="button" onclick="changeScheduleWeek(-1)">Prev</button><button class="act-btn" type="button" onclick="resetScheduleWeek()">Current</button><button class="act-btn" type="button" onclick="changeScheduleWeek(1)">Next</button><button class="act-btn" type="button" onclick="sendTeamsWebhookTest()">Send Teams Test</button><div class="toolbar-summary">${esc(getSchedulePeriodLabel(scheduleDates))}</div>`;
   document.getElementById('schedule-summary').textContent = `${scheduleJobs.length} visible / ${totalJobsInRange} jobs ${getScheduleViewSummaryLabel(state.scheduleView)} | ${getScheduleViewLabel(state.scheduleView)} | ${filterLabel}`;
-  document.getElementById('schedule-board').innerHTML = `<div class="schedule-week schedule-${esc(state.scheduleView)}">${scheduleDates.map((dateIso) => { const jobsForDay = scheduleJobs.filter((job) => isSameDay(getJobPrimaryDate(job), dateIso)); return `<div class="${getScheduleDayClasses(dateIso)}"><div class="day-head"><strong>${esc(parseDateOnly(dateIso)?.toLocaleDateString('en-US', { weekday:'long' }) || '')}</strong><span>${esc(fmtDate(dateIso))}</span></div><div class="day-list">${jobsForDay.length ? jobsForDay.map((job) => { const warnings = getJobWarnings(job, derived); const missingEquipment = getJobMissingRequirements(job).includes('Equipment'); const pastJob = isJobPast(job); const cardClasses = ['schedule-card', 'clickable-card', getJobTypeClassName(job.jobType), missingEquipment ? 'missing-equipment' : '', pastJob ? 'past-job' : '', derived.conflictJobIds.has(job.id) ? 'conflict' : '', warnings.length ? 'warning' : ''].filter(Boolean).join(' '); return `<div ${renderSelectableOpenAttrs('jobs', job.id, cardClasses, 'Open Job')}><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(fmtTime(job.scheduledStart || job.requestedDate))} | ${esc(getSiteLabel(job.siteId))}</div>${renderScheduleTechnicianLine(job.id)}${renderWarnings(warnings)}</div>`; }).join('') : '<div class="empty-state">No scheduled jobs</div>'}</div></div>`; }).join('')}</div>`;
+  document.getElementById('schedule-board').innerHTML = `<div class="schedule-week schedule-${esc(state.scheduleView)}">${scheduleDates.map((dateIso) => { const jobsForDay = scheduleJobs.filter((job) => isSameDay(getJobPrimaryDate(job), dateIso)); return `<div class="${getScheduleDayClasses(dateIso)}"><div class="day-head"><strong>${esc(parseDateOnly(dateIso)?.toLocaleDateString('en-US', { weekday:'long' }) || '')}</strong><span>${esc(fmtDate(dateIso))}</span></div><div class="day-list">${jobsForDay.length ? jobsForDay.map((job) => { const warnings = getJobWarnings(job, derived); const missingEquipment = getJobMissingRequirements(job).includes('Equipment'); const pastJob = isJobPast(job); const cardClasses = ['schedule-card', 'clickable-card', getJobTypeClassName(job.jobType), missingEquipment ? 'missing-equipment' : '', pastJob ? 'past-job' : '', derived.conflictJobIds.has(job.id) ? 'conflict' : '', warnings.length ? 'warning' : ''].filter(Boolean).join(' '); return `<div ${renderSelectableOpenAttrs('jobs', job.id, cardClasses, 'Open Job', getJobTypeScheduleStyle(job.jobType))}><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(fmtTime(job.scheduledStart || job.requestedDate))} | ${esc(getSiteLabel(job.siteId))}</div>${renderScheduleTechnicianLine(job.id)}${renderWarnings(warnings)}</div>`; }).join('') : '<div class="empty-state">No scheduled jobs</div>'}</div></div>`; }).join('')}</div>`;
 }
 
 function getActiveDirectoryClientId(){
@@ -2078,7 +2136,7 @@ function renderSetup(){
     return `<div ${renderCardOpenAttrs('siteTypes', siteType.id)}><div class="resource-card-head"><div><div class="item-title">${esc(siteType.siteTypeName || 'Unnamed site type')}</div></div><div class="mini-tags">${siteType.isActive ? '<span class="tag-chip">Active</span>' : '<span class="warning-chip">Inactive</span>'}</div></div><div class="muted">Default Jobs: ${esc(defaultLabels.join(', ') || 'None')}</div><div class="muted">${esc(siteCount)} site${siteCount === 1 ? '' : 's'} using this type</div><div class="muted">${esc(siteType.notes || 'No notes')}</div></div>`;
   }, 'No site types yet');
   const jobTypesPanel = document.getElementById('job-types-panel');
-  if(jobTypesPanel) jobTypesPanel.innerHTML = renderResourceCards(state.data.jobTypes.sort(getEntitySorter('jobTypes')), (jobType) => `<div ${renderCardOpenAttrs('jobTypes', jobType.id || jobType.jobTypeKey)}><div class="resource-card-head"><div><div class="item-title">${esc(jobType.jobTypeName || 'Unnamed job type')}</div></div><div class="mini-tags">${getStatusBadge(jobType.scheduleMode || 'range')}${jobType.isActive ? '<span class="tag-chip">Active</span>' : '<span class="warning-chip">Inactive</span>'}</div></div><div class="muted">Required: ${esc(normalizeStringArray(jobType.requiredAssignmentTypes).join(', ') || 'None')}</div><div class="muted">Details: ${esc(normalizeStringArray(jobType.detailGroups).join(', ') || 'None')}</div></div>`, 'No job types yet');
+  if(jobTypesPanel) jobTypesPanel.innerHTML = renderResourceCards(state.data.jobTypes.sort(getEntitySorter('jobTypes')), (jobType) => `<div ${renderCardOpenAttrs('jobTypes', jobType.id || jobType.jobTypeKey)} style="${esc(getJobTypeCatalogCardStyle(jobType))}"><div class="resource-card-head"><div><div class="item-title">${esc(jobType.jobTypeName || 'Unnamed job type')}</div><div class="job-type-color-line"><span class="color-dot" style="--swatch-color:${esc(getJobTypeColor(jobType))}"></span><span>${esc(getJobTypeColor(jobType))}</span></div></div><div class="mini-tags">${getJobTypeBadge(jobType)}${getStatusBadge(jobType.scheduleMode || 'range')}${jobType.isActive ? '<span class="tag-chip">Active</span>' : '<span class="warning-chip">Inactive</span>'}</div></div><div class="muted">Required: ${esc(normalizeStringArray(jobType.requiredAssignmentTypes).join(', ') || 'None')}</div><div class="muted">Details: ${esc(normalizeStringArray(jobType.detailGroups).join(', ') || 'None')}</div></div>`, 'No job types yet');
 }
 
 function renderSamples(){
@@ -2160,6 +2218,12 @@ function getModalMultiSelectDetail(options, selectedValues){
   return selectedOptions.length ? selectedOptions.map((option) => option.label).join(', ') : 'No selections';
 }
 
+function renderColorField(field){
+  const value = normalizeHexColor(modalState.formData[field.key], DEFAULT_JOB_TYPE_COLOR);
+  const selectedValue = normalizeHexColor(value);
+  return `<div class="form-group${field.full ? ' full' : ''}"><label class="form-label">${esc(field.label)}</label><div class="color-control"><div class="color-swatch-row">${JOB_TYPE_COLOR_OPTIONS.map((option) => `<button class="color-swatch ${selectedValue === option.value ? 'is-selected' : ''}" type="button" title="${esc(option.label)}" style="--swatch-color:${esc(option.value)}" onclick="setJobTypeColor('${esc(option.value)}')"><span class="sr-only">${esc(option.label)}</span></button>`).join('')}</div><div class="color-input-row"><input class="form-input color-picker" type="color" value="${esc(selectedValue)}" oninput="setJobTypeColor(this.value)"><input class="form-input" type="text" value="${esc(modalState.formData[field.key] || selectedValue)}" maxlength="7" placeholder="#59d67d" oninput="setModalField('${field.key}', this.value)" onchange="setJobTypeColor(this.value)"><span class="color-preview" style="--swatch-color:${esc(selectedValue)}">${esc(selectedValue)}</span></div></div></div>`;
+}
+
 function renderFormField(field){
   if(!shouldRenderField(field)) return '';
   if(field.kind === 'section') return `<div class="form-section"><h4>${esc(field.label)}</h4></div>`;
@@ -2178,6 +2242,7 @@ function renderFormField(field){
     return `<div class="form-group${fullClass}"><label class="form-label">${esc(field.label)}</label><div class="multi-select ${isOpen ? 'open' : ''} ${disabled ? 'is-disabled' : ''}"><button class="multi-select-trigger" type="button" ${disabled ? 'disabled' : ''} aria-expanded="${isOpen ? 'true' : 'false'}" onclick="toggleModalMultiSelect('${field.key}')"><span>${esc(getModalMultiSelectSummary(options, selectedValues))}</span><span class="multi-select-caret">v</span></button><div class="multi-select-detail">${esc(getModalMultiSelectDetail(options, selectedValues))}</div><div class="multi-select-menu">${options.length ? options.map((option) => `<label class="multi-select-option"><input type="checkbox" value="${esc(option.value)}" ${selectedValues.includes(String(option.value)) ? 'checked' : ''} ${disabled ? 'disabled' : ''} onchange="toggleModalArrayValue('${field.key}', '${esc(option.value)}', this.checked)"><span>${esc(option.label)}</span></label>`).join('') : '<div class="empty-state">No options available.</div>'}</div></div></div>`;
   }
   if(field.type === 'image') return renderAssetPhotoField(field);
+  if(field.type === 'color') return renderColorField(field);
   const value = modalState.formData[field.key];
   const options = normalizeOptionsList(field.options || []);
   const includeEmptyOption = !hasExplicitEmptyOption(options);
@@ -2343,6 +2408,7 @@ function openEntityModal(entityKey, id = ''){
   if(entityKey === 'jobTypes'){
     draft.jobTypeKey = normalizeJobTypeKey(draft.jobTypeKey || draft.jobTypeName);
     draft.jobTypeStatus = draft.isActive ? 'active' : 'inactive';
+    draft.jobTypeColor = normalizeHexColor(draft.jobTypeColor, getDefaultJobTypeColor(draft.jobTypeKey));
   }
   if(entityKey === 'jobs' && draft.projectId && !draft.clientId){
     const project = getProject(draft.projectId);
@@ -2356,6 +2422,12 @@ function openEntityModal(entityKey, id = ''){
 function closeEntityModal(){ modalState = createClosedModalState(); renderModal(); }
 function setModalField(key, value, mode = 'text'){ if(modalState.open) modalState.formData[key] = mode === 'number' ? normalizeNumber(value) : value; }
 function toggleModalField(key, checked){ if(modalState.open) modalState.formData[key] = !!checked; }
+function setJobTypeColor(value){
+  if(!modalState.open) return;
+  const key = normalizeJobTypeKey(modalState.formData.jobTypeKey || modalState.formData.jobTypeName);
+  modalState.formData.jobTypeColor = normalizeHexColor(value, getDefaultJobTypeColor(key));
+  renderModal();
+}
 
 function buildDuplicatedJobDraft(source){
   return normalizeRecord('jobs', {
@@ -2637,7 +2709,10 @@ async function saveLocalRecord(entityKey, draft){
   const existing = existingIndex >= 0 ? list[existingIndex] : null;
   const now = new Date().toISOString();
   let normalizedDraft = entityKey === 'clients' ? { ...draft, clientCode:normalizeClientCode(draft.clientCode) } : draft;
-  if(entityKey === 'jobTypes') normalizedDraft = { ...normalizedDraft, isActive:statusToIsActive(normalizedDraft.jobTypeStatus) };
+  if(entityKey === 'jobTypes'){
+    const jobTypeKey = normalizeJobTypeKey(normalizedDraft.jobTypeKey || normalizedDraft.jobTypeName);
+    normalizedDraft = { ...normalizedDraft, jobTypeKey, jobTypeColor:normalizeHexColor(normalizedDraft.jobTypeColor, getDefaultJobTypeColor(jobTypeKey)), isActive:statusToIsActive(normalizedDraft.jobTypeStatus) };
+  }
   if(entityKey === 'employees') normalizedDraft = { ...normalizedDraft, employeeName:buildEmployeeName(normalizedDraft.employeeFirstName, normalizedDraft.employeeLastName, normalizedDraft.employeeName), homeSplSite:String(normalizedDraft.homeSplSite || LOCAL_SPL_SITE).trim() || LOCAL_SPL_SITE };
   const record = normalizeRecord(entityKey, { ...existing, ...normalizedDraft, id:normalizedDraft.id || existing?.id || uid(cfg.idPrefix), createdAt:existing?.createdAt || now, updatedAt:now });
   if(entityKey === 'jobTypes' && existing?.jobTypeKey && existing.jobTypeKey !== record.jobTypeKey){
@@ -2865,6 +2940,7 @@ async function saveEntityFromModal(){
   if(modalState.entity === 'clients') modalState.formData.clientCode = normalizeClientCode(modalState.formData.clientCode);
   if(modalState.entity === 'jobTypes'){
     modalState.formData.jobTypeKey = normalizeJobTypeKey(modalState.formData.jobTypeKey || modalState.formData.jobTypeName);
+    modalState.formData.jobTypeColor = normalizeHexColor(modalState.formData.jobTypeColor, getDefaultJobTypeColor(modalState.formData.jobTypeKey));
     modalState.formData.isActive = statusToIsActive(modalState.formData.jobTypeStatus);
   }
   if(modalState.entity === 'siteTypes'){
