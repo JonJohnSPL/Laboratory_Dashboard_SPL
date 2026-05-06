@@ -104,7 +104,7 @@ const remoteAssetPhotoUrlCache = new Map();
 const remoteAssetPhotoLoadPromises = new Map();
 
 function createEmptyData(){ return { clients:[], projects:[], contacts:[], billingProfiles:[], siteTypes:[], sites:[], siteProjects:[], jobTypes:[], siteTypeJobTypes:[], jobs:[], jobAssignments:[], employees:[], trucks:[], trailers:[], equipment:[], samples:[], maintenanceRecords:[], technicians:[] }; }
-function createClosedModalState(){ return { open:false, entity:'', id:'', formData:{}, assignments:[] }; }
+function createClosedModalState(){ return { open:false, entity:'', id:'', formData:{}, assignments:[], openMultiSelectKey:'' }; }
 function uid(prefix = 'fld'){ return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
 function clone(value){ return JSON.parse(JSON.stringify(value)); }
 function firstRow(payload){ return Array.isArray(payload) ? payload[0] || null : payload; }
@@ -888,7 +888,7 @@ const FORM_DEFINITIONS = {
   sites:[
     { kind:'section', label:'Site / Location' },
     { key:'clientId', label:'Client', type:'select', options:() => buildClientOptions(), handler:'changeSiteClient' },
-    { key:'projectIds', label:'Linked Projects', type:'checkbox-group', options:() => buildProjectOptions(modalState.formData.clientId), disabled:() => !modalState.formData.clientId },
+    { key:'projectIds', label:'Linked Projects', type:'multi-select', options:() => buildProjectOptions(modalState.formData.clientId), disabled:() => !modalState.formData.clientId },
     { key:'siteName', label:'Site / Location Name', type:'text', required:true },
     { key:'siteType', label:'Site Type', type:'select', options:() => buildSiteTypeOptions(modalState.formData.siteType) },
     { key:'physicalAddress', label:'Physical Address', type:'text', full:true },
@@ -1881,6 +1881,24 @@ function toggleModalArrayValue(key, optionValue, checked){
   renderModal();
 }
 
+function toggleModalMultiSelect(key){
+  if(!modalState.open) return;
+  modalState.openMultiSelectKey = modalState.openMultiSelectKey === key ? '' : key;
+  renderModal();
+}
+
+function getModalMultiSelectSummary(options, selectedValues){
+  const selectedOptions = options.filter((option) => selectedValues.includes(String(option.value)));
+  if(!selectedOptions.length) return 'Select options...';
+  if(selectedOptions.length === 1) return selectedOptions[0].label;
+  return `${selectedOptions.length} selected`;
+}
+
+function getModalMultiSelectDetail(options, selectedValues){
+  const selectedOptions = options.filter((option) => selectedValues.includes(String(option.value)));
+  return selectedOptions.length ? selectedOptions.map((option) => option.label).join(', ') : 'No selections';
+}
+
 function renderFormField(field){
   if(!shouldRenderField(field)) return '';
   if(field.kind === 'section') return `<div class="form-section"><h4>${esc(field.label)}</h4></div>`;
@@ -1891,6 +1909,12 @@ function renderFormField(field){
     const options = normalizeOptionsList(field.options || []);
     const selectedValues = normalizeStringArray(modalState.formData[field.key]);
     return `<div class="form-group${fullClass}"><label class="form-label">${esc(field.label)}</label><div class="checkbox-group ${disabled ? 'is-disabled' : ''}">${options.map((option) => `<label class="checkbox-chip"><input type="checkbox" value="${esc(option.value)}" ${selectedValues.includes(String(option.value)) ? 'checked' : ''} ${disabled ? 'disabled' : ''} onchange="toggleModalArrayValue('${field.key}', '${esc(option.value)}', this.checked)"><span>${esc(option.label)}</span></label>`).join('')}</div></div>`;
+  }
+  if(field.type === 'multi-select'){
+    const options = normalizeOptionsList(field.options || []);
+    const selectedValues = normalizeStringArray(modalState.formData[field.key]);
+    const isOpen = modalState.openMultiSelectKey === field.key;
+    return `<div class="form-group${fullClass}"><label class="form-label">${esc(field.label)}</label><div class="multi-select ${isOpen ? 'open' : ''} ${disabled ? 'is-disabled' : ''}"><button class="multi-select-trigger" type="button" ${disabled ? 'disabled' : ''} aria-expanded="${isOpen ? 'true' : 'false'}" onclick="toggleModalMultiSelect('${field.key}')"><span>${esc(getModalMultiSelectSummary(options, selectedValues))}</span><span class="multi-select-caret">v</span></button><div class="multi-select-detail">${esc(getModalMultiSelectDetail(options, selectedValues))}</div><div class="multi-select-menu">${options.length ? options.map((option) => `<label class="multi-select-option"><input type="checkbox" value="${esc(option.value)}" ${selectedValues.includes(String(option.value)) ? 'checked' : ''} ${disabled ? 'disabled' : ''} onchange="toggleModalArrayValue('${field.key}', '${esc(option.value)}', this.checked)"><span>${esc(option.label)}</span></label>`).join('') : '<div class="empty-state">No options available.</div>'}</div></div></div>`;
   }
   if(field.type === 'image') return renderAssetPhotoField(field);
   const value = modalState.formData[field.key];
@@ -2052,7 +2076,7 @@ function openEntityModal(entityKey, id = ''){
     const project = getProject(draft.projectId);
     if(project) draft.clientId = project.clientId;
   }
-  modalState = { open:true, entity:entityKey, id:existing?.id || '', formData:draft, assignments:entityKey === 'jobs' ? (existing ? getAssignmentsForJob(existing.id).map((row) => clone(row)) : []) : [] };
+  modalState = { open:true, entity:entityKey, id:existing?.id || '', formData:draft, assignments:entityKey === 'jobs' ? (existing ? getAssignmentsForJob(existing.id).map((row) => clone(row)) : []) : [], openMultiSelectKey:'' };
   if(entityKey === 'equipment' && !existing) syncEquipmentAssignmentSummary();
   renderModal();
 }

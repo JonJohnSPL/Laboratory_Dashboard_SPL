@@ -308,15 +308,51 @@
     const projects = getProjectsForClient(draft.clientId).map(normalizeProjectOption);
     const selected = new Set(normalizeStringArray(draft.projectIds));
     if(!projects.length) return '<div class="empty-state">No projects exist for this client yet.</div>';
-    return projects.map((project) => `
-      <label class="site-editor-project-option">
-        <input type="checkbox" value="${esc(project.id)}" ${selected.has(project.id) ? 'checked' : ''} data-site-editor-project>
-        <span>
-          <strong>${esc(project.name)}</strong>
-          <small>${esc(project.status)} | ${esc(project.serviceScope)}</small>
-        </span>
-      </label>
-    `).join('');
+    return `
+      <div class="site-editor-project-select" data-site-editor-project-select>
+        <button class="site-editor-project-trigger" type="button" id="site-editor-project-trigger" aria-expanded="false">
+          <span data-site-editor-project-summary>${esc(getProjectSelectionSummary(projects))}</span>
+          <span class="site-editor-project-caret">v</span>
+        </button>
+        <div class="site-editor-project-selected" data-site-editor-project-selected>${esc(getProjectSelectionDetail(projects))}</div>
+        <div class="site-editor-project-menu" data-site-editor-project-menu>
+          ${projects.map((project) => `
+            <label class="site-editor-project-option">
+              <input type="checkbox" value="${esc(project.id)}" ${selected.has(project.id) ? 'checked' : ''} data-site-editor-project>
+              <span>
+                <strong>${esc(project.name)}</strong>
+                <small>${esc(project.status)} | ${esc(project.serviceScope)}</small>
+              </span>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  function getProjectSelectionNames(projects){
+    const selected = new Set(normalizeStringArray(draft.projectIds));
+    return projects.filter((project) => selected.has(project.id)).map((project) => project.name);
+  }
+
+  function getProjectSelectionSummary(projects){
+    const names = getProjectSelectionNames(projects);
+    if(!names.length) return 'Select linked projects';
+    if(names.length === 1) return names[0];
+    return `${names.length} projects selected`;
+  }
+
+  function getProjectSelectionDetail(projects){
+    const names = getProjectSelectionNames(projects);
+    return names.length ? names.join(', ') : 'No linked projects selected';
+  }
+
+  function updateProjectSelectionSummary(){
+    const projects = getProjectsForClient(draft.clientId).map(normalizeProjectOption);
+    const summary = document.querySelector('[data-site-editor-project-summary]');
+    const detail = document.querySelector('[data-site-editor-project-selected]');
+    if(summary) summary.textContent = getProjectSelectionSummary(projects);
+    if(detail) detail.textContent = getProjectSelectionDetail(projects);
   }
 
   function renderAddressSummary(){
@@ -353,8 +389,17 @@
       syncDraftFromDom();
       render();
     };
+    document.getElementById('site-editor-project-trigger')?.addEventListener('click', () => {
+      const select = document.querySelector('[data-site-editor-project-select]');
+      const isOpen = select?.classList.toggle('open');
+      document.getElementById('site-editor-project-trigger')?.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    });
+    document.querySelector('[data-site-editor-project-menu]')?.addEventListener('click', (event) => event.stopPropagation());
     document.querySelectorAll('[data-site-editor-project]').forEach((input) => {
-      input.onchange = () => syncDraftFromDom();
+      input.onchange = () => {
+        syncDraftFromDom();
+        updateProjectSelectionSummary();
+      };
     });
   }
 
