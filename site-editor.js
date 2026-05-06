@@ -169,6 +169,45 @@
     return normalizeStringArray(site?.projectIds).concat(normalizeStringArray(site?.projectId)).filter((value, index, list) => list.indexOf(value) === index);
   }
 
+  function getContactsForSite(siteId){
+    if(typeof ctx?.getContactsForSite === 'function') return ctx.getContactsForSite(siteId) || [];
+    const site = getSite(siteId);
+    if(!site) return [];
+    const linkedContactIds = new Set((ctx?.data?.contactSites || [])
+      .filter((row) => String(row.siteId || row.site_id || '') === String(site.id || ''))
+      .map((row) => String(row.contactId || row.contact_id || ''))
+      .filter(Boolean));
+    return (ctx?.data?.contacts || [])
+      .filter((contact) => {
+        if(String(contact.clientId || '') !== String(site.clientId || '')) return false;
+        const contactSiteIds = normalizeStringArray(contact.siteIds).concat(normalizeStringArray(contact.siteId));
+        return linkedContactIds.has(String(contact.id || '')) || contactSiteIds.includes(String(site.id || ''));
+      })
+      .sort((a, b) => String(a.contactName || '').localeCompare(String(b.contactName || '')));
+  }
+
+  function getContactOptionValue(contact){
+    return String(contact?.contactName || contact?.name || 'Unnamed contact').trim() || 'Unnamed contact';
+  }
+
+  function renderSiteContactOptions(){
+    const contacts = getContactsForSite(draft.id);
+    const currentValue = String(draft.clientSiteContact || '').trim();
+    const options = [{ value:'', label:contacts.length ? 'Select linked contact' : 'No linked contacts for this site' }];
+    const seenValues = new Set(['']);
+    contacts.forEach((contact) => {
+      const value = getContactOptionValue(contact);
+      if(seenValues.has(value)) return;
+      seenValues.add(value);
+      const detail = String(contact.contactRole || contact.contactScope || contact.email || contact.phone || 'Contact').trim();
+      options.push({ value, label:[value, detail].filter(Boolean).join(' | ') });
+    });
+    if(currentValue && !seenValues.has(currentValue)){
+      options.push({ value:currentValue, label:`Current: ${currentValue}` });
+    }
+    return options.map((option) => `<option value="${esc(option.value)}" ${currentValue === option.value ? 'selected' : ''}>${esc(option.label)}</option>`).join('');
+  }
+
   function normalizeProjectOption(project){
     return {
       id:String(project?.id || ''),
@@ -212,7 +251,7 @@
       search:draft.physicalAddress,
       street:address.street,
       city:address.city,
-      state:address.state,
+      state:address.state || String(draft.countyState || '').split(',').pop().trim().toUpperCase(),
       zip:address.zip,
       lat:hasUsableCoords(coords?.lat, coords?.lng) ? coords.lat : '',
       lng:hasUsableCoords(coords?.lat, coords?.lng) ? coords.lng : ''
@@ -279,7 +318,8 @@
         </div>
         <div class="form-group full">
           <label class="form-label" for="site-editor-contact">Client Site Contact</label>
-          <input class="form-input" id="site-editor-contact" type="text" value="${esc(draft.clientSiteContact)}">
+          <select class="form-input" id="site-editor-contact">${renderSiteContactOptions()}</select>
+          <div class="form-hint">Contacts appear here after they are linked to this site in the contact record.</div>
         </div>
         <div class="form-group full">
           <label class="form-label" for="site-editor-access">Access Instructions</label>
@@ -361,7 +401,8 @@
     const address = formatAddress(addressDraft.street, addressDraft.city, addressDraft.state, addressDraft.zip);
     const coords = hasUsableCoords(lat, lng) ? formatGps(lat, lng) : '';
     if(addressDraft.gpsOnly){
-      return coords ? `<strong>GPS override</strong><span>${esc(coords)}</span>` : '<strong>GPS override</strong><span>No coordinates set</span>';
+      const detail = [coords || 'No coordinates set', addressDraft.state].filter(Boolean).join(' | ');
+      return `<strong>GPS override</strong><span>${esc(detail)}</span>`;
     }
     return address ? `<strong>${esc(address)}</strong>${coords ? `<span>${esc(coords)}</span>` : ''}` : '<strong>No address set</strong><span>Use Edit Address when this site needs map coordinates.</span>';
   }
@@ -432,9 +473,9 @@
           <label class="form-label" for="site-editor-address-city">City</label>
           <input class="form-input" id="site-editor-address-city" type="text" value="${esc(addressEditDraft.city)}" ${addressEditDraft.gpsOnly ? 'disabled' : ''}>
         </div>
-        <div class="form-group ${addressEditDraft.gpsOnly ? 'site-editor-disabled' : ''}" data-address-field>
+        <div class="form-group" data-state-field>
           <label class="form-label" for="site-editor-address-state">State</label>
-          <input class="form-input" id="site-editor-address-state" type="text" maxlength="2" value="${esc(addressEditDraft.state)}" ${addressEditDraft.gpsOnly ? 'disabled' : ''}>
+          <input class="form-input" id="site-editor-address-state" type="text" maxlength="2" value="${esc(addressEditDraft.state)}">
         </div>
         <div class="form-group ${addressEditDraft.gpsOnly ? 'site-editor-disabled' : ''}" data-address-field>
           <label class="form-label" for="site-editor-address-zip">ZIP</label>
@@ -474,7 +515,6 @@
       addressEditDraft.search = '';
       addressEditDraft.street = '';
       addressEditDraft.city = '';
-      addressEditDraft.state = '';
       addressEditDraft.zip = '';
     }
     renderAddressModal();
@@ -500,7 +540,7 @@
       search:addressEditDraft.gpsOnly ? '' : addressEditDraft.search,
       street:addressEditDraft.gpsOnly ? '' : addressEditDraft.street,
       city:addressEditDraft.gpsOnly ? '' : addressEditDraft.city,
-      state:addressEditDraft.gpsOnly ? '' : addressEditDraft.state,
+      state:addressEditDraft.state,
       zip:addressEditDraft.gpsOnly ? '' : addressEditDraft.zip,
       lat:hasUsableCoords(lat, lng) ? lat : '',
       lng:hasUsableCoords(lat, lng) ? lng : ''
@@ -883,7 +923,7 @@
       ...draft,
       projectId:draft.projectIds[0] || '',
       physicalAddress:address,
-      countyState:addressDraft.gpsOnly ? '' : [addressDraft.city, addressDraft.state].filter(Boolean).join(', '),
+      countyState:addressDraft.gpsOnly ? addressDraft.state : [addressDraft.city, addressDraft.state].filter(Boolean).join(', '),
       gpsCoordinates:formatGps(nextLat, nextLng)
     };
   }

@@ -332,6 +332,8 @@ create table if not exists public.field_contacts (
   client_id uuid not null references public.field_clients(id) on delete cascade,
   project_id uuid references public.field_projects(id) on delete cascade,
   site_id uuid,
+  contact_first_name text not null default '',
+  contact_last_name text not null default '',
   contact_name text not null default '',
   contact_role text not null default '',
   phone text not null default '',
@@ -348,6 +350,8 @@ create table if not exists public.field_contacts (
 alter table public.field_contacts add column if not exists client_id uuid;
 alter table public.field_contacts add column if not exists project_id uuid;
 alter table public.field_contacts add column if not exists site_id uuid;
+alter table public.field_contacts add column if not exists contact_first_name text not null default '';
+alter table public.field_contacts add column if not exists contact_last_name text not null default '';
 alter table public.field_contacts add column if not exists contact_name text not null default '';
 alter table public.field_contacts add column if not exists contact_role text not null default '';
 alter table public.field_contacts add column if not exists phone text not null default '';
@@ -357,10 +361,126 @@ alter table public.field_contacts add column if not exists is_primary boolean no
 alter table public.field_contacts add column if not exists notes text not null default '';
 alter table public.field_contacts drop constraint if exists field_contacts_client_id_fkey;
 alter table public.field_contacts add constraint field_contacts_client_id_fkey foreign key (client_id) references public.field_clients(id) on delete cascade;
+
+update public.field_contacts
+set
+  contact_first_name = case
+    when coalesce(contact_first_name, '') <> '' then contact_first_name
+    when position(',' in contact_name) > 0 then btrim(split_part(contact_name, ',', 2))
+    when contact_name !~ '[[:space:]]' then contact_name
+    else btrim(regexp_replace(contact_name, '[[:space:]]+[^[:space:]]+$', ''))
+  end,
+  contact_last_name = case
+    when coalesce(contact_last_name, '') <> '' then contact_last_name
+    when position(',' in contact_name) > 0 then btrim(split_part(contact_name, ',', 1))
+    when contact_name !~ '[[:space:]]' then ''
+    else btrim(substring(contact_name from '[^[:space:]]+$'))
+  end
+where coalesce(contact_name, '') <> ''
+  and (coalesce(contact_first_name, '') = '' or coalesce(contact_last_name, '') = '');
+
+update public.field_contacts
+set contact_name = btrim(coalesce(nullif(contact_first_name, ''), '') || ' ' || coalesce(nullif(contact_last_name, ''), ''))
+where btrim(coalesce(contact_first_name, '') || ' ' || coalesce(contact_last_name, '')) <> ''
+  and contact_name <> btrim(coalesce(nullif(contact_first_name, ''), '') || ' ' || coalesce(nullif(contact_last_name, ''), ''));
+
 alter table public.field_contacts drop constraint if exists field_contacts_project_id_fkey;
-alter table public.field_contacts add constraint field_contacts_project_id_fkey foreign key (project_id) references public.field_projects(id) on delete cascade;
+alter table public.field_contacts add constraint field_contacts_project_id_fkey foreign key (project_id) references public.field_projects(id) on delete set null;
 alter table public.field_contacts drop constraint if exists field_contacts_contact_scope_check;
 alter table public.field_contacts add constraint field_contacts_contact_scope_check check (contact_scope in ('Billing', 'Operations', 'Site', 'Lab', 'Field'));
+alter table public.field_contacts add column if not exists manager_contact_id uuid;
+alter table public.field_contacts drop constraint if exists field_contacts_manager_contact_id_fkey;
+alter table public.field_contacts add constraint field_contacts_manager_contact_id_fkey foreign key (manager_contact_id) references public.field_contacts(id) on delete set null;
+
+create or replace function public.validate_field_contact_manager()
+returns trigger
+language plpgsql
+as $$
+declare
+  manager_client_id uuid;
+  has_cycle boolean;
+begin
+  if exists (
+    select 1
+    from public.field_contacts child
+    where child.manager_contact_id = new.id
+      and child.client_id <> new.client_id
+  ) then
+    raise exception 'Existing report contacts must belong to the same client.';
+  end if;
+
+  if new.manager_contact_id is null then
+    return new;
+  end if;
+
+  if new.manager_contact_id = new.id then
+    raise exception 'A contact cannot report to themselves.';
+  end if;
+
+  select client_id into manager_client_id
+  from public.field_contacts
+  where id = new.manager_contact_id;
+
+  if manager_client_id is null then
+    raise exception 'Manager contact was not found.';
+  end if;
+
+  if manager_client_id <> new.client_id then
+    raise exception 'Manager contact must belong to the same client.';
+  end if;
+
+  with recursive manager_chain(contact_id, manager_id) as (
+    select id, manager_contact_id
+    from public.field_contacts
+    where id = new.manager_contact_id
+    union all
+    select c.id, c.manager_contact_id
+    from public.field_contacts c
+    join manager_chain mc on c.id = mc.manager_id
+    where mc.manager_id is not null
+  )
+  select exists(select 1 from manager_chain where contact_id = new.id)
+  into has_cycle;
+
+  if has_cycle then
+    raise exception 'Contact manager hierarchy cannot contain a cycle.';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists field_contacts_validate_manager on public.field_contacts;
+create trigger field_contacts_validate_manager
+before insert or update on public.field_contacts
+for each row
+execute function public.validate_field_contact_manager();
+
+create table if not exists public.field_contact_projects (
+  id uuid primary key default gen_random_uuid(),
+  contact_id uuid not null references public.field_contacts(id) on delete cascade,
+  project_id uuid not null references public.field_projects(id) on delete cascade,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid,
+  unique (contact_id, project_id)
+);
+alter table public.field_contact_projects add column if not exists contact_id uuid;
+alter table public.field_contact_projects add column if not exists project_id uuid;
+alter table public.field_contact_projects drop constraint if exists field_contact_projects_contact_id_fkey;
+alter table public.field_contact_projects add constraint field_contact_projects_contact_id_fkey foreign key (contact_id) references public.field_contacts(id) on delete cascade;
+alter table public.field_contact_projects drop constraint if exists field_contact_projects_project_id_fkey;
+alter table public.field_contact_projects add constraint field_contact_projects_project_id_fkey foreign key (project_id) references public.field_projects(id) on delete cascade;
+create unique index if not exists field_contact_projects_contact_project_unique_idx on public.field_contact_projects(contact_id, project_id);
+create index if not exists field_contact_projects_contact_id_idx on public.field_contact_projects(contact_id);
+create index if not exists field_contact_projects_project_id_idx on public.field_contact_projects(project_id);
+
+insert into public.field_contact_projects (contact_id, project_id)
+select c.id, c.project_id
+from public.field_contacts c
+where c.project_id is not null
+on conflict (contact_id, project_id) do nothing;
 
 create table if not exists public.field_billing_profiles (
   id uuid primary key default gen_random_uuid(),
@@ -486,7 +606,33 @@ alter table public.field_sites drop constraint if exists field_sites_project_id_
 alter table public.field_sites add constraint field_sites_project_id_fkey foreign key (project_id) references public.field_projects(id) on delete cascade;
 alter table public.field_contacts add column if not exists site_id uuid;
 alter table public.field_contacts drop constraint if exists field_contacts_site_id_fkey;
-alter table public.field_contacts add constraint field_contacts_site_id_fkey foreign key (site_id) references public.field_sites(id) on delete cascade;
+alter table public.field_contacts add constraint field_contacts_site_id_fkey foreign key (site_id) references public.field_sites(id) on delete set null;
+
+create table if not exists public.field_contact_sites (
+  id uuid primary key default gen_random_uuid(),
+  contact_id uuid not null references public.field_contacts(id) on delete cascade,
+  site_id uuid not null references public.field_sites(id) on delete cascade,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid,
+  unique (contact_id, site_id)
+);
+alter table public.field_contact_sites add column if not exists contact_id uuid;
+alter table public.field_contact_sites add column if not exists site_id uuid;
+alter table public.field_contact_sites drop constraint if exists field_contact_sites_contact_id_fkey;
+alter table public.field_contact_sites add constraint field_contact_sites_contact_id_fkey foreign key (contact_id) references public.field_contacts(id) on delete cascade;
+alter table public.field_contact_sites drop constraint if exists field_contact_sites_site_id_fkey;
+alter table public.field_contact_sites add constraint field_contact_sites_site_id_fkey foreign key (site_id) references public.field_sites(id) on delete cascade;
+create unique index if not exists field_contact_sites_contact_site_unique_idx on public.field_contact_sites(contact_id, site_id);
+create index if not exists field_contact_sites_contact_id_idx on public.field_contact_sites(contact_id);
+create index if not exists field_contact_sites_site_id_idx on public.field_contact_sites(site_id);
+
+insert into public.field_contact_sites (contact_id, site_id)
+select c.id, c.site_id
+from public.field_contacts c
+where c.site_id is not null
+on conflict (contact_id, site_id) do nothing;
 
 create table if not exists public.field_site_projects (
   id uuid primary key default gen_random_uuid(),
@@ -838,6 +984,7 @@ create unique index if not exists field_clients_client_code_unique_idx on public
 create index if not exists field_contacts_client_id_idx on public.field_contacts(client_id);
 create index if not exists field_contacts_project_id_idx on public.field_contacts(project_id);
 create index if not exists field_contacts_site_id_idx on public.field_contacts(site_id);
+create index if not exists field_contacts_manager_contact_id_idx on public.field_contacts(manager_contact_id);
 create index if not exists field_billing_profiles_client_id_idx on public.field_billing_profiles(client_id);
 create index if not exists field_billing_profiles_project_id_idx on public.field_billing_profiles(project_id);
 create index if not exists field_sites_project_id_idx on public.field_sites(project_id);
@@ -895,6 +1042,8 @@ declare
     'field_clients',
     'field_projects',
     'field_contacts',
+    'field_contact_projects',
+    'field_contact_sites',
     'field_billing_profiles',
     'field_site_types',
     'field_sites',

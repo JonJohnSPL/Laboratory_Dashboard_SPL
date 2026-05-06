@@ -1,6 +1,6 @@
 const STORAGE_KEY = 'field-ops-dashboard-data';
 const AUTO_REFRESH_MS = 15000;
-const ENTITY_ORDER = ['clients', 'projects', 'contacts', 'billingProfiles', 'siteTypes', 'sites', 'siteProjects', 'jobTypes', 'siteTypeJobTypes', 'jobs', 'jobAssignments', 'employees', 'trucks', 'trailers', 'equipment', 'samples', 'maintenanceRecords'];
+const ENTITY_ORDER = ['clients', 'projects', 'contacts', 'contactProjects', 'contactSites', 'billingProfiles', 'siteTypes', 'sites', 'siteProjects', 'jobTypes', 'siteTypeJobTypes', 'jobs', 'jobAssignments', 'employees', 'trucks', 'trailers', 'equipment', 'samples', 'maintenanceRecords'];
 const FIELD_ASSET_BUCKET = 'field-assets';
 const ASSET_PHOTO_ENTITY_KEYS = ['clients', 'trucks', 'trailers', 'equipment'];
 const DEFAULT_ASSET_ICON_PATHS = {
@@ -79,7 +79,9 @@ const RESOURCE_ENTITY_BY_TYPE = { Technician:'employees', Truck:'trucks', Traile
 const ENTITY_CONFIG = {
   clients:{ table:'field_clients', label:'Client', idPrefix:'client', defaults:{ clientName:'', clientCode:'', accountStatus:'Active', sector:'Upstream', serviceScope:'Field', primaryContact:'', contactPhone:'', contactEmail:'', billingNotes:'', operationalNotes:'', salesforceAccountId:'', defaultServiceArea:'', hqStreet:'', hqCity:'', hqState:'', hqZip:'', hqLatitude:null, hqLongitude:null, assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'' }, fieldMap:{ clientName:'client_name', clientCode:'client_code', accountStatus:'account_status', sector:'sector', serviceScope:'service_scope', primaryContact:'primary_contact', contactPhone:'contact_phone', contactEmail:'contact_email', billingNotes:'billing_notes', operationalNotes:'operational_notes', salesforceAccountId:'salesforce_account_id', defaultServiceArea:'default_service_area', hqStreet:'hq_street', hqCity:'hq_city', hqState:'hq_state', hqZip:'hq_zip', hqLatitude:'hq_latitude', hqLongitude:'hq_longitude', assetPhotoPath:'logo_path' }, numberFields:['hqLatitude', 'hqLongitude'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
   projects:{ table:'field_projects', label:'Project', idPrefix:'proj', defaults:{ clientId:'', projectName:'', serviceScope:'Field', projectStatus:'Active', notes:'' }, fieldMap:{ clientId:'client_id', projectName:'project_name', serviceScope:'service_scope', projectStatus:'project_status', notes:'notes' }, idFields:['clientId'] },
-  contacts:{ table:'field_contacts', label:'Contact', idPrefix:'contact', defaults:{ clientId:'', projectId:'', siteId:'', contactName:'', contactRole:'', phone:'', email:'', contactScope:'Operations', isPrimary:false, notes:'' }, fieldMap:{ clientId:'client_id', projectId:'project_id', siteId:'site_id', contactName:'contact_name', contactRole:'contact_role', phone:'phone', email:'email', contactScope:'contact_scope', isPrimary:'is_primary', notes:'notes' }, idFields:['clientId', 'projectId', 'siteId'], booleanFields:['isPrimary'] },
+  contacts:{ table:'field_contacts', label:'Contact', idPrefix:'contact', defaults:{ clientId:'', projectId:'', siteId:'', projectIds:[], siteIds:[], managerContactId:'', contactFirstName:'', contactLastName:'', contactName:'', contactRole:'', phone:'', email:'', contactScope:'Operations', isPrimary:false, notes:'' }, fieldMap:{ clientId:'client_id', projectId:'project_id', siteId:'site_id', managerContactId:'manager_contact_id', contactFirstName:'contact_first_name', contactLastName:'contact_last_name', contactName:'contact_name', contactRole:'contact_role', phone:'phone', email:'email', contactScope:'contact_scope', isPrimary:'is_primary', notes:'notes' }, idFields:['clientId', 'projectId', 'siteId', 'managerContactId'], booleanFields:['isPrimary'], arrayFields:['projectIds', 'siteIds'], localOnlyFields:['projectIds', 'siteIds'] },
+  contactProjects:{ table:'field_contact_projects', label:'Contact Project Link', idPrefix:'contactproj', defaults:{ contactId:'', projectId:'' }, fieldMap:{ contactId:'contact_id', projectId:'project_id' }, idFields:['contactId', 'projectId'] },
+  contactSites:{ table:'field_contact_sites', label:'Contact Site Link', idPrefix:'contactsite', defaults:{ contactId:'', siteId:'' }, fieldMap:{ contactId:'contact_id', siteId:'site_id' }, idFields:['contactId', 'siteId'] },
   billingProfiles:{ table:'field_billing_profiles', label:'Billing Profile', idPrefix:'bill', defaults:{ clientId:'', projectId:'', billingName:'', billingAddress:'', billingEmail:'', billingPhone:'', poNumber:'', referenceNumber:'', invoiceNotes:'', fieldBillingNotes:'', labBillingNotes:'', isDefault:false }, fieldMap:{ clientId:'client_id', projectId:'project_id', billingName:'billing_name', billingAddress:'billing_address', billingEmail:'billing_email', billingPhone:'billing_phone', poNumber:'po_number', referenceNumber:'reference_number', invoiceNotes:'invoice_notes', fieldBillingNotes:'field_billing_notes', labBillingNotes:'lab_billing_notes', isDefault:'is_default' }, idFields:['clientId', 'projectId'], booleanFields:['isDefault'] },
   siteTypes:{ table:'field_site_types', label:'Site Type', idPrefix:'sitetype', defaults:{ siteTypeKey:'', siteTypeName:'', isActive:true, siteTypeStatus:'active', defaultJobTypes:[], notes:'' }, fieldMap:{ siteTypeKey:'site_type_key', siteTypeName:'site_type_name', isActive:'is_active', notes:'notes' }, booleanFields:['isActive'], arrayFields:['defaultJobTypes'], localOnlyFields:['siteTypeStatus', 'defaultJobTypes'] },
   sites:{ table:'field_sites', label:'Site/Location', idPrefix:'site', defaults:{ clientId:'', projectId:'', projectIds:[], siteName:'', siteType:'OTHER', physicalAddress:'', countyState:'', gpsCoordinates:'', accessInstructions:'', safetyPpeNotes:'', gateCodeEntryRequirements:'', clientSiteContact:'', siteStatus:'Active', standardJobTypes:'', notes:'' }, fieldMap:{ clientId:'client_id', projectId:'project_id', siteName:'site_name', siteType:'site_type', physicalAddress:'physical_address', countyState:'county_state', gpsCoordinates:'gps_coordinates', accessInstructions:'access_instructions', safetyPpeNotes:'safety_ppe_notes', gateCodeEntryRequirements:'gate_code_entry_requirements', clientSiteContact:'client_site_contact', siteStatus:'site_status', standardJobTypes:'standard_job_types', notes:'notes' }, idFields:['clientId', 'projectId'], arrayFields:['projectIds'], localOnlyFields:['projectIds'] },
@@ -96,14 +98,14 @@ const ENTITY_CONFIG = {
   maintenanceRecords:{ table:'field_maintenance_records', label:'Maintenance Record', idPrefix:'maint', defaults:{ assetType:'Equipment', assetId:'', maintenanceType:'Preventive', openDate:'', dueDate:'', completedDate:'', status:'Open', issueDescription:'', resolution:'', vendorInternal:'Internal', cost:null, assignedPerson:'', notes:'' }, fieldMap:{ assetType:'asset_type', assetId:'asset_id', maintenanceType:'maintenance_type', openDate:'open_date', dueDate:'due_date', completedDate:'completed_date', status:'status', issueDescription:'issue_description', resolution:'resolution', vendorInternal:'vendor_internal', cost:'cost', assignedPerson:'assigned_person', notes:'notes' }, idFields:['assetId'], numberFields:['cost'], dateFields:['openDate', 'dueDate', 'completedDate'] }
 };
 
-let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'overview', scheduleAnchorDate:getStartOfWeekISO(new Date()), scheduleView:'work_week', scheduleJobFilter:'all', filters:{ dispatchSearch:'', dispatchPriority:'all', dispatchJobType:'all', dispatchJobFilter:'all', dispatchAlertFilter:'all', dispatchAssignmentFilter:'all', dispatchSortKey:'schedule', dispatchSortDirection:'asc', directoryClient:'all', directorySection:'overview', directoryClientSearch:'' }, data:createEmptyData(), saveInFlight:false, autoRefreshInFlight:false, autoRefreshTimer:null };
+let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'overview', scheduleAnchorDate:getStartOfWeekISO(new Date()), scheduleView:'work_week', scheduleJobFilter:'all', filters:{ dispatchSearch:'', dispatchPriority:'all', dispatchJobType:'all', dispatchJobFilter:'all', dispatchAlertFilter:'all', dispatchAssignmentFilter:'all', dispatchSortKey:'schedule', dispatchSortDirection:'asc', directoryClient:'all', directorySection:'overview', directoryClientSearch:'', directoryContactSearch:'', directoryContactScope:'all', directoryContactProject:'all', directoryContactSite:'all', directoryContactSortKey:'name', directoryContactSortDirection:'asc' }, data:createEmptyData(), saveInFlight:false, autoRefreshInFlight:false, autoRefreshTimer:null };
 let modalState = createClosedModalState();
 let lastLoadedSnapshot = '';
 let hideSaveStatusTimer = null;
 const remoteAssetPhotoUrlCache = new Map();
 const remoteAssetPhotoLoadPromises = new Map();
 
-function createEmptyData(){ return { clients:[], projects:[], contacts:[], billingProfiles:[], siteTypes:[], sites:[], siteProjects:[], jobTypes:[], siteTypeJobTypes:[], jobs:[], jobAssignments:[], employees:[], trucks:[], trailers:[], equipment:[], samples:[], maintenanceRecords:[], technicians:[] }; }
+function createEmptyData(){ return { clients:[], projects:[], contacts:[], contactProjects:[], contactSites:[], billingProfiles:[], siteTypes:[], sites:[], siteProjects:[], jobTypes:[], siteTypeJobTypes:[], jobs:[], jobAssignments:[], employees:[], trucks:[], trailers:[], equipment:[], samples:[], maintenanceRecords:[], technicians:[] }; }
 function createClosedModalState(){ return { open:false, entity:'', id:'', formData:{}, assignments:[], openMultiSelectKey:'' }; }
 function uid(prefix = 'fld'){ return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
 function clone(value){ return JSON.parse(JSON.stringify(value)); }
@@ -139,6 +141,30 @@ function compareStrings(a, b){ return String(a || '').localeCompare(String(b || 
 function compareOptionalDates(left, right){ if(!left && !right) return 0; if(!left) return 1; if(!right) return -1; return left - right; }
 function isRemoteMode(){ return !!(window.appAuth && typeof window.appAuth.getMode === 'function' && window.appAuth.getMode() === 'remote'); }
 function esc(value){ return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch])); }
+function splitContactName(value){
+  const raw = String(value || '').trim();
+  if(!raw) return { first:'', last:'' };
+  if(raw.includes(',')){
+    const [last, ...firstParts] = raw.split(',');
+    return { first:firstParts.join(',').trim(), last:last.trim() };
+  }
+  const parts = raw.split(/\s+/).filter(Boolean);
+  if(parts.length <= 1) return { first:parts[0] || '', last:'' };
+  return { first:parts.slice(0, -1).join(' '), last:parts[parts.length - 1] };
+}
+function getContactFirstName(contact){ return String(contact?.contactFirstName || '').trim() || splitContactName(contact?.contactName).first; }
+function getContactLastName(contact){ return String(contact?.contactLastName || '').trim() || splitContactName(contact?.contactName).last; }
+function getContactDisplayName(contact){
+  const first = getContactFirstName(contact);
+  const last = getContactLastName(contact);
+  if(last && first) return `${last}, ${first}`;
+  return last || first || contact?.contactName || 'Unnamed contact';
+}
+function buildContactName(firstName, lastName, fallback = ''){
+  const first = String(firstName || '').trim();
+  const last = String(lastName || '').trim();
+  return [first, last].filter(Boolean).join(' ') || String(fallback || '').trim();
+}
 
 function todayISO(){
   const now = new Date();
@@ -246,7 +272,9 @@ function getEntitySorter(entityKey){
   switch(entityKey){
     case 'clients': return (a, b) => compareStrings(a.clientName, b.clientName);
     case 'projects': return (a, b) => compareStrings(a.projectName, b.projectName);
-    case 'contacts': return (a, b) => compareStrings(a.contactName, b.contactName);
+    case 'contacts': return (a, b) => compareStrings(getContactLastName(a), getContactLastName(b)) || compareStrings(getContactFirstName(a), getContactFirstName(b)) || compareStrings(a.contactName, b.contactName);
+    case 'contactProjects': return (a, b) => compareStrings(a.contactId, b.contactId) || compareStrings(a.projectId, b.projectId);
+    case 'contactSites': return (a, b) => compareStrings(a.contactId, b.contactId) || compareStrings(a.siteId, b.siteId);
     case 'billingProfiles': return (a, b) => Number(b.isDefault) - Number(a.isDefault) || compareStrings(a.billingName, b.billingName);
     case 'siteTypes': return (a, b) => compareStrings(a.siteTypeName, b.siteTypeName) || compareStrings(a.siteTypeKey, b.siteTypeKey);
     case 'sites': return (a, b) => compareStrings(a.siteName, b.siteName);
@@ -369,6 +397,64 @@ function syncSiteProjectLinks(data){
   });
 }
 
+function syncContactLinks(data){
+  const nextProjectLinks = [];
+  const nextSiteLinks = [];
+  const seenProjects = new Set();
+  const seenSites = new Set();
+  const contactById = new Map((Array.isArray(data.contacts) ? data.contacts : []).map((contact) => [contact.id, contact]));
+  const projectById = new Map((Array.isArray(data.projects) ? data.projects : []).map((project) => [project.id, project]));
+  const siteById = new Map((Array.isArray(data.sites) ? data.sites : []).map((site) => [site.id, site]));
+  const pushProjectLink = (contactId, projectId) => {
+    const normalizedContactId = String(contactId || '').trim();
+    const normalizedProjectId = String(projectId || '').trim();
+    const contact = contactById.get(normalizedContactId);
+    const project = projectById.get(normalizedProjectId);
+    if(!contact || !project || project.clientId !== contact.clientId) return;
+    const key = `${normalizedContactId}::${normalizedProjectId}`;
+    if(seenProjects.has(key)) return;
+    seenProjects.add(key);
+    nextProjectLinks.push(normalizeRecord('contactProjects', { id:key, contactId:normalizedContactId, projectId:normalizedProjectId }, { fromRemote:false }));
+  };
+  const pushSiteLink = (contactId, siteId) => {
+    const normalizedContactId = String(contactId || '').trim();
+    const normalizedSiteId = String(siteId || '').trim();
+    const contact = contactById.get(normalizedContactId);
+    const site = siteById.get(normalizedSiteId);
+    if(!contact || !site || site.clientId !== contact.clientId) return;
+    const key = `${normalizedContactId}::${normalizedSiteId}`;
+    if(seenSites.has(key)) return;
+    seenSites.add(key);
+    nextSiteLinks.push(normalizeRecord('contactSites', { id:key, contactId:normalizedContactId, siteId:normalizedSiteId }, { fromRemote:false }));
+  };
+  (Array.isArray(data.contactProjects) ? data.contactProjects : []).forEach((row) => pushProjectLink(row.contactId, row.projectId));
+  (Array.isArray(data.contactSites) ? data.contactSites : []).forEach((row) => pushSiteLink(row.contactId, row.siteId));
+  (Array.isArray(data.contacts) ? data.contacts : []).forEach((contact) => {
+    const linkedProjectIds = normalizeStringArray(contact.projectIds);
+    if(linkedProjectIds.length) linkedProjectIds.forEach((projectId) => pushProjectLink(contact.id, projectId));
+    else pushProjectLink(contact.id, contact.projectId);
+    const linkedSiteIds = normalizeStringArray(contact.siteIds);
+    if(linkedSiteIds.length) linkedSiteIds.forEach((siteId) => pushSiteLink(contact.id, siteId));
+    else pushSiteLink(contact.id, contact.siteId);
+  });
+  data.contactProjects = nextProjectLinks.sort(getEntitySorter('contactProjects'));
+  data.contactSites = nextSiteLinks.sort(getEntitySorter('contactSites'));
+  data.contacts.forEach((contact) => {
+    const parsedName = splitContactName(contact.contactName);
+    if(!contact.contactFirstName) contact.contactFirstName = parsedName.first;
+    if(!contact.contactLastName) contact.contactLastName = parsedName.last;
+    contact.contactName = buildContactName(contact.contactFirstName, contact.contactLastName, contact.contactName);
+    const projectIds = data.contactProjects.filter((row) => row.contactId === contact.id).map((row) => row.projectId);
+    const siteIds = data.contactSites.filter((row) => row.contactId === contact.id).map((row) => row.siteId);
+    contact.projectIds = [...new Set(projectIds.filter(Boolean))];
+    contact.siteIds = [...new Set(siteIds.filter(Boolean))];
+    contact.projectId = contact.projectIds[0] || '';
+    contact.siteId = contact.siteIds[0] || '';
+    const manager = contact.managerContactId ? contactById.get(contact.managerContactId) : null;
+    if(contact.managerContactId && (!manager || manager.clientId !== contact.clientId || manager.id === contact.id)) contact.managerContactId = '';
+  });
+}
+
 function normalizeData(source, fromRemote = false){
   const normalized = createEmptyData();
   ENTITY_ORDER.forEach((entityKey) => {
@@ -483,6 +569,7 @@ function repairDataRelationships(data){
       }
     }
   });
+  syncContactLinks(data);
   data.billingProfiles.forEach((profile) => {
     if(profile.projectId && !profile.clientId){
       const project = data.projects.find((row) => row.id === profile.projectId) || null;
@@ -553,6 +640,31 @@ function getProjectIdsForSite(siteId){
   return [...new Set(ids.filter(Boolean))];
 }
 function getLinkedProjectsForSite(siteId){ return getProjectIdsForSite(siteId).map((projectId) => getProject(projectId)).filter(Boolean).sort(getEntitySorter('projects')); }
+function getProjectIdsForContact(contactId){
+  const ids = state.data.contactProjects.filter((row) => row.contactId === contactId).map((row) => row.projectId);
+  const legacyProjectId = getContact(contactId)?.projectId || '';
+  if(legacyProjectId) ids.push(legacyProjectId);
+  return [...new Set(ids.filter(Boolean))];
+}
+function getSiteIdsForContact(contactId){
+  const ids = state.data.contactSites.filter((row) => row.contactId === contactId).map((row) => row.siteId);
+  const legacySiteId = getContact(contactId)?.siteId || '';
+  if(legacySiteId) ids.push(legacySiteId);
+  return [...new Set(ids.filter(Boolean))];
+}
+function getLinkedProjectsForContact(contactId){ return getProjectIdsForContact(contactId).map((projectId) => getProject(projectId)).filter(Boolean).sort(getEntitySorter('projects')); }
+function getLinkedSitesForContact(contactId){ return getSiteIdsForContact(contactId).map((siteId) => getSite(siteId)).filter(Boolean).sort(getEntitySorter('sites')); }
+function getContactLabel(contactId){
+  const contact = getContact(contactId);
+  return contact ? getContactDisplayName(contact) : 'No manager';
+}
+function getContactsForSite(siteId){
+  const site = getSite(siteId);
+  if(!site) return [];
+  return state.data.contacts
+    .filter((contact) => contact.clientId === site.clientId && getSiteIdsForContact(contact.id).includes(site.id))
+    .sort(getEntitySorter('contacts'));
+}
 function getSiteTypeRecord(value){
   const resolvedValue = resolveSiteTypeValue(state.data.siteTypes, value);
   return state.data.siteTypes.find((siteType) => siteType.siteTypeKey === resolvedValue) || null;
@@ -859,10 +971,12 @@ const FORM_DEFINITIONS = {
   ],
   contacts:[
     { kind:'section', label:'Contact Details' },
+    { key:'contactFirstName', label:'First Name', type:'text' },
+    { key:'contactLastName', label:'Last Name', type:'text' },
     { key:'clientId', label:'Client', type:'select', options:() => buildClientOptions(), handler:'changeContactClient' },
-    { key:'projectId', label:'Project', type:'select', options:() => buildProjectOptions(modalState.formData.clientId), handler:'changeContactProject' },
-    { key:'siteId', label:'Site/Location', type:'select', options:() => buildSiteOptions(modalState.formData.clientId, modalState.formData.projectId) },
-    { key:'contactName', label:'Contact Name', type:'text', required:true },
+    { key:'projectIds', label:'Linked Projects', type:'multi-select', options:() => buildProjectOptions(modalState.formData.clientId), disabled:() => !modalState.formData.clientId },
+    { key:'siteIds', label:'Linked Sites/Locations', type:'multi-select', options:() => buildContactSiteOptions(modalState.formData.clientId), disabled:() => !modalState.formData.clientId },
+    { key:'managerContactId', label:'Reports To', type:'select', options:() => buildContactManagerOptions(modalState.formData.clientId, modalState.id) },
     { key:'contactRole', label:'Role / Title', type:'text' },
     { key:'contactScope', label:'Contact Scope', type:'select', options:CONTACT_SCOPE_OPTIONS },
     { key:'phone', label:'Phone', type:'text' },
@@ -921,7 +1035,7 @@ const FORM_DEFINITIONS = {
     { kind:'section', label:'Maintenance Details', detailGroup:'maintenance' },
     { key:'maintenanceRequired', label:'Maintenance Required', type:'checkbox', detailGroup:'maintenance' },
     { kind:'section', label:'Execution', detailGroup:'execution' },
-    { key:'clientContactForJob', label:'Client Contact For Job', type:'select', options:() => buildJobContactOptions(modalState.formData.clientId, modalState.formData.projectId), detailGroup:'execution' },
+    { key:'clientContactForJob', label:'Client Contact For Job', type:'select', options:() => buildJobContactOptions(modalState.formData.clientId, modalState.formData.projectId, modalState.formData.siteId), detailGroup:'execution' },
     { key:'followUpRequired', label:'Follow-Up Required', type:'checkbox', detailGroup:'execution' },
     { key:'scopeSummary', label:'Scope Summary', type:'textarea', full:true, detailGroup:'execution' },
     { key:'workInstructions', label:'Work Instructions', type:'textarea', full:true, detailGroup:'execution' },
@@ -1072,6 +1186,14 @@ function buildJobProjectOptions(clientId = '', siteId = ''){
 function buildJobTypeOptions(currentValue = ''){
   return getActiveJobTypes(currentValue).map((jobType) => ({ value:jobType.jobTypeKey, label:jobType.jobTypeName || 'Unnamed job type' }));
 }
+function buildContactSiteOptions(clientId = ''){
+  return state.data.sites
+    .filter((row) => !clientId || row.clientId === clientId)
+    .map((row) => {
+      const linkedProjects = getLinkedProjectsForSite(row.id).map((project) => project.projectName || 'Unnamed project');
+      return { value:row.id, label:`${row.siteName || 'Unnamed location'} | ${linkedProjects.join(', ') || 'No linked project'}` };
+    });
+}
 function buildAllJobTypeOptions(){
   return [...state.data.jobTypes].sort(getEntitySorter('jobTypes')).map((jobType) => ({ value:jobType.jobTypeKey, label:jobType.jobTypeName || 'Unnamed job type' }));
 }
@@ -1079,16 +1201,47 @@ function buildSiteTypeOptions(currentValue = ''){
   return getActiveSiteTypes(currentValue).map((siteType) => ({ value:siteType.siteTypeKey, label:siteType.siteTypeName || 'Unnamed site type' }));
 }
 function buildJobOptions(){ return state.data.jobs.map((row) => ({ value:row.id, label:`${getJobDisplayTitle(row)} | ${getSiteLabel(row.siteId)}` })); }
-function matchesProjectScope(recordProjectId, projectId){ return !projectId || recordProjectId === projectId || !recordProjectId; }
+function contactHasNoLinks(contact){ return !getProjectIdsForContact(contact.id).length && !getSiteIdsForContact(contact.id).length; }
+function contactMatchesProjectScope(contact, projectId = ''){
+  if(!projectId) return true;
+  if(contactHasNoLinks(contact)) return true;
+  if(getProjectIdsForContact(contact.id).includes(projectId)) return true;
+  return getSiteIdsForContact(contact.id).some((siteId) => getProjectIdsForSite(siteId).includes(projectId));
+}
+function contactMatchesJobScope(contact, projectId = '', siteId = ''){
+  if(contactHasNoLinks(contact)) return true;
+  const projectIds = getProjectIdsForContact(contact.id);
+  const siteIds = getSiteIdsForContact(contact.id);
+  return (!!projectId && projectIds.includes(projectId)) || (!!siteId && siteIds.includes(siteId));
+}
 function buildContactOptions(clientId = '', projectId = ''){
   return state.data.contacts
-    .filter((row) => (!clientId || row.clientId === clientId) && matchesProjectScope(row.projectId, projectId))
-    .map((row) => ({ value:row.id, label:`${row.contactName || 'Unnamed contact'} | ${row.contactRole || row.contactScope || 'Contact'}` }));
+    .filter((row) => (!clientId || row.clientId === clientId) && contactMatchesProjectScope(row, projectId))
+    .map((row) => ({ value:row.id, label:`${getContactDisplayName(row)} | ${row.contactRole || row.contactScope || 'Contact'}` }));
 }
-function buildJobContactOptions(clientId = '', projectId = ''){
+function buildJobContactOptions(clientId = '', projectId = '', siteId = ''){
   return state.data.contacts
-    .filter((row) => (!clientId || row.clientId === clientId) && matchesProjectScope(row.projectId, projectId))
-    .map((row) => ({ value:[row.contactName, row.contactRole].filter(Boolean).join(' | ') || row.contactName || 'Unnamed contact', label:`${row.contactName || 'Unnamed contact'} | ${row.contactRole || row.contactScope || 'Contact'}` }));
+    .filter((row) => (!clientId || row.clientId === clientId) && contactMatchesJobScope(row, projectId, siteId))
+    .map((row) => ({ value:[getContactDisplayName(row), row.contactRole].filter(Boolean).join(' | ') || getContactDisplayName(row), label:`${getContactDisplayName(row)} | ${row.contactRole || row.contactScope || 'Contact'}` }));
+}
+function getContactDescendantIds(contactId){
+  const descendants = new Set();
+  if(!contactId) return descendants;
+  const stack = state.data.contacts.filter((row) => row.managerContactId === contactId).map((row) => row.id);
+  while(stack.length){
+    const id = stack.pop();
+    if(!id || descendants.has(id)) continue;
+    descendants.add(id);
+    state.data.contacts.filter((row) => row.managerContactId === id).forEach((row) => stack.push(row.id));
+  }
+  return descendants;
+}
+function buildContactManagerOptions(clientId = '', currentContactId = modalState.id || ''){
+  const excluded = getContactDescendantIds(currentContactId);
+  if(currentContactId) excluded.add(currentContactId);
+  return state.data.contacts
+    .filter((row) => (!clientId || row.clientId === clientId) && !excluded.has(row.id))
+    .map((row) => ({ value:row.id, label:`${getContactDisplayName(row)} | ${row.contactRole || row.contactScope || 'Contact'}` }));
 }
 function buildAssetOptions(assetType = ''){ if(assetType === 'Truck') return state.data.trucks.map((row) => ({ value:row.id, label:row.unitNumber || 'Unnamed truck' })); if(assetType === 'Trailer') return state.data.trailers.map((row) => ({ value:row.id, label:row.trailerNumber || 'Unnamed trailer' })); return state.data.equipment.map((row) => ({ value:row.id, label:row.equipmentName || 'Unnamed equipment' })); }
 function buildResourceOptions(assignmentType = 'Technician'){
@@ -1158,6 +1311,16 @@ function handleDirectoryClientPickerKey(event){
   if(first) chooseDirectoryClient(first.id);
 }
 function setDirectorySection(value){ state.filters.directorySection = value; renderDirectory(); }
+function setDirectoryContactFilter(key, value){ state.filters[key] = value; renderDirectory(); }
+function setDirectoryContactSort(key){
+  if(state.filters.directoryContactSortKey === key){
+    state.filters.directoryContactSortDirection = state.filters.directoryContactSortDirection === 'asc' ? 'desc' : 'asc';
+  } else {
+    state.filters.directoryContactSortKey = key;
+    state.filters.directoryContactSortDirection = 'asc';
+  }
+  renderDirectory();
+}
 function setScheduleView(value){
   state.scheduleView = ['week', 'work_week', 'month'].includes(value) ? value : 'work_week';
   state.scheduleAnchorDate = state.scheduleView === 'month' ? getStartOfMonthISO(state.scheduleAnchorDate) : getStartOfWeekISO(state.scheduleAnchorDate);
@@ -1207,7 +1370,7 @@ function buildTableRow(entityKey, id, cells){
 
 function renderTable(columns, rows, emptyMarkup){
   if(!rows.length) return `<div class="empty-state">${emptyMarkup}</div>`;
-  return `<div class="table-wrap"><table><thead><tr>${columns.map((column) => `<th>${esc(column)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => {
+  return `<div class="table-wrap"><table><thead><tr>${columns.map((column) => `<th>${column}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => {
     const cells = Array.isArray(row) ? row : row.cells;
     const attrs = Array.isArray(row) ? '' : (row.attrs || '');
     return `<tr ${attrs}>${cells.map((cell) => `<td>${cell}</td>`).join('')}</tr>`;
@@ -1493,7 +1656,7 @@ function getActiveDirectoryClientId(){
 function getDirectoryProjects(clientId){ return state.data.projects.filter((row) => row.clientId === clientId).sort(getEntitySorter('projects')); }
 function getDirectoryContacts(clientId, projectId = 'all'){
   return state.data.contacts
-    .filter((row) => row.clientId === clientId && (projectId === 'all' || !row.projectId || row.projectId === projectId))
+    .filter((row) => row.clientId === clientId && (projectId === 'all' || contactMatchesProjectScope(row, projectId)))
     .sort(getEntitySorter('contacts'));
 }
 function getDirectoryBillingProfiles(clientId, projectId = 'all'){
@@ -1593,15 +1756,76 @@ function renderDirectoryProjectsSection(clientId, activeProjectId){
     ]);
   }), '<strong>No projects yet</strong>Create a project as soon as the client scope is defined so sites and jobs have a real operational home.');
 }
+function summarizeNamedItems(items, emptyLabel){
+  if(!items.length) return emptyLabel;
+  const names = items.slice(0, 2).map((item) => item.projectName || item.siteName || 'Unnamed');
+  return items.length > 2 ? `${names.join(', ')} +${items.length - 2} more` : names.join(', ');
+}
+function getContactProjectSummary(contact){
+  return summarizeNamedItems(getLinkedProjectsForContact(contact.id), 'Client-wide');
+}
+function getContactSiteSummary(contact){
+  return summarizeNamedItems(getLinkedSitesForContact(contact.id), 'No sites linked');
+}
+function getContactSortValue(contact, key){
+  if(key === 'scope') return contact.contactScope || '';
+  if(key === 'project') return getContactProjectSummary(contact);
+  if(key === 'site') return getContactSiteSummary(contact);
+  return `${getContactLastName(contact)} ${getContactFirstName(contact)} ${contact.contactName || ''}`;
+}
+function compareDirectoryContacts(left, right){
+  const key = state.filters.directoryContactSortKey || 'name';
+  const direction = state.filters.directoryContactSortDirection === 'desc' ? -1 : 1;
+  return direction * (compareStrings(getContactSortValue(left, key), getContactSortValue(right, key)) || compareStrings(getContactDisplayName(left), getContactDisplayName(right)));
+}
+function getFilteredDirectoryContacts(clientId, activeProjectId){
+  return getDirectoryContacts(clientId, activeProjectId)
+    .filter((contact) => {
+      const query = String(state.filters.directoryContactSearch || '').trim().toLowerCase();
+      if(query){
+        const haystack = [getContactDisplayName(contact), getContactFirstName(contact), getContactLastName(contact), contact.contactName].join(' ').toLowerCase();
+        if(!haystack.includes(query)) return false;
+      }
+      if(state.filters.directoryContactScope !== 'all' && contact.contactScope !== state.filters.directoryContactScope) return false;
+      if(state.filters.directoryContactProject !== 'all' && !getProjectIdsForContact(contact.id).includes(state.filters.directoryContactProject)) return false;
+      if(state.filters.directoryContactSite !== 'all' && !getSiteIdsForContact(contact.id).includes(state.filters.directoryContactSite)) return false;
+      return true;
+    })
+    .sort(compareDirectoryContacts);
+}
+function renderDirectoryContactSortHeader(key, label){
+  const active = state.filters.directoryContactSortKey === key;
+  const indicator = active ? (state.filters.directoryContactSortDirection === 'asc' ? ' ^' : ' v') : '';
+  return `<button class="sort-header-btn ${active ? 'active' : ''}" type="button" onclick="setDirectoryContactSort('${esc(key)}')" aria-label="Sort contacts by ${esc(label)}">${esc(label)}<span>${esc(indicator)}</span></button>`;
+}
+function renderDirectoryContactFilters(clientId){
+  const projects = getDirectoryProjects(clientId);
+  const sites = getDirectorySites(clientId, 'all');
+  return `<div class="toolbar directory-contact-toolbar"><span class="label">Name</span><input type="text" value="${esc(state.filters.directoryContactSearch)}" placeholder="Search contacts..." oninput="setDirectoryContactFilter('directoryContactSearch', this.value)"><span class="label">Scope</span><select onchange="setDirectoryContactFilter('directoryContactScope', this.value)"><option value="all" ${state.filters.directoryContactScope === 'all' ? 'selected' : ''}>All Scopes</option>${CONTACT_SCOPE_OPTIONS.map((scope) => `<option value="${esc(scope)}" ${state.filters.directoryContactScope === scope ? 'selected' : ''}>${esc(scope)}</option>`).join('')}</select><span class="label">Project</span><select onchange="setDirectoryContactFilter('directoryContactProject', this.value)"><option value="all" ${state.filters.directoryContactProject === 'all' ? 'selected' : ''}>All Projects</option>${projects.map((project) => `<option value="${esc(project.id)}" ${state.filters.directoryContactProject === project.id ? 'selected' : ''}>${esc(project.projectName || 'Unnamed project')}</option>`).join('')}</select><span class="label">Site</span><select onchange="setDirectoryContactFilter('directoryContactSite', this.value)"><option value="all" ${state.filters.directoryContactSite === 'all' ? 'selected' : ''}>All Sites</option>${sites.map((site) => `<option value="${esc(site.id)}" ${state.filters.directoryContactSite === site.id ? 'selected' : ''}>${esc(site.siteName || 'Unnamed site')}</option>`).join('')}</select></div>`;
+}
+function getSiteLocationPrimary(site){
+  return site.physicalAddress || site.gpsCoordinates || 'No address';
+}
+function getSiteLocationSecondary(site){
+  if(site.countyState) return site.countyState;
+  return site.gpsCoordinates ? 'GPS coordinates' : 'No county/state';
+}
 function renderDirectoryContactsSection(clientId, activeProjectId){
-  const contacts = getDirectoryContacts(clientId, activeProjectId);
-  return renderTable(['Contact', 'Scope', 'Project / Site', 'Phone / Email', 'Notes'], contacts.map((contact) => buildTableRow('contacts', contact.id, [
-    `<div class="inline-stack"><div class="item-title">${esc(contact.contactName || 'Unnamed contact')}</div><div class="muted">${esc(contact.contactRole || 'No role/title')}</div></div>`,
+  const contacts = getFilteredDirectoryContacts(clientId, activeProjectId);
+  const columns = [
+    renderDirectoryContactSortHeader('name', 'Contact'),
+    renderDirectoryContactSortHeader('scope', 'Scope'),
+    renderDirectoryContactSortHeader('site', 'Site'),
+    renderDirectoryContactSortHeader('project', 'Project'),
+    'Phone / Email'
+  ];
+  return `${renderDirectoryContactFilters(clientId)}${renderTable(columns, contacts.map((contact) => buildTableRow('contacts', contact.id, [
+    `<div class="inline-stack"><div class="item-title">${esc(getContactDisplayName(contact))}</div><div class="muted">${esc(contact.contactRole || 'No role/title')}${contact.managerContactId ? ` | Reports to ${esc(getContactLabel(contact.managerContactId))}` : ''}</div></div>`,
     `<div class="inline-stack">${getStatusBadge(contact.contactScope || 'Operations')}${contact.isPrimary ? '<span class="tag-chip">Primary</span>' : ''}</div>`,
-    `<div class="inline-stack"><div>${esc(contact.projectId ? getProjectLabel(contact.projectId) : 'Client-wide')}</div><div class="muted">${esc(contact.siteId ? getSiteLabel(contact.siteId) : 'No site linked')}</div></div>`,
-    `<div class="inline-stack"><div>${esc(contact.phone || 'No phone')}</div><div class="muted">${esc(contact.email || 'No email')}</div></div>`,
-    `<div class="muted">${esc(contact.notes || 'No notes')}</div>`
-  ])), '<strong>No contacts yet</strong>Add billing, operations, lab, and site contacts here so jobs can pull the right people into the workflow.');
+    esc(getContactSiteSummary(contact)),
+    esc(getContactProjectSummary(contact)),
+    `<div class="inline-stack"><div>${esc(contact.phone || 'No phone')}</div><div class="muted">${esc(contact.email || 'No email')}</div></div>`
+  ])), '<strong>No contacts match</strong>Adjust the contact filters or add a linked contact for this client.')}`;
 }
 function renderDirectoryBillingSection(clientId, activeProjectId){
   const billingProfiles = getDirectoryBillingProfiles(clientId, activeProjectId);
@@ -1620,7 +1844,7 @@ function renderDirectorySitesSection(clientId, activeProjectId){
     `<div class="inline-stack"><div class="item-title">${esc(site.siteName || 'Unnamed site')}</div><div class="muted">${esc(site.clientSiteContact || 'No site contact')}</div></div>`,
     esc(getLinkedProjectsForSite(site.id).map((project) => project.projectName || 'Unnamed project').join(', ') || 'No linked project'),
     `<div class="inline-stack">${getStatusBadge(getSiteTypeDisplayName(site.siteType))}${getStatusBadge(site.siteStatus || 'Active')}</div>`,
-    `<div class="inline-stack"><div>${esc(site.physicalAddress || 'No address')}</div><div class="muted">${esc(site.countyState || 'No county/state')}</div></div>`,
+    `<div class="inline-stack"><div>${esc(getSiteLocationPrimary(site))}</div><div class="muted">${esc(getSiteLocationSecondary(site))}</div></div>`,
     renderTags(getDefaultJobTypeLabelsForSiteType(site.siteType)),
     `<div class="inline-stack"><div>${esc(getJobsForSite(site.id).length)} job${getJobsForSite(site.id).length === 1 ? '' : 's'}</div><div class="muted">${esc(getSamplesForSite(site.id).length)} sample${getSamplesForSite(site.id).length === 1 ? '' : 's'}</div></div>`
   ])), '<strong>No site/locations yet</strong>Add project-linked locations here so field jobs can be scheduled to real places.');
@@ -1653,7 +1877,7 @@ function renderDirectory(){
   document.getElementById('directory-detail-title').textContent = activeClient.clientName || 'Client Workspace';
   document.getElementById('directory-detail-meta').textContent = `${normalizeClientCode(activeClient.clientCode) || 'No client code'} | ${getDirectoryProjects(activeClient.id).length} projects | ${contacts.length} contacts | ${billingProfiles.length} billing profile(s) | ${sites.length} site(s)`;
   document.getElementById('directory-detail-actions').innerHTML = `<button class="act-btn" type="button" onclick="openEntityModal('clients','${esc(activeClient.id)}')">Edit Client</button><button class="act-btn" type="button" onclick="openEntityModal('projects')">+ Project</button><button class="act-btn" type="button" onclick="openEntityModal('contacts')">+ Contact</button><button class="act-btn" type="button" onclick="openEntityModal('billingProfiles')">+ Billing</button><button class="act-btn" type="button" onclick="openEntityModal('sites')">+ Site/Location</button><button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Job</button>`;
-  document.getElementById('directory-workspace').innerHTML = `${renderDirectorySectionNav()}<div class="directory-hero"><div class="client-row-ident">${renderAssetPhoto(activeClient, { className:'client-logo-thumb', emptyLabel:'No logo', alt:getAssetPhotoAlt('clients', activeClient) })}<div class="inline-stack"><div class="item-title">${esc(activeClient.clientName || 'Unnamed client')}</div><div class="muted">${esc(normalizeClientCode(activeClient.clientCode) || 'No client code')} | ${esc(activeClient.primaryContact || 'No primary contact')} | ${esc(activeClient.contactPhone || activeClient.contactEmail || 'No phone or email')}</div><div class="mini-tags">${getStatusBadge(activeClient.accountStatus)}${getStatusBadge(activeClient.serviceScope || 'Field')}</div></div></div><div class="directory-hero-copy">Build the account once, then keep projects, billing, contacts, sites, and jobs connected instead of split across separate screens.</div></div>${renderDirectoryWorkspace(activeClient, activeProjectId)}`;
+  document.getElementById('directory-workspace').innerHTML = `${renderDirectorySectionNav()}<div class="directory-hero"><div class="client-row-ident client-hero-ident">${renderAssetPhoto(activeClient, { className:'client-logo-thumb client-logo-hero', emptyLabel:'No logo', alt:getAssetPhotoAlt('clients', activeClient) })}<div class="client-hero-title">${esc(activeClient.clientName || 'Unnamed client')}</div></div></div>${renderDirectoryWorkspace(activeClient, activeProjectId)}`;
   hydrateAssetPhotoPreviews(directoryScreen);
 }
 
@@ -2013,6 +2237,7 @@ function openSharedSiteEditor(siteId = ''){
     data:state.data,
     getProjectsForClient:(targetClientId) => state.data.projects.filter((project) => project.clientId === String(targetClientId || '')).sort(getEntitySorter('projects')),
     getProjectIdsForSite,
+    getContactsForSite,
     getSiteTypeOptions:(currentValue = '') => buildSiteTypeOptions(currentValue),
     getSiteTypeDefaultJobTypes:(siteType) => getDefaultJobTypeLabelsForSiteType(siteType),
     resolveSiteTypeValue:(siteType) => resolveSiteTypeValue(state.data.siteTypes, siteType),
@@ -2062,6 +2287,16 @@ function openEntityModal(entityKey, id = ''){
   if(entityKey === 'sites'){
     draft.projectIds = normalizeStringArray(draft.projectIds).length ? normalizeStringArray(draft.projectIds) : normalizeStringArray(draft.projectId);
     draft.siteType = resolveSiteTypeValue(state.data.siteTypes, draft.siteType);
+  }
+  if(entityKey === 'contacts'){
+    const parsedName = splitContactName(draft.contactName);
+    if(!draft.contactFirstName) draft.contactFirstName = parsedName.first;
+    if(!draft.contactLastName) draft.contactLastName = parsedName.last;
+    draft.contactName = buildContactName(draft.contactFirstName, draft.contactLastName, draft.contactName);
+    draft.projectIds = normalizeStringArray(draft.projectIds).length ? normalizeStringArray(draft.projectIds) : getProjectIdsForContact(draft.id);
+    draft.siteIds = normalizeStringArray(draft.siteIds).length ? normalizeStringArray(draft.siteIds) : getSiteIdsForContact(draft.id);
+    draft.projectId = draft.projectIds[0] || '';
+    draft.siteId = draft.siteIds[0] || '';
   }
   if(entityKey === 'siteTypes'){
     draft.siteTypeKey = normalizeSiteTypeKey(draft.siteTypeKey || draft.siteTypeName);
@@ -2133,10 +2368,12 @@ function changeSiteClient(value){
 }
 function changeContactClient(value){
   modalState.formData.clientId = value;
-  const project = getProject(modalState.formData.projectId);
-  if(project && project.clientId !== value) modalState.formData.projectId = '';
-  const site = getSite(modalState.formData.siteId);
-  if(site && site.clientId !== value) modalState.formData.siteId = '';
+  modalState.formData.projectIds = normalizeStringArray(modalState.formData.projectIds).filter((projectId) => getProject(projectId)?.clientId === value);
+  modalState.formData.siteIds = normalizeStringArray(modalState.formData.siteIds).filter((siteId) => getSite(siteId)?.clientId === value);
+  const manager = getContact(modalState.formData.managerContactId);
+  if(manager && manager.clientId !== value) modalState.formData.managerContactId = '';
+  modalState.formData.projectId = modalState.formData.projectIds[0] || '';
+  modalState.formData.siteId = modalState.formData.siteIds[0] || '';
   renderModal();
 }
 function changeContactProject(value){
@@ -2251,7 +2488,17 @@ function validateModal(){
   }
   if(entityKey === 'contacts'){
     if(!String(formData.clientId || '').trim()) return 'Client is required.';
-    if(!String(formData.contactName || '').trim()) return 'Contact name is required.';
+    if(!String(formData.contactFirstName || '').trim() && !String(formData.contactLastName || '').trim()) return 'First or last name is required.';
+    const invalidProject = normalizeStringArray(formData.projectIds).find((projectId) => getProject(projectId)?.clientId !== formData.clientId);
+    if(invalidProject) return 'Each linked project must belong to the selected client.';
+    const invalidSite = normalizeStringArray(formData.siteIds).find((siteId) => getSite(siteId)?.clientId !== formData.clientId);
+    if(invalidSite) return 'Each linked site/location must belong to the selected client.';
+    const manager = getContact(formData.managerContactId);
+    if(manager && manager.clientId !== formData.clientId) return 'The manager contact must belong to the selected client.';
+    if(formData.managerContactId && formData.managerContactId === modalState.id) return 'A contact cannot report to themselves.';
+    if(formData.managerContactId && getContactDescendantIds(modalState.id).has(formData.managerContactId)) return 'A contact cannot report to someone below them in the hierarchy.';
+    const reportWithDifferentClient = state.data.contacts.find((row) => row.managerContactId === modalState.id && row.clientId !== formData.clientId);
+    if(reportWithDifferentClient) return 'Existing report contacts must belong to the same client.';
   }
   if(entityKey === 'billingProfiles'){
     if(!String(formData.clientId || '').trim()) return 'Client is required.';
@@ -2360,6 +2607,35 @@ async function saveLocalRecord(entityKey, draft){
   return record.id;
 }
 
+function syncLocalContactLinks(next, contactId, projectIds, siteIds){
+  next.contactProjects = next.contactProjects.filter((row) => row.contactId !== contactId);
+  next.contactSites = next.contactSites.filter((row) => row.contactId !== contactId);
+  projectIds.forEach((projectId) => next.contactProjects.push(normalizeRecord('contactProjects', { id:`${contactId}::${projectId}`, contactId, projectId }, { fromRemote:false })));
+  siteIds.forEach((siteId) => next.contactSites.push(normalizeRecord('contactSites', { id:`${contactId}::${siteId}`, contactId, siteId }, { fromRemote:false })));
+}
+
+async function saveLocalContactRecord(draft){
+  const next = clone(state.data);
+  const projectIds = normalizeStringArray(draft.projectIds);
+  const siteIds = normalizeStringArray(draft.siteIds);
+  const contactName = buildContactName(draft.contactFirstName, draft.contactLastName, draft.contactName);
+  const contactDraft = { ...draft, contactName, projectIds, siteIds, projectId:projectIds[0] || '', siteId:siteIds[0] || '' };
+  const cfg = ENTITY_CONFIG.contacts;
+  const existingIndex = next.contacts.findIndex((row) => row.id === contactDraft.id);
+  const existing = existingIndex >= 0 ? next.contacts[existingIndex] : null;
+  const now = new Date().toISOString();
+  const record = normalizeRecord('contacts', { ...existing, ...contactDraft, id:contactDraft.id || existing?.id || uid(cfg.idPrefix), createdAt:existing?.createdAt || now, updatedAt:now }, { fromRemote:false });
+  record.projectIds = projectIds;
+  record.siteIds = siteIds;
+  record.projectId = projectIds[0] || '';
+  record.siteId = siteIds[0] || '';
+  if(existingIndex >= 0) next.contacts[existingIndex] = record; else next.contacts.unshift(record);
+  syncLocalContactLinks(next, record.id, projectIds, siteIds);
+  repairDataRelationships(next);
+  await persistLocal(next);
+  return record.id;
+}
+
 function syncLocalSiteProjectLinks(next, siteId, projectIds){
   next.siteProjects = next.siteProjects.filter((row) => row.siteId !== siteId);
   projectIds.forEach((projectId) => next.siteProjects.push(normalizeRecord('siteProjects', { id:`${siteId}::${projectId}`, siteId, projectId }, { fromRemote:false })));
@@ -2435,6 +2711,18 @@ async function saveRemoteJob(draft, assignments){
   await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'job_id', value:jobId }]);
   await remoteRepository.insertRows(ENTITY_CONFIG.jobAssignments.table, assignments.filter((row) => row.resourceId).map((row) => ({ job_id:jobId, assignment_type:row.assignmentType, resource_id:row.resourceId || null, assigned_start:null, assigned_end:null, assignment_status:'Assigned', assignment_notes:'' })));
   return jobId;
+}
+
+async function saveRemoteContactRecord(draft){
+  const projectIds = normalizeStringArray(draft.projectIds);
+  const siteIds = normalizeStringArray(draft.siteIds);
+  const contactName = buildContactName(draft.contactFirstName, draft.contactLastName, draft.contactName);
+  const contactId = await remoteRepository.saveRecord('contacts', { ...draft, contactName, projectId:projectIds[0] || '', siteId:siteIds[0] || '' });
+  await remoteRepository.deleteWhere(ENTITY_CONFIG.contactProjects.table, [{ column:'contact_id', value:contactId }]);
+  await remoteRepository.deleteWhere(ENTITY_CONFIG.contactSites.table, [{ column:'contact_id', value:contactId }]);
+  await remoteRepository.insertRows(ENTITY_CONFIG.contactProjects.table, projectIds.map((projectId) => ({ contact_id:contactId, project_id:projectId })));
+  await remoteRepository.insertRows(ENTITY_CONFIG.contactSites.table, siteIds.map((siteId) => ({ contact_id:contactId, site_id:siteId })));
+  return contactId;
 }
 
 async function saveRemoteSiteRecord(draft){
@@ -2545,6 +2833,9 @@ async function saveEntityFromModal(){
     if(modalState.entity === 'jobs'){
       if(isRemoteMode()){ await saveRemoteJob(modalState.formData, modalState.assignments); await loadData({ silent:true, force:true }); }
       else await saveLocalJob(modalState.formData, modalState.assignments);
+    } else if(modalState.entity === 'contacts'){
+      if(isRemoteMode()){ await saveRemoteContactRecord(modalState.formData); await loadData({ silent:true, force:true }); }
+      else await saveLocalContactRecord(modalState.formData);
     } else if(modalState.entity === 'sites'){
       if(isRemoteMode()){ await saveRemoteSiteRecord(modalState.formData); await loadData({ silent:true, force:true }); }
       else await saveLocalSiteRecord(modalState.formData);
@@ -2578,20 +2869,29 @@ function buildLocalDeleteResult(entityKey, id){
     next.clients = next.clients.filter((row) => row.id !== id);
     next.projects = next.projects.filter((row) => row.clientId !== id);
     next.contacts = next.contacts.filter((row) => row.clientId !== id);
+    next.contactProjects = next.contactProjects.filter((row) => next.contacts.some((contact) => contact.id === row.contactId));
+    next.contactSites = next.contactSites.filter((row) => next.contacts.some((contact) => contact.id === row.contactId));
     next.billingProfiles = next.billingProfiles.filter((row) => row.clientId !== id);
     next.sites = next.sites.filter((row) => row.clientId !== id);
     next.siteProjects = next.siteProjects.filter((row) => !clientSiteIds.has(row.siteId));
   }
   else if(entityKey === 'projects'){
     next.projects = next.projects.filter((row) => row.id !== id);
-    next.contacts = next.contacts.filter((row) => row.projectId !== id);
+    next.contacts = next.contacts.map((row) => row.projectId === id ? { ...row, projectId:'' } : row);
+    next.contactProjects = next.contactProjects.filter((row) => row.projectId !== id);
     next.billingProfiles = next.billingProfiles.filter((row) => row.projectId !== id);
     next.siteProjects = next.siteProjects.filter((row) => row.projectId !== id);
   }
   else if(entityKey === 'sites'){
     next.sites = next.sites.filter((row) => row.id !== id);
     next.siteProjects = next.siteProjects.filter((row) => row.siteId !== id);
-    next.contacts = next.contacts.filter((row) => row.siteId !== id);
+    next.contacts = next.contacts.map((row) => row.siteId === id ? { ...row, siteId:'' } : row);
+    next.contactSites = next.contactSites.filter((row) => row.siteId !== id);
+  }
+  else if(entityKey === 'contacts'){
+    next.contacts = next.contacts.filter((row) => row.id !== id).map((row) => row.managerContactId === id ? { ...row, managerContactId:'' } : row);
+    next.contactProjects = next.contactProjects.filter((row) => row.contactId !== id);
+    next.contactSites = next.contactSites.filter((row) => row.contactId !== id);
   }
   else if(entityKey === 'siteTypes'){
     const siteType = next.siteTypes.find((row) => row.id === id) || null;
