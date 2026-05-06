@@ -716,7 +716,10 @@ create table if not exists public.field_job_assignments (
 
 create table if not exists public.employees (
   id uuid primary key default gen_random_uuid(),
+  employee_first_name text not null default '',
+  employee_last_name text not null default '',
   employee_name text not null default '',
+  home_spl_site text not null default 'Pittsburgh',
   work_scope text not null default 'Field' check (work_scope in ('Lab', 'Field', 'Both')),
   lab_role text not null default '',
   field_role text not null default '',
@@ -776,7 +779,10 @@ set job_type_name = excluded.job_type_name,
     required_assignment_types = excluded.required_assignment_types,
     detail_groups = excluded.detail_groups;
 
+alter table public.employees add column if not exists employee_first_name text not null default '';
+alter table public.employees add column if not exists employee_last_name text not null default '';
 alter table public.employees add column if not exists employee_name text not null default '';
+alter table public.employees add column if not exists home_spl_site text not null default 'Pittsburgh';
 alter table public.employees add column if not exists work_scope text not null default 'Field';
 alter table public.employees add column if not exists lab_role text not null default '';
 alter table public.employees add column if not exists field_role text not null default '';
@@ -786,6 +792,28 @@ alter table public.employees add column if not exists email text not null defaul
 alter table public.employees add column if not exists notes text not null default '';
 alter table public.employees drop constraint if exists employees_work_scope_check;
 alter table public.employees add constraint employees_work_scope_check check (work_scope in ('Lab', 'Field', 'Both'));
+
+update public.employees
+set
+  employee_first_name = case
+    when coalesce(employee_first_name, '') <> '' then employee_first_name
+    when position(',' in employee_name) > 0 then btrim(split_part(employee_name, ',', 2))
+    when employee_name !~ '[[:space:]]' then employee_name
+    else btrim(regexp_replace(employee_name, '[[:space:]]+[^[:space:]]+$', ''))
+  end,
+  employee_last_name = case
+    when coalesce(employee_last_name, '') <> '' then employee_last_name
+    when position(',' in employee_name) > 0 then btrim(split_part(employee_name, ',', 1))
+    when employee_name !~ '[[:space:]]' then ''
+    else btrim(substring(employee_name from '[^[:space:]]+$'))
+  end
+where coalesce(employee_name, '') <> ''
+  and (coalesce(employee_first_name, '') = '' or coalesce(employee_last_name, '') = '');
+
+update public.employees
+set employee_name = btrim(coalesce(nullif(employee_first_name, ''), '') || ' ' || coalesce(nullif(employee_last_name, ''), ''))
+where btrim(coalesce(employee_first_name, '') || ' ' || coalesce(employee_last_name, '')) <> ''
+  and employee_name <> btrim(coalesce(nullif(employee_first_name, ''), '') || ' ' || coalesce(nullif(employee_last_name, ''), ''));
 
 create table if not exists public.field_technicians (
   id uuid primary key default gen_random_uuid(),
@@ -806,7 +834,10 @@ alter table public.field_technicians drop column if exists availability_status;
 alter table public.field_technicians drop column if exists skill_tags;
 
 insert into public.employees (
+  employee_first_name,
+  employee_last_name,
   employee_name,
+  home_spl_site,
   work_scope,
   lab_role,
   field_role,
@@ -820,7 +851,18 @@ insert into public.employees (
   updated_by
 )
 select
+  case
+    when position(',' in ft.employee_name) > 0 then btrim(split_part(ft.employee_name, ',', 2))
+    when ft.employee_name !~ '[[:space:]]' then ft.employee_name
+    else btrim(regexp_replace(ft.employee_name, '[[:space:]]+[^[:space:]]+$', ''))
+  end,
+  case
+    when position(',' in ft.employee_name) > 0 then btrim(split_part(ft.employee_name, ',', 1))
+    when ft.employee_name !~ '[[:space:]]' then ''
+    else btrim(substring(ft.employee_name from '[^[:space:]]+$'))
+  end,
   ft.employee_name,
+  'Pittsburgh',
   'Field',
   '',
   ft.role,

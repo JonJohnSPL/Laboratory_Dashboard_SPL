@@ -32,6 +32,7 @@ let modalSampleGroupKeys = [];
 let expandedSampleGroups = new Set();
 let modalPdfAttachment = null;
 const FIELD_DIRECTORY_STORAGE_KEY = 'field-ops-dashboard-data';
+const LOCAL_SPL_SITE = 'Pittsburgh';
 let sharedDirectory = { clients:[], projects:[], employees:[] };
 let lastLoadedSharedDirectorySignature = '';
 let appView = 'queue';
@@ -145,18 +146,27 @@ return WO_STAGE.RUNNING;
 }
 function normalizeSharedClientRecord(src, fromRemote = false){ return { id:String(src?.id || ''), clientName:String((fromRemote ? src?.client_name : src?.clientName) || ''), clientCode:normalizeClientCode(fromRemote ? src?.client_code : src?.clientCode), serviceScope:String((fromRemote ? src?.service_scope : src?.serviceScope) || 'Field') }; }
 function normalizeSharedProjectRecord(src, fromRemote = false){ return { id:String(src?.id || ''), clientId:String((fromRemote ? src?.client_id : src?.clientId) || ''), projectName:String((fromRemote ? src?.project_name : src?.projectName) || ''), serviceScope:String((fromRemote ? src?.service_scope : src?.serviceScope) || 'Field'), projectStatus:String((fromRemote ? src?.project_status : src?.projectStatus) || 'Active') }; }
-function normalizeSharedEmployeeRecord(src, fromRemote = false){ return { id:String(src?.id || ''), employeeName:String((fromRemote ? src?.employee_name : src?.employeeName) || ''), workScope:String((fromRemote ? src?.work_scope : src?.workScope) || 'Field'), labRole:String((fromRemote ? src?.lab_role : src?.labRole) || ''), fieldRole:String((fromRemote ? src?.field_role : src?.fieldRole) || ''), canSampleTransport:!!(fromRemote ? src?.can_sample_transport : src?.canSampleTransport), phone:String((fromRemote ? src?.phone : src?.phone) || ''), email:String((fromRemote ? src?.email : src?.email) || ''), notes:String((fromRemote ? src?.notes : src?.notes) || '') }; }
+function splitSharedEmployeeName(value){ const raw = String(value || '').trim(); if(!raw) return { first:'', last:'' }; if(raw.includes(',')){ const [last, ...firstParts] = raw.split(','); return { first:firstParts.join(',').trim(), last:last.trim() }; } const parts = raw.split(/\s+/).filter(Boolean); if(parts.length <= 1) return { first:parts[0] || '', last:'' }; return { first:parts.slice(0, -1).join(' '), last:parts[parts.length - 1] }; }
+function buildSharedEmployeeName(firstName, lastName, fallback = ''){ const first = String(firstName || '').trim(); const last = String(lastName || '').trim(); return [first, last].filter(Boolean).join(' ') || String(fallback || '').trim(); }
+function getSharedEmployeeFullName(employee){ return buildSharedEmployeeName(employee?.employeeFirstName, employee?.employeeLastName, employee?.employeeName) || 'Unassigned'; }
+function getSharedEmployeeListName(employee){ const first = String(employee?.employeeFirstName || '').trim(); const last = String(employee?.employeeLastName || '').trim(); if(last && first) return `${last}, ${first}`; return last || first || String(employee?.employeeName || '').trim() || 'Unassigned'; }
+function getSharedEmployeeHomeSite(employee){ return String(employee?.homeSplSite || LOCAL_SPL_SITE).trim() || LOCAL_SPL_SITE; }
+function getSharedEmployeeOptionLabel(employee){ return `${getSharedEmployeeListName(employee)} | ${getSharedEmployeeHomeSite(employee)}`; }
+function normalizeSharedEmployeeRecord(src, fromRemote = false){ const record = { id:String(src?.id || ''), employeeFirstName:String((fromRemote ? src?.employee_first_name : src?.employeeFirstName) || ''), employeeLastName:String((fromRemote ? src?.employee_last_name : src?.employeeLastName) || ''), employeeName:String((fromRemote ? src?.employee_name : src?.employeeName) || ''), homeSplSite:String((fromRemote ? src?.home_spl_site : src?.homeSplSite) || LOCAL_SPL_SITE), workScope:String((fromRemote ? src?.work_scope : src?.workScope) || 'Field'), labRole:String((fromRemote ? src?.lab_role : src?.labRole) || ''), fieldRole:String((fromRemote ? src?.field_role : src?.fieldRole) || ''), canSampleTransport:!!(fromRemote ? src?.can_sample_transport : src?.canSampleTransport), phone:String((fromRemote ? src?.phone : src?.phone) || ''), email:String((fromRemote ? src?.email : src?.email) || ''), notes:String((fromRemote ? src?.notes : src?.notes) || '') }; const parsedName = splitSharedEmployeeName(record.employeeName); if(!record.employeeFirstName) record.employeeFirstName = parsedName.first; if(!record.employeeLastName) record.employeeLastName = parsedName.last; record.employeeName = getSharedEmployeeFullName(record); record.homeSplSite = getSharedEmployeeHomeSite(record); return record; }
 function getSharedClientRecord(clientId){ return sharedDirectory.clients.find(client => client.id === clientId) || null; }
 function getSharedClientRecordByCode(clientCode){ const normalized = normalizeClientCode(clientCode); return normalized ? (sharedDirectory.clients.find(client => client.clientCode === normalized) || null) : null; }
 function getSharedProjectRecord(projectId){ return sharedDirectory.projects.find(project => project.id === projectId) || null; }
 function getSharedEmployeeRecord(employeeId){ return sharedDirectory.employees.find(employee => employee.id === employeeId) || null; }
-function getSharedEmployeeName(employeeId){ return getSharedEmployeeRecord(employeeId)?.employeeName || 'Unassigned'; }
+function getSharedEmployeeName(employeeId){ const employee = getSharedEmployeeRecord(employeeId); return employee ? getSharedEmployeeListName(employee) : 'Unassigned'; }
 function getLabRosterEmployees(){ return sharedDirectory.employees.filter(employee => ['Lab', 'Both'].includes(employee.workScope || '')); }
 function deriveSharedEmployeesFromLegacy(source){
   const technicians = Array.isArray(source?.technicians) ? source.technicians : [];
   return technicians.map(row => normalizeSharedEmployeeRecord({
     id: row?.id || uid(),
+    employeeFirstName: row?.employeeFirstName || row?.employee_first_name || '',
+    employeeLastName: row?.employeeLastName || row?.employee_last_name || '',
     employeeName: row?.employeeName || row?.employee_name || '',
+    homeSplSite: row?.homeSplSite || row?.home_spl_site || LOCAL_SPL_SITE,
     workScope: 'Field',
     labRole: '',
     fieldRole: row?.role || 'Field Tech',
@@ -180,7 +190,7 @@ async function loadSharedDirectory(){
       const [clients, projects, employees] = await Promise.all([
         window.appAuth.requestJson('/rest/v1/field_clients?select=id,client_name,client_code,service_scope'),
         window.appAuth.requestJson('/rest/v1/field_projects?select=id,client_id,project_name,service_scope,project_status'),
-        window.appAuth.requestJson('/rest/v1/employees?select=id,employee_name,work_scope,lab_role,field_role,can_sample_transport,phone,email,notes')
+        window.appAuth.requestJson('/rest/v1/employees?select=id,employee_first_name,employee_last_name,employee_name,home_spl_site,work_scope,lab_role,field_role,can_sample_transport,phone,email,notes')
       ]);
       next = {
         clients:(Array.isArray(clients) ? clients : []).map(row => normalizeSharedClientRecord(row, true)).filter(row => row.id),
@@ -200,7 +210,7 @@ async function loadSharedDirectory(){
     }
     next.clients.sort((a, b) => a.clientName.localeCompare(b.clientName));
     next.projects.sort((a, b) => a.projectName.localeCompare(b.projectName));
-    next.employees.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+    next.employees.sort((a, b) => getSharedEmployeeListName(a).localeCompare(getSharedEmployeeListName(b)));
     const signature = JSON.stringify(next);
     if(signature === lastLoadedSharedDirectorySignature) return false;
     sharedDirectory = next;
@@ -273,8 +283,10 @@ function getOpenScheduleTaskMap(){ const map = new Map(); getOpenWOsSorted().for
 function buildEmployeeNameLookup(){
 const lookup = new Map();
 sharedDirectory.employees.forEach(employee => {
-const key = String(employee.employeeName || '').trim().toLowerCase();
+[getSharedEmployeeListName(employee), getSharedEmployeeFullName(employee), employee.employeeName].forEach(value => {
+const key = String(value || '').trim().toLowerCase();
 if(key && !lookup.has(key)) lookup.set(key, employee.id);
+});
 });
 return lookup;
 }
@@ -576,7 +588,7 @@ if(schedDate) schedDate.value = scheduleState.date || todayISO();
 const employeeInput = document.getElementById('employee-input');
 if(employeeInput){
 const current = employeeInput.value || '';
-employeeInput.innerHTML = ['<option value="">Select employee...</option>', ...getLabRosterEmployees().map(employee => `<option value="${esc(employee.id)}">${esc(employee.employeeName)}</option>`)].join('');
+employeeInput.innerHTML = ['<option value="">Select employee...</option>', ...getLabRosterEmployees().map(employee => `<option value="${esc(employee.id)}">${esc(getSharedEmployeeOptionLabel(employee))}</option>`)].join('');
 employeeInput.value = getLabRosterEmployees().some(employee => employee.id === current) ? current : '';
 }
 renderPrintTargetOptions();

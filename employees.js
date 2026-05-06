@@ -2,6 +2,7 @@ const EMPLOYEE_STORAGE_KEY = 'field-ops-dashboard-data';
 const LAB_ROLE_OPTIONS = ['Lab Tech', 'Senior Lab Tech', 'Lab Lead', 'Lab Supervisor'];
 const FIELD_ROLE_OPTIONS = ['Field Tech', 'Senior Field Tech', 'Supervisor', 'Manager'];
 const WORK_SCOPE_OPTIONS = ['Lab', 'Field', 'Both'];
+const LOCAL_SPL_SITE = 'Pittsburgh';
 
 let state = {
   employees: [],
@@ -31,13 +32,57 @@ function normalizeBoolean(value){
   return value === true || value === 'true' || value === 1 || value === '1';
 }
 
+function splitEmployeeName(value){
+  const raw = String(value || '').trim();
+  if(!raw) return { first:'', last:'' };
+  if(raw.includes(',')){
+    const [last, ...firstParts] = raw.split(',');
+    return { first:firstParts.join(',').trim(), last:last.trim() };
+  }
+  const parts = raw.split(/\s+/).filter(Boolean);
+  if(parts.length <= 1) return { first:parts[0] || '', last:'' };
+  return { first:parts.slice(0, -1).join(' '), last:parts[parts.length - 1] };
+}
+
+function buildEmployeeName(firstName, lastName, fallback = ''){
+  const first = String(firstName || '').trim();
+  const last = String(lastName || '').trim();
+  const combined = [first, last].filter(Boolean).join(' ');
+  return combined || String(fallback || '').trim();
+}
+
+function getEmployeeFullName(employee){
+  return buildEmployeeName(employee?.employeeFirstName, employee?.employeeLastName, employee?.employeeName) || 'Unnamed employee';
+}
+
+function getEmployeeListName(employee){
+  const first = String(employee?.employeeFirstName || '').trim();
+  const last = String(employee?.employeeLastName || '').trim();
+  if(first && last) return `${last}, ${first}`;
+  if(last) return last;
+  return first || String(employee?.employeeName || '').trim() || 'Unnamed employee';
+}
+
+function isVisitingEmployee(employee){
+  const site = String(employee?.homeSplSite || LOCAL_SPL_SITE).trim();
+  return !!site && site.toLowerCase() !== LOCAL_SPL_SITE.toLowerCase();
+}
+
+function getEmployeeOptionLabel(employee){
+  const site = String(employee?.homeSplSite || LOCAL_SPL_SITE).trim() || LOCAL_SPL_SITE;
+  return `${getEmployeeListName(employee)} | ${site}`;
+}
+
 function isRemoteMode(){
   return !!(window.appAuth && typeof window.appAuth.getMode === 'function' && window.appAuth.getMode() === 'remote');
 }
 
 function createEmployeeDraft(){
   return {
+    employeeFirstName: '',
+    employeeLastName: '',
     employeeName: '',
+    homeSplSite: LOCAL_SPL_SITE,
     workScope: 'Field',
     labRole: '',
     fieldRole: 'Field Tech',
@@ -52,7 +97,14 @@ function createEmployeeDraft(){
 function normalizeEmployeeRecord(source, fromRemote = false){
   const record = createEmployeeDraft();
   record.id = String(source?.id || '');
+  record.employeeFirstName = String((fromRemote ? source?.employee_first_name : source?.employeeFirstName) || '');
+  record.employeeLastName = String((fromRemote ? source?.employee_last_name : source?.employeeLastName) || '');
   record.employeeName = String((fromRemote ? source?.employee_name : source?.employeeName) || '');
+  const parsedName = splitEmployeeName(record.employeeName);
+  if(!record.employeeFirstName) record.employeeFirstName = parsedName.first;
+  if(!record.employeeLastName) record.employeeLastName = parsedName.last;
+  record.employeeName = buildEmployeeName(record.employeeFirstName, record.employeeLastName, record.employeeName);
+  record.homeSplSite = String((fromRemote ? source?.home_spl_site : source?.homeSplSite) || LOCAL_SPL_SITE);
   record.workScope = String((fromRemote ? source?.work_scope : source?.workScope) || 'Field');
   record.labRole = String((fromRemote ? source?.lab_role : source?.labRole) || '');
   record.fieldRole = String((fromRemote ? source?.field_role : source?.fieldRole) || '');
@@ -79,7 +131,7 @@ function compareStrings(left, right){
 }
 
 function sortEmployees(list){
-  return [...list].sort((left, right) => compareStrings(left.employeeName, right.employeeName));
+  return [...list].sort((left, right) => compareStrings(getEmployeeListName(left), getEmployeeListName(right)));
 }
 
 function sortTrucks(list){
@@ -90,7 +142,10 @@ function deriveEmployeesFromLegacyTechnicians(raw){
   const technicians = Array.isArray(raw?.technicians) ? raw.technicians : [];
   return technicians.map((tech) => normalizeEmployeeRecord({
     id: tech.id || uid(),
+    employeeFirstName: tech.employeeFirstName || tech.employee_first_name || '',
+    employeeLastName: tech.employeeLastName || tech.employee_last_name || '',
     employeeName: tech.employeeName || tech.employee_name || '',
+    homeSplSite: tech.homeSplSite || tech.home_spl_site || LOCAL_SPL_SITE,
     workScope: 'Field',
     labRole: '',
     fieldRole: tech.role || 'Field Tech',
@@ -131,7 +186,10 @@ function buildLocalWritePayload(rawData, employees, trucks){
     ...(rawData || {}),
     employees: sortEmployees(employees).map((employee) => ({
       id: employee.id,
+      employeeFirstName: employee.employeeFirstName,
+      employeeLastName: employee.employeeLastName,
       employeeName: employee.employeeName,
+      homeSplSite: employee.homeSplSite || LOCAL_SPL_SITE,
       workScope: employee.workScope,
       labRole: employee.labRole,
       fieldRole: employee.fieldRole,
@@ -163,8 +221,12 @@ const remoteRepository = {
     };
   },
   async saveEmployee(formData){
+    const employeeName = buildEmployeeName(formData.employeeFirstName, formData.employeeLastName, formData.employeeName);
     const payload = {
-      employee_name: formData.employeeName,
+      employee_first_name: String(formData.employeeFirstName || '').trim(),
+      employee_last_name: String(formData.employeeLastName || '').trim(),
+      employee_name: employeeName,
+      home_spl_site: String(formData.homeSplSite || LOCAL_SPL_SITE).trim() || LOCAL_SPL_SITE,
       work_scope: formData.workScope,
       lab_role: formData.labRole,
       field_role: formData.fieldRole,
@@ -222,7 +284,7 @@ const remoteRepository = {
 
 function syncEmployeeDefaultTruckLocal(employees, trucks, employeeRecord){
   const employeeId = String(employeeRecord.id || '');
-  const employeeName = String(employeeRecord.employeeName || '');
+  const employeeName = getEmployeeFullName(employeeRecord);
   const defaultTruckId = String(employeeRecord.defaultTruckId || '');
   const nextTrucks = trucks.map((truck) => {
     if(defaultTruckId && truck.id === defaultTruckId){
@@ -272,7 +334,11 @@ function getFilteredEmployees(){
     if(scope !== 'all' && employee.workScope !== scope) return false;
     if(!search) return true;
     return [
+      employee.employeeFirstName,
+      employee.employeeLastName,
       employee.employeeName,
+      getEmployeeListName(employee),
+      employee.homeSplSite,
       employee.email,
       employee.phone,
       employee.labRole,
@@ -286,27 +352,28 @@ function renderStats(filteredEmployees){
   const labCount = state.employees.filter((employee) => ['Lab', 'Both'].includes(employee.workScope)).length;
   const fieldCount = state.employees.filter((employee) => ['Field', 'Both'].includes(employee.workScope)).length;
   const transportCount = state.employees.filter((employee) => employee.canSampleTransport).length;
-  const assignedTruckCount = state.trucks.filter((truck) => truck.assignedTechnicianId).length;
+  const visitingCount = state.employees.filter((employee) => isVisitingEmployee(employee)).length;
   document.getElementById('employee-stats').innerHTML = `
     <div class="stat-card"><div class="stat-label">Filtered Employees</div><div class="stat-value">${filteredEmployees.length}</div></div>
     <div class="stat-card warn"><div class="stat-label">Lab Eligible</div><div class="stat-value warn">${labCount}</div></div>
     <div class="stat-card ok"><div class="stat-label">Field Eligible</div><div class="stat-value ok">${fieldCount}</div></div>
     <div class="stat-card priority"><div class="stat-label">Sample Transport</div><div class="stat-value priority">${transportCount}</div></div>
-    <div class="stat-card"><div class="stat-label">Truck Defaults</div><div class="stat-value">${assignedTruckCount}</div></div>
+    <div class="stat-card"><div class="stat-label">Visiting</div><div class="stat-value">${visitingCount}</div></div>
   `;
 }
 
 function renderEmployeeCard(employee){
   const defaultTruck = getDefaultTruckForEmployee(employee.id);
   const transportBadge = employee.canSampleTransport ? '<span class="warning-chip">Sample Pickup / Drop-Off</span>' : '';
+  const visitingBadge = isVisitingEmployee(employee) ? '<span class="warning-chip">Visiting</span>' : '';
   return `
     <div class="employee-card clickable-card" role="button" tabindex="0" onclick="openEmployeeModal('${esc(employee.id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEmployeeModal('${esc(employee.id)}'); }">
       <div class="employee-card-head">
         <div class="employee-card-copy">
-          <div class="item-title">${esc(employee.employeeName || 'Unnamed employee')}</div>
+          <div class="item-title">${esc(getEmployeeFullName(employee))}</div>
           <div class="muted">${esc(getRoleSummary(employee))}</div>
         </div>
-        <div class="mini-tags">${getScopeBadge(employee.workScope)}${transportBadge}</div>
+        <div class="mini-tags">${getScopeBadge(employee.workScope)}${visitingBadge}${transportBadge}</div>
       </div>
       <div class="employee-meta-grid">
         <div class="employee-meta">
@@ -316,6 +383,10 @@ function renderEmployeeCard(employee){
         <div class="employee-meta">
           <div class="label">Contact</div>
           <div class="value">${esc(employee.phone || employee.email || 'No contact info')}</div>
+        </div>
+        <div class="employee-meta">
+          <div class="label">Home SPL Site</div>
+          <div class="value">${esc(employee.homeSplSite || LOCAL_SPL_SITE)}</div>
         </div>
       </div>
       <div class="muted">${esc(employee.notes || 'No profile notes added yet.')}</div>
@@ -359,8 +430,16 @@ function renderModalBody(){
   const body = `
     <div class="form-grid">
       <div class="form-group">
-        <label class="form-label">Employee Name</label>
-        <input class="form-input" type="text" value="${esc(modalState.formData.employeeName || '')}" oninput="setModalField('employeeName', this.value)">
+        <label class="form-label">First Name</label>
+        <input class="form-input" type="text" value="${esc(modalState.formData.employeeFirstName || '')}" oninput="setModalField('employeeFirstName', this.value)">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Last Name</label>
+        <input class="form-input" type="text" value="${esc(modalState.formData.employeeLastName || '')}" oninput="setModalField('employeeLastName', this.value)">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Home SPL Site</label>
+        <input class="form-input" type="text" value="${esc(modalState.formData.homeSplSite || LOCAL_SPL_SITE)}" oninput="setModalField('homeSplSite', this.value)">
       </div>
       <div class="form-group">
         <label class="form-label">Work Scope</label>
@@ -428,7 +507,8 @@ function changeWorkScope(value){
 
 function validateModal(){
   const formData = modalState.formData;
-  if(!String(formData.employeeName || '').trim()) return 'Employee name is required.';
+  if(!String(formData.employeeFirstName || '').trim() && !String(formData.employeeLastName || '').trim()) return 'First or last name is required.';
+  if(!String(formData.homeSplSite || '').trim()) return 'Home SPL Site is required.';
   if(!WORK_SCOPE_OPTIONS.includes(formData.workScope)) return 'Choose a valid work scope.';
   if(isLabEligible(formData.workScope) && !String(formData.labRole || '').trim()) return 'Lab role is required for Lab or Both employees.';
   if(isFieldEligible(formData.workScope) && !String(formData.fieldRole || '').trim()) return 'Field role is required for Field or Both employees.';
@@ -460,6 +540,8 @@ async function saveEmployee(){
   showSaveStatus('saving', 'SAVING');
   try {
     const formData = clone(modalState.formData);
+    formData.homeSplSite = String(formData.homeSplSite || LOCAL_SPL_SITE).trim() || LOCAL_SPL_SITE;
+    formData.employeeName = buildEmployeeName(formData.employeeFirstName, formData.employeeLastName, formData.employeeName);
     if(isRemoteMode()){
       const employeeId = await remoteRepository.saveEmployee({ ...formData, id:modalState.id });
       await remoteRepository.assignDefaultTruck(employeeId, formData.employeeName, isFieldEligible(formData.workScope) ? String(formData.defaultTruckId || '') : '');
