@@ -65,31 +65,16 @@ const DEFAULT_SITE_TYPE_DEFS = [
   { siteTypeKey:'OFFICE_YARD', siteTypeName:'Office / Yard', isActive:true },
   { siteTypeKey:'OTHER', siteTypeName:'Other', isActive:true }
 ];
-const DEFAULT_JOB_TYPE_COLOR = '#59d67d';
-const BUILT_IN_JOB_TYPE_COLORS = {
-  ALLOCATION_PROVING:'#4ee29a',
-  LACT_PROVING:'#52e0d4',
-  SAMPLE_PICKUP:'#ffd166',
-  SAMPLE_DROP_OFF:'#7bc4ff',
-  MAINTENANCE:'#ff5d73',
-  MULTI_SERVICE:'#b0f28f'
-};
-const JOB_TYPE_COLOR_OPTIONS = [
-  { value:'#4ee29a', label:'Allocation Proving' },
-  { value:'#52e0d4', label:'LACT Proving' },
-  { value:'#ffd166', label:'Sample Pickup' },
-  { value:'#7bc4ff', label:'Sample Drop-Off' },
-  { value:'#ff5d73', label:'Maintenance' },
-  { value:'#b0f28f', label:'Multi-Service' },
-  { value:DEFAULT_JOB_TYPE_COLOR, label:'Default' }
-];
+const STANDARD_JOB_TYPE_COLORS = ['#f56584', '#ffa29f', '#ffff97', '#cdff82', '#8afcc3', '#90eeff', '#d683fc', '#ff8af3'];
+const DEFAULT_JOB_TYPE_COLOR = STANDARD_JOB_TYPE_COLORS[0];
+const JOB_TYPE_COLOR_OPTIONS = STANDARD_JOB_TYPE_COLORS.map((color) => ({ value:color, label:color }));
 const DEFAULT_JOB_TYPE_DEFS = [
-  { jobTypeKey:'ALLOCATION_PROVING', jobTypeName:'Allocation Proving', jobTypeColor:'#4ee29a', isActive:true, scheduleMode:'range', requiredAssignmentTypes:['Technician', 'Truck', 'Equipment'], detailGroups:['proving', 'execution'] },
-  { jobTypeKey:'LACT_PROVING', jobTypeName:'LACT Proving', jobTypeColor:'#52e0d4', isActive:true, scheduleMode:'range', requiredAssignmentTypes:['Technician', 'Truck', 'Equipment'], detailGroups:['proving', 'execution'] },
-  { jobTypeKey:'SAMPLE_PICKUP', jobTypeName:'Sample Pickup', jobTypeColor:'#ffd166', isActive:true, scheduleMode:'point_in_time', requiredAssignmentTypes:['Technician', 'Truck'], detailGroups:['sample_logistics', 'execution'] },
-  { jobTypeKey:'SAMPLE_DROP_OFF', jobTypeName:'Sample Drop-Off', jobTypeColor:'#7bc4ff', isActive:true, scheduleMode:'point_in_time', requiredAssignmentTypes:['Technician', 'Truck'], detailGroups:['sample_logistics', 'execution'] },
-  { jobTypeKey:'MAINTENANCE', jobTypeName:'Maintenance', jobTypeColor:'#ff5d73', isActive:true, scheduleMode:'range', requiredAssignmentTypes:[], detailGroups:['maintenance', 'execution'] },
-  { jobTypeKey:'MULTI_SERVICE', jobTypeName:'Multi-Service', jobTypeColor:'#b0f28f', isActive:true, scheduleMode:'range', requiredAssignmentTypes:[], detailGroups:['proving', 'sample_logistics', 'maintenance', 'execution'] }
+  { jobTypeKey:'ALLOCATION_PROVING', jobTypeName:'Allocation Proving', jobTypeColor:STANDARD_JOB_TYPE_COLORS[0], isActive:true, scheduleMode:'range', requiredAssignmentTypes:['Technician', 'Truck', 'Equipment'], detailGroups:['proving', 'execution'] },
+  { jobTypeKey:'LACT_PROVING', jobTypeName:'LACT Proving', jobTypeColor:STANDARD_JOB_TYPE_COLORS[1], isActive:true, scheduleMode:'range', requiredAssignmentTypes:['Technician', 'Truck', 'Equipment'], detailGroups:['proving', 'execution'] },
+  { jobTypeKey:'SAMPLE_PICKUP', jobTypeName:'Sample Pickup', jobTypeColor:STANDARD_JOB_TYPE_COLORS[2], isActive:true, scheduleMode:'point_in_time', requiredAssignmentTypes:['Technician', 'Truck'], detailGroups:['sample_logistics', 'execution'] },
+  { jobTypeKey:'SAMPLE_DROP_OFF', jobTypeName:'Sample Drop-Off', jobTypeColor:STANDARD_JOB_TYPE_COLORS[3], isActive:true, scheduleMode:'point_in_time', requiredAssignmentTypes:['Technician', 'Truck'], detailGroups:['sample_logistics', 'execution'] },
+  { jobTypeKey:'MAINTENANCE', jobTypeName:'Maintenance', jobTypeColor:STANDARD_JOB_TYPE_COLORS[4], isActive:true, scheduleMode:'range', requiredAssignmentTypes:[], detailGroups:['maintenance', 'execution'] },
+  { jobTypeKey:'MULTI_SERVICE', jobTypeName:'Multi-Service', jobTypeColor:STANDARD_JOB_TYPE_COLORS[5], isActive:true, scheduleMode:'range', requiredAssignmentTypes:[], detailGroups:['proving', 'sample_logistics', 'maintenance', 'execution'] }
 ];
 
 const PRIORITY_RANK = { Urgent:0, High:1, Normal:2, Low:3 };
@@ -157,7 +142,7 @@ function normalizeHexColor(value, fallback = DEFAULT_JOB_TYPE_COLOR){
   return /^#[0-9a-fA-F]{6}$/.test(normalized) ? normalized.toLowerCase() : fallback;
 }
 function getDefaultJobTypeColor(value){
-  return BUILT_IN_JOB_TYPE_COLORS[normalizeJobTypeKey(value)] || DEFAULT_JOB_TYPE_COLOR;
+  return DEFAULT_JOB_TYPE_COLOR;
 }
 function getJobTypeColor(jobType){
   const record = typeof jobType === 'object' && jobType !== null ? jobType : getJobTypeRecord(jobType);
@@ -1514,10 +1499,6 @@ function renderScheduleTechnicianLine(jobId){
   return `<div class="schedule-tech muted">Tech: ${esc(techLabels.join(' | ') || 'Unassigned')}</div>`;
 }
 
-function renderDispatchAlertsCell(warnings){
-  return warnings.length ? renderWarnings(warnings) : '<span class="muted">None</span>';
-}
-
 function buildDispatchJobView(job, derived){
   const warnings = getJobWarnings(job, derived);
   const techLabels = getDispatchAssignmentLabels(job.id, ['Technician']);
@@ -1615,8 +1596,7 @@ function renderDispatchTable(rows){
     { key:'priority', label:'Priority' },
     { key:'tech', label:'Tech' },
     { key:'truck', label:'Truck' },
-    { key:'equipment', label:'Equipment' },
-    { key:'alerts', label:'Alerts' }
+    { key:'equipment', label:'Equipment' }
   ];
   return `<div class="table-wrap"><table class="dispatch-table"><thead><tr>${columns.map((column) => `<th>${renderDispatchSortHeader(column)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => {
     const job = row.job;
@@ -1627,8 +1607,7 @@ function renderDispatchTable(rows){
       getPriorityBadge(job.priority),
       renderDispatchAssignmentCell(row.techLabels),
       renderDispatchAssignmentCell(row.truckLabels),
-      renderDispatchAssignmentCell(row.equipmentLabels),
-      renderDispatchAlertsCell(row.warnings)
+      renderDispatchAssignmentCell(row.equipmentLabels)
     ];
     return `<tr class="clickable-table-row" role="button" tabindex="0" title="Open Job" onclick="openEntityModal('jobs','${esc(job.id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEntityModal('jobs','${esc(job.id)}'); }">${cells.map((cell) => `<td>${cell}</td>`).join('')}</tr>`;
   }).join('')}</tbody></table></div>`;
@@ -2221,7 +2200,7 @@ function getModalMultiSelectDetail(options, selectedValues){
 function renderColorField(field){
   const value = normalizeHexColor(modalState.formData[field.key], DEFAULT_JOB_TYPE_COLOR);
   const selectedValue = normalizeHexColor(value);
-  return `<div class="form-group${field.full ? ' full' : ''}"><label class="form-label">${esc(field.label)}</label><div class="color-control"><div class="color-swatch-row">${JOB_TYPE_COLOR_OPTIONS.map((option) => `<button class="color-swatch ${selectedValue === option.value ? 'is-selected' : ''}" type="button" title="${esc(option.label)}" style="--swatch-color:${esc(option.value)}" onclick="setJobTypeColor('${esc(option.value)}')"><span class="sr-only">${esc(option.label)}</span></button>`).join('')}</div><div class="color-input-row"><input class="form-input color-picker" type="color" value="${esc(selectedValue)}" oninput="setJobTypeColor(this.value)"><input class="form-input" type="text" value="${esc(modalState.formData[field.key] || selectedValue)}" maxlength="7" placeholder="#59d67d" oninput="setModalField('${field.key}', this.value)" onchange="setJobTypeColor(this.value)"><span class="color-preview" style="--swatch-color:${esc(selectedValue)}">${esc(selectedValue)}</span></div></div></div>`;
+  return `<div class="form-group${field.full ? ' full' : ''}"><label class="form-label">${esc(field.label)}</label><div class="color-control"><div class="color-swatch-row">${JOB_TYPE_COLOR_OPTIONS.map((option) => `<button class="color-swatch ${selectedValue === option.value ? 'is-selected' : ''}" type="button" title="${esc(option.label)}" style="--swatch-color:${esc(option.value)}" onclick="setJobTypeColor('${esc(option.value)}')"><span class="sr-only">${esc(option.label)}</span></button>`).join('')}</div><div class="color-input-row"><input class="form-input color-picker" type="color" value="${esc(selectedValue)}" oninput="setJobTypeColor(this.value)"><input class="form-input" type="text" value="${esc(modalState.formData[field.key] || selectedValue)}" maxlength="7" placeholder="${esc(DEFAULT_JOB_TYPE_COLOR)}" oninput="setModalField('${field.key}', this.value)" onchange="setJobTypeColor(this.value)"><span class="color-preview" style="--swatch-color:${esc(selectedValue)}">${esc(selectedValue)}</span></div></div></div>`;
 }
 
 function renderFormField(field){

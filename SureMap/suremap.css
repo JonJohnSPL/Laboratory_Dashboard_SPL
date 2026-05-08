@@ -40,30 +40,26 @@
 
 .suremap-filter-row{
   display:flex;
-  flex-wrap:wrap;
+  align-items:center;
   gap:8px;
   padding:14px 16px 0;
 }
 
-.suremap-chip{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  padding:5px 10px;
-  border-radius:999px;
+.suremap-filter-select{
+  flex:1;
+  width:100%;
+  min-width:0;
+  height:34px;
+  padding:0 10px;
+  border-radius:6px;
   border:1px solid var(--border);
-  background:transparent;
-  color:var(--muted);
+  background:var(--surface2);
+  color:var(--text);
   font-family:var(--mono);
-  font-size:10px;
-  letter-spacing:1px;
-  text-transform:uppercase;
-  cursor:pointer;
-  transition:all .18s ease;
+  font-size:11px;
 }
 
-.suremap-chip:hover,
-.suremap-chip.active{
+.suremap-toolbar .act-btn.active{
   color:var(--accent);
   border-color:rgba(89,214,125,.34);
   background:rgba(89,214,125,.08);
@@ -89,6 +85,87 @@
 
 .suremap-site-card.active{
   border-color:rgba(176,242,143,.42);
+}
+
+.suremap-client-site-card{
+  display:grid;
+  gap:10px;
+  padding:10px;
+  border-radius:10px;
+  border:1px solid rgba(45,58,49,.95);
+  background:rgba(18,26,21,.76);
+}
+
+.suremap-client-site-header{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.suremap-client-site-list{
+  display:grid;
+  gap:6px;
+}
+
+.suremap-grouped-site{
+  display:grid;
+  grid-template-columns:auto minmax(0, 1fr) auto;
+  align-items:center;
+  gap:8px;
+  width:100%;
+  min-width:0;
+  padding:7px 8px;
+  border:1px solid transparent;
+  border-radius:8px;
+  background:rgba(8,12,10,.42);
+  color:var(--text);
+  cursor:pointer;
+  text-align:left;
+}
+
+.suremap-grouped-site:hover,
+.suremap-grouped-site.active{
+  border-color:rgba(176,242,143,.34);
+  background:rgba(89,214,125,.08);
+}
+
+.suremap-grouped-site-token{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:24px;
+  height:24px;
+  border-radius:7px;
+  flex-shrink:0;
+  font-family:var(--mono);
+  font-size:10px;
+  font-weight:700;
+}
+
+.suremap-grouped-site-copy{
+  display:grid;
+  gap:2px;
+  min-width:0;
+}
+
+.suremap-grouped-site-copy strong,
+.suremap-grouped-site-copy span{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-family:var(--mono);
+  line-height:1.35;
+}
+
+.suremap-grouped-site-copy strong{
+  color:var(--text);
+  font-size:11px;
+  font-weight:400;
+}
+
+.suremap-grouped-site-copy span{
+  color:var(--muted);
+  font-size:10px;
 }
 
 .suremap-site-icon{

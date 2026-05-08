@@ -566,6 +566,7 @@ function formatCountsSummary(counts){ const parts = getTestDefinitions().map(def
 return parts.length ? parts.join(' | ') : 'None'; }
 function normalizeMatrixBucket(raw){ const m = (raw || '').toString().trim().toLowerCase();
 if(!m) return '';
+if(m.includes('condensate') || m === 'cond') return 'Liquid';
 if(m.includes('gas')) return 'Gas';
 if(m.includes('oil') || m.includes('liq')) return 'Liquid';
 return ''; }

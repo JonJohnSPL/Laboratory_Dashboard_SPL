@@ -292,7 +292,7 @@ header{
 .simple-toolbar{justify-content:space-between;}
 .table-wrap{overflow:auto;}
 table{width:100%;border-collapse:collapse;min-width:760px;}
-.dispatch-table{min-width:1180px;}
+.dispatch-table{min-width:1080px;}
 .dispatch-table thead th{
   font-size:13px;
   text-align:center;

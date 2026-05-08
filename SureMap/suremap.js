@@ -88,7 +88,7 @@
   function cacheElements(){
     [
       'clock', 'datedisp', 'save-indicator', 'toolbar-summary', 'client-picker',
-      'list-summary', 'map-summary', 'fit-sites-btn', 'filter-row', 'client-list', 'map',
+      'all-clients-btn', 'list-summary', 'map-summary', 'fit-sites-btn', 'filter-row', 'client-list', 'map',
       'map-placeholder', 'detail-panel'
     ].forEach((id) => { els[id] = document.getElementById(id); });
   }
@@ -296,13 +296,14 @@
       if(option) selectClientFromPicker(option.dataset.clientPickerId);
     });
     els['fit-sites-btn'].addEventListener('click', fitVisibleSites);
+    els['all-clients-btn'].addEventListener('click', showAllClients);
   }
 
   function bindPanels(){
-    els['filter-row'].addEventListener('click', (event) => {
-      const chip = event.target.closest('[data-filter]');
-      if(!chip) return;
-      state.filterTag = chip.dataset.filter || 'All';
+    els['filter-row'].addEventListener('change', (event) => {
+      const select = event.target.closest('[data-site-type-filter]');
+      if(!select) return;
+      state.filterTag = select.value || 'All';
       refreshFilteredView({ syncMap:true, preserveSelection:true, focusSelection:false });
     });
 
@@ -815,14 +816,17 @@
       const site = getActiveSite();
       const client = getActiveClient();
       els['toolbar-summary'].textContent = `${client?.name || 'Client'} / ${site?.name || 'Site'} selected. Shared data updates write back to Field Ops.`;
+      els['all-clients-btn'].classList.remove('active');
       return;
     }
     if(state.activeClientId){
       const client = getActiveClient();
       els['toolbar-summary'].textContent = `${client?.name || 'Client'} selected. SureMap adds mapped sites back to the shared Clients directory.`;
+      els['all-clients-btn'].classList.remove('active');
       return;
     }
     els['toolbar-summary'].textContent = 'Shared client and site directory synced with Field Ops.';
+    els['all-clients-btn'].classList.add('active');
   }
 
   function renderClientPicker(){
@@ -878,10 +882,23 @@
     selectClient(clientId, { focusMap:true });
   }
 
+  function showAllClients(){
+    state.activeClientId = '';
+    state.activeSiteId = '';
+    state.clientPickerQuery = '';
+    state.searchQuery = '';
+    refreshFilteredView({ syncMap:true, preserveSelection:true, focusSelection:false });
+  }
+
   function renderFilterRow(){
     const tags = ['All', ...SITE_TYPE_OPTIONS];
     if(!tags.includes(state.filterTag)) state.filterTag = 'All';
-    els['filter-row'].innerHTML = tags.map((tag) => `<button class="suremap-chip ${state.filterTag === tag ? 'active' : ''}" type="button" data-filter="${esc(tag)}">${esc(tag)}</button>`).join('');
+    els['filter-row'].innerHTML = `
+      <label class="label" for="site-type-filter">Site Type</label>
+      <select class="suremap-filter-select" id="site-type-filter" data-site-type-filter>
+        ${tags.map((tag) => `<option value="${esc(tag)}" ${state.filterTag === tag ? 'selected' : ''}>${esc(tag)}</option>`).join('')}
+      </select>
+    `;
   }
 
   function renderList(){
@@ -892,8 +909,23 @@
     }
     const client = getActiveClient();
     if(!client){
-      els['list-summary'].textContent = `${state.viewClients.length} clients`;
-      els['client-list'].innerHTML = `<div class="empty-state"><strong>No client selected</strong>Choose a client above to view its mapped sites.</div>`;
+      const visibleSites = state.filteredClients.flatMap((row) => (row.sublocations || []).map((site) => ({ client:row, site })));
+      const totalSites = state.viewClients.reduce((sum, row) => sum + row.sublocations.length, 0);
+      els['list-summary'].textContent = state.filterTag === 'All'
+        ? `${totalSites} site${totalSites === 1 ? '' : 's'} across ${state.viewClients.length} clients`
+        : `${visibleSites.length} visible / ${totalSites} sites`;
+      if(!totalSites){
+        els['client-list'].innerHTML = `<div class="empty-state"><strong>No sites yet</strong>Select a client and add a mapped site from the details card.</div>`;
+        return;
+      }
+      if(!visibleSites.length){
+        els['client-list'].innerHTML = `<div class="empty-state"><strong>No ${esc(state.filterTag)} sites</strong>Choose another site type or select a client to add a matching site.</div>`;
+        return;
+      }
+      els['client-list'].innerHTML = state.filteredClients
+        .filter((row) => (row.sublocations || []).length)
+        .map((row) => renderClientSitesCardMarkup(row, getAvatarColor(row.id)))
+        .join('');
       return;
     }
     const visibleClient = state.filteredClients.find((row) => row.id === client.id) || client;
@@ -909,10 +941,43 @@
       return;
     }
     const color = getAvatarColor(client.id);
-    els['client-list'].innerHTML = sites.map((site) => renderSiteCardMarkup(client, site, color)).join('');
+    els['client-list'].innerHTML = sites.map((site) => renderSiteCardMarkup(client, site, color, false)).join('');
   }
 
-  function renderSiteCardMarkup(client, site, color){
+  function renderClientSitesCardMarkup(client, color){
+    const siteCount = client.sublocations.length;
+    return `
+      <div class="suremap-client-site-card" data-client-id="${esc(client.id)}">
+        <div class="suremap-client-site-header">
+          <div class="suremap-site-icon" style="background:${color}22;color:${color}">${esc(String(client.name || 'C').slice(0, 2).toUpperCase())}</div>
+          <div class="suremap-site-copy">
+            <div class="item-title">${esc(client.name)}</div>
+            <div class="item-sub">${esc(siteCount)} site${siteCount === 1 ? '' : 's'}${client.sector ? ` | ${esc(client.sector)}` : ''}</div>
+          </div>
+        </div>
+        <div class="suremap-client-site-list">
+          ${client.sublocations.map((site) => renderGroupedSiteRowMarkup(client, site, color)).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderGroupedSiteRowMarkup(client, site, color){
+    const active = state.activeSiteId === site.id;
+    const locationLabel = site.address || site.coordsLabel || 'No location yet';
+    return `
+      <button class="suremap-grouped-site ${active ? 'active' : ''}" type="button" data-client-id="${esc(client.id)}" data-site-id="${esc(site.id)}">
+        <span class="suremap-grouped-site-token" style="background:${color}22;color:${color}">${esc(getSiteIconToken(site.type))}</span>
+        <span class="suremap-grouped-site-copy">
+          <strong>${esc(site.name)}</strong>
+          <span>${esc(site.type)} | ${esc(locationLabel)}</span>
+        </span>
+        <span class="status-badge ${esc(siteStatusClass(site.status))}">${esc(site.status)}</span>
+      </button>
+    `;
+  }
+
+  function renderSiteCardMarkup(client, site, color, showClient = false){
     const active = state.activeSiteId === site.id;
     const projectLabel = (site.projectNames || []).join(', ') || 'No linked project';
     return `
@@ -920,6 +985,7 @@
         <div class="suremap-site-icon" style="background:${color}22;color:${color}">${esc(getSiteIconToken(site.type))}</div>
         <div class="suremap-site-copy">
           <div class="item-title">${esc(site.name)}</div>
+          ${showClient ? `<div class="item-sub">${esc(client.name)}</div>` : ''}
           <div class="item-sub">${esc(projectLabel)}</div>
           <div class="item-sub">${esc(site.type)} | ${esc(site.address || site.coordsLabel || 'No location yet')}</div>
           <div class="tag-row">
@@ -1231,6 +1297,7 @@
     state.expandedIds.add(client.id);
     state.filteredClients = getFilteredClients();
     renderClientPicker();
+    renderFilterRow();
     renderList();
     renderToolbarSummary();
     renderDetailPanel();
@@ -1255,6 +1322,7 @@
       state.filteredClients = getFilteredClients();
     }
     renderClientPicker();
+    renderFilterRow();
     renderList();
     renderToolbarSummary();
     renderDetailPanel();
