@@ -3,6 +3,7 @@
 
   const STORAGE_KEY = 'field-ops-dashboard-data';
   const LEGACY_STORAGE_KEY = 'spl-client-map-v1';
+  const FIELD_ASSET_BUCKET = 'field-assets';
   const CLIENT_STATUS_OPTIONS = ['Active', 'Pending', 'On Hold', 'Inactive'];
   const CLIENT_SECTOR_OPTIONS = ['Upstream', 'Midstream', 'Downstream', 'Other'];
   const SITE_TYPE_OPTIONS = ['Well Site', 'Meter Station', 'Field Site', 'Well Pad', 'LACT Unit', 'Facility', 'Pipeline Location', 'Office / Yard', 'Other'];
@@ -38,6 +39,8 @@
     lng: -80.130022
   };
   let googleMapsLoadPromise = null;
+  const remoteAssetPhotoUrlCache = new Map();
+  const remoteAssetPhotoLoadPromises = new Map();
 
   const state = {
     data: createEmptyData(),
@@ -311,6 +314,11 @@
       const siteCard = event.target.closest('[data-site-id]');
       if(siteCard){
         selectSite(siteCard.dataset.clientId, siteCard.dataset.siteId, { focusMap:true });
+        return;
+      }
+      const clientToggle = event.target.closest('[data-client-toggle-id]');
+      if(clientToggle){
+        toggleClientSites(clientToggle.dataset.clientToggleId);
         return;
       }
     });
@@ -602,7 +610,9 @@
       hqState: String((fromRemote ? row?.hq_state : row?.hqState) || '').trim().toUpperCase(),
       hqZip: String((fromRemote ? row?.hq_zip : row?.hqZip) || '').trim(),
       hqLatitude: normalizeNumber(fromRemote ? row?.hq_latitude : row?.hqLatitude),
-      hqLongitude: normalizeNumber(fromRemote ? row?.hq_longitude : row?.hqLongitude)
+      hqLongitude: normalizeNumber(fromRemote ? row?.hq_longitude : row?.hqLongitude),
+      assetPhotoPath: String((fromRemote ? row?.logo_path : row?.assetPhotoPath) || '').trim(),
+      assetPhotoDataUrl: fromRemote ? '' : String(row?.assetPhotoDataUrl || '').trim()
     };
   }
 
@@ -752,6 +762,8 @@
       address: formatAddress(client.hqStreet, client.hqCity, client.hqState, client.hqZip),
       lat: client.hqLatitude,
       lng: client.hqLongitude,
+      assetPhotoPath: client.assetPhotoPath || '',
+      assetPhotoDataUrl: client.assetPhotoDataUrl || '',
       sublocations: (sitesByClient.get(client.id) || []).sort((a, b) => a.name.localeCompare(b.name))
     }));
   }
@@ -765,6 +777,7 @@
     renderList();
     renderMapSummary();
     renderDetailPanel();
+    hydrateAssetPhotoPreviews(document);
     if(options.syncMap !== false) syncMarkers();
     if(options.focusSelection !== false) focusSelectionOnMap();
   }
@@ -940,22 +953,39 @@
       els['client-list'].innerHTML = `<div class="empty-state"><strong>No ${esc(state.filterTag)} sites</strong>Choose another site type or add a matching site from the details card.</div>`;
       return;
     }
-    const color = getAvatarColor(client.id);
-    els['client-list'].innerHTML = sites.map((site) => renderSiteCardMarkup(client, site, color, false)).join('');
+    els['client-list'].innerHTML = renderClientSitesCardMarkup(visibleClient, getAvatarColor(client.id));
+  }
+
+  function toggleClientSites(clientId){
+    const id = String(clientId || '');
+    if(!id) return;
+    if(state.expandedIds.has(id)) state.expandedIds.delete(id);
+    else state.expandedIds.add(id);
+    renderList();
+    hydrateAssetPhotoPreviews(els['client-list']);
+  }
+
+  function renderClientLogoMarkup(client, color, className = 'suremap-client-logo'){
+    const label = String(client?.name || 'C').slice(0, 2).toUpperCase();
+    const alt = `Logo for ${client?.name || 'client'}`;
+    if(client?.assetPhotoDataUrl) return `<img class="${esc(className)}" src="${esc(client.assetPhotoDataUrl)}" alt="${esc(alt)}">`;
+    if(client?.assetPhotoPath && isRemoteMode()) return `<img class="${esc(className)}" src="" alt="${esc(alt)}" data-asset-photo-path="${esc(client.assetPhotoPath)}">`;
+    return `<span class="${esc(className)} empty" style="background:${color}22;color:${color}">${esc(label)}</span>`;
   }
 
   function renderClientSitesCardMarkup(client, color){
     const siteCount = client.sublocations.length;
+    const expanded = state.expandedIds.has(client.id);
     return `
-      <div class="suremap-client-site-card" data-client-id="${esc(client.id)}">
-        <div class="suremap-client-site-header">
-          <div class="suremap-site-icon" style="background:${color}22;color:${color}">${esc(String(client.name || 'C').slice(0, 2).toUpperCase())}</div>
+      <div class="suremap-client-site-card ${expanded ? 'expanded' : 'collapsed'}" data-client-id="${esc(client.id)}">
+        <button class="suremap-client-site-header" type="button" data-client-toggle-id="${esc(client.id)}" aria-expanded="${expanded ? 'true' : 'false'}">
+          ${renderClientLogoMarkup(client, color)}
           <div class="suremap-site-copy">
             <div class="item-title">${esc(client.name)}</div>
             <div class="item-sub">${esc(siteCount)} site${siteCount === 1 ? '' : 's'}${client.sector ? ` | ${esc(client.sector)}` : ''}</div>
           </div>
-        </div>
-        <div class="suremap-client-site-list">
+        </button>
+        <div class="suremap-client-site-list" ${expanded ? '' : 'hidden'}>
           ${client.sublocations.map((site) => renderGroupedSiteRowMarkup(client, site, color)).join('')}
         </div>
       </div>
@@ -982,7 +1012,7 @@
     const projectLabel = (site.projectNames || []).join(', ') || 'No linked project';
     return `
       <div class="suremap-site-card ${active ? 'active' : ''}" data-client-id="${esc(client.id)}" data-site-id="${esc(site.id)}">
-        <div class="suremap-site-icon" style="background:${color}22;color:${color}">${esc(getSiteIconToken(site.type))}</div>
+        ${showClient ? renderClientLogoMarkup(client, color, 'suremap-client-logo small') : `<div class="suremap-site-icon" style="background:${color}22;color:${color}">${esc(getSiteIconToken(site.type))}</div>`}
         <div class="suremap-site-copy">
           <div class="item-title">${esc(site.name)}</div>
           ${showClient ? `<div class="item-sub">${esc(client.name)}</div>` : ''}
@@ -1018,10 +1048,17 @@
 
   function renderClientDetail(client){
     const address = client.address || 'No HQ address set';
+    const color = getAvatarColor(client.id);
     return `
       <div class="suremap-detail-card">
         <div class="suremap-detail-title">
-          <div class="item-title">${esc(client.name)}</div>
+          <div class="suremap-detail-heading">
+            ${renderClientLogoMarkup(client, color, 'suremap-client-logo large')}
+            <div>
+              <div class="item-title">${esc(client.name)}</div>
+              <div class="item-sub">${esc(client.sublocations.length)} mapped site${client.sublocations.length === 1 ? '' : 's'}</div>
+            </div>
+          </div>
           <div class="tag-row">
             <span class="status-badge ${esc(clientStatusClass(client.accountStatus))}">${esc(client.accountStatus)}</span>
             <span class="tag-chip">${esc(client.sector)}</span>
@@ -1048,15 +1085,21 @@
   function renderSiteDetail(client, site){
     const projectLabel = (site.projectNames || []).join(', ') || 'No linked project';
     const jobTypes = site.standardJobTypes || 'No standard job types set';
+    const color = getAvatarColor(client.id);
     return `
       <div class="suremap-detail-card">
         <div class="suremap-detail-title">
-          <div class="item-title">${esc(site.name)}</div>
+          <div class="suremap-detail-heading">
+            ${renderClientLogoMarkup(client, color, 'suremap-client-logo large')}
+            <div>
+              <div class="item-title">${esc(site.name)}</div>
+              <div class="item-sub">${esc(client.name)}</div>
+            </div>
+          </div>
           <div class="tag-row">
             <span class="status-badge ${esc(siteStatusClass(site.status))}">${esc(site.status)}</span>
             <span class="tag-chip">${esc(site.type)}</span>
           </div>
-          <div class="item-sub">${esc(client.name)}</div>
         </div>
         <div class="suremap-detail-grid">
           <div class="suremap-detail-item"><label>Coordinates</label><span>${esc(site.coordsLabel || 'Not mapped')}</span></div>
@@ -1183,6 +1226,46 @@
     return `<div class="suremap-popup-title">${esc(title)}</div><div class="suremap-popup-copy">${esc(copy)}</div>`;
   }
 
+  function encodeStoragePath(path){
+    return String(path || '').split('/').map((segment) => encodeURIComponent(segment)).join('/');
+  }
+
+  async function ensureAssetPhotoUrl(record){
+    if(!record) return '';
+    if(record.assetPhotoDataUrl) return record.assetPhotoDataUrl;
+    if(!record.assetPhotoPath || !isRemoteMode()) return '';
+    if(remoteAssetPhotoUrlCache.has(record.assetPhotoPath)) return remoteAssetPhotoUrlCache.get(record.assetPhotoPath);
+    if(remoteAssetPhotoLoadPromises.has(record.assetPhotoPath)) return remoteAssetPhotoLoadPromises.get(record.assetPhotoPath);
+    const promise = (async () => {
+      const response = await window.appAuth.fetch(`/storage/v1/object/authenticated/${FIELD_ASSET_BUCKET}/${encodeStoragePath(record.assetPhotoPath)}`, { headers:{ Accept:'*/*' } });
+      if(!response.ok) throw new Error(`Logo request failed (${response.status}).`);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      remoteAssetPhotoUrlCache.set(record.assetPhotoPath, url);
+      return url;
+    })();
+    remoteAssetPhotoLoadPromises.set(record.assetPhotoPath, promise);
+    try {
+      return await promise;
+    } finally {
+      remoteAssetPhotoLoadPromises.delete(record.assetPhotoPath);
+    }
+  }
+
+  async function hydrateAssetPhotoPreviews(scope = document){
+    const nodes = Array.from(scope.querySelectorAll('img[data-asset-photo-path]'));
+    await Promise.all(nodes.map(async (node) => {
+      const path = node.dataset.assetPhotoPath || '';
+      if(!path || node.getAttribute('src')) return;
+      try {
+        node.src = await ensureAssetPhotoUrl({ assetPhotoPath:path });
+      } catch (error){
+        console.warn('Unable to load SureMap client logo:', error);
+        node.classList.add('asset-photo-error');
+      }
+    }));
+  }
+
   function svgToDataUri(svg){
     return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
   }
@@ -1301,6 +1384,7 @@
     renderList();
     renderToolbarSummary();
     renderDetailPanel();
+    hydrateAssetPhotoPreviews(document);
     syncMarkers();
     if(options.focusMap !== false) focusSelectionOnMap();
   }
@@ -1326,6 +1410,7 @@
     renderList();
     renderToolbarSummary();
     renderDetailPanel();
+    hydrateAssetPhotoPreviews(document);
     syncMarkers();
     if(options.focusMap !== false) focusSelectionOnMap();
   }
