@@ -49,6 +49,14 @@
         </select>
       </label>
       <label>
+        Status
+        <select id="status-filter" onchange="render()">
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+          <option value="all">All</option>
+        </select>
+      </label>
+      <label>
         Search
         <input id="employee-search" type="text" placeholder="Search name / site / email / role..." oninput="render()">
       </label>

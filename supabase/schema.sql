@@ -724,6 +724,7 @@ create table if not exists public.employees (
   lab_role text not null default '',
   field_role text not null default '',
   can_sample_transport boolean not null default false,
+  is_active boolean not null default true,
   phone text not null default '',
   email text not null default '',
   notes text not null default '',
@@ -739,6 +740,7 @@ create table if not exists public.field_job_types (
   job_type_name text not null default '',
   job_type_color text not null default '#f56584',
   is_active boolean not null default true,
+  lab_employee_eligible boolean not null default false,
   schedule_mode text not null default 'range' check (schedule_mode in ('range', 'point_in_time')),
   required_assignment_types text[] not null default '{}'::text[],
   detail_groups text[] not null default '{}'::text[],
@@ -752,6 +754,7 @@ alter table public.field_job_types add column if not exists job_type_name text n
 alter table public.field_job_types add column if not exists job_type_color text not null default '#f56584';
 alter table public.field_job_types alter column job_type_color set default '#f56584';
 alter table public.field_job_types add column if not exists is_active boolean not null default true;
+alter table public.field_job_types add column if not exists lab_employee_eligible boolean not null default false;
 alter table public.field_job_types add column if not exists schedule_mode text not null default 'range';
 alter table public.field_job_types add column if not exists required_assignment_types text[] not null default '{}'::text[];
 alter table public.field_job_types add column if not exists detail_groups text[] not null default '{}'::text[];
@@ -765,17 +768,18 @@ insert into public.field_job_types (
   job_type_name,
   job_type_color,
   is_active,
+  lab_employee_eligible,
   schedule_mode,
   required_assignment_types,
   detail_groups
 )
 values
-  ('ALLOCATION_PROVING', 'Allocation Proving', '#f56584', true, 'range', array['Technician', 'Truck', 'Equipment'], array['proving', 'execution']),
-  ('LACT_PROVING', 'LACT Proving', '#ffa29f', true, 'range', array['Technician', 'Truck', 'Equipment'], array['proving', 'execution']),
-  ('SAMPLE_PICKUP', 'Sample Pickup', '#ffff97', true, 'point_in_time', array['Technician', 'Truck'], array['sample_logistics', 'execution']),
-  ('SAMPLE_DROP_OFF', 'Sample Drop-Off', '#cdff82', true, 'point_in_time', array['Technician', 'Truck'], array['sample_logistics', 'execution']),
-  ('MAINTENANCE', 'Maintenance', '#8afcc3', true, 'range', '{}'::text[], array['maintenance', 'execution']),
-  ('MULTI_SERVICE', 'Multi-Service', '#90eeff', true, 'range', '{}'::text[], array['proving', 'sample_logistics', 'maintenance', 'execution'])
+  ('ALLOCATION_PROVING', 'Allocation Proving', '#f56584', true, false, 'range', array['Technician', 'Truck', 'Equipment'], array['proving', 'execution']),
+  ('LACT_PROVING', 'LACT Proving', '#ffa29f', true, false, 'range', array['Technician', 'Truck', 'Equipment'], array['proving', 'execution']),
+  ('SAMPLE_PICKUP', 'Sample Pickup', '#ffff97', true, false, 'point_in_time', array['Technician', 'Truck'], array['sample_logistics', 'execution']),
+  ('SAMPLE_DROP_OFF', 'Sample Drop-Off', '#cdff82', true, false, 'point_in_time', array['Technician', 'Truck'], array['sample_logistics', 'execution']),
+  ('MAINTENANCE', 'Maintenance', '#8afcc3', true, false, 'range', '{}'::text[], array['maintenance', 'execution']),
+  ('MULTI_SERVICE', 'Multi-Service', '#90eeff', true, false, 'range', '{}'::text[], array['proving', 'sample_logistics', 'maintenance', 'execution'])
 on conflict (job_type_key) do update
 set job_type_name = excluded.job_type_name,
     job_type_color = excluded.job_type_color,
@@ -792,6 +796,7 @@ alter table public.employees add column if not exists work_scope text not null d
 alter table public.employees add column if not exists lab_role text not null default '';
 alter table public.employees add column if not exists field_role text not null default '';
 alter table public.employees add column if not exists can_sample_transport boolean not null default false;
+alter table public.employees add column if not exists is_active boolean not null default true;
 alter table public.employees add column if not exists phone text not null default '';
 alter table public.employees add column if not exists email text not null default '';
 alter table public.employees add column if not exists notes text not null default '';
@@ -890,6 +895,7 @@ create table if not exists public.field_trucks (
   id uuid primary key default gen_random_uuid(),
   unit_number text not null default '',
   vehicle_type text not null default 'Pickup' check (vehicle_type in ('Pickup', 'Service Truck', 'Other')),
+  fuel_type text not null default '',
   service_status text not null default 'Available' check (service_status in ('Available', 'In Use', 'Maintenance', 'Out of Service')),
   current_driver text not null default '',
   assigned_technician_id uuid,
@@ -908,6 +914,7 @@ create table if not exists public.field_trucks (
   updated_by uuid
 );
 alter table public.field_trucks add column if not exists photo_path text;
+alter table public.field_trucks add column if not exists fuel_type text not null default '';
 alter table public.field_trucks add column if not exists current_driver text not null default '';
 alter table public.field_trucks add column if not exists assigned_technician_id uuid;
 alter table public.field_trucks add column if not exists model text not null default '';

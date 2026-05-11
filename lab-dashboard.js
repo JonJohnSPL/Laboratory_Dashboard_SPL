@@ -152,13 +152,14 @@ function getSharedEmployeeFullName(employee){ return buildSharedEmployeeName(emp
 function getSharedEmployeeListName(employee){ const first = String(employee?.employeeFirstName || '').trim(); const last = String(employee?.employeeLastName || '').trim(); if(last && first) return `${last}, ${first}`; return last || first || String(employee?.employeeName || '').trim() || 'Unassigned'; }
 function getSharedEmployeeHomeSite(employee){ return String(employee?.homeSplSite || LOCAL_SPL_SITE).trim() || LOCAL_SPL_SITE; }
 function getSharedEmployeeOptionLabel(employee){ return `${getSharedEmployeeListName(employee)} | ${getSharedEmployeeHomeSite(employee)}`; }
-function normalizeSharedEmployeeRecord(src, fromRemote = false){ const record = { id:String(src?.id || ''), employeeFirstName:String((fromRemote ? src?.employee_first_name : src?.employeeFirstName) || ''), employeeLastName:String((fromRemote ? src?.employee_last_name : src?.employeeLastName) || ''), employeeName:String((fromRemote ? src?.employee_name : src?.employeeName) || ''), homeSplSite:String((fromRemote ? src?.home_spl_site : src?.homeSplSite) || LOCAL_SPL_SITE), workScope:String((fromRemote ? src?.work_scope : src?.workScope) || 'Field'), labRole:String((fromRemote ? src?.lab_role : src?.labRole) || ''), fieldRole:String((fromRemote ? src?.field_role : src?.fieldRole) || ''), canSampleTransport:!!(fromRemote ? src?.can_sample_transport : src?.canSampleTransport), phone:String((fromRemote ? src?.phone : src?.phone) || ''), email:String((fromRemote ? src?.email : src?.email) || ''), notes:String((fromRemote ? src?.notes : src?.notes) || '') }; const parsedName = splitSharedEmployeeName(record.employeeName); if(!record.employeeFirstName) record.employeeFirstName = parsedName.first; if(!record.employeeLastName) record.employeeLastName = parsedName.last; record.employeeName = getSharedEmployeeFullName(record); record.homeSplSite = getSharedEmployeeHomeSite(record); return record; }
+function normalizeSharedEmployeeRecord(src, fromRemote = false){ const activeValue = fromRemote ? src?.is_active : src?.isActive; const record = { id:String(src?.id || ''), employeeFirstName:String((fromRemote ? src?.employee_first_name : src?.employeeFirstName) || ''), employeeLastName:String((fromRemote ? src?.employee_last_name : src?.employeeLastName) || ''), employeeName:String((fromRemote ? src?.employee_name : src?.employeeName) || ''), homeSplSite:String((fromRemote ? src?.home_spl_site : src?.homeSplSite) || LOCAL_SPL_SITE), workScope:String((fromRemote ? src?.work_scope : src?.workScope) || 'Field'), labRole:String((fromRemote ? src?.lab_role : src?.labRole) || ''), fieldRole:String((fromRemote ? src?.field_role : src?.fieldRole) || ''), canSampleTransport:!!(fromRemote ? src?.can_sample_transport : src?.canSampleTransport), isActive:activeValue === undefined || activeValue === null ? true : activeValue === true || activeValue === 'true' || activeValue === 1 || activeValue === '1', phone:String((fromRemote ? src?.phone : src?.phone) || ''), email:String((fromRemote ? src?.email : src?.email) || ''), notes:String((fromRemote ? src?.notes : src?.notes) || '') }; const parsedName = splitSharedEmployeeName(record.employeeName); if(!record.employeeFirstName) record.employeeFirstName = parsedName.first; if(!record.employeeLastName) record.employeeLastName = parsedName.last; record.employeeName = getSharedEmployeeFullName(record); record.homeSplSite = getSharedEmployeeHomeSite(record); return record; }
 function getSharedClientRecord(clientId){ return sharedDirectory.clients.find(client => client.id === clientId) || null; }
 function getSharedClientRecordByCode(clientCode){ const normalized = normalizeClientCode(clientCode); return normalized ? (sharedDirectory.clients.find(client => client.clientCode === normalized) || null) : null; }
 function getSharedProjectRecord(projectId){ return sharedDirectory.projects.find(project => project.id === projectId) || null; }
 function getSharedEmployeeRecord(employeeId){ return sharedDirectory.employees.find(employee => employee.id === employeeId) || null; }
 function getSharedEmployeeName(employeeId){ const employee = getSharedEmployeeRecord(employeeId); return employee ? getSharedEmployeeListName(employee) : 'Unassigned'; }
-function getLabRosterEmployees(){ return sharedDirectory.employees.filter(employee => ['Lab', 'Both'].includes(employee.workScope || '')); }
+function getLabRosterEmployees(){ return sharedDirectory.employees.filter(employee => employee.isActive !== false && ['Lab', 'Both'].includes(employee.workScope || '')); }
+function getLabRosterHistoryEmployees(){ return sharedDirectory.employees.filter(employee => ['Lab', 'Both'].includes(employee.workScope || '')); }
 function deriveSharedEmployeesFromLegacy(source){
   const technicians = Array.isArray(source?.technicians) ? source.technicians : [];
   return technicians.map(row => normalizeSharedEmployeeRecord({
@@ -171,6 +172,7 @@ function deriveSharedEmployeesFromLegacy(source){
     labRole: '',
     fieldRole: row?.role || 'Field Tech',
     canSampleTransport: false,
+    isActive: true,
     phone: row?.phone || '',
     email: row?.email || '',
     notes: row?.notes || ''
@@ -190,7 +192,7 @@ async function loadSharedDirectory(){
       const [clients, projects, employees] = await Promise.all([
         window.appAuth.requestJson('/rest/v1/field_clients?select=id,client_name,client_code,service_scope'),
         window.appAuth.requestJson('/rest/v1/field_projects?select=id,client_id,project_name,service_scope,project_status'),
-        window.appAuth.requestJson('/rest/v1/employees?select=id,employee_first_name,employee_last_name,employee_name,home_spl_site,work_scope,lab_role,field_role,can_sample_transport,phone,email,notes')
+        window.appAuth.requestJson('/rest/v1/employees?select=id,employee_first_name,employee_last_name,employee_name,home_spl_site,work_scope,lab_role,field_role,can_sample_transport,is_active,phone,email,notes')
       ]);
       next = {
         clients:(Array.isArray(clients) ? clients : []).map(row => normalizeSharedClientRecord(row, true)).filter(row => row.id),
@@ -327,7 +329,7 @@ if(!scheduleState.date) scheduleState.date = todayISO();
 if(!Array.isArray(scheduleState.rosterEmployeeIds)) scheduleState.rosterEmployeeIds = Array.isArray(scheduleState.employees) ? scheduleState.employees : [];
 if(!Array.isArray(scheduleState.entries)) scheduleState.entries = [];
 if(!Array.isArray(scheduleState.tasks)) scheduleState.tasks = [];
-const labEmployeeIds = new Set(getLabRosterEmployees().map(employee => employee.id));
+const labEmployeeIds = new Set(getLabRosterHistoryEmployees().map(employee => employee.id));
 const nameLookup = buildEmployeeNameLookup();
 scheduleState.rosterEmployeeIds = [...new Set(scheduleState.rosterEmployeeIds.map(value => normalizeEmployeeIdValue(value, labEmployeeIds, nameLookup)).filter(Boolean))];
 const employeeSet = new Set(scheduleState.rosterEmployeeIds);

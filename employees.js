@@ -87,6 +87,7 @@ function createEmployeeDraft(){
     labRole: '',
     fieldRole: 'Field Tech',
     canSampleTransport: false,
+    isActive: true,
     phone: '',
     email: '',
     notes: '',
@@ -109,6 +110,8 @@ function normalizeEmployeeRecord(source, fromRemote = false){
   record.labRole = String((fromRemote ? source?.lab_role : source?.labRole) || '');
   record.fieldRole = String((fromRemote ? source?.field_role : source?.fieldRole) || '');
   record.canSampleTransport = normalizeBoolean(fromRemote ? source?.can_sample_transport : source?.canSampleTransport);
+  const activeValue = fromRemote ? source?.is_active : source?.isActive;
+  record.isActive = activeValue === undefined || activeValue === null ? true : normalizeBoolean(activeValue);
   record.phone = String((fromRemote ? source?.phone : source?.phone) || '');
   record.email = String((fromRemote ? source?.email : source?.email) || '');
   record.notes = String((fromRemote ? source?.notes : source?.notes) || '');
@@ -194,6 +197,7 @@ function buildLocalWritePayload(rawData, employees, trucks){
       labRole: employee.labRole,
       fieldRole: employee.fieldRole,
       canSampleTransport: !!employee.canSampleTransport,
+      isActive: employee.isActive !== false,
       phone: employee.phone,
       email: employee.email,
       notes: employee.notes
@@ -231,6 +235,7 @@ const remoteRepository = {
       lab_role: formData.labRole,
       field_role: formData.fieldRole,
       can_sample_transport: !!formData.canSampleTransport,
+      is_active: formData.isActive !== false,
       phone: formData.phone,
       email: formData.email,
       notes: formData.notes
@@ -267,17 +272,11 @@ const remoteRepository = {
       body: JSON.stringify({ assigned_technician_id:null, current_driver:'' })
     });
   },
-  async deleteEmployee(employeeId){
-    await window.appAuth.requestJson(`/rest/v1/field_trucks?assigned_technician_id=eq.${encodeURIComponent(employeeId)}`, {
+  async setEmployeeActive(employeeId, isActive){
+    await window.appAuth.requestJson(`/rest/v1/employees?id=eq.${encodeURIComponent(employeeId)}`, {
       method:'PATCH',
       headers:{ 'Content-Type':'application/json', 'Prefer':'return=minimal' },
-      body: JSON.stringify({ assigned_technician_id:null, current_driver:'' })
-    });
-    await window.appAuth.requestJson(`/rest/v1/field_job_assignments?assignment_type=eq.${encodeURIComponent('Technician')}&resource_id=eq.${encodeURIComponent(employeeId)}`, {
-      method:'DELETE'
-    });
-    await window.appAuth.requestJson(`/rest/v1/employees?id=eq.${encodeURIComponent(employeeId)}`, {
-      method:'DELETE'
+      body: JSON.stringify({ is_active:!!isActive })
     });
   }
 };
@@ -320,6 +319,10 @@ function getScopeBadge(scope){
   return `<span class="status-badge ${scope === 'Both' ? 'info' : scope === 'Lab' ? 'warn' : 'ok'}">${esc(scope)}</span>`;
 }
 
+function getEmployeeStatusBadge(employee){
+  return employee.isActive === false ? '<span class="status-badge danger">Inactive</span>' : '<span class="status-badge ok">Active</span>';
+}
+
 function getRoleSummary(employee){
   const roles = [];
   if(employee.labRole) roles.push(`Lab: ${employee.labRole}`);
@@ -329,9 +332,12 @@ function getRoleSummary(employee){
 
 function getFilteredEmployees(){
   const scope = document.getElementById('scope-filter')?.value || 'all';
+  const status = document.getElementById('status-filter')?.value || 'active';
   const search = String(document.getElementById('employee-search')?.value || '').trim().toLowerCase();
   return state.employees.filter((employee) => {
     if(scope !== 'all' && employee.workScope !== scope) return false;
+    if(status === 'active' && employee.isActive === false) return false;
+    if(status === 'inactive' && employee.isActive !== false) return false;
     if(!search) return true;
     return [
       employee.employeeFirstName,
@@ -349,22 +355,23 @@ function getFilteredEmployees(){
 }
 
 function renderStats(filteredEmployees){
-  const labCount = state.employees.filter((employee) => ['Lab', 'Both'].includes(employee.workScope)).length;
-  const fieldCount = state.employees.filter((employee) => ['Field', 'Both'].includes(employee.workScope)).length;
-  const transportCount = state.employees.filter((employee) => employee.canSampleTransport).length;
-  const visitingCount = state.employees.filter((employee) => isVisitingEmployee(employee)).length;
+  const activeEmployees = state.employees.filter((employee) => employee.isActive !== false);
+  const labCount = activeEmployees.filter((employee) => ['Lab', 'Both'].includes(employee.workScope)).length;
+  const fieldCount = activeEmployees.filter((employee) => ['Field', 'Both'].includes(employee.workScope)).length;
+  const transportCount = activeEmployees.filter((employee) => employee.workScope === 'Lab' && employee.canSampleTransport).length;
+  const inactiveCount = state.employees.filter((employee) => employee.isActive === false).length;
   document.getElementById('employee-stats').innerHTML = `
     <div class="stat-card"><div class="stat-label">Filtered Employees</div><div class="stat-value">${filteredEmployees.length}</div></div>
     <div class="stat-card warn"><div class="stat-label">Lab Eligible</div><div class="stat-value warn">${labCount}</div></div>
     <div class="stat-card ok"><div class="stat-label">Field Eligible</div><div class="stat-value ok">${fieldCount}</div></div>
     <div class="stat-card priority"><div class="stat-label">Sample Transport</div><div class="stat-value priority">${transportCount}</div></div>
-    <div class="stat-card"><div class="stat-label">Visiting</div><div class="stat-value">${visitingCount}</div></div>
+    <div class="stat-card"><div class="stat-label">Inactive</div><div class="stat-value">${inactiveCount}</div></div>
   `;
 }
 
 function renderEmployeeCard(employee){
   const defaultTruck = getDefaultTruckForEmployee(employee.id);
-  const transportBadge = employee.canSampleTransport ? '<span class="warning-chip">Sample Pickup / Drop-Off</span>' : '';
+  const transportBadge = employee.workScope === 'Lab' && employee.canSampleTransport ? '<span class="warning-chip">Sample Pickup / Drop-Off</span>' : '';
   const visitingBadge = isVisitingEmployee(employee) ? '<span class="warning-chip">Visiting</span>' : '';
   return `
     <div class="employee-card clickable-card" role="button" tabindex="0" onclick="openEmployeeModal('${esc(employee.id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEmployeeModal('${esc(employee.id)}'); }">
@@ -373,7 +380,7 @@ function renderEmployeeCard(employee){
           <div class="item-title">${esc(getEmployeeFullName(employee))}</div>
           <div class="muted">${esc(getRoleSummary(employee))}</div>
         </div>
-        <div class="mini-tags">${getScopeBadge(employee.workScope)}${visitingBadge}${transportBadge}</div>
+        <div class="mini-tags">${getEmployeeStatusBadge(employee)}${getScopeBadge(employee.workScope)}${visitingBadge}${transportBadge}</div>
       </div>
       <div class="employee-meta-grid">
         <div class="employee-meta">
@@ -425,6 +432,7 @@ function renderModalBody(){
   const showLabRole = isLabEligible(scope);
   const showFieldRole = isFieldEligible(scope);
   const showDefaultTruck = isFieldEligible(scope);
+  const showSampleTransport = scope === 'Lab';
   const defaultTruckId = modalState.formData.defaultTruckId || '';
   const truckOptions = buildTruckOptions();
   const body = `
@@ -447,6 +455,13 @@ function renderModalBody(){
           ${WORK_SCOPE_OPTIONS.map((option) => `<option value="${esc(option)}" ${scope === option ? 'selected' : ''}>${esc(option)}</option>`).join('')}
         </select>
       </div>
+      <div class="form-group">
+        <label class="form-label">Employment Status</label>
+        <select class="form-input" onchange="setModalActiveStatus(this.value)">
+          <option value="active" ${modalState.formData.isActive !== false ? 'selected' : ''}>Active</option>
+          <option value="inactive" ${modalState.formData.isActive === false ? 'selected' : ''}>Inactive</option>
+        </select>
+      </div>
       ${showLabRole ? `<div class="form-group"><label class="form-label">Lab Role</label><select class="form-input" onchange="setModalField('labRole', this.value)">${[''].concat(LAB_ROLE_OPTIONS).map((option) => `<option value="${esc(option)}" ${String(modalState.formData.labRole || '') === String(option) ? 'selected' : ''}>${esc(option || 'Select lab role...')}</option>`).join('')}</select></div>` : ''}
       ${showFieldRole ? `<div class="form-group"><label class="form-label">Field Role</label><select class="form-input" onchange="setModalField('fieldRole', this.value)">${[''].concat(FIELD_ROLE_OPTIONS).map((option) => `<option value="${esc(option)}" ${String(modalState.formData.fieldRole || '') === String(option) ? 'selected' : ''}>${esc(option || 'Select field role...')}</option>`).join('')}</select></div>` : ''}
       ${showDefaultTruck ? `<div class="form-group"><label class="form-label">Default Truck</label><select class="form-input" onchange="setModalField('defaultTruckId', this.value)">${truckOptions.map((option) => `<option value="${esc(option.value)}" ${String(defaultTruckId) === String(option.value) ? 'selected' : ''}>${esc(option.label)}</option>`).join('')}</select></div>` : ''}
@@ -458,10 +473,10 @@ function renderModalBody(){
         <label class="form-label">Email</label>
         <input class="form-input" type="email" value="${esc(modalState.formData.email || '')}" oninput="setModalField('email', this.value)">
       </div>
-      <div class="form-group full">
-        <label class="form-label">Sample Transport Eligibility</label>
-        <label class="toggle-card"><input type="checkbox" ${modalState.formData.canSampleTransport ? 'checked' : ''} onchange="toggleModalField('canSampleTransport', this.checked)">Eligible to use a company vehicle for sample pickup / drop-off</label>
-      </div>
+      ${showSampleTransport ? `<div class="form-group full">
+        <label class="form-label">Company Vehicle Eligibility</label>
+        <label class="toggle-card"><input type="checkbox" ${modalState.formData.canSampleTransport ? 'checked' : ''} onchange="toggleModalField('canSampleTransport', this.checked)">Eligible to use a company vehicle for lab duties</label>
+      </div>` : ''}
       <div class="form-group full">
         <label class="form-label">Notes</label>
         <textarea class="form-input" oninput="setModalField('notes', this.value)">${esc(modalState.formData.notes || '')}</textarea>
@@ -477,7 +492,9 @@ function openEmployeeModal(id = ''){
   draft.defaultTruckId = existing ? (getDefaultTruckForEmployee(existing.id)?.id || '') : '';
   modalState = { open:true, id:existing?.id || '', formData:draft };
   document.getElementById('employee-modal-title').textContent = `${modalState.id ? 'Edit' : 'Add'} Employee`;
-  document.getElementById('employee-modal-delete').style.display = modalState.id ? '' : 'none';
+  const statusButton = document.getElementById('employee-modal-delete');
+  statusButton.style.display = modalState.id ? '' : 'none';
+  statusButton.textContent = draft.isActive === false ? 'Reactivate' : 'Mark Inactive';
   document.getElementById('employee-modal-overlay').classList.add('open');
   renderModalBody();
 }
@@ -495,6 +512,10 @@ function toggleModalField(key, checked){
   modalState.formData[key] = !!checked;
 }
 
+function setModalActiveStatus(value){
+  modalState.formData.isActive = value !== 'inactive';
+}
+
 function changeWorkScope(value){
   modalState.formData.workScope = value;
   if(!isLabEligible(value)) modalState.formData.labRole = '';
@@ -502,6 +523,7 @@ function changeWorkScope(value){
     modalState.formData.fieldRole = '';
     modalState.formData.defaultTruckId = '';
   }
+  if(value !== 'Lab') modalState.formData.canSampleTransport = false;
   renderModalBody();
 }
 
@@ -542,6 +564,8 @@ async function saveEmployee(){
     const formData = clone(modalState.formData);
     formData.homeSplSite = String(formData.homeSplSite || LOCAL_SPL_SITE).trim() || LOCAL_SPL_SITE;
     formData.employeeName = buildEmployeeName(formData.employeeFirstName, formData.employeeLastName, formData.employeeName);
+    formData.isActive = formData.isActive !== false;
+    formData.canSampleTransport = formData.workScope === 'Lab' && !!formData.canSampleTransport;
     if(isRemoteMode()){
       const employeeId = await remoteRepository.saveEmployee({ ...formData, id:modalState.id });
       await remoteRepository.assignDefaultTruck(employeeId, formData.employeeName, isFieldEligible(formData.workScope) ? String(formData.defaultTruckId || '') : '');
@@ -572,30 +596,28 @@ async function saveEmployee(){
 async function deleteCurrentEmployee(){
   const employeeId = modalState.id;
   if(!employeeId) return;
-  if(!confirm('Delete this employee? This removes truck defaults and active field job employee assignments.')) return;
+  const currentEmployee = state.employees.find((employee) => employee.id === employeeId) || null;
+  const nextActive = currentEmployee?.isActive === false;
+  if(!confirm(nextActive ? 'Reactivate this employee?' : 'Mark this employee inactive? Existing job history will be preserved.')) return;
   state.saveInFlight = true;
-  showSaveStatus('saving', 'DELETING');
+  showSaveStatus('saving', nextActive ? 'REACTIVATING' : 'MARKING INACTIVE');
   try {
     if(isRemoteMode()){
-      await remoteRepository.deleteEmployee(employeeId);
+      await remoteRepository.setEmployeeActive(employeeId, nextActive);
     } else {
       const current = await readLocalDirectory();
-      const nextEmployees = current.employees.filter((employee) => employee.id !== employeeId);
-      const nextTrucks = current.trucks.map((truck) => truck.assignedTechnicianId === employeeId ? { ...truck, assignedTechnicianId:'', currentDriver:'' } : truck);
-      const payload = buildLocalWritePayload(current.rawData, nextEmployees, nextTrucks);
-      payload.jobAssignments = Array.isArray(current.rawData?.jobAssignments)
-        ? current.rawData.jobAssignments.filter((assignment) => !(assignment.assignmentType === 'Technician' && String(assignment.resourceId || '') === employeeId))
-        : current.rawData?.jobAssignments;
+      const nextEmployees = current.employees.map((employee) => employee.id === employeeId ? { ...employee, isActive:nextActive } : employee);
+      const payload = buildLocalWritePayload(current.rawData, nextEmployees, current.trucks);
       localStorage.setItem(EMPLOYEE_STORAGE_KEY, JSON.stringify(payload));
     }
     closeEmployeeModal();
     await loadData();
-    showSaveStatus('saved', 'DELETED');
+    showSaveStatus('saved', nextActive ? 'REACTIVATED' : 'MARKED INACTIVE');
     hideSaveStatusSoon();
   } catch (error){
-    console.error('Unable to delete employee:', error);
-    showSaveStatus('error', 'DELETE FAILED');
-    alert(error.message || 'Unable to delete the employee.');
+    console.error('Unable to update employee status:', error);
+    showSaveStatus('error', 'STATUS UPDATE FAILED');
+    alert(error.message || 'Unable to update the employee status.');
     hideSaveStatusSoon(4200);
   } finally {
     state.saveInFlight = false;
