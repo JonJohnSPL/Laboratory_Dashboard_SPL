@@ -43,3 +43,4 @@ With `authEmailSuffix` set, staff can type `jsmith` plus their password, and the
 - The current behavior is last-write-wins. If two users edit the same data at the same time, the most recent save will replace the older one.
 - Column visibility still uses local browser storage because it is a personal UI preference, not shared lab data.
 - The Field Ops `field-assets` storage bucket is used for uploaded asset photos and client logos.
+- Field Ops Salesforce Case sync runs through the `salesforce-case` Supabase Edge Function. Configure the function with `SALESFORCE_LOGIN_URL`, `SALESFORCE_CLIENT_ID`, `SALESFORCE_CLIENT_SECRET`, `SALESFORCE_INSTANCE_URL`, and `SUPABASE_SERVICE_ROLE_KEY`; keep these values out of `app-config.js`.

@@ -93,7 +93,7 @@ const ENTITY_CONFIG = {
   siteProjects:{ table:'field_site_projects', label:'Site Project Link', idPrefix:'siteproj', defaults:{ siteId:'', projectId:'' }, fieldMap:{ siteId:'site_id', projectId:'project_id' }, idFields:['siteId', 'projectId'] },
   jobTypes:{ table:'field_job_types', label:'Job Type', idPrefix:'jobtype', defaults:{ jobTypeKey:'', jobTypeName:'', jobTypeColor:DEFAULT_JOB_TYPE_COLOR, isActive:true, jobTypeStatus:'active', labEmployeeEligible:false, scheduleMode:'range', requiredAssignmentTypes:[], detailGroups:[] }, fieldMap:{ jobTypeKey:'job_type_key', jobTypeName:'job_type_name', jobTypeColor:'job_type_color', isActive:'is_active', labEmployeeEligible:'lab_employee_eligible', scheduleMode:'schedule_mode', requiredAssignmentTypes:'required_assignment_types', detailGroups:'detail_groups' }, booleanFields:['isActive', 'labEmployeeEligible'], arrayFields:['requiredAssignmentTypes', 'detailGroups'], localOnlyFields:['jobTypeStatus'] },
   siteTypeJobTypes:{ table:'field_site_type_job_types', label:'Site Type Job Type Link', idPrefix:'sitetypejob', defaults:{ siteTypeKey:'', jobTypeKey:'' }, fieldMap:{ siteTypeKey:'site_type_key', jobTypeKey:'job_type_key' } },
-  jobs:{ table:'field_jobs', label:'Job', idPrefix:'job', defaults:{ fieldfxTicketId:'', clientId:'', projectId:'', siteId:'', jobType:'', priority:'Normal', requestedDate:'', scheduledStart:'', scheduledEnd:'', actualStart:'', actualEnd:'', durationPlanned:null, durationActual:null, scopeSummary:'', workInstructions:'', apiStandardReference:'', custodyAllocation:'Allocation', samplesRequired:false, meterUnitId:'', provingRequired:false, maintenanceRequired:false, clientContactForJob:'', dispatchNotes:'', completionNotes:'', followUpRequired:false, followUpNotes:'' }, fieldMap:{ fieldfxTicketId:'fieldfx_ticket_id', clientId:'client_id', projectId:'project_id', siteId:'site_id', jobType:'job_type', priority:'priority', requestedDate:'requested_date', scheduledStart:'scheduled_start', scheduledEnd:'scheduled_end', actualStart:'actual_start', actualEnd:'actual_end', durationPlanned:'duration_planned_minutes', durationActual:'duration_actual_minutes', scopeSummary:'scope_summary', workInstructions:'work_instructions', apiStandardReference:'api_standard_reference', custodyAllocation:'custody_allocation', samplesRequired:'samples_required', meterUnitId:'meter_unit_id', provingRequired:'proving_required', maintenanceRequired:'maintenance_required', clientContactForJob:'client_contact_for_job', dispatchNotes:'dispatch_notes', completionNotes:'completion_notes', followUpRequired:'follow_up_required', followUpNotes:'follow_up_notes' }, idFields:['clientId', 'projectId', 'siteId'], numberFields:['durationPlanned', 'durationActual'], booleanFields:['samplesRequired', 'provingRequired', 'maintenanceRequired', 'followUpRequired'], dateFields:['requestedDate'], dateTimeFields:['scheduledStart', 'scheduledEnd', 'actualStart', 'actualEnd'] },
+  jobs:{ table:'field_jobs', label:'Job', idPrefix:'job', defaults:{ fieldfxTicketId:'', salesforceCaseId:'', salesforceCaseNumber:'', salesforceCaseUrl:'', salesforceSyncedAt:'', salesforceSyncStatus:'', salesforceSyncError:'', clientId:'', projectId:'', siteId:'', jobType:'', priority:'Normal', requestedDate:'', scheduledStart:'', scheduledEnd:'', actualStart:'', actualEnd:'', durationPlanned:null, durationActual:null, scopeSummary:'', workInstructions:'', apiStandardReference:'', custodyAllocation:'Allocation', samplesRequired:false, meterUnitId:'', provingRequired:false, maintenanceRequired:false, clientContactForJob:'', dispatchNotes:'', completionNotes:'', followUpRequired:false, followUpNotes:'' }, fieldMap:{ fieldfxTicketId:'fieldfx_ticket_id', salesforceCaseId:'salesforce_case_id', salesforceCaseNumber:'salesforce_case_number', salesforceCaseUrl:'salesforce_case_url', salesforceSyncedAt:'salesforce_synced_at', salesforceSyncStatus:'salesforce_sync_status', salesforceSyncError:'salesforce_sync_error', clientId:'client_id', projectId:'project_id', siteId:'site_id', jobType:'job_type', priority:'priority', requestedDate:'requested_date', scheduledStart:'scheduled_start', scheduledEnd:'scheduled_end', actualStart:'actual_start', actualEnd:'actual_end', durationPlanned:'duration_planned_minutes', durationActual:'duration_actual_minutes', scopeSummary:'scope_summary', workInstructions:'work_instructions', apiStandardReference:'api_standard_reference', custodyAllocation:'custody_allocation', samplesRequired:'samples_required', meterUnitId:'meter_unit_id', provingRequired:'proving_required', maintenanceRequired:'maintenance_required', clientContactForJob:'client_contact_for_job', dispatchNotes:'dispatch_notes', completionNotes:'completion_notes', followUpRequired:'follow_up_required', followUpNotes:'follow_up_notes' }, idFields:['clientId', 'projectId', 'siteId'], numberFields:['durationPlanned', 'durationActual'], booleanFields:['samplesRequired', 'provingRequired', 'maintenanceRequired', 'followUpRequired'], dateFields:['requestedDate'], dateTimeFields:['salesforceSyncedAt', 'scheduledStart', 'scheduledEnd', 'actualStart', 'actualEnd'] },
   jobAssignments:{ table:'field_job_assignments', label:'Assignment', idPrefix:'asg', defaults:{ jobId:'', assignmentType:'Technician', resourceId:'' }, fieldMap:{ jobId:'job_id', assignmentType:'assignment_type', resourceId:'resource_id' }, idFields:['jobId', 'resourceId'] },
   employees:{ table:'employees', label:'Employee', idPrefix:'emp', defaults:{ employeeFirstName:'', employeeLastName:'', employeeName:'', homeSplSite:LOCAL_SPL_SITE, workScope:'Field', labRole:'', fieldRole:'Field Tech', canSampleTransport:false, isActive:true, phone:'', email:'', notes:'' }, fieldMap:{ employeeFirstName:'employee_first_name', employeeLastName:'employee_last_name', employeeName:'employee_name', homeSplSite:'home_spl_site', workScope:'work_scope', labRole:'lab_role', fieldRole:'field_role', canSampleTransport:'can_sample_transport', isActive:'is_active', phone:'phone', email:'email', notes:'notes' }, booleanFields:['canSampleTransport', 'isActive'] },
   trucks:{ table:'field_trucks', label:'Truck', idPrefix:'truck', defaults:{ unitNumber:'', vehicleType:'Pickup', fuelType:'', serviceStatus:'Available', currentDriver:'', assignedTechnicianId:'', model:'', licensePlateNumber:'', make:'', color:'', registeredState:'', vin:'', vehicleId:'', vehicleYear:null, assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ unitNumber:'unit_number', vehicleType:'vehicle_type', fuelType:'fuel_type', serviceStatus:'service_status', currentDriver:'current_driver', assignedTechnicianId:'assigned_technician_id', model:'model', licensePlateNumber:'license_plate_number', make:'make', color:'color', registeredState:'registered_state', vin:'vin', vehicleId:'vehicle_id', vehicleYear:'vehicle_year', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTechnicianId'], numberFields:['vehicleYear'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
@@ -943,6 +943,105 @@ async function sendTeamsWebhookTest(){
   }
 }
 
+function getSalesforceInstanceUrl(){
+  return String(window.APP_CONFIG?.salesforceInstanceUrl || '').trim().replace(/\/+$/, '');
+}
+
+function getSalesforceCaseUrl(job){
+  const explicitUrl = String(job?.salesforceCaseUrl || '').trim();
+  if(explicitUrl) return explicitUrl;
+  const caseId = String(job?.salesforceCaseId || '').trim();
+  const instanceUrl = getSalesforceInstanceUrl();
+  return caseId && instanceUrl ? `${instanceUrl}/lightning/r/Case/${encodeURIComponent(caseId)}/view` : '';
+}
+
+function getSalesforceCaseLabel(job){
+  return String(job?.salesforceCaseNumber || job?.salesforceCaseId || '').trim();
+}
+
+function renderJobSalesforceTag(job){
+  const caseLabel = getSalesforceCaseLabel(job);
+  if(caseLabel) return `<span class="mini-tag salesforce-case-tag">SF ${esc(caseLabel)}</span>`;
+  if(String(job?.salesforceSyncStatus || '').trim() === 'Error') return '<span class="mini-tag salesforce-case-tag error-text">SF Error</span>';
+  return '';
+}
+
+function getSalesforceSyncStatusText(job){
+  const status = String(job?.salesforceSyncStatus || '').trim();
+  const syncedAt = job?.salesforceSyncedAt ? fmtDateTime(job.salesforceSyncedAt) : '';
+  if(status && syncedAt) return `${status} | ${syncedAt}`;
+  return status || (syncedAt ? `Synced | ${syncedAt}` : 'Not synced');
+}
+
+function renderSalesforceCaseEditor(){
+  if(modalState.entity !== 'jobs') return '';
+  const job = modalState.formData || {};
+  const hasCase = !!String(job.salesforceCaseId || job.salesforceCaseNumber || '').trim();
+  const caseLabel = getSalesforceCaseLabel(job);
+  const caseUrl = getSalesforceCaseUrl(job);
+  const syncError = String(job.salesforceSyncError || '').trim();
+  const disabledReason = !isRemoteMode()
+    ? 'Salesforce sync is available after signing into the shared Supabase-backed dashboard.'
+    : (!modalState.id ? 'Save this job before creating a Salesforce Case.' : '');
+  const actionLabel = hasCase ? 'Sync Salesforce Case' : 'Create Salesforce Case';
+  const openButton = caseUrl
+    ? `<a class="act-btn salesforce-open-link" href="${esc(caseUrl)}" target="_blank" rel="noopener">Open Salesforce Case</a>`
+    : '';
+  return `<div class="salesforce-editor"><div class="assignment-head"><div><h4>Salesforce Case</h4><div class="section-copy">${hasCase ? `Linked to ${esc(caseLabel || 'Salesforce Case')}.` : 'Create a Salesforce Case when this scheduled job is ready to hand off.'}</div></div><div class="table-actions">${openButton}<button class="add-btn" type="button" onclick="syncSalesforceCaseFromModal()" ${disabledReason ? 'disabled' : ''}>${esc(actionLabel)}</button></div></div><div class="salesforce-sync-card"><div><div class="form-label">Case</div><div class="item-title">${esc(caseLabel || 'No Case linked')}</div></div><div><div class="form-label">Sync Status</div><div class="muted">${esc(getSalesforceSyncStatusText(job))}</div></div></div>${disabledReason ? `<div class="form-hint">${esc(disabledReason)}</div>` : ''}${syncError ? `<div class="form-hint error-text">${esc(syncError)}</div>` : ''}</div>`;
+}
+
+async function syncSalesforceCaseFromModal(){
+  if(!modalState.open || modalState.entity !== 'jobs') return;
+  if(!isRemoteMode()){
+    alert('Salesforce sync is available after signing into the shared dashboard.');
+    return;
+  }
+  if(!modalState.id){
+    alert('Save this job before creating a Salesforce Case.');
+    return;
+  }
+  const validationMessage = validateModal();
+  if(validationMessage){
+    alert(validationMessage);
+    return;
+  }
+  const hasCase = !!String(modalState.formData.salesforceCaseId || modalState.formData.salesforceCaseNumber || '').trim();
+  state.saveInFlight = true;
+  showSaveStatus('saving', hasCase ? 'SYNCING SALESFORCE' : 'CREATING SALESFORCE CASE');
+  try {
+    const jobId = await saveRemoteJob(modalState.formData, modalState.assignments);
+    const result = await window.appAuth.requestJson('/functions/v1/salesforce-case', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body:JSON.stringify({ jobId })
+    });
+    await loadData({ silent:true, force:true });
+    const refreshed = getJob(jobId);
+    if(refreshed){
+      modalState.id = jobId;
+      modalState.formData = clone(refreshed);
+      modalState.assignments = getAssignmentsForJob(jobId).map((row) => clone(row));
+      renderModal();
+    }
+    showSaveStatus('saved', result?.action === 'created' ? 'SALESFORCE CASE CREATED' : 'SALESFORCE CASE SYNCED');
+    hideSaveStatusSoon();
+  } catch (error){
+    console.error('Unable to sync Salesforce Case:', error);
+    await loadData({ silent:true, force:true }).catch(() => {});
+    const refreshed = modalState.id ? getJob(modalState.id) : null;
+    if(refreshed){
+      modalState.formData = clone(refreshed);
+      modalState.assignments = getAssignmentsForJob(refreshed.id).map((row) => clone(row));
+      renderModal();
+    }
+    showSaveStatus('error', 'SALESFORCE SYNC FAILED');
+    hideSaveStatusSoon(4200);
+    alert(error.message || 'Unable to sync the Salesforce Case.');
+  } finally {
+    state.saveInFlight = false;
+  }
+}
+
 function getJobPastComparisonDate(job){
   return parseDateTime(job?.scheduledEnd) || parseDateTime(job?.scheduledStart) || parseDateTime(job?.requestedDate);
 }
@@ -1498,7 +1597,7 @@ function getJobWarnings(job, derived){
 
 function renderMiniJobList(jobs, derived, emptyText){
   if(!jobs.length) return `<div class="empty-state"><strong>Nothing to show</strong>${esc(emptyText)}</div>`;
-  return `<div class="mini-list">${[...jobs].sort(getEntitySorter('jobs')).map((job) => `<div class="mini-card overview-job-card" style="${esc(getJobTypeScheduleStyle(job.jobType))}"><div class="mini-head"><div><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(getClientLabel(job.clientId))} | ${esc(getProjectLabel(job.projectId))} | ${esc(getSiteLabel(job.siteId))}</div></div>${getPriorityBadge(job.priority)}</div><div class="mini-tags"><span class="mini-tag">${esc(getJobScheduleLabel(job))}</span></div>${renderWarnings(getJobWarnings(job, derived))}</div>`).join('')}</div>`;
+  return `<div class="mini-list">${[...jobs].sort(getEntitySorter('jobs')).map((job) => `<div class="mini-card overview-job-card" style="${esc(getJobTypeScheduleStyle(job.jobType))}"><div class="mini-head"><div><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(getClientLabel(job.clientId))} | ${esc(getProjectLabel(job.projectId))} | ${esc(getSiteLabel(job.siteId))}</div></div>${getPriorityBadge(job.priority)}</div><div class="mini-tags"><span class="mini-tag">${esc(getJobScheduleLabel(job))}</span>${renderJobSalesforceTag(job)}</div>${renderWarnings(getJobWarnings(job, derived))}</div>`).join('')}</div>`;
 }
 
 function renderIssueCard(label, value, copy){
@@ -1628,7 +1727,7 @@ function renderDispatchTable(rows){
   return `<div class="table-wrap"><table class="dispatch-table"><thead><tr>${columns.map((column) => `<th>${renderDispatchSortHeader(column)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => {
     const job = row.job;
     const cells = [
-      `<div class="inline-stack dispatch-job-cell"><div>${getJobTypeBadge(job.jobType)}</div><div class="muted">${esc(job.scopeSummary || 'No scope summary')}</div>${job.custodyAllocation ? `<div class="muted">${esc(job.custodyAllocation)}</div>` : ''}</div>`,
+      `<div class="inline-stack dispatch-job-cell"><div>${getJobTypeBadge(job.jobType)}${renderJobSalesforceTag(job)}</div><div class="muted">${esc(job.scopeSummary || 'No scope summary')}</div>${job.custodyAllocation ? `<div class="muted">${esc(job.custodyAllocation)}</div>` : ''}</div>`,
       `<div class="inline-stack"><div class="item-title">${esc(getClientLabel(job.clientId))}</div><div class="muted">${esc(getProjectLabel(job.projectId))} | ${esc(getSiteLabel(job.siteId))}</div></div>`,
       `<div class="inline-stack"><div>${esc(getJobScheduleLabel(job))}</div></div>`,
       getPriorityBadge(job.priority),
@@ -1747,7 +1846,7 @@ function renderSchedule(derived){
   const filterLabel = getScheduleFilterOptions().find((option) => option.value === state.scheduleJobFilter)?.label || 'All';
   document.getElementById('schedule-toolbar').innerHTML = `${renderScheduleSegmentedControl('View', getScheduleViewOptions(), state.scheduleView, 'setScheduleView')}${renderScheduleSegmentedControl('Jobs', getScheduleFilterOptions(), state.scheduleJobFilter, 'setScheduleJobFilter')}<span class="label">Period</span><button class="act-btn" type="button" onclick="changeScheduleWeek(-1)">Prev</button><button class="act-btn" type="button" onclick="resetScheduleWeek()">Current</button><button class="act-btn" type="button" onclick="changeScheduleWeek(1)">Next</button><button class="act-btn" type="button" onclick="sendTeamsWebhookTest()">Send Teams Test</button><div class="toolbar-summary">${esc(getSchedulePeriodLabel(scheduleDates))}</div>`;
   document.getElementById('schedule-summary').textContent = `${scheduleJobs.length} visible / ${totalJobsInRange} jobs ${getScheduleViewSummaryLabel(state.scheduleView)} | ${getScheduleViewLabel(state.scheduleView)} | ${filterLabel}`;
-  document.getElementById('schedule-board').innerHTML = `<div class="schedule-week schedule-${esc(state.scheduleView)}">${scheduleDates.map((dateIso) => { const jobsForDay = scheduleJobs.filter((job) => isSameDay(getJobPrimaryDate(job), dateIso)); return `<div class="${getScheduleDayClasses(dateIso)}"><div class="day-head"><strong>${esc(parseDateOnly(dateIso)?.toLocaleDateString('en-US', { weekday:'long' }) || '')}</strong><span>${esc(fmtDate(dateIso))}</span></div><div class="day-list">${jobsForDay.length ? jobsForDay.map((job) => { const warnings = getJobWarnings(job, derived); const missingEquipment = getJobMissingRequirements(job).includes('Equipment'); const pastJob = isJobPast(job); const cardClasses = ['schedule-card', 'clickable-card', getJobTypeClassName(job.jobType), missingEquipment ? 'missing-equipment' : '', pastJob ? 'past-job' : '', derived.conflictJobIds.has(job.id) ? 'conflict' : '', warnings.length ? 'warning' : ''].filter(Boolean).join(' '); return `<div ${renderSelectableOpenAttrs('jobs', job.id, cardClasses, 'Open Job', getJobTypeScheduleStyle(job.jobType))}><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(fmtTime(job.scheduledStart || job.requestedDate))} | ${esc(getSiteLabel(job.siteId))}</div>${renderScheduleTechnicianLine(job.id)}${renderWarnings(warnings)}</div>`; }).join('') : '<div class="empty-state">No scheduled jobs</div>'}</div></div>`; }).join('')}</div>`;
+  document.getElementById('schedule-board').innerHTML = `<div class="schedule-week schedule-${esc(state.scheduleView)}">${scheduleDates.map((dateIso) => { const jobsForDay = scheduleJobs.filter((job) => isSameDay(getJobPrimaryDate(job), dateIso)); return `<div class="${getScheduleDayClasses(dateIso)}"><div class="day-head"><strong>${esc(parseDateOnly(dateIso)?.toLocaleDateString('en-US', { weekday:'long' }) || '')}</strong><span>${esc(fmtDate(dateIso))}</span></div><div class="day-list">${jobsForDay.length ? jobsForDay.map((job) => { const warnings = getJobWarnings(job, derived); const missingEquipment = getJobMissingRequirements(job).includes('Equipment'); const pastJob = isJobPast(job); const cardClasses = ['schedule-card', 'clickable-card', getJobTypeClassName(job.jobType), missingEquipment ? 'missing-equipment' : '', pastJob ? 'past-job' : '', derived.conflictJobIds.has(job.id) ? 'conflict' : '', warnings.length ? 'warning' : ''].filter(Boolean).join(' '); return `<div ${renderSelectableOpenAttrs('jobs', job.id, cardClasses, 'Open Job', getJobTypeScheduleStyle(job.jobType))}><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(fmtTime(job.scheduledStart || job.requestedDate))} | ${esc(getSiteLabel(job.siteId))}</div><div class="mini-tags">${renderJobSalesforceTag(job)}</div>${renderScheduleTechnicianLine(job.id)}${renderWarnings(warnings)}</div>`; }).join('') : '<div class="empty-state">No scheduled jobs</div>'}</div></div>`; }).join('')}</div>`;
 }
 
 function getActiveDirectoryClientId(){
@@ -1841,7 +1940,7 @@ function renderDirectoryOverviewSection(client, activeProjectId){
   const primaryContacts = contacts.filter((row) => row.isPrimary);
   const upcomingJobs = jobs.filter((row) => !isJobClosed(row)).slice(0, 4);
   const address = [client.hqStreet, [client.hqCity, client.hqState].filter(Boolean).join(', '), client.hqZip].filter(Boolean).join(' ');
-  return `<div class="summary-grid directory-summary-grid"><div class="summary-card"><div class="label">Service Scope</div><div class="value">${esc(client.serviceScope || 'Field')}</div><div class="muted">${esc(client.sector || 'No sector')}</div></div><div class="summary-card"><div class="label">Client Code</div><div class="value">${esc(normalizeClientCode(client.clientCode) || 'Missing')}</div><div class="muted">Lab samples tie back to this client through the shared code.</div></div><div class="summary-card"><div class="label">Projects</div><div class="value">${projects.length}</div><div class="muted">Manage project scope from the Projects tab.</div></div><div class="summary-card"><div class="label">Contacts</div><div class="value">${contacts.length}</div><div class="muted">${esc(primaryContacts.length ? `${primaryContacts.length} primary contact${primaryContacts.length === 1 ? '' : 's'}` : 'No primary contacts flagged')}</div></div><div class="summary-card"><div class="label">Site/Locations</div><div class="value">${sites.length}</div><div class="muted">${esc(jobs.length)} active workflow record(s) for this client</div></div></div><div class="directory-section-grid"><div class="summary-card"><div class="label">Company Snapshot</div><div class="value">${esc(client.clientName || 'Unnamed client')}</div><div class="muted">${esc(normalizeClientCode(client.clientCode) || 'No client code')}</div><div class="muted">${esc(address || 'No HQ address on file')}</div><div class="muted">${esc(client.defaultServiceArea || 'No default service area')}</div><div class="mini-tags">${getStatusBadge(client.accountStatus)}${getStatusBadge(client.serviceScope || 'Field')}</div></div><div class="summary-card"><div class="label">Billing Snapshot</div><div class="value">${esc(billingProfiles[0]?.billingName || 'No billing profile')}</div><div class="muted">${esc(billingProfiles[0]?.billingEmail || billingProfiles[0]?.billingPhone || client.contactEmail || 'No billing contact on file')}</div><div class="muted">${esc(billingProfiles[0]?.poNumber || billingProfiles[0]?.referenceNumber || 'No PO / reference')}</div></div><div class="summary-card"><div class="label">Field Snapshot</div><div class="value">${esc(client.primaryContact || 'No primary contact')}</div><div class="muted">${esc(client.contactPhone || client.contactEmail || 'No client phone or email')}</div><div class="muted">${esc(client.operationalNotes || 'No field notes added yet')}</div></div></div><div class="directory-subsection"><div class="panel-header directory-subsection-head"><h2>Upcoming Jobs</h2><button class="act-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button></div><div class="panel-body">${upcomingJobs.length ? `<div class="mini-list">${upcomingJobs.map((job) => `<div class="mini-card clickable-card" role="button" tabindex="0" onclick="openEntityModal('jobs','${esc(job.id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEntityModal('jobs','${esc(job.id)}'); }"><div class="mini-head"><div><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(getProjectLabel(job.projectId))} | ${esc(getSiteLabel(job.siteId))}</div></div>${getPriorityBadge(job.priority)}</div><div class="mini-tags"><span class="mini-tag">${esc(getJobScheduleLabel(job))}</span></div></div>`).join('')}</div>` : '<div class="empty-state">No jobs are queued for this client yet.</div>'}</div></div>`;
+  return `<div class="summary-grid directory-summary-grid"><div class="summary-card"><div class="label">Service Scope</div><div class="value">${esc(client.serviceScope || 'Field')}</div><div class="muted">${esc(client.sector || 'No sector')}</div></div><div class="summary-card"><div class="label">Client Code</div><div class="value">${esc(normalizeClientCode(client.clientCode) || 'Missing')}</div><div class="muted">Lab samples tie back to this client through the shared code.</div></div><div class="summary-card"><div class="label">Projects</div><div class="value">${projects.length}</div><div class="muted">Manage project scope from the Projects tab.</div></div><div class="summary-card"><div class="label">Contacts</div><div class="value">${contacts.length}</div><div class="muted">${esc(primaryContacts.length ? `${primaryContacts.length} primary contact${primaryContacts.length === 1 ? '' : 's'}` : 'No primary contacts flagged')}</div></div><div class="summary-card"><div class="label">Site/Locations</div><div class="value">${sites.length}</div><div class="muted">${esc(jobs.length)} active workflow record(s) for this client</div></div></div><div class="directory-section-grid"><div class="summary-card"><div class="label">Company Snapshot</div><div class="value">${esc(client.clientName || 'Unnamed client')}</div><div class="muted">${esc(normalizeClientCode(client.clientCode) || 'No client code')}</div><div class="muted">${esc(address || 'No HQ address on file')}</div><div class="muted">${esc(client.defaultServiceArea || 'No default service area')}</div><div class="mini-tags">${getStatusBadge(client.accountStatus)}${getStatusBadge(client.serviceScope || 'Field')}</div></div><div class="summary-card"><div class="label">Billing Snapshot</div><div class="value">${esc(billingProfiles[0]?.billingName || 'No billing profile')}</div><div class="muted">${esc(billingProfiles[0]?.billingEmail || billingProfiles[0]?.billingPhone || client.contactEmail || 'No billing contact on file')}</div><div class="muted">${esc(billingProfiles[0]?.poNumber || billingProfiles[0]?.referenceNumber || 'No PO / reference')}</div></div><div class="summary-card"><div class="label">Field Snapshot</div><div class="value">${esc(client.primaryContact || 'No primary contact')}</div><div class="muted">${esc(client.contactPhone || client.contactEmail || 'No client phone or email')}</div><div class="muted">${esc(client.operationalNotes || 'No field notes added yet')}</div></div></div><div class="directory-subsection"><div class="panel-header directory-subsection-head"><h2>Upcoming Jobs</h2><button class="act-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button></div><div class="panel-body">${upcomingJobs.length ? `<div class="mini-list">${upcomingJobs.map((job) => `<div class="mini-card clickable-card" role="button" tabindex="0" onclick="openEntityModal('jobs','${esc(job.id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEntityModal('jobs','${esc(job.id)}'); }"><div class="mini-head"><div><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(getProjectLabel(job.projectId))} | ${esc(getSiteLabel(job.siteId))}</div></div>${getPriorityBadge(job.priority)}</div><div class="mini-tags"><span class="mini-tag">${esc(getJobScheduleLabel(job))}</span>${renderJobSalesforceTag(job)}</div></div>`).join('')}</div>` : '<div class="empty-state">No jobs are queued for this client yet.</div>'}</div></div>`;
 }
 function renderDirectoryProjectsSection(clientId, activeProjectId){
   const projects = getDirectoryProjects(clientId);
@@ -2325,7 +2424,7 @@ function renderModal(){
   document.getElementById('entity-modal-title').textContent = `${modalState.id ? 'Edit' : 'Add'} ${ENTITY_CONFIG[modalState.entity].label}`;
   document.getElementById('entity-modal-delete').style.display = modalState.id ? '' : 'none';
   document.getElementById('entity-modal-duplicate').style.display = modalState.entity === 'jobs' && modalState.id ? '' : 'none';
-  document.getElementById('entity-modal-body').innerHTML = `<div class="form-grid">${(FORM_DEFINITIONS[modalState.entity] || []).map((field) => renderFormField(field)).join('')}</div>${modalState.entity === 'jobs' ? renderAssignmentEditor() : ''}`;
+  document.getElementById('entity-modal-body').innerHTML = `<div class="form-grid">${(FORM_DEFINITIONS[modalState.entity] || []).map((field) => renderFormField(field)).join('')}</div>${modalState.entity === 'jobs' ? `${renderAssignmentEditor()}${renderSalesforceCaseEditor()}` : ''}`;
   hydrateAssetPhotoPreviews(document.getElementById('entity-modal-body'));
 }
 
@@ -2439,6 +2538,12 @@ function buildDuplicatedJobDraft(source){
     ...source,
     id:'',
     fieldfxTicketId:'',
+    salesforceCaseId:'',
+    salesforceCaseNumber:'',
+    salesforceCaseUrl:'',
+    salesforceSyncedAt:'',
+    salesforceSyncStatus:'',
+    salesforceSyncError:'',
     actualStart:'',
     actualEnd:'',
     durationActual:null,

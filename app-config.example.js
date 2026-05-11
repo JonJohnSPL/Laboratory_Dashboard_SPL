@@ -4,6 +4,7 @@ window.APP_CONFIG = {
   googleMapsApiKey: 'YOUR_GOOGLE_MAPS_API_KEY',
   googleMapsMapId: '',
   fieldOpsTeamsWebhookUrl: 'YOUR_POWER_AUTOMATE_TEAMS_WEBHOOK_URL',
+  salesforceInstanceUrl: 'https://YOUR_DOMAIN.my.salesforce.com',
   authEmailSuffix: '@lab.local',
   authTitle: 'Pittsburgh Lab WIP Dashboard',
   authHelpText: 'Use your assigned username and password to open the shared dashboard.'

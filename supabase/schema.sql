@@ -664,6 +664,12 @@ on conflict (site_id, project_id) do nothing;
 create table if not exists public.field_jobs (
   id uuid primary key default gen_random_uuid(),
   fieldfx_ticket_id text not null default '',
+  salesforce_case_id text not null default '',
+  salesforce_case_number text not null default '',
+  salesforce_case_url text not null default '',
+  salesforce_synced_at timestamptz,
+  salesforce_sync_status text not null default '',
+  salesforce_sync_error text not null default '',
   client_id uuid not null references public.field_clients(id) on delete cascade,
   project_id uuid not null references public.field_projects(id) on delete cascade,
   site_id uuid not null references public.field_sites(id) on delete cascade,
@@ -694,6 +700,12 @@ create table if not exists public.field_jobs (
   created_by uuid,
   updated_by uuid
 );
+alter table public.field_jobs add column if not exists salesforce_case_id text not null default '';
+alter table public.field_jobs add column if not exists salesforce_case_number text not null default '';
+alter table public.field_jobs add column if not exists salesforce_case_url text not null default '';
+alter table public.field_jobs add column if not exists salesforce_synced_at timestamptz;
+alter table public.field_jobs add column if not exists salesforce_sync_status text not null default '';
+alter table public.field_jobs add column if not exists salesforce_sync_error text not null default '';
 alter table public.field_jobs add column if not exists project_id uuid;
 alter table public.field_jobs drop constraint if exists field_jobs_project_id_fkey;
 alter table public.field_jobs add constraint field_jobs_project_id_fkey foreign key (project_id) references public.field_projects(id) on delete cascade;
@@ -1052,6 +1064,7 @@ create index if not exists field_site_projects_project_id_idx on public.field_si
 create index if not exists field_jobs_client_id_idx on public.field_jobs(client_id);
 create index if not exists field_jobs_project_id_idx on public.field_jobs(project_id);
 create index if not exists field_jobs_site_id_idx on public.field_jobs(site_id);
+create index if not exists field_jobs_salesforce_case_id_idx on public.field_jobs(salesforce_case_id) where btrim(salesforce_case_id) <> '';
 create unique index if not exists field_job_assignments_unique_resource_per_job_idx on public.field_job_assignments(job_id, assignment_type, resource_id);
 create unique index if not exists field_job_types_job_type_key_lower_unique_idx on public.field_job_types (lower(job_type_key));
 drop index if exists public.field_job_types_sort_order_idx;
