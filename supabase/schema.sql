@@ -1027,6 +1027,7 @@ create table if not exists public.field_samples (
   updated_by uuid
 );
 alter table public.field_samples add column if not exists sample_status text not null default 'Needs Pulled';
+alter table public.field_samples add column if not exists sample_name text not null default '';
 alter table public.field_samples add column if not exists sample_point text not null default '';
 alter table public.field_samples add column if not exists test_codes text[] not null default array[]::text[];
 alter table public.field_samples add column if not exists linked_work_order_id text not null default '';

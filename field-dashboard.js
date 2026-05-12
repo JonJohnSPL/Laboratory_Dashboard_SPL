@@ -113,7 +113,7 @@ const ENTITY_CONFIG = {
   trucks:{ table:'field_trucks', label:'Truck', idPrefix:'truck', defaults:{ unitNumber:'', vehicleType:'Pickup', fuelType:'', serviceStatus:'Available', currentDriver:'', assignedTechnicianId:'', model:'', licensePlateNumber:'', make:'', color:'', registeredState:'', vin:'', vehicleId:'', vehicleYear:null, assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ unitNumber:'unit_number', vehicleType:'vehicle_type', fuelType:'fuel_type', serviceStatus:'service_status', currentDriver:'current_driver', assignedTechnicianId:'assigned_technician_id', model:'model', licensePlateNumber:'license_plate_number', make:'make', color:'color', registeredState:'registered_state', vin:'vin', vehicleId:'vehicle_id', vehicleYear:'vehicle_year', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTechnicianId'], numberFields:['vehicleYear'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
   trailers:{ table:'field_trailers', label:'Trailer', idPrefix:'trailer', defaults:{ trailerNumber:'', trailerType:'', capacityConfiguration:'', serviceStatus:'Available', assignedTruckId:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ trailerNumber:'trailer_number', trailerType:'trailer_type', capacityConfiguration:'capacity_configuration', serviceStatus:'service_status', assignedTruckId:'assigned_truck_id', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTruckId'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
   equipment:{ table:'field_equipment', label:'Equipment', idPrefix:'equip', defaults:{ equipmentName:'', equipmentType:'Small Volume Prover', model:'', manufacturer:'', splInventoryBarcode:'', serialNumber:'', calibrationStatus:'Current', lastCalibrationDate:'', nextCalibrationDue:'', maintenanceStatus:'Available', storageLocation:'', assignedTrailerTruck:'', assignedTruckId:'', assignedTrailerId:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ equipmentName:'equipment_name', equipmentType:'equipment_type', model:'model', manufacturer:'manufacturer', splInventoryBarcode:'spl_inventory_barcode', serialNumber:'serial_number', calibrationStatus:'calibration_status', lastCalibrationDate:'last_calibration_date', nextCalibrationDue:'next_calibration_due', maintenanceStatus:'maintenance_status', storageLocation:'storage_location', assignedTrailerTruck:'assigned_trailer_truck', assignedTruckId:'assigned_truck_id', assignedTrailerId:'assigned_trailer_id', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTruckId', 'assignedTrailerId'], dateFields:['lastCalibrationDate', 'nextCalibrationDue'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
-  samples:{ table:'field_samples', label:'Sample', idPrefix:'sample', defaults:{ jobId:'', clientId:'', siteId:'', sampleType:'Gas', containerType:'Cylinder', collectionDateTime:'', pickedUpBy:'', dropOffLocation:'', chainOfCustodyStatus:'Requested', labReceiptStatus:'Requested', sampleStatus:'Needs Pulled', samplePoint:'', testCodes:[], linkedWorkOrderId:'', linkedWorkOrderNumber:'', labReceivedAt:'', sampleSequence:null, priorityTat:'', notes:'' }, fieldMap:{ jobId:'job_id', clientId:'client_id', siteId:'site_id', sampleType:'sample_type', containerType:'container_type', collectionDateTime:'collection_date_time', pickedUpBy:'picked_up_by', dropOffLocation:'drop_off_location', chainOfCustodyStatus:'chain_of_custody_status', labReceiptStatus:'lab_receipt_status', sampleStatus:'sample_status', samplePoint:'sample_point', testCodes:'test_codes', linkedWorkOrderId:'linked_work_order_id', linkedWorkOrderNumber:'linked_work_order_number', labReceivedAt:'lab_received_at', sampleSequence:'sample_sequence', priorityTat:'priority_tat', notes:'notes' }, idFields:['jobId', 'clientId', 'siteId'], arrayFields:['testCodes'], numberFields:['sampleSequence'], dateTimeFields:['collectionDateTime', 'labReceivedAt'] },
+  samples:{ table:'field_samples', label:'Sample', idPrefix:'sample', defaults:{ jobId:'', clientId:'', siteId:'', sampleType:'Gas', containerType:'Cylinder', collectionDateTime:'', pickedUpBy:'', dropOffLocation:'', chainOfCustodyStatus:'Requested', labReceiptStatus:'Requested', sampleStatus:'Needs Pulled', sampleName:'', samplePoint:'', testCodes:[], linkedWorkOrderId:'', linkedWorkOrderNumber:'', labReceivedAt:'', sampleSequence:null, priorityTat:'', notes:'' }, fieldMap:{ jobId:'job_id', clientId:'client_id', siteId:'site_id', sampleType:'sample_type', containerType:'container_type', collectionDateTime:'collection_date_time', pickedUpBy:'picked_up_by', dropOffLocation:'drop_off_location', chainOfCustodyStatus:'chain_of_custody_status', labReceiptStatus:'lab_receipt_status', sampleStatus:'sample_status', sampleName:'sample_name', samplePoint:'sample_point', testCodes:'test_codes', linkedWorkOrderId:'linked_work_order_id', linkedWorkOrderNumber:'linked_work_order_number', labReceivedAt:'lab_received_at', sampleSequence:'sample_sequence', priorityTat:'priority_tat', notes:'notes' }, idFields:['jobId', 'clientId', 'siteId'], arrayFields:['testCodes'], numberFields:['sampleSequence'], dateTimeFields:['collectionDateTime', 'labReceivedAt'] },
   maintenanceRecords:{ table:'field_maintenance_records', label:'Maintenance Record', idPrefix:'maint', defaults:{ assetType:'Equipment', assetId:'', maintenanceType:'Preventive', openDate:'', dueDate:'', completedDate:'', status:'Open', issueDescription:'', resolution:'', vendorInternal:'Internal', cost:null, assignedPerson:'', notes:'' }, fieldMap:{ assetType:'asset_type', assetId:'asset_id', maintenanceType:'maintenance_type', openDate:'open_date', dueDate:'due_date', completedDate:'completed_date', status:'status', issueDescription:'issue_description', resolution:'resolution', vendorInternal:'vendor_internal', cost:'cost', assignedPerson:'assigned_person', notes:'notes' }, idFields:['assetId'], numberFields:['cost'], dateFields:['openDate', 'dueDate', 'completedDate'] }
 };
 
@@ -125,7 +125,7 @@ const remoteAssetPhotoUrlCache = new Map();
 const remoteAssetPhotoLoadPromises = new Map();
 
 function createEmptyData(){ return { clients:[], projects:[], contacts:[], contactProjects:[], contactSites:[], billingProfiles:[], siteTypes:[], sites:[], siteProjects:[], jobTypes:[], siteTypeJobTypes:[], jobs:[], jobAssignments:[], employees:[], trucks:[], trailers:[], equipment:[], samples:[], maintenanceRecords:[], technicians:[] }; }
-function createClosedModalState(){ return { open:false, entity:'', id:'', formData:{}, assignments:[], openMultiSelectKey:'' }; }
+function createClosedModalState(){ return { open:false, entity:'', id:'', formData:{}, assignments:[], openMultiSelectKey:'', openSampleTestDraftId:'' }; }
 function createClosedSampleLinkModalState(){ return { open:false, sampleId:'', selectedWorkOrderId:'', search:'' }; }
 function uid(prefix = 'fld'){ return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
 function clone(value){ return JSON.parse(JSON.stringify(value)); }
@@ -183,6 +183,29 @@ function getLabTestDefinitions(){ return state.labTestDefinitions.length ? state
 function getLabTestLabel(key){
   const normalized = normalizeCatalogKey(key);
   return getLabTestDefinitions().find((def) => def.key === normalized)?.label || String(key || '');
+}
+function getLabTestMatrixType(test){
+  const explicit = String(test?.matrixType || '').trim().toLowerCase();
+  if(explicit === 'gas') return 'Gas';
+  if(explicit === 'liquid') return 'Liquid';
+  const key = String(test?.key || test?.label || '').toUpperCase();
+  if(key.includes('LIQ') || key.includes('DENS') || key.includes('BFV')) return 'Liquid';
+  if(key.includes('GAS') || key.includes('2103')) return 'Gas';
+  return '';
+}
+function getLabTestsForSampleType(sampleType){
+  const type = normalizeSampleTypeForWorkflow(sampleType);
+  return getLabTestDefinitions().filter((test) => {
+    const matrix = getLabTestMatrixType(test);
+    return !matrix || matrix === type;
+  });
+}
+function buildLabTestOptionsForSampleType(sampleType){
+  return getLabTestsForSampleType(sampleType).map((test) => ({ value:test.key, label:test.label }));
+}
+function filterTestCodesForSampleType(testCodes, sampleType){
+  const allowed = new Set(getLabTestsForSampleType(sampleType).map((test) => test.key));
+  return normalizeStringArray(testCodes).filter((code) => allowed.has(normalizeCatalogKey(code)));
 }
 function getStorageAdapter(){
   return (window.storage && typeof window.storage.get === 'function' && typeof window.storage.set === 'function')
@@ -938,8 +961,9 @@ function createSampleDraft(source = {}, sequence = 1){
     draftId:String(source.draftId || source.id || uid('sampledraft')),
     id:String(source.id || ''),
     sampleType:normalizeSampleTypeForWorkflow(source.sampleType),
+    sampleName:String(source.sampleName || ''),
     samplePoint:String(source.samplePoint || ''),
-    testCodes:normalizeStringArray(source.testCodes),
+    testCodes:filterTestCodesForSampleType(source.testCodes, source.sampleType),
     sampleStatus:normalizeSampleStatus(source.sampleStatus, source),
     linkedWorkOrderId:String(source.linkedWorkOrderId || ''),
     linkedWorkOrderNumber:String(source.linkedWorkOrderNumber || ''),
@@ -979,17 +1003,34 @@ function updateJobSampleDraftField(draftId, key, value){
   if(!modalState.open || modalState.entity !== 'jobs') return;
   const row = getModalSampleDrafts().find((item) => item.draftId === draftId);
   if(!row) return;
-  if(key === 'sampleType') row.sampleType = normalizeSampleTypeForWorkflow(value);
+  if(key === 'sampleType'){
+    row.sampleType = normalizeSampleTypeForWorkflow(value);
+    row.testCodes = filterTestCodesForSampleType(row.testCodes, row.sampleType);
+  }
+  else if(key === 'sampleName') row.sampleName = String(value || '');
   else if(key === 'samplePoint') row.samplePoint = String(value || '');
   renderModal();
 }
-function toggleJobSampleDraftTest(draftId, testKey, checked){
+function setJobSampleDraftTests(draftId, values){
+  if(!modalState.open || modalState.entity !== 'jobs') return;
+  const row = getModalSampleDrafts().find((item) => item.draftId === draftId);
+  if(!row) return;
+  row.testCodes = filterTestCodesForSampleType(values, row.sampleType);
+  renderModal();
+}
+function toggleJobSampleDraftTest(draftId, testKey){
   if(!modalState.open || modalState.entity !== 'jobs') return;
   const row = getModalSampleDrafts().find((item) => item.draftId === draftId);
   if(!row) return;
   const key = normalizeCatalogKey(testKey);
-  const values = normalizeStringArray(row.testCodes);
-  row.testCodes = checked ? [...new Set([...values, key])] : values.filter((value) => value !== key);
+  const values = filterTestCodesForSampleType(row.testCodes, row.sampleType);
+  row.testCodes = values.includes(key) ? values.filter((value) => value !== key) : [...values, key];
+  modalState.openSampleTestDraftId = draftId;
+  renderModal();
+}
+function toggleJobSampleTestDropdown(draftId){
+  if(!modalState.open || modalState.entity !== 'jobs') return;
+  modalState.openSampleTestDraftId = modalState.openSampleTestDraftId === draftId ? '' : draftId;
   renderModal();
 }
 function getSampleStatusCounts(samples){
@@ -1414,9 +1455,10 @@ const FORM_DEFINITIONS = {
     { key:'clientId', label:'Client', type:'select', options:() => buildClientOptions(), handler:'changeSampleClient' },
     { key:'siteId', label:'Site/Location', type:'select', options:() => buildSiteOptions(modalState.formData.clientId) },
     { key:'sampleSequence', label:'Sample #', type:'number' },
-    { key:'sampleType', label:'Sample Type', type:'select', options:['Gas', 'Liquid'] },
+    { key:'sampleType', label:'Sample Type', type:'select', options:['Gas', 'Liquid'], handler:'changeSampleType' },
+    { key:'sampleName', label:'Sample Name', type:'text' },
     { key:'samplePoint', label:'Sample Point', type:'text' },
-    { key:'testCodes', label:'Tests', type:'multi-select', options:() => getLabTestDefinitions().map((test) => ({ value:test.key, label:test.label })) },
+    { key:'testCodes', label:'Tests', type:'test-dropdown', options:() => buildLabTestOptionsForSampleType(modalState.formData.sampleType) },
     { key:'sampleStatus', label:'Status', type:'select', options:SAMPLE_WORKFLOW_STATUS_OPTIONS },
     { key:'containerType', label:'Container Type', type:'select', options:CONTAINER_TYPE_OPTIONS },
     { key:'collectionDateTime', label:'Collection Date / Time', type:'datetime-local' },
@@ -2388,6 +2430,7 @@ function mergeFieldSampleIntoWorkOrder(workOrder, sample){
     fieldSampleId:sample.id,
     fieldJobId:sample.jobId,
     fieldJobLabel:getJobDisplayTitle(job),
+    sampleName:sample.sampleName,
     sampleType:sample.sampleType,
     samplePoint:sample.samplePoint,
     testCodes,
@@ -2399,6 +2442,7 @@ function mergeFieldSampleIntoWorkOrder(workOrder, sample){
     samples:[...(Array.isArray(workOrder.samples) ? workOrder.samples : []), {
       fieldSampleId:sample.id,
       sampleId,
+      sampleName:sample.sampleName || '',
       testCodes,
       matrix:getSampleMatrix(sample),
       hydrocarbon:'',
@@ -2411,6 +2455,7 @@ function mergeFieldSampleIntoWorkOrder(workOrder, sample){
     testRows:[...(Array.isArray(workOrder.testRows) ? workOrder.testRows : []), ...testCodes.map((testCode, index) => ({
       id:`field-${sample.id}-${testCode}-${index}`,
       fieldSampleId:sample.id,
+      sampleName:sample.sampleName || '',
       type:normalizeCatalogKey(testCode),
       testCode,
       sampleId,
@@ -2467,7 +2512,7 @@ function renderSamples(){
       const action = status === 'Received by Lab'
         ? `<button class="act-btn danger" type="button" onclick="markSampleNeedsPulled('${esc(sample.id)}')">Revert</button>`
         : `<button class="add-btn" type="button" onclick="openSampleReceiveModal('${esc(sample.id)}')">Receive</button>`;
-      return `<div class="sample-row"><div><div class="item-title">Sample ${esc(sample.sampleSequence || '')} | ${esc(sample.sampleType)}</div><div class="muted">${esc(sample.samplePoint || 'No sample point')}</div></div><div><div class="muted">Tests</div><div>${esc(renderSampleTests(sample))}</div></div><div><div class="muted">Status</div>${getStatusBadge(status)}</div><div><div class="muted">Lab Link</div><div>${esc(linked)}</div>${sample.labReceivedAt ? `<div class="muted">${esc(fmtDateTime(sample.labReceivedAt))}</div>` : ''}</div><div class="table-actions"><button class="act-btn" type="button" onclick="openEntityModal('samples','${esc(sample.id)}')">Edit</button>${action}</div></div>`;
+      return `<div class="sample-row"><div><div class="item-title">${esc(sample.sampleName || `Sample ${sample.sampleSequence || ''}`)} | ${esc(sample.sampleType)}</div><div class="muted">${esc(sample.samplePoint || 'No sample point')}</div></div><div><div class="muted">Tests</div><div>${esc(renderSampleTests(sample))}</div></div><div><div class="muted">Status</div>${getStatusBadge(status)}</div><div><div class="muted">Lab Link</div><div>${esc(linked)}</div>${sample.labReceivedAt ? `<div class="muted">${esc(fmtDateTime(sample.labReceivedAt))}</div>` : ''}</div><div class="table-actions"><button class="act-btn" type="button" onclick="openEntityModal('samples','${esc(sample.id)}')">Edit</button>${action}</div></div>`;
     }).join('')}</div></section>`;
   }).join('')}</div>`;
 }
@@ -2524,7 +2569,7 @@ function renderSampleLinkModal(){
     })
     .sort((a, b) => b.score - a.score || compareStrings(a.wo.number, b.wo.number));
   document.getElementById('sample-link-modal-title').textContent = sample ? `Receive Sample ${sample.sampleSequence || ''}` : 'Receive Sample';
-  document.getElementById('sample-link-modal-body').innerHTML = sample ? `<div class="sample-link-summary"><div><div class="form-label">Field Job</div><div class="item-title">${esc(job ? getJobDisplayTitle(job) : 'Manual Sample')}</div><div class="muted">${esc(`${getClientLabel(sample.clientId)} | ${getSiteLabel(sample.siteId)}`)}</div></div><div><div class="form-label">Sample</div><div>${esc(sample.sampleType)}${sample.samplePoint ? ` | ${esc(sample.samplePoint)}` : ''}</div><div class="muted">${esc(renderSampleTests(sample))}</div></div></div><div class="form-group full"><label class="form-label">Search Work Orders</label><input class="form-input" type="text" value="${esc(state.sampleLinkModal.search)}" onchange="setSampleLinkSearch(this.value)"></div><div class="sample-workorder-list">${rows.length ? rows.map(({ wo, score }) => `<button class="sample-workorder-option ${state.sampleLinkModal.selectedWorkOrderId === wo.id ? 'is-selected' : ''}" type="button" onclick="selectSampleLinkWorkOrder('${esc(wo.id)}')"><span><strong>${esc(wo.number || 'Unnumbered WO')}</strong><span>${esc([wo.client || getClientLabel(wo.clientId), getProjectLabel(wo.projectId), wo.dueDate || 'No due date'].filter(Boolean).join(' | '))}</span></span>${score > 0 ? '<span class="tag-chip">Match</span>' : ''}</button>`).join('') : '<div class="empty-state">No existing Lab WIP work orders match.</div>'}</div>` : '<div class="empty-state">Sample not found.</div>';
+  document.getElementById('sample-link-modal-body').innerHTML = sample ? `<div class="sample-link-summary"><div><div class="form-label">Field Job</div><div class="item-title">${esc(job ? getJobDisplayTitle(job) : 'Manual Sample')}</div><div class="muted">${esc(`${getClientLabel(sample.clientId)} | ${getSiteLabel(sample.siteId)}`)}</div></div><div><div class="form-label">Sample</div><div>${esc(sample.sampleName || sample.sampleType)}${sample.samplePoint ? ` | ${esc(sample.samplePoint)}` : ''}</div><div class="muted">${esc(renderSampleTests(sample))}</div></div></div><div class="form-group full"><label class="form-label">Search Work Orders</label><input class="form-input" type="text" value="${esc(state.sampleLinkModal.search)}" onchange="setSampleLinkSearch(this.value)"></div><div class="sample-workorder-list">${rows.length ? rows.map(({ wo, score }) => `<button class="sample-workorder-option ${state.sampleLinkModal.selectedWorkOrderId === wo.id ? 'is-selected' : ''}" type="button" onclick="selectSampleLinkWorkOrder('${esc(wo.id)}')"><span><strong>${esc(wo.number || 'Unnumbered WO')}</strong><span>${esc([wo.client || getClientLabel(wo.clientId), getProjectLabel(wo.projectId), wo.dueDate || 'No due date'].filter(Boolean).join(' | '))}</span></span>${score > 0 ? '<span class="tag-chip">Match</span>' : ''}</button>`).join('') : '<div class="empty-state">No existing Lab WIP work orders match.</div>'}</div>` : '<div class="empty-state">Sample not found.</div>';
 }
 
 async function saveFieldSampleRecord(sampleRecord){
@@ -2659,6 +2704,28 @@ function toggleModalMultiSelect(key){
   renderModal();
 }
 
+function setModalArrayFromSelect(key, selectNode){
+  if(!modalState.open || !selectNode) return;
+  modalState.formData[key] = Array.from(selectNode.selectedOptions || []).map((option) => option.value);
+  renderModal();
+}
+
+function toggleModalTestDropdown(key){
+  if(!modalState.open) return;
+  modalState.openMultiSelectKey = modalState.openMultiSelectKey === key ? '' : key;
+  renderModal();
+}
+
+function toggleModalTestValue(key, optionValue){
+  if(!modalState.open) return;
+  const current = normalizeStringArray(modalState.formData[key]);
+  const option = normalizeCatalogKey(optionValue);
+  const next = current.includes(option) ? current.filter((value) => value !== option) : [...current, option];
+  modalState.formData[key] = key === 'testCodes' ? filterTestCodesForSampleType(next, modalState.formData.sampleType) : next;
+  modalState.openMultiSelectKey = key;
+  renderModal();
+}
+
 function getModalMultiSelectSummary(options, selectedValues){
   const selectedOptions = options.filter((option) => selectedValues.includes(String(option.value)));
   if(!selectedOptions.length) return 'Select options...';
@@ -2693,6 +2760,17 @@ function renderFormField(field){
     const selectedValues = normalizeStringArray(modalState.formData[field.key]);
     const isOpen = modalState.openMultiSelectKey === field.key;
     return `<div class="form-group${fullClass}"><label class="form-label">${esc(field.label)}</label><div class="multi-select ${isOpen ? 'open' : ''} ${disabled ? 'is-disabled' : ''}"><button class="multi-select-trigger" type="button" ${disabled ? 'disabled' : ''} aria-expanded="${isOpen ? 'true' : 'false'}" onclick="toggleModalMultiSelect('${field.key}')"><span>${esc(getModalMultiSelectSummary(options, selectedValues))}</span><span class="multi-select-caret">v</span></button><div class="multi-select-detail">${esc(getModalMultiSelectDetail(options, selectedValues))}</div><div class="multi-select-menu">${options.length ? options.map((option) => `<label class="multi-select-option"><input type="checkbox" value="${esc(option.value)}" ${selectedValues.includes(String(option.value)) ? 'checked' : ''} ${disabled ? 'disabled' : ''} onchange="toggleModalArrayValue('${field.key}', '${esc(option.value)}', this.checked)"><span>${esc(option.label)}</span></label>`).join('') : '<div class="empty-state">No options available.</div>'}</div></div></div>`;
+  }
+  if(field.type === 'select-multiple'){
+    const options = normalizeOptionsList(field.options || []);
+    const selectedValues = normalizeStringArray(modalState.formData[field.key]);
+    return `<div class="form-group${fullClass}"><label class="form-label">${esc(field.label)}</label><select class="form-input" multiple size="${Math.min(7, Math.max(3, options.length || 3))}" ${disabled ? 'disabled' : ''} onchange="setModalArrayFromSelect('${field.key}', this)">${options.map((option) => `<option value="${esc(option.value)}" ${selectedValues.includes(String(option.value)) ? 'selected' : ''}>${esc(option.label)}</option>`).join('')}</select><div class="multi-select-detail">${esc(getModalMultiSelectDetail(options, selectedValues))}</div></div>`;
+  }
+  if(field.type === 'test-dropdown'){
+    const options = normalizeOptionsList(field.options || []);
+    const selectedValues = normalizeStringArray(modalState.formData[field.key]);
+    const isOpen = modalState.openMultiSelectKey === field.key;
+    return `<div class="form-group${fullClass}"><label class="form-label">${esc(field.label)}</label><div class="sample-test-dropdown ${isOpen ? 'open' : ''} ${disabled ? 'is-disabled' : ''}"><button class="multi-select-trigger" type="button" ${disabled ? 'disabled' : ''} onclick="toggleModalTestDropdown('${field.key}')"><span>${esc(getModalMultiSelectSummary(options, selectedValues))}</span><span class="multi-select-caret">v</span></button><div class="multi-select-detail">${esc(getModalMultiSelectDetail(options, selectedValues))}</div><div class="sample-test-menu">${options.length ? options.map((option) => `<button class="sample-test-option ${selectedValues.includes(String(option.value)) ? 'is-selected' : ''}" type="button" onclick="toggleModalTestValue('${field.key}', '${esc(option.value)}')">${esc(option.label)}</button>`).join('') : '<div class="empty-state">No tests available for this sample type.</div>'}</div></div></div>`;
   }
   if(field.type === 'image') return renderAssetPhotoField(field);
   if(field.type === 'color') return renderColorField(field);
@@ -2770,15 +2848,18 @@ function renderJobSampleLogisticsEditor(){
   const count = Math.max(0, Number(modalState.formData.sampleCount || 0));
   if(count && getModalSampleDrafts().length !== count) ensureModalSampleDrafts();
   const rows = getModalSampleDrafts();
-  const tests = getLabTestDefinitions();
-  const renderTestChips = (row) => {
+  const sampleCountOptions = Array.from({ length:50 }, (_, index) => index + 1);
+  const renderTestDropdown = (row) => {
+    const tests = getLabTestsForSampleType(row.sampleType);
     const selected = normalizeStringArray(row.testCodes);
-    return `<div class="sample-test-grid">${tests.map((test) => `<label class="checkbox-chip sample-test-chip"><input type="checkbox" value="${esc(test.key)}" ${selected.includes(test.key) ? 'checked' : ''} onchange="toggleJobSampleDraftTest('${esc(row.draftId)}', '${esc(test.key)}', this.checked)"><span>${esc(test.shortLabel || test.label)}</span></label>`).join('')}</div>`;
+    const options = tests.map((test) => ({ value:test.key, label:test.label }));
+    const isOpen = modalState.openSampleTestDraftId === row.draftId;
+    return `<div class="sample-test-dropdown ${isOpen ? 'open' : ''}"><button class="multi-select-trigger" type="button" onclick="toggleJobSampleTestDropdown('${esc(row.draftId)}')"><span>${esc(getModalMultiSelectSummary(options, selected))}</span><span class="multi-select-caret">v</span></button><div class="multi-select-detail">${esc(tests.length ? getModalMultiSelectDetail(options, selected) : 'No tests available for this sample type')}</div><div class="sample-test-menu">${tests.length ? tests.map((test) => `<button class="sample-test-option ${selected.includes(test.key) ? 'is-selected' : ''}" type="button" onclick="toggleJobSampleDraftTest('${esc(row.draftId)}', '${esc(test.key)}')">${esc(test.label)}</button>`).join('') : '<div class="empty-state">No tests available for this sample type.</div>'}</div></div>`;
   };
   const sampleRows = rows.length
-    ? rows.map((row, index) => `<div class="sample-draft-row"><div class="sample-draft-head"><div class="sample-sequence">#${index + 1}</div><div class="form-group"><label class="form-label">Sample Type</label><select class="form-input" onchange="updateJobSampleDraftField('${esc(row.draftId)}', 'sampleType', this.value)"><option value="Gas" ${row.sampleType === 'Gas' ? 'selected' : ''}>Gas</option><option value="Liquid" ${row.sampleType === 'Liquid' ? 'selected' : ''}>Liquid</option></select></div><div class="form-group"><label class="form-label">Sample Point</label><input class="form-input" type="text" value="${esc(row.samplePoint)}" oninput="updateJobSampleDraftField('${esc(row.draftId)}', 'samplePoint', this.value)"></div></div><div class="form-group full"><label class="form-label">Tests</label>${renderTestChips(row)}</div></div>`).join('')
+    ? rows.map((row, index) => `<div class="sample-draft-row"><div class="sample-draft-head"><div class="sample-sequence">#${index + 1}</div><div class="form-group"><label class="form-label">Sample Type</label><select class="form-input" onchange="updateJobSampleDraftField('${esc(row.draftId)}', 'sampleType', this.value)"><option value="Gas" ${row.sampleType === 'Gas' ? 'selected' : ''}>Gas</option><option value="Liquid" ${row.sampleType === 'Liquid' ? 'selected' : ''}>Liquid</option></select></div><div class="form-group"><label class="form-label">Sample Name</label><input class="form-input" type="text" value="${esc(row.sampleName)}" oninput="updateJobSampleDraftField('${esc(row.draftId)}', 'sampleName', this.value)"></div><div class="form-group"><label class="form-label">Sample Point</label><input class="form-input" type="text" value="${esc(row.samplePoint)}" oninput="updateJobSampleDraftField('${esc(row.draftId)}', 'samplePoint', this.value)"></div></div><div class="form-group full"><label class="form-label">Tests</label>${renderTestDropdown(row)}</div></div>`).join('')
     : '<div class="empty-state">Set the sample count to add sample rows.</div>';
-  return `<div class="sample-logistics-editor"><div class="assignment-head"><div><h4>Sample Logistics</h4><div class="section-copy">${esc(getJobTypeDisplayName(modalState.formData.jobType))}</div></div><div class="form-group sample-count-field"><label class="form-label">Sample Count</label><input class="form-input" type="number" min="1" max="50" value="${esc(modalState.formData.sampleCount || '')}" oninput="updateJobSampleCount(this.value)"></div></div><div class="sample-draft-list">${sampleRows}</div></div>`;
+  return `<div class="sample-logistics-editor"><div class="assignment-head"><div><h4>Sample Logistics</h4><div class="section-copy">${esc(getJobTypeDisplayName(modalState.formData.jobType))}</div></div><div class="form-group sample-count-field"><label class="form-label">Sample Count</label><select class="form-input" onchange="updateJobSampleCount(this.value)"><option value="">Select...</option>${sampleCountOptions.map((option) => `<option value="${option}" ${Number(modalState.formData.sampleCount || 0) === option ? 'selected' : ''}>${option}</option>`).join('')}</select></div></div><div class="sample-draft-list">${sampleRows}</div></div>`;
 }
 
 function renderModal(){
@@ -3021,6 +3102,11 @@ function changeJobType(value){
 }
 function changeSampleJob(value){ modalState.formData.jobId = value; const job = getJob(value); if(job){ modalState.formData.clientId = job.clientId; modalState.formData.siteId = job.siteId; } renderModal(); }
 function changeSampleClient(value){ modalState.formData.clientId = value; const site = getSite(modalState.formData.siteId); if(site && site.clientId !== value) modalState.formData.siteId = ''; renderModal(); }
+function changeSampleType(value){
+  modalState.formData.sampleType = normalizeSampleTypeForWorkflow(value);
+  modalState.formData.testCodes = filterTestCodesForSampleType(modalState.formData.testCodes, modalState.formData.sampleType);
+  renderModal();
+}
 function changeMaintenanceAssetType(value){ modalState.formData.assetType = value; modalState.formData.assetId = ''; renderModal(); }
 function changeTruckAssignedTechnician(value){
   modalState.formData.assignedTechnicianId = value;
@@ -3307,18 +3393,20 @@ async function saveLocalSiteTypeRecord(draft){
   return record.id;
 }
 
-function buildSampleRecordForJob(jobRecord, draft, existing, index){
+function buildSampleRecordForJob(jobRecord, draft, existing, index, options = {}){
+  const shouldGenerateId = options.generateId !== false;
   const record = normalizeRecord('samples', {
     ...existing,
-    id:draft.id || existing?.id || uid(ENTITY_CONFIG.samples.idPrefix),
+    id:existing?.id || (shouldGenerateId ? (draft.id || uid(ENTITY_CONFIG.samples.idPrefix)) : ''),
     jobId:jobRecord.id,
     clientId:jobRecord.clientId,
     siteId:jobRecord.siteId,
     sampleType:normalizeSampleTypeForWorkflow(draft.sampleType),
     containerType:existing?.containerType || (draft.sampleType === 'Liquid' ? 'Bottle' : 'Cylinder'),
     sampleStatus:draft.sampleStatus || existing?.sampleStatus || 'Needs Pulled',
+    sampleName:draft.sampleName || '',
     samplePoint:draft.samplePoint || '',
-    testCodes:normalizeStringArray(draft.testCodes),
+    testCodes:filterTestCodesForSampleType(draft.testCodes, draft.sampleType),
     linkedWorkOrderId:draft.linkedWorkOrderId || existing?.linkedWorkOrderId || '',
     linkedWorkOrderNumber:draft.linkedWorkOrderNumber || existing?.linkedWorkOrderNumber || '',
     labReceivedAt:draft.labReceivedAt || existing?.labReceivedAt || '',
@@ -3342,7 +3430,7 @@ function syncLocalJobSamples(next, jobRecord, draft){
   if(!sampleDrafts.length) return;
   const existingForJob = next.samples.filter((sample) => sample.jobId === jobRecord.id);
   const existingById = new Map(existingForJob.map((sample) => [sample.id, sample]));
-  const nextRecords = sampleDrafts.map((sampleDraft, index) => buildSampleRecordForJob(jobRecord, sampleDraft, existingById.get(sampleDraft.id), index));
+  const nextRecords = sampleDrafts.map((sampleDraft, index) => buildSampleRecordForJob(jobRecord, sampleDraft, existingById.get(sampleDraft.id), index, { generateId:true }));
   const keepIds = new Set(nextRecords.map((sample) => sample.id));
   next.samples = next.samples.filter((sample) => sample.jobId !== jobRecord.id || keepIds.has(sample.id));
   nextRecords.forEach((sample) => {
@@ -3361,7 +3449,7 @@ async function syncRemoteJobSamples(jobId, jobDraft){
   const keepIds = new Set();
   for(let index = 0; index < sampleDrafts.length; index += 1){
     const sampleDraft = sampleDrafts[index];
-    const sampleRecord = buildSampleRecordForJob(jobRecord, sampleDraft, existingById.get(sampleDraft.id), index);
+    const sampleRecord = buildSampleRecordForJob(jobRecord, sampleDraft, existingById.get(sampleDraft.id), index, { generateId:false });
     const savedId = await remoteRepository.saveRecord('samples', sampleRecord);
     keepIds.add(savedId);
   }
@@ -3502,7 +3590,11 @@ async function saveRemoteAssetRecord(entityKey, draft){
 
 async function saveEntityFromModal(){
   if(modalState.entity === 'clients') modalState.formData.clientCode = normalizeClientCode(modalState.formData.clientCode);
-  if(modalState.entity === 'samples') applySampleStatusCompatibility(modalState.formData);
+  if(modalState.entity === 'samples'){
+    modalState.formData.sampleType = normalizeSampleTypeForWorkflow(modalState.formData.sampleType);
+    modalState.formData.testCodes = filterTestCodesForSampleType(modalState.formData.testCodes, modalState.formData.sampleType);
+    applySampleStatusCompatibility(modalState.formData);
+  }
   if(modalState.entity === 'jobs'){
     const manualTicketNumber = String(modalState.formData.salesforceCaseNumber || '').trim();
     modalState.formData.salesforceCaseNumber = manualTicketNumber;
