@@ -1155,6 +1155,100 @@ textarea.form-input{min-height:86px;resize:vertical;}
 .multi-select-option input{
   accent-color:var(--accent);
 }
+.sample-logistics-editor,
+.sample-job-group{
+  margin-top:16px;
+  padding:14px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--surface2);
+}
+.sample-count-field{
+  width:min(180px, 100%);
+}
+.sample-draft-list,
+.sample-row-list,
+.sample-job-groups,
+.sample-workorder-list{
+  display:grid;
+  gap:10px;
+}
+.sample-draft-row,
+.sample-row,
+.sample-workorder-option,
+.sample-link-summary{
+  display:grid;
+  gap:12px;
+  padding:12px;
+  border:1px solid rgba(100,116,139,.24);
+  border-radius:8px;
+  background:rgba(255,255,255,.025);
+}
+.sample-draft-head{
+  display:grid;
+  grid-template-columns:54px minmax(120px, .5fr) minmax(180px, 1fr);
+  gap:12px;
+  align-items:end;
+}
+.sample-sequence{
+  display:grid;
+  place-items:center;
+  min-height:40px;
+  border-radius:8px;
+  border:1px solid var(--border);
+  color:var(--muted);
+  font-family:var(--mono);
+}
+.sample-test-grid{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.sample-test-chip{
+  border-radius:8px;
+}
+.sample-job-header,
+.sample-row{
+  display:grid;
+  grid-template-columns:minmax(0, 1.5fr) minmax(0, 1fr) auto auto auto;
+  gap:12px;
+  align-items:center;
+}
+.sample-job-header{
+  grid-template-columns:minmax(0, 1fr) auto;
+  margin-bottom:12px;
+}
+.sample-link-modal{
+  max-width:780px;
+}
+.sample-link-summary{
+  grid-template-columns:1fr 1fr;
+  margin-bottom:12px;
+}
+.sample-workorder-option{
+  width:100%;
+  grid-template-columns:minmax(0, 1fr) auto;
+  align-items:center;
+  color:var(--text);
+  text-align:left;
+  cursor:pointer;
+}
+.sample-workorder-option span{
+  display:grid;
+  gap:3px;
+}
+.sample-workorder-option.is-selected{
+  border-color:var(--accent);
+  box-shadow:0 0 0 1px rgba(95,179,255,.28);
+}
+@media (max-width: 760px){
+  .sample-draft-head,
+  .sample-job-header,
+  .sample-row,
+  .sample-link-summary{
+    grid-template-columns:1fr;
+  }
+}
 .asset-photo-field{
   display:grid;
   grid-template-columns:minmax(0, 1.2fr) minmax(220px, .8fr);

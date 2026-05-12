@@ -176,6 +176,20 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="sample-link-modal-overlay">
+    <div class="modal sample-link-modal">
+      <div class="modal-header">
+        <h3 id="sample-link-modal-title">Receive Sample</h3>
+        <button class="modal-close" type="button" onclick="closeSampleLinkModal()">X</button>
+      </div>
+      <div class="modal-body" id="sample-link-modal-body"></div>
+      <div class="modal-footer">
+        <button class="btn-cancel" type="button" onclick="closeSampleLinkModal()">Cancel</button>
+        <button class="btn-save" type="button" onclick="confirmSampleWorkOrderLink()">Link Work Order</button>
+      </div>
+    </div>
+  </div>
+
   <script src="app-config.js"></script>
   <script>
     window.APP_CONFIG = Object.assign({}, window.APP_CONFIG || {}, {

@@ -125,17 +125,17 @@ function readEnv(): Env {
     supabaseUrl: requiredEnv("SUPABASE_URL").replace(/\/+$/, ""),
     supabaseServiceRoleKey: requiredEnv("SUPABASE_SERVICE_ROLE_KEY"),
     salesforceLoginUrl: (Deno.env.get("SALESFORCE_LOGIN_URL") || "https://login.salesforce.com").replace(/\/+$/, ""),
-    salesforceClientId: requiredEnv("SALESFORCE_CLIENT_ID"),
-    salesforceClientSecret: requiredEnv("SALESFORCE_CLIENT_SECRET"),
+    salesforceClientId: requiredEnv("SALESFORCE_CONNECTED_APP_CONSUMER_KEY", "SALESFORCE_CLIENT_ID"),
+    salesforceClientSecret: requiredEnv("SALESFORCE_CONNECTED_APP_CONSUMER_SECRET", "SALESFORCE_CLIENT_SECRET"),
     salesforceInstanceUrl: requiredEnv("SALESFORCE_INSTANCE_URL").replace(/\/+$/, ""),
   };
   return env;
 }
 
-function requiredEnv(name: string): string {
-  const value = Deno.env.get(name);
+function requiredEnv(name: string, fallbackName = ""): string {
+  const value = Deno.env.get(name) || (fallbackName ? Deno.env.get(fallbackName) : "");
   if (!value) {
-    throw new HttpError(500, `${name} is not configured.`);
+    throw new HttpError(500, fallbackName ? `${name} or ${fallbackName} is not configured.` : `${name} is not configured.`);
   }
   return value;
 }
@@ -172,7 +172,7 @@ async function getSalesforceSession(env: Env): Promise<SalesforceSession> {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new HttpError(502, salesforceErrorMessage(payload) || "Salesforce authentication failed.");
+    throw new HttpError(502, friendlySalesforceAuthError(payload));
   }
 
   const accessToken = stringValue(payload.access_token);
@@ -386,6 +386,18 @@ function salesforceErrorMessage(payload: unknown): string {
     return stringValue(record.error_description) || stringValue(record.message) || stringValue(record.error);
   }
   return "";
+}
+
+function friendlySalesforceAuthError(payload: unknown): string {
+  const message = salesforceErrorMessage(payload);
+  const lowerMessage = message.toLowerCase();
+  if (lowerMessage.includes("client identifier invalid") || lowerMessage.includes("invalid_client_id")) {
+    return "Salesforce rejected the Connected App Consumer Key. Check SALESFORCE_CONNECTED_APP_CONSUMER_KEY in Supabase secrets; it must be the Consumer Key from the Salesforce Connected App/External Client App, not a dashboard client or Account ID.";
+  }
+  if (lowerMessage.includes("invalid client credentials") || lowerMessage.includes("invalid_client")) {
+    return "Salesforce rejected the Connected App credentials. Check the Consumer Key and Consumer Secret stored in Supabase secrets.";
+  }
+  return message || "Salesforce authentication failed.";
 }
 
 function buildSalesforceCaseUrl(instanceUrl: string, caseId: string): string {

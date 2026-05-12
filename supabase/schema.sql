@@ -1026,6 +1026,27 @@ create table if not exists public.field_samples (
   created_by uuid,
   updated_by uuid
 );
+alter table public.field_samples add column if not exists sample_status text not null default 'Needs Pulled';
+alter table public.field_samples add column if not exists sample_point text not null default '';
+alter table public.field_samples add column if not exists test_codes text[] not null default array[]::text[];
+alter table public.field_samples add column if not exists linked_work_order_id text not null default '';
+alter table public.field_samples add column if not exists linked_work_order_number text not null default '';
+alter table public.field_samples add column if not exists lab_received_at timestamptz;
+alter table public.field_samples add column if not exists sample_sequence integer;
+alter table public.field_samples drop constraint if exists field_samples_sample_status_check;
+alter table public.field_samples add constraint field_samples_sample_status_check check (sample_status in ('Needs Pulled', 'Received by Lab'));
+alter table public.field_samples drop constraint if exists field_samples_sample_type_check;
+alter table public.field_samples add constraint field_samples_sample_type_check check (sample_type in ('Gas', 'Liquid', 'Condensate', 'Other'));
+update public.field_samples
+set sample_status = case
+  when lab_receipt_status in ('Delivered', 'Logged In', 'Complete') or chain_of_custody_status in ('Delivered', 'Logged In', 'Complete') then 'Received by Lab'
+  else 'Needs Pulled'
+end
+where coalesce(sample_status, '') = '';
+update public.field_samples
+set sample_status = 'Received by Lab'
+where sample_status = 'Needs Pulled'
+  and (lab_receipt_status in ('Delivered', 'Logged In', 'Complete') or chain_of_custody_status in ('Delivered', 'Logged In', 'Complete'));
 
 create table if not exists public.field_maintenance_records (
   id uuid primary key default gen_random_uuid(),
@@ -1103,6 +1124,8 @@ on conflict (site_type_key, job_type_key) do nothing;
 
 create index if not exists field_samples_job_id_idx on public.field_samples(job_id);
 create index if not exists field_samples_coc_status_idx on public.field_samples(chain_of_custody_status);
+create index if not exists field_samples_sample_status_idx on public.field_samples(sample_status);
+create index if not exists field_samples_linked_work_order_idx on public.field_samples(linked_work_order_id) where btrim(linked_work_order_id) <> '';
 create index if not exists field_maintenance_asset_idx on public.field_maintenance_records(asset_type, asset_id);
 create index if not exists field_maintenance_status_due_idx on public.field_maintenance_records(status, due_date);
 

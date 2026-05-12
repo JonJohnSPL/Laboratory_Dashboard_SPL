@@ -43,4 +43,19 @@ With `authEmailSuffix` set, staff can type `jsmith` plus their password, and the
 - The current behavior is last-write-wins. If two users edit the same data at the same time, the most recent save will replace the older one.
 - Column visibility still uses local browser storage because it is a personal UI preference, not shared lab data.
 - The Field Ops `field-assets` storage bucket is used for uploaded asset photos and client logos.
-- Field Ops Salesforce Case sync runs through the `salesforce-case` Supabase Edge Function. Configure the function with `SALESFORCE_LOGIN_URL`, `SALESFORCE_CLIENT_ID`, `SALESFORCE_CLIENT_SECRET`, `SALESFORCE_INSTANCE_URL`, and `SUPABASE_SERVICE_ROLE_KEY`; keep these values out of `app-config.js`.
+- Field Ops Salesforce ticket linking is currently manual. Paste the Salesforce ticket URL and ticket/case number into the saved job's Salesforce Ticket Link section.
+
+## Salesforce ticket linking
+
+- No Salesforce API authorization is required for the current workflow.
+- No Salesforce Connected App credentials are required for the current workflow.
+- Create or find the ticket in Salesforce, copy its URL, then paste it into the Field Job modal.
+- The optional ticket/case number is displayed as the `SF` badge on job cards.
+
+## Future API sync
+
+- The `salesforce-case` Supabase Edge Function is parked for future IT-approved API sync.
+- When API sync is approved, configure the function with `SALESFORCE_LOGIN_URL`, `SALESFORCE_INSTANCE_URL`, `SALESFORCE_CONNECTED_APP_CONSUMER_KEY`, and `SALESFORCE_CONNECTED_APP_CONSUMER_SECRET`; keep these values out of `app-config.js`.
+- `SALESFORCE_CONNECTED_APP_CONSUMER_KEY` is the Consumer Key from the Salesforce Connected App / External Client App. Salesforce may call this the client ID in OAuth docs, but it is not a dashboard client/customer ID.
+- `SALESFORCE_CONNECTED_APP_CONSUMER_SECRET` is the Consumer Secret from that same Salesforce app.
+- `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL`, and `SUPABASE_ANON_KEY` are default Supabase Edge Function secrets. Do not set them manually with `supabase secrets set`.

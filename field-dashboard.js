@@ -36,6 +36,7 @@ const SAMPLE_TYPE_OPTIONS = ['Gas', 'Liquid', 'Condensate', 'Other'];
 const CONTAINER_TYPE_OPTIONS = ['Cylinder', 'Bottle', 'Other'];
 const SAMPLE_STATUS_OPTIONS = ['Requested', 'Collected', 'In Transit', 'Delivered', 'Logged In', 'Complete', 'Exception'];
 const LAB_RECEIPT_STATUS_OPTIONS = ['Requested', 'Delivered', 'Logged In', 'Complete', 'Exception'];
+const SAMPLE_WORKFLOW_STATUS_OPTIONS = ['Needs Pulled', 'Received by Lab'];
 const MAINTENANCE_TYPE_OPTIONS = ['Preventive', 'Repair', 'Inspection', 'Calibration'];
 const MAINTENANCE_STATUS_OPTIONS = ['Open', 'Scheduled', 'In Progress', 'Complete', 'Canceled'];
 const ASSET_TYPE_OPTIONS = ['Truck', 'Trailer', 'Equipment'];
@@ -77,6 +78,19 @@ const DEFAULT_JOB_TYPE_DEFS = [
   { jobTypeKey:'MAINTENANCE', jobTypeName:'Maintenance', jobTypeColor:STANDARD_JOB_TYPE_COLORS[4], isActive:true, scheduleMode:'range', requiredAssignmentTypes:[], detailGroups:['maintenance', 'execution'] },
   { jobTypeKey:'MULTI_SERVICE', jobTypeName:'Multi-Service', jobTypeColor:STANDARD_JOB_TYPE_COLORS[5], isActive:true, scheduleMode:'range', requiredAssignmentTypes:[], detailGroups:['proving', 'sample_logistics', 'maintenance', 'execution'] }
 ];
+const LAB_WIP_WORK_ORDER_STORAGE_KEY = 'lab-wip-workorders';
+const TEST_DEFINITION_STORAGE_KEY = 'lab-wip-test-definitions';
+const DEFAULT_LAB_TEST_DEFS = [
+  { key:'AS-BFV_DENSITY', label:'AS-BFV_DENSITY', shortLabel:'DENS', matrixType:'Liquid' },
+  { key:'AS-BFV_MW', label:'AS-BFV_MW', shortLabel:'MW', matrixType:'Liquid' },
+  { key:'C6GAS', label:'C6GAS', shortLabel:'C6GAS', matrixType:'Gas' },
+  { key:'GC-BFVC6MZ', label:'GC-BFVC6MZ', shortLabel:'BFVC6', matrixType:'Liquid' },
+  { key:'GC-BFVC7MZ', label:'GC-BFVC7MZ', shortLabel:'BFVC7', matrixType:'Liquid' },
+  { key:'GC-BFVC10MZ', label:'GC-BFVC10MZ', shortLabel:'BFVC10', matrixType:'Liquid' },
+  { key:'GC-2103-C10MZ', label:'GC-2103-C10MZ', shortLabel:'GC2103', matrixType:'Gas' },
+  { key:'C6LIQ', label:'C6LIQ', shortLabel:'C6LIQ', matrixType:'Liquid' },
+  { key:'C10LIQ', label:'C10LIQ', shortLabel:'C10LIQ', matrixType:'Liquid' }
+];
 
 const PRIORITY_RANK = { Urgent:0, High:1, Normal:2, Low:3 };
 const RESOURCE_ENTITY_BY_TYPE = { Technician:'employees', Truck:'trucks', Trailer:'trailers', Equipment:'equipment' };
@@ -99,11 +113,11 @@ const ENTITY_CONFIG = {
   trucks:{ table:'field_trucks', label:'Truck', idPrefix:'truck', defaults:{ unitNumber:'', vehicleType:'Pickup', fuelType:'', serviceStatus:'Available', currentDriver:'', assignedTechnicianId:'', model:'', licensePlateNumber:'', make:'', color:'', registeredState:'', vin:'', vehicleId:'', vehicleYear:null, assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ unitNumber:'unit_number', vehicleType:'vehicle_type', fuelType:'fuel_type', serviceStatus:'service_status', currentDriver:'current_driver', assignedTechnicianId:'assigned_technician_id', model:'model', licensePlateNumber:'license_plate_number', make:'make', color:'color', registeredState:'registered_state', vin:'vin', vehicleId:'vehicle_id', vehicleYear:'vehicle_year', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTechnicianId'], numberFields:['vehicleYear'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
   trailers:{ table:'field_trailers', label:'Trailer', idPrefix:'trailer', defaults:{ trailerNumber:'', trailerType:'', capacityConfiguration:'', serviceStatus:'Available', assignedTruckId:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ trailerNumber:'trailer_number', trailerType:'trailer_type', capacityConfiguration:'capacity_configuration', serviceStatus:'service_status', assignedTruckId:'assigned_truck_id', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTruckId'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
   equipment:{ table:'field_equipment', label:'Equipment', idPrefix:'equip', defaults:{ equipmentName:'', equipmentType:'Small Volume Prover', model:'', manufacturer:'', splInventoryBarcode:'', serialNumber:'', calibrationStatus:'Current', lastCalibrationDate:'', nextCalibrationDue:'', maintenanceStatus:'Available', storageLocation:'', assignedTrailerTruck:'', assignedTruckId:'', assignedTrailerId:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ equipmentName:'equipment_name', equipmentType:'equipment_type', model:'model', manufacturer:'manufacturer', splInventoryBarcode:'spl_inventory_barcode', serialNumber:'serial_number', calibrationStatus:'calibration_status', lastCalibrationDate:'last_calibration_date', nextCalibrationDue:'next_calibration_due', maintenanceStatus:'maintenance_status', storageLocation:'storage_location', assignedTrailerTruck:'assigned_trailer_truck', assignedTruckId:'assigned_truck_id', assignedTrailerId:'assigned_trailer_id', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTruckId', 'assignedTrailerId'], dateFields:['lastCalibrationDate', 'nextCalibrationDue'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
-  samples:{ table:'field_samples', label:'Sample', idPrefix:'sample', defaults:{ jobId:'', clientId:'', siteId:'', sampleType:'Gas', containerType:'Cylinder', collectionDateTime:'', pickedUpBy:'', dropOffLocation:'', chainOfCustodyStatus:'Requested', labReceiptStatus:'Requested', priorityTat:'', notes:'' }, fieldMap:{ jobId:'job_id', clientId:'client_id', siteId:'site_id', sampleType:'sample_type', containerType:'container_type', collectionDateTime:'collection_date_time', pickedUpBy:'picked_up_by', dropOffLocation:'drop_off_location', chainOfCustodyStatus:'chain_of_custody_status', labReceiptStatus:'lab_receipt_status', priorityTat:'priority_tat', notes:'notes' }, idFields:['jobId', 'clientId', 'siteId'], dateTimeFields:['collectionDateTime'] },
+  samples:{ table:'field_samples', label:'Sample', idPrefix:'sample', defaults:{ jobId:'', clientId:'', siteId:'', sampleType:'Gas', containerType:'Cylinder', collectionDateTime:'', pickedUpBy:'', dropOffLocation:'', chainOfCustodyStatus:'Requested', labReceiptStatus:'Requested', sampleStatus:'Needs Pulled', samplePoint:'', testCodes:[], linkedWorkOrderId:'', linkedWorkOrderNumber:'', labReceivedAt:'', sampleSequence:null, priorityTat:'', notes:'' }, fieldMap:{ jobId:'job_id', clientId:'client_id', siteId:'site_id', sampleType:'sample_type', containerType:'container_type', collectionDateTime:'collection_date_time', pickedUpBy:'picked_up_by', dropOffLocation:'drop_off_location', chainOfCustodyStatus:'chain_of_custody_status', labReceiptStatus:'lab_receipt_status', sampleStatus:'sample_status', samplePoint:'sample_point', testCodes:'test_codes', linkedWorkOrderId:'linked_work_order_id', linkedWorkOrderNumber:'linked_work_order_number', labReceivedAt:'lab_received_at', sampleSequence:'sample_sequence', priorityTat:'priority_tat', notes:'notes' }, idFields:['jobId', 'clientId', 'siteId'], arrayFields:['testCodes'], numberFields:['sampleSequence'], dateTimeFields:['collectionDateTime', 'labReceivedAt'] },
   maintenanceRecords:{ table:'field_maintenance_records', label:'Maintenance Record', idPrefix:'maint', defaults:{ assetType:'Equipment', assetId:'', maintenanceType:'Preventive', openDate:'', dueDate:'', completedDate:'', status:'Open', issueDescription:'', resolution:'', vendorInternal:'Internal', cost:null, assignedPerson:'', notes:'' }, fieldMap:{ assetType:'asset_type', assetId:'asset_id', maintenanceType:'maintenance_type', openDate:'open_date', dueDate:'due_date', completedDate:'completed_date', status:'status', issueDescription:'issue_description', resolution:'resolution', vendorInternal:'vendor_internal', cost:'cost', assignedPerson:'assigned_person', notes:'notes' }, idFields:['assetId'], numberFields:['cost'], dateFields:['openDate', 'dueDate', 'completedDate'] }
 };
 
-let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'overview', scheduleAnchorDate:getStartOfWeekISO(new Date()), scheduleView:'work_week', scheduleJobFilter:'all', filters:{ dispatchSearch:'', dispatchPriority:'all', dispatchJobType:'all', dispatchJobFilter:'all', dispatchAlertFilter:'all', dispatchAssignmentFilter:'all', dispatchSortKey:'schedule', dispatchSortDirection:'asc', directoryClient:'all', directorySection:'overview', directoryClientSearch:'', directoryContactSearch:'', directoryContactScope:'all', directoryContactProject:'all', directoryContactSite:'all', directoryContactSortKey:'name', directoryContactSortDirection:'asc' }, data:createEmptyData(), saveInFlight:false, autoRefreshInFlight:false, autoRefreshTimer:null };
+let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'overview', scheduleAnchorDate:getStartOfWeekISO(new Date()), scheduleView:'work_week', scheduleJobFilter:'all', filters:{ dispatchSearch:'', dispatchPriority:'all', dispatchJobType:'all', dispatchJobFilter:'all', dispatchAlertFilter:'all', dispatchAssignmentFilter:'all', dispatchSortKey:'schedule', dispatchSortDirection:'asc', directoryClient:'all', directorySection:'overview', directoryClientSearch:'', directoryContactSearch:'', directoryContactScope:'all', directoryContactProject:'all', directoryContactSite:'all', directoryContactSortKey:'name', directoryContactSortDirection:'asc' }, data:createEmptyData(), labTestDefinitions:[], sampleLinkModal:createClosedSampleLinkModalState(), saveInFlight:false, autoRefreshInFlight:false, autoRefreshTimer:null };
 let modalState = createClosedModalState();
 let lastLoadedSnapshot = '';
 let hideSaveStatusTimer = null;
@@ -112,12 +126,14 @@ const remoteAssetPhotoLoadPromises = new Map();
 
 function createEmptyData(){ return { clients:[], projects:[], contacts:[], contactProjects:[], contactSites:[], billingProfiles:[], siteTypes:[], sites:[], siteProjects:[], jobTypes:[], siteTypeJobTypes:[], jobs:[], jobAssignments:[], employees:[], trucks:[], trailers:[], equipment:[], samples:[], maintenanceRecords:[], technicians:[] }; }
 function createClosedModalState(){ return { open:false, entity:'', id:'', formData:{}, assignments:[], openMultiSelectKey:'' }; }
+function createClosedSampleLinkModalState(){ return { open:false, sampleId:'', selectedWorkOrderId:'', search:'' }; }
 function uid(prefix = 'fld'){ return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
 function clone(value){ return JSON.parse(JSON.stringify(value)); }
 function firstRow(payload){ return Array.isArray(payload) ? payload[0] || null : payload; }
 function normalizeBoolean(value){ return value === true || value === 'true' || value === 1 || value === '1'; }
 function normalizeNumber(value){ if(value === '' || value === null || value === undefined) return null; const parsed = Number(value); return Number.isFinite(parsed) ? parsed : null; }
 function normalizeClientCode(value){ return String(value || '').trim().toUpperCase(); }
+function normalizeCatalogKey(raw){ return String(raw || '').trim().toUpperCase().replace(/\s+/g, '_').replace(/[^A-Z0-9_-]/g, ''); }
 function normalizeStringArray(value){
   if(Array.isArray(value)) return [...new Set(value.map((item) => String(item || '').trim()).filter(Boolean))];
   if(typeof value === 'string'){
@@ -141,6 +157,83 @@ function normalizeHexColor(value, fallback = DEFAULT_JOB_TYPE_COLOR){
   const raw = String(value || '').trim();
   const normalized = raw.startsWith('#') ? raw : `#${raw}`;
   return /^#[0-9a-fA-F]{6}$/.test(normalized) ? normalized.toLowerCase() : fallback;
+}
+function normalizeLabTestDefinition(def, index = 0){
+  const key = normalizeCatalogKey(def?.key || def?.code || def?.label || `TEST_${index + 1}`);
+  if(!key) return null;
+  const label = String(def?.label || key).trim() || key;
+  return {
+    id:String(def?.id || key),
+    key,
+    label,
+    shortLabel:String(def?.shortLabel || label).trim() || label,
+    matrixType:String(def?.matrixType || '').trim(),
+    sortOrder:Number.isFinite(Number(def?.sortOrder)) ? Number(def.sortOrder) : index
+  };
+}
+function getDefaultLabTestDefinitions(){ return DEFAULT_LAB_TEST_DEFS.map((def, index) => normalizeLabTestDefinition({ ...def, sortOrder:index }, index)).filter(Boolean); }
+function setLabTestDefinitions(defs){
+  const normalized = (Array.isArray(defs) && defs.length ? defs : getDefaultLabTestDefinitions())
+    .map((def, index) => normalizeLabTestDefinition(def, index))
+    .filter(Boolean)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label));
+  state.labTestDefinitions = normalized.length ? normalized : getDefaultLabTestDefinitions();
+}
+function getLabTestDefinitions(){ return state.labTestDefinitions.length ? state.labTestDefinitions : getDefaultLabTestDefinitions(); }
+function getLabTestLabel(key){
+  const normalized = normalizeCatalogKey(key);
+  return getLabTestDefinitions().find((def) => def.key === normalized)?.label || String(key || '');
+}
+function getStorageAdapter(){
+  return (window.storage && typeof window.storage.get === 'function' && typeof window.storage.set === 'function')
+    ? window.storage
+    : { get:async (key) => ({ value:localStorage.getItem(key) }), set:async (key, value) => { localStorage.setItem(key, value); } };
+}
+async function loadLabTestDefinitions(){
+  try {
+    const result = await getStorageAdapter().get(TEST_DEFINITION_STORAGE_KEY);
+    const raw = typeof result?.value === 'string' ? result.value : '';
+    if(raw){
+      const parsed = JSON.parse(raw);
+      if(Array.isArray(parsed) && parsed.length){
+        setLabTestDefinitions(parsed);
+        return true;
+      }
+    }
+  } catch (error){
+    console.warn('Unable to load lab test definitions for Field Ops samples:', error);
+  }
+  setLabTestDefinitions(getDefaultLabTestDefinitions());
+  return false;
+}
+function normalizeSampleStatus(value, sample = null){
+  const raw = String(value || '').trim();
+  if(raw === 'Received by Lab') return 'Received by Lab';
+  if(raw === 'Needs Pulled') return 'Needs Pulled';
+  const labStatus = String(sample?.labReceiptStatus || '').trim();
+  const cocStatus = String(sample?.chainOfCustodyStatus || '').trim();
+  if(['Delivered', 'Logged In', 'Complete'].includes(labStatus) || ['Delivered', 'Logged In', 'Complete'].includes(cocStatus)) return 'Received by Lab';
+  return 'Needs Pulled';
+}
+function applySampleStatusCompatibility(sample){
+  const sampleStatus = normalizeSampleStatus(sample.sampleStatus, sample);
+  sample.sampleStatus = sampleStatus;
+  if(sampleStatus === 'Received by Lab'){
+    sample.chainOfCustodyStatus = sample.chainOfCustodyStatus && sample.chainOfCustodyStatus !== 'Requested' ? sample.chainOfCustodyStatus : 'Delivered';
+    sample.labReceiptStatus = sample.labReceiptStatus && sample.labReceiptStatus !== 'Requested' ? sample.labReceiptStatus : 'Logged In';
+  } else {
+    sample.chainOfCustodyStatus = 'Requested';
+    sample.labReceiptStatus = 'Requested';
+    sample.linkedWorkOrderId = '';
+    sample.linkedWorkOrderNumber = '';
+    sample.labReceivedAt = '';
+  }
+  return sample;
+}
+function normalizeSampleTypeForWorkflow(value){
+  const raw = String(value || '').trim();
+  if(raw === 'Liquid') return 'Liquid';
+  return 'Gas';
 }
 function getDefaultJobTypeColor(value){
   return DEFAULT_JOB_TYPE_COLOR;
@@ -368,6 +461,12 @@ function normalizeRecord(entityKey, source, options = {}){
     else if(isDateTimeField(cfg, key, remoteKey)) record[key] = toInputDateTime(raw);
     else record[key] = raw === null || raw === undefined ? cfg.defaults[key] : String(raw);
   });
+  if(entityKey === 'samples'){
+    const statusSourceKey = cfg.fieldMap.sampleStatus || 'sampleStatus';
+    const statusWasMissing = fromRemote ? source?.[statusSourceKey] === undefined || source?.[statusSourceKey] === null : source?.sampleStatus === undefined || source?.sampleStatus === null;
+    if(statusWasMissing) record.sampleStatus = normalizeSampleStatus('', record);
+    applySampleStatusCompatibility(record);
+  }
   return record;
 }
 
@@ -829,6 +928,78 @@ function getJobsForClientOrSites(clientId, siteIds = getSiteIdsForClient(clientI
 function getSamplesForClientOrSites(clientId, siteIds = getSiteIdsForClient(clientId), jobIds = getJobsForClientOrSites(clientId, siteIds).map((row) => row.id)){ return state.data.samples.filter((row) => row.clientId === clientId || siteIds.includes(row.siteId) || jobIds.includes(row.jobId)); }
 function getJobsForSite(siteId){ return state.data.jobs.filter((row) => row.siteId === siteId); }
 function getSamplesForSite(siteId, jobIds = getJobsForSite(siteId).map((row) => row.id)){ return state.data.samples.filter((row) => row.siteId === siteId || jobIds.includes(row.jobId)); }
+function getSamplesForJob(jobId){
+  return state.data.samples
+    .filter((row) => row.jobId === jobId)
+    .sort((a, b) => (Number(a.sampleSequence || 0) - Number(b.sampleSequence || 0)) || compareStrings(a.id, b.id));
+}
+function createSampleDraft(source = {}, sequence = 1){
+  return {
+    draftId:String(source.draftId || source.id || uid('sampledraft')),
+    id:String(source.id || ''),
+    sampleType:normalizeSampleTypeForWorkflow(source.sampleType),
+    samplePoint:String(source.samplePoint || ''),
+    testCodes:normalizeStringArray(source.testCodes),
+    sampleStatus:normalizeSampleStatus(source.sampleStatus, source),
+    linkedWorkOrderId:String(source.linkedWorkOrderId || ''),
+    linkedWorkOrderNumber:String(source.linkedWorkOrderNumber || ''),
+    labReceivedAt:String(source.labReceivedAt || ''),
+    sampleSequence:Number(source.sampleSequence || sequence)
+  };
+}
+function buildSampleDraftsForJob(jobId){
+  return getSamplesForJob(jobId).map((sample, index) => createSampleDraft(sample, index + 1));
+}
+function getModalSampleDrafts(){
+  return Array.isArray(modalState.formData.sampleDrafts) ? modalState.formData.sampleDrafts : [];
+}
+function ensureModalSampleDrafts(){
+  if(!modalState.open || modalState.entity !== 'jobs') return [];
+  const count = Math.max(0, Number(modalState.formData.sampleCount || 0));
+  const drafts = getModalSampleDrafts().map((row, index) => createSampleDraft(row, index + 1));
+  while(drafts.length < count) drafts.push(createSampleDraft({ sampleType:'Gas' }, drafts.length + 1));
+  modalState.formData.sampleDrafts = drafts.slice(0, count).map((row, index) => ({ ...row, sampleSequence:index + 1 }));
+  return modalState.formData.sampleDrafts;
+}
+function initializeJobSampleDrafts(draft, existingJobId = ''){
+  const rows = existingJobId ? buildSampleDraftsForJob(existingJobId) : [];
+  draft.sampleDrafts = rows;
+  draft.sampleCount = rows.length || '';
+  draft.samplesRequired = rows.length > 0 || !!draft.samplesRequired;
+}
+function updateJobSampleCount(value){
+  if(!modalState.open || modalState.entity !== 'jobs') return;
+  const nextCount = Math.max(0, Math.min(50, Number(value || 0)));
+  modalState.formData.sampleCount = nextCount || '';
+  ensureModalSampleDrafts();
+  modalState.formData.samplesRequired = nextCount > 0;
+  renderModal();
+}
+function updateJobSampleDraftField(draftId, key, value){
+  if(!modalState.open || modalState.entity !== 'jobs') return;
+  const row = getModalSampleDrafts().find((item) => item.draftId === draftId);
+  if(!row) return;
+  if(key === 'sampleType') row.sampleType = normalizeSampleTypeForWorkflow(value);
+  else if(key === 'samplePoint') row.samplePoint = String(value || '');
+  renderModal();
+}
+function toggleJobSampleDraftTest(draftId, testKey, checked){
+  if(!modalState.open || modalState.entity !== 'jobs') return;
+  const row = getModalSampleDrafts().find((item) => item.draftId === draftId);
+  if(!row) return;
+  const key = normalizeCatalogKey(testKey);
+  const values = normalizeStringArray(row.testCodes);
+  row.testCodes = checked ? [...new Set([...values, key])] : values.filter((value) => value !== key);
+  renderModal();
+}
+function getSampleStatusCounts(samples){
+  const counts = { needsPulled:0, received:0 };
+  samples.forEach((sample) => {
+    if(normalizeSampleStatus(sample.sampleStatus, sample) === 'Received by Lab') counts.received += 1;
+    else counts.needsPulled += 1;
+  });
+  return counts;
+}
 function getClientDeleteBlockMessage(clientId){
   const siteIds = getSiteIdsForClient(clientId);
   const jobs = getJobsForClientOrSites(clientId, siteIds);
@@ -956,90 +1127,24 @@ function getSalesforceCaseUrl(job){
 }
 
 function getSalesforceCaseLabel(job){
-  return String(job?.salesforceCaseNumber || job?.salesforceCaseId || '').trim();
+  return String(job?.salesforceCaseNumber || job?.fieldfxTicketId || '').trim();
 }
 
 function renderJobSalesforceTag(job){
   const caseLabel = getSalesforceCaseLabel(job);
   if(caseLabel) return `<span class="mini-tag salesforce-case-tag">SF ${esc(caseLabel)}</span>`;
-  if(String(job?.salesforceSyncStatus || '').trim() === 'Error') return '<span class="mini-tag salesforce-case-tag error-text">SF Error</span>';
   return '';
-}
-
-function getSalesforceSyncStatusText(job){
-  const status = String(job?.salesforceSyncStatus || '').trim();
-  const syncedAt = job?.salesforceSyncedAt ? fmtDateTime(job.salesforceSyncedAt) : '';
-  if(status && syncedAt) return `${status} | ${syncedAt}`;
-  return status || (syncedAt ? `Synced | ${syncedAt}` : 'Not synced');
 }
 
 function renderSalesforceCaseEditor(){
   if(modalState.entity !== 'jobs') return '';
   const job = modalState.formData || {};
-  const hasCase = !!String(job.salesforceCaseId || job.salesforceCaseNumber || '').trim();
   const caseLabel = getSalesforceCaseLabel(job);
   const caseUrl = getSalesforceCaseUrl(job);
-  const syncError = String(job.salesforceSyncError || '').trim();
-  const disabledReason = !isRemoteMode()
-    ? 'Salesforce sync is available after signing into the shared Supabase-backed dashboard.'
-    : (!modalState.id ? 'Save this job before creating a Salesforce Case.' : '');
-  const actionLabel = hasCase ? 'Sync Salesforce Case' : 'Create Salesforce Case';
   const openButton = caseUrl
-    ? `<a class="act-btn salesforce-open-link" href="${esc(caseUrl)}" target="_blank" rel="noopener">Open Salesforce Case</a>`
+    ? `<a class="act-btn salesforce-open-link" href="${esc(caseUrl)}" target="_blank" rel="noopener">Open Salesforce Ticket</a>`
     : '';
-  return `<div class="salesforce-editor"><div class="assignment-head"><div><h4>Salesforce Case</h4><div class="section-copy">${hasCase ? `Linked to ${esc(caseLabel || 'Salesforce Case')}.` : 'Create a Salesforce Case when this scheduled job is ready to hand off.'}</div></div><div class="table-actions">${openButton}<button class="add-btn" type="button" onclick="syncSalesforceCaseFromModal()" ${disabledReason ? 'disabled' : ''}>${esc(actionLabel)}</button></div></div><div class="salesforce-sync-card"><div><div class="form-label">Case</div><div class="item-title">${esc(caseLabel || 'No Case linked')}</div></div><div><div class="form-label">Sync Status</div><div class="muted">${esc(getSalesforceSyncStatusText(job))}</div></div></div>${disabledReason ? `<div class="form-hint">${esc(disabledReason)}</div>` : ''}${syncError ? `<div class="form-hint error-text">${esc(syncError)}</div>` : ''}</div>`;
-}
-
-async function syncSalesforceCaseFromModal(){
-  if(!modalState.open || modalState.entity !== 'jobs') return;
-  if(!isRemoteMode()){
-    alert('Salesforce sync is available after signing into the shared dashboard.');
-    return;
-  }
-  if(!modalState.id){
-    alert('Save this job before creating a Salesforce Case.');
-    return;
-  }
-  const validationMessage = validateModal();
-  if(validationMessage){
-    alert(validationMessage);
-    return;
-  }
-  const hasCase = !!String(modalState.formData.salesforceCaseId || modalState.formData.salesforceCaseNumber || '').trim();
-  state.saveInFlight = true;
-  showSaveStatus('saving', hasCase ? 'SYNCING SALESFORCE' : 'CREATING SALESFORCE CASE');
-  try {
-    const jobId = await saveRemoteJob(modalState.formData, modalState.assignments);
-    const result = await window.appAuth.requestJson('/functions/v1/salesforce-case', {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
-      body:JSON.stringify({ jobId })
-    });
-    await loadData({ silent:true, force:true });
-    const refreshed = getJob(jobId);
-    if(refreshed){
-      modalState.id = jobId;
-      modalState.formData = clone(refreshed);
-      modalState.assignments = getAssignmentsForJob(jobId).map((row) => clone(row));
-      renderModal();
-    }
-    showSaveStatus('saved', result?.action === 'created' ? 'SALESFORCE CASE CREATED' : 'SALESFORCE CASE SYNCED');
-    hideSaveStatusSoon();
-  } catch (error){
-    console.error('Unable to sync Salesforce Case:', error);
-    await loadData({ silent:true, force:true }).catch(() => {});
-    const refreshed = modalState.id ? getJob(modalState.id) : null;
-    if(refreshed){
-      modalState.formData = clone(refreshed);
-      modalState.assignments = getAssignmentsForJob(refreshed.id).map((row) => clone(row));
-      renderModal();
-    }
-    showSaveStatus('error', 'SALESFORCE SYNC FAILED');
-    hideSaveStatusSoon(4200);
-    alert(error.message || 'Unable to sync the Salesforce Case.');
-  } finally {
-    state.saveInFlight = false;
-  }
+  return `<div class="salesforce-editor"><div class="assignment-head"><div><h4>Salesforce Ticket Link</h4><div class="section-copy">Paste the Salesforce ticket URL here after the ticket exists in Salesforce. No API authorization is required for this manual link.</div></div><div class="table-actions">${openButton}</div></div><div class="salesforce-sync-card"><div class="form-group"><label class="form-label">Ticket / Case Number</label><input class="form-input" type="text" value="${esc(caseLabel)}" placeholder="Case number or ticket number" oninput="setModalField('salesforceCaseNumber', this.value)"></div><div class="form-group"><label class="form-label">Ticket URL</label><input class="form-input" type="url" value="${esc(caseUrl)}" placeholder="https://..." oninput="setModalField('salesforceCaseUrl', this.value)"></div></div><div class="form-hint">The ticket number is shown as the SF badge on job cards. The URL powers the Open Salesforce Ticket link after save/reopen.</div></div>`;
 }
 
 function getJobPastComparisonDate(job){
@@ -1136,7 +1241,6 @@ const FORM_DEFINITIONS = {
     { key:'primaryContact', label:'Primary Contact', type:'text' },
     { key:'contactPhone', label:'Contact Phone', type:'text' },
     { key:'contactEmail', label:'Contact Email', type:'email' },
-    { key:'salesforceAccountId', label:'Salesforce Account ID', type:'text' },
     { key:'defaultServiceArea', label:'Default Service Area / Region', type:'text' },
     { kind:'section', label:'HQ / Mapping' },
     { key:'hqStreet', label:'HQ Street', type:'text', full:true },
@@ -1217,8 +1321,6 @@ const FORM_DEFINITIONS = {
     { key:'apiStandardReference', label:'API Standard Reference', type:'text', detailGroup:'proving' },
     { key:'custodyAllocation', label:'Custody vs Allocation', type:'select', options:CUSTODY_OPTIONS, detailGroup:'proving' },
     { key:'provingRequired', label:'Proving Required', type:'checkbox', detailGroup:'proving' },
-    { kind:'section', label:'Sample Logistics', detailGroup:'sample_logistics' },
-    { key:'samplesRequired', label:'Samples Required', type:'checkbox', detailGroup:'sample_logistics' },
     { kind:'section', label:'Maintenance Details', detailGroup:'maintenance' },
     { key:'maintenanceRequired', label:'Maintenance Required', type:'checkbox', detailGroup:'maintenance' },
     { kind:'section', label:'Execution', detailGroup:'execution' },
@@ -1311,13 +1413,16 @@ const FORM_DEFINITIONS = {
     { key:'jobId', label:'Job', type:'select', options:() => buildJobOptions(), handler:'changeSampleJob' },
     { key:'clientId', label:'Client', type:'select', options:() => buildClientOptions(), handler:'changeSampleClient' },
     { key:'siteId', label:'Site/Location', type:'select', options:() => buildSiteOptions(modalState.formData.clientId) },
-    { key:'sampleType', label:'Sample Type', type:'select', options:SAMPLE_TYPE_OPTIONS },
+    { key:'sampleSequence', label:'Sample #', type:'number' },
+    { key:'sampleType', label:'Sample Type', type:'select', options:['Gas', 'Liquid'] },
+    { key:'samplePoint', label:'Sample Point', type:'text' },
+    { key:'testCodes', label:'Tests', type:'multi-select', options:() => getLabTestDefinitions().map((test) => ({ value:test.key, label:test.label })) },
+    { key:'sampleStatus', label:'Status', type:'select', options:SAMPLE_WORKFLOW_STATUS_OPTIONS },
     { key:'containerType', label:'Container Type', type:'select', options:CONTAINER_TYPE_OPTIONS },
     { key:'collectionDateTime', label:'Collection Date / Time', type:'datetime-local' },
     { key:'pickedUpBy', label:'Picked Up By', type:'text' },
     { key:'dropOffLocation', label:'Drop-Off Location', type:'text' },
-    { key:'chainOfCustodyStatus', label:'Chain Of Custody Status', type:'select', options:SAMPLE_STATUS_OPTIONS },
-    { key:'labReceiptStatus', label:'Lab Receipt Status', type:'select', options:LAB_RECEIPT_STATUS_OPTIONS },
+    { key:'linkedWorkOrderNumber', label:'Linked WO', type:'text', disabled:true },
     { key:'priorityTat', label:'Priority / TAT', type:'text' },
     { key:'notes', label:'Notes', type:'textarea', full:true }
   ],
@@ -1544,7 +1649,7 @@ function resetScheduleWeek(){
 }
 
 function getPriorityBadge(priority){ const value = priority || 'Low'; const cls = value.toLowerCase().replace(/\s+/g, '-'); return `<span class="priority-badge ${cls}">${esc(value)}</span>`; }
-function getStatusTone(status){ if(['In Progress', 'Available', 'Current', 'Logged In'].includes(status)) return 'ok'; if(['Waiting', 'Scheduled', 'Due Soon', 'Collected', 'Delivered', 'Assigned'].includes(status)) return 'warn'; if(['Urgent', 'Overdue', 'Out of Service', 'Needs Repair', 'Canceled', 'Exception'].includes(status)) return 'danger'; if(['Complete', 'Closed', 'Inactive'].includes(status)) return 'muted'; return 'info'; }
+function getStatusTone(status){ if(['In Progress', 'Available', 'Current', 'Logged In', 'Received by Lab'].includes(status)) return 'ok'; if(['Waiting', 'Scheduled', 'Due Soon', 'Collected', 'Delivered', 'Assigned', 'Needs Pulled'].includes(status)) return 'warn'; if(['Urgent', 'Overdue', 'Out of Service', 'Needs Repair', 'Canceled', 'Exception'].includes(status)) return 'danger'; if(['Complete', 'Closed', 'Inactive'].includes(status)) return 'muted'; return 'info'; }
 function getStatusBadge(status){ return `<span class="status-badge ${getStatusTone(status)}">${esc(status || 'Not set')}</span>`; }
 function getFuelTypeBadge(fuelType){
   const value = String(fuelType || '').trim();
@@ -2243,10 +2348,253 @@ function renderSetup(){
   if(jobTypesPanel) jobTypesPanel.innerHTML = renderResourceCards(state.data.jobTypes.sort(getEntitySorter('jobTypes')), (jobType) => `<div ${renderCardOpenAttrs('jobTypes', jobType.id || jobType.jobTypeKey)} style="${esc(getJobTypeCatalogCardStyle(jobType))}"><div class="resource-card-head"><div><div class="item-title">${esc(jobType.jobTypeName || 'Unnamed job type')}</div><div class="job-type-color-line"><span class="color-dot" style="--swatch-color:${esc(getJobTypeColor(jobType))}"></span><span>${esc(getJobTypeColor(jobType))}</span></div></div><div class="mini-tags">${getJobTypeBadge(jobType)}${getStatusBadge(jobType.scheduleMode || 'range')}${jobType.labEmployeeEligible ? '<span class="tag-chip">Lab Eligible</span>' : ''}${jobType.isActive ? '<span class="tag-chip">Active</span>' : '<span class="warning-chip">Inactive</span>'}</div></div><div class="muted">Required: ${esc(normalizeStringArray(jobType.requiredAssignmentTypes).join(', ') || 'None')}</div><div class="muted">Details: ${esc(normalizeStringArray(jobType.detailGroups).join(', ') || 'None')}</div></div>`, 'No job types yet');
 }
 
+async function loadLabWorkOrders(){
+  const result = await getStorageAdapter().get(LAB_WIP_WORK_ORDER_STORAGE_KEY);
+  const raw = typeof result?.value === 'string' ? result.value : '';
+  if(!raw) return [];
+  const parsed = JSON.parse(raw);
+  const list = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.workOrders) ? parsed.workOrders : []);
+  return list.map((wo) => ({ ...wo, id:String(wo?.id || wo?.number || ''), number:String(wo?.number || ''), clientId:String(wo?.clientId || ''), projectId:String(wo?.projectId || ''), clientCode:normalizeClientCode(wo?.clientCode), client:String(wo?.client || '') })).filter((wo) => wo.id || wo.number);
+}
+
+async function saveLabWorkOrders(workOrders){
+  await getStorageAdapter().set(LAB_WIP_WORK_ORDER_STORAGE_KEY, JSON.stringify(workOrders));
+}
+
+function getSampleDisplayId(sample){
+  const sequence = Number(sample?.sampleSequence || 0);
+  return sequence ? `FIELD-${sequence}` : `FIELD-${String(sample?.id || '').slice(0, 6).toUpperCase()}`;
+}
+
+function getSampleMatrix(sample){
+  return sample?.sampleType === 'Liquid' ? 'Liquid' : 'Gas';
+}
+
+function removeFieldSampleFromWorkOrders(workOrders, sampleId){
+  return workOrders.map((wo) => ({
+    ...wo,
+    fieldSampleLinks:Array.isArray(wo.fieldSampleLinks) ? wo.fieldSampleLinks.filter((link) => String(link?.fieldSampleId || '') !== sampleId) : [],
+    samples:Array.isArray(wo.samples) ? wo.samples.filter((row) => String(row?.fieldSampleId || '') !== sampleId) : [],
+    testRows:Array.isArray(wo.testRows) ? wo.testRows.filter((row) => String(row?.fieldSampleId || '') !== sampleId) : []
+  }));
+}
+
+function mergeFieldSampleIntoWorkOrder(workOrder, sample){
+  const job = getJob(sample.jobId);
+  const sampleId = getSampleDisplayId(sample);
+  const receivedDate = toInputDate(sample.labReceivedAt || nowInputDateTime());
+  const testCodes = normalizeStringArray(sample.testCodes);
+  const link = {
+    fieldSampleId:sample.id,
+    fieldJobId:sample.jobId,
+    fieldJobLabel:getJobDisplayTitle(job),
+    sampleType:sample.sampleType,
+    samplePoint:sample.samplePoint,
+    testCodes,
+    linkedAt:new Date().toISOString()
+  };
+  const next = {
+    ...workOrder,
+    fieldSampleLinks:[...(Array.isArray(workOrder.fieldSampleLinks) ? workOrder.fieldSampleLinks : []), link],
+    samples:[...(Array.isArray(workOrder.samples) ? workOrder.samples : []), {
+      fieldSampleId:sample.id,
+      sampleId,
+      testCodes,
+      matrix:getSampleMatrix(sample),
+      hydrocarbon:'',
+      containerType:sample.containerType || '',
+      cylinderNumber:'',
+      received:receivedDate,
+      logDate:receivedDate,
+      dueDate:workOrder.dueDate || ''
+    }],
+    testRows:[...(Array.isArray(workOrder.testRows) ? workOrder.testRows : []), ...testCodes.map((testCode, index) => ({
+      id:`field-${sample.id}-${testCode}-${index}`,
+      fieldSampleId:sample.id,
+      type:normalizeCatalogKey(testCode),
+      testCode,
+      sampleId,
+      cylinderNumber:'',
+      matrix:getSampleMatrix(sample),
+      hydrocarbon:'',
+      containerType:sample.containerType || '',
+      received:receivedDate,
+      logDate:receivedDate,
+      dueDate:workOrder.dueDate || ''
+    }))]
+  };
+  return next;
+}
+
+function getWorkOrderMatchScore(workOrder, sample){
+  const job = getJob(sample.jobId);
+  let score = 0;
+  if(job?.projectId && workOrder.projectId === job.projectId) score += 4;
+  if(job?.clientId && workOrder.clientId === job.clientId) score += 3;
+  const client = getClient(job?.clientId || sample.clientId);
+  if(client?.clientCode && normalizeClientCode(workOrder.clientCode) === normalizeClientCode(client.clientCode)) score += 2;
+  return score;
+}
+
+function renderSampleTests(sample){
+  const tests = normalizeStringArray(sample.testCodes).map((code) => getLabTestLabel(code));
+  return tests.length ? tests.join(', ') : 'No tests';
+}
+
 function renderSamples(){
-  const inTransit = state.data.samples.filter((sample) => sample.chainOfCustodyStatus === 'In Transit').length;
-  document.getElementById('samples-summary').textContent = `${state.data.samples.length} total | ${inTransit} in transit`;
-  document.getElementById('samples-table').innerHTML = renderTable(['Sample', 'Job / Client Scope', 'Collected', 'COC', 'Lab Receipt', 'Drop-Off / Priority'], state.data.samples.map((sample) => { const job = getJob(sample.jobId); const projectLabel = job?.projectId ? getProjectLabel(job.projectId) : 'No project'; return buildTableRow('samples', sample.id, [ `<div class="inline-stack"><div class="item-title">${esc(sample.sampleType)}</div><div class="muted">${esc(sample.containerType)}</div></div>`, `<div class="inline-stack"><div>${esc(getJobLabel(sample.jobId))}</div><div class="muted">${esc(getClientLabel(sample.clientId))} | ${esc(projectLabel)} | ${esc(getSiteLabel(sample.siteId))}</div></div>`, esc(fmtDateTime(sample.collectionDateTime)), getStatusBadge(sample.chainOfCustodyStatus), getStatusBadge(sample.labReceiptStatus), `<div class="inline-stack"><div>${esc(sample.dropOffLocation || 'No drop-off set')}</div><div class="muted">${esc(sample.priorityTat || 'No priority / TAT')}</div></div>` ]); }), '<strong>No sample records yet</strong>Track pickups, chain of custody, and lab handoff from here.');
+  const counts = getSampleStatusCounts(state.data.samples);
+  document.getElementById('samples-summary').textContent = `${state.data.samples.length} total | ${counts.needsPulled} needs pulled | ${counts.received} received by lab`;
+  if(!state.data.samples.length){
+    document.getElementById('samples-table').innerHTML = '<div class="empty-state"><strong>No sample records yet</strong>Track pickups, chain of custody, and lab handoff from here.</div>';
+    return;
+  }
+  const grouped = new Map();
+  state.data.samples.forEach((sample) => {
+    const key = sample.jobId || '__manual__';
+    if(!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(sample);
+  });
+  const groups = [...grouped.entries()].map(([jobId, samples]) => ({ job:getJob(jobId), jobId, samples:samples.sort((a, b) => (Number(a.sampleSequence || 0) - Number(b.sampleSequence || 0)) || compareStrings(a.id, b.id)) }))
+    .sort((a, b) => compareOptionalDates(parseDateTime(a.job?.scheduledStart), parseDateTime(b.job?.scheduledStart)) || compareStrings(getJobDisplayTitle(a.job), getJobDisplayTitle(b.job)));
+  document.getElementById('samples-table').innerHTML = `<div class="sample-job-groups">${groups.map(({ job, jobId, samples }) => {
+    const groupCounts = getSampleStatusCounts(samples);
+    const projectLabel = job?.projectId ? getProjectLabel(job.projectId) : 'No project';
+    const title = job ? getJobDisplayTitle(job) : 'Manual Samples';
+    const headerMeta = job ? `${getClientLabel(job.clientId)} | ${projectLabel} | ${getSiteLabel(job.siteId)} | ${getJobScheduleLabel(job)}` : 'Samples not linked to a field job';
+    return `<section class="sample-job-group"><div class="sample-job-header"><div><div class="item-title">${esc(title)}</div><div class="muted">${esc(headerMeta)}</div></div><div class="mini-tags"><span class="tag-chip">${samples.length} sample${samples.length === 1 ? '' : 's'}</span><span class="tag-chip">${groupCounts.needsPulled} needs pulled</span><span class="tag-chip">${groupCounts.received} received</span>${job ? `<button class="act-btn" type="button" onclick="openEntityModal('jobs','${esc(jobId)}')">Open Job</button>` : ''}</div></div><div class="sample-row-list">${samples.map((sample) => {
+      const status = normalizeSampleStatus(sample.sampleStatus, sample);
+      const linked = sample.linkedWorkOrderNumber ? `WO ${sample.linkedWorkOrderNumber}` : 'Not linked';
+      const action = status === 'Received by Lab'
+        ? `<button class="act-btn danger" type="button" onclick="markSampleNeedsPulled('${esc(sample.id)}')">Revert</button>`
+        : `<button class="add-btn" type="button" onclick="openSampleReceiveModal('${esc(sample.id)}')">Receive</button>`;
+      return `<div class="sample-row"><div><div class="item-title">Sample ${esc(sample.sampleSequence || '')} | ${esc(sample.sampleType)}</div><div class="muted">${esc(sample.samplePoint || 'No sample point')}</div></div><div><div class="muted">Tests</div><div>${esc(renderSampleTests(sample))}</div></div><div><div class="muted">Status</div>${getStatusBadge(status)}</div><div><div class="muted">Lab Link</div><div>${esc(linked)}</div>${sample.labReceivedAt ? `<div class="muted">${esc(fmtDateTime(sample.labReceivedAt))}</div>` : ''}</div><div class="table-actions"><button class="act-btn" type="button" onclick="openEntityModal('samples','${esc(sample.id)}')">Edit</button>${action}</div></div>`;
+    }).join('')}</div></section>`;
+  }).join('')}</div>`;
+}
+
+async function openSampleReceiveModal(sampleId){
+  const sample = state.data.samples.find((row) => row.id === sampleId);
+  if(!sample) return;
+  state.sampleLinkModal = { open:true, sampleId, selectedWorkOrderId:sample.linkedWorkOrderId || '', search:'', workOrders:[] };
+  renderSampleLinkModal();
+  try {
+    state.sampleLinkModal.workOrders = await loadLabWorkOrders();
+    const best = state.sampleLinkModal.workOrders
+      .map((wo) => ({ wo, score:getWorkOrderMatchScore(wo, sample) }))
+      .sort((a, b) => b.score - a.score || compareStrings(a.wo.number, b.wo.number))[0];
+    if(!state.sampleLinkModal.selectedWorkOrderId && best?.score > 0) state.sampleLinkModal.selectedWorkOrderId = best.wo.id;
+  } catch (error){
+    console.error('Unable to load Lab WIP work orders:', error);
+    alert(error.message || 'Unable to load Lab WIP work orders.');
+  }
+  renderSampleLinkModal();
+}
+
+function closeSampleLinkModal(){
+  state.sampleLinkModal = createClosedSampleLinkModalState();
+  renderSampleLinkModal();
+}
+
+function setSampleLinkSearch(value){
+  state.sampleLinkModal.search = String(value || '');
+  renderSampleLinkModal();
+}
+
+function selectSampleLinkWorkOrder(workOrderId){
+  state.sampleLinkModal.selectedWorkOrderId = String(workOrderId || '');
+  renderSampleLinkModal();
+}
+
+function renderSampleLinkModal(){
+  const overlay = document.getElementById('sample-link-modal-overlay');
+  if(!overlay) return;
+  if(!state.sampleLinkModal.open){
+    overlay.classList.remove('open');
+    return;
+  }
+  overlay.classList.add('open');
+  const sample = state.data.samples.find((row) => row.id === state.sampleLinkModal.sampleId) || null;
+  const job = sample ? getJob(sample.jobId) : null;
+  const query = String(state.sampleLinkModal.search || '').trim().toLowerCase();
+  const rows = (state.sampleLinkModal.workOrders || [])
+    .map((wo) => ({ wo, score:sample ? getWorkOrderMatchScore(wo, sample) : 0 }))
+    .filter(({ wo }) => {
+      if(!query) return true;
+      return [wo.number, wo.client, wo.clientCode, getProjectLabel(wo.projectId)].some((value) => String(value || '').toLowerCase().includes(query));
+    })
+    .sort((a, b) => b.score - a.score || compareStrings(a.wo.number, b.wo.number));
+  document.getElementById('sample-link-modal-title').textContent = sample ? `Receive Sample ${sample.sampleSequence || ''}` : 'Receive Sample';
+  document.getElementById('sample-link-modal-body').innerHTML = sample ? `<div class="sample-link-summary"><div><div class="form-label">Field Job</div><div class="item-title">${esc(job ? getJobDisplayTitle(job) : 'Manual Sample')}</div><div class="muted">${esc(`${getClientLabel(sample.clientId)} | ${getSiteLabel(sample.siteId)}`)}</div></div><div><div class="form-label">Sample</div><div>${esc(sample.sampleType)}${sample.samplePoint ? ` | ${esc(sample.samplePoint)}` : ''}</div><div class="muted">${esc(renderSampleTests(sample))}</div></div></div><div class="form-group full"><label class="form-label">Search Work Orders</label><input class="form-input" type="text" value="${esc(state.sampleLinkModal.search)}" onchange="setSampleLinkSearch(this.value)"></div><div class="sample-workorder-list">${rows.length ? rows.map(({ wo, score }) => `<button class="sample-workorder-option ${state.sampleLinkModal.selectedWorkOrderId === wo.id ? 'is-selected' : ''}" type="button" onclick="selectSampleLinkWorkOrder('${esc(wo.id)}')"><span><strong>${esc(wo.number || 'Unnumbered WO')}</strong><span>${esc([wo.client || getClientLabel(wo.clientId), getProjectLabel(wo.projectId), wo.dueDate || 'No due date'].filter(Boolean).join(' | '))}</span></span>${score > 0 ? '<span class="tag-chip">Match</span>' : ''}</button>`).join('') : '<div class="empty-state">No existing Lab WIP work orders match.</div>'}</div>` : '<div class="empty-state">Sample not found.</div>';
+}
+
+async function saveFieldSampleRecord(sampleRecord){
+  if(isRemoteMode()){
+    await remoteRepository.saveRecord('samples', sampleRecord);
+    await loadData({ silent:true, force:true });
+    return;
+  }
+  const next = clone(state.data);
+  const index = next.samples.findIndex((row) => row.id === sampleRecord.id);
+  if(index >= 0) next.samples[index] = normalizeRecord('samples', sampleRecord, { fromRemote:false });
+  await persistLocal(next);
+}
+
+async function confirmSampleWorkOrderLink(){
+  const sample = state.data.samples.find((row) => row.id === state.sampleLinkModal.sampleId);
+  if(!sample) return;
+  const workOrders = await loadLabWorkOrders();
+  const selected = workOrders.find((wo) => wo.id === state.sampleLinkModal.selectedWorkOrderId);
+  if(!selected){
+    alert('Select an existing Lab WIP work order.');
+    return;
+  }
+  const receivedSample = applySampleStatusCompatibility({
+    ...sample,
+    sampleStatus:'Received by Lab',
+    linkedWorkOrderId:selected.id,
+    linkedWorkOrderNumber:selected.number || selected.id,
+    labReceivedAt:sample.labReceivedAt || nowInputDateTime()
+  });
+  const cleaned = removeFieldSampleFromWorkOrders(workOrders, sample.id);
+  const merged = cleaned.map((wo) => wo.id === selected.id ? mergeFieldSampleIntoWorkOrder(wo, receivedSample) : wo);
+  state.saveInFlight = true;
+  showSaveStatus('saving', 'LINKING SAMPLE');
+  try {
+    await saveLabWorkOrders(merged);
+    await saveFieldSampleRecord(receivedSample);
+    closeSampleLinkModal();
+    showSaveStatus('saved', 'SAMPLE LINKED');
+    hideSaveStatusSoon();
+  } catch (error){
+    console.error('Unable to link sample to work order:', error);
+    showSaveStatus('error', 'LINK FAILED');
+    hideSaveStatusSoon(4200);
+    alert(error.message || 'Unable to link this sample.');
+  } finally {
+    state.saveInFlight = false;
+  }
+}
+
+async function markSampleNeedsPulled(sampleId){
+  const sample = state.data.samples.find((row) => row.id === sampleId);
+  if(!sample) return;
+  if(sample.linkedWorkOrderId && !confirm('Revert this sample to Needs Pulled and remove the field-created lab work order link?')) return;
+  state.saveInFlight = true;
+  showSaveStatus('saving', 'UPDATING SAMPLE');
+  try {
+    const workOrders = await loadLabWorkOrders();
+    await saveLabWorkOrders(removeFieldSampleFromWorkOrders(workOrders, sample.id));
+    await saveFieldSampleRecord(applySampleStatusCompatibility({ ...sample, sampleStatus:'Needs Pulled' }));
+    showSaveStatus('saved', 'SAMPLE UPDATED');
+    hideSaveStatusSoon();
+  } catch (error){
+    console.error('Unable to revert sample:', error);
+    showSaveStatus('error', 'UPDATE FAILED');
+    hideSaveStatusSoon(4200);
+    alert(error.message || 'Unable to update this sample.');
+  } finally {
+    state.saveInFlight = false;
+  }
 }
 
 function renderMaintenance(){
@@ -2271,6 +2619,7 @@ function render(){
   if(document.getElementById('samples-table')) renderSamples();
   if(document.getElementById('maintenance-table')) renderMaintenance();
   if(document.getElementById('entity-modal-overlay')) renderModal();
+  if(document.getElementById('sample-link-modal-overlay')) renderSampleLinkModal();
   hydrateAssetPhotoPreviews();
 }
 
@@ -2416,6 +2765,22 @@ function renderAssignmentEditor(){
   return `<div class="assignment-editor"><div class="assignment-head"><div><h4>Job Assignments</h4><div class="section-copy">${requirements.length ? `Required for ${getJobTypeDisplayName(modalState.formData.jobType)}: ${requirements.join(', ')}.` : 'Choose a job type, then add employees, trucks, trailers, and equipment as needed.'}</div></div><button class="add-btn" type="button" onclick="addAssignmentRow()">+ Add Assignment</button></div>${suggestionMarkup}<div class="assignment-list">${modalState.assignments.length ? modalState.assignments.map((assignment) => renderAssignmentRow(assignment)).join('') : '<div class="empty-state">No assignments added yet.</div>'}</div><div class="form-hint">Selecting an employee auto-fills their default truck when no truck is assigned. You can swap to another vehicle or clear the truck from this editor at any time.</div></div>`;
 }
 
+function renderJobSampleLogisticsEditor(){
+  if(modalState.entity !== 'jobs' || !jobTypeHasDetailGroup(modalState.formData.jobType, 'sample_logistics')) return '';
+  const count = Math.max(0, Number(modalState.formData.sampleCount || 0));
+  if(count && getModalSampleDrafts().length !== count) ensureModalSampleDrafts();
+  const rows = getModalSampleDrafts();
+  const tests = getLabTestDefinitions();
+  const renderTestChips = (row) => {
+    const selected = normalizeStringArray(row.testCodes);
+    return `<div class="sample-test-grid">${tests.map((test) => `<label class="checkbox-chip sample-test-chip"><input type="checkbox" value="${esc(test.key)}" ${selected.includes(test.key) ? 'checked' : ''} onchange="toggleJobSampleDraftTest('${esc(row.draftId)}', '${esc(test.key)}', this.checked)"><span>${esc(test.shortLabel || test.label)}</span></label>`).join('')}</div>`;
+  };
+  const sampleRows = rows.length
+    ? rows.map((row, index) => `<div class="sample-draft-row"><div class="sample-draft-head"><div class="sample-sequence">#${index + 1}</div><div class="form-group"><label class="form-label">Sample Type</label><select class="form-input" onchange="updateJobSampleDraftField('${esc(row.draftId)}', 'sampleType', this.value)"><option value="Gas" ${row.sampleType === 'Gas' ? 'selected' : ''}>Gas</option><option value="Liquid" ${row.sampleType === 'Liquid' ? 'selected' : ''}>Liquid</option></select></div><div class="form-group"><label class="form-label">Sample Point</label><input class="form-input" type="text" value="${esc(row.samplePoint)}" oninput="updateJobSampleDraftField('${esc(row.draftId)}', 'samplePoint', this.value)"></div></div><div class="form-group full"><label class="form-label">Tests</label>${renderTestChips(row)}</div></div>`).join('')
+    : '<div class="empty-state">Set the sample count to add sample rows.</div>';
+  return `<div class="sample-logistics-editor"><div class="assignment-head"><div><h4>Sample Logistics</h4><div class="section-copy">${esc(getJobTypeDisplayName(modalState.formData.jobType))}</div></div><div class="form-group sample-count-field"><label class="form-label">Sample Count</label><input class="form-input" type="number" min="1" max="50" value="${esc(modalState.formData.sampleCount || '')}" oninput="updateJobSampleCount(this.value)"></div></div><div class="sample-draft-list">${sampleRows}</div></div>`;
+}
+
 function renderModal(){
   const overlay = document.getElementById('entity-modal-overlay');
   if(!overlay) return;
@@ -2424,7 +2789,7 @@ function renderModal(){
   document.getElementById('entity-modal-title').textContent = `${modalState.id ? 'Edit' : 'Add'} ${ENTITY_CONFIG[modalState.entity].label}`;
   document.getElementById('entity-modal-delete').style.display = modalState.id ? '' : 'none';
   document.getElementById('entity-modal-duplicate').style.display = modalState.entity === 'jobs' && modalState.id ? '' : 'none';
-  document.getElementById('entity-modal-body').innerHTML = `<div class="form-grid">${(FORM_DEFINITIONS[modalState.entity] || []).map((field) => renderFormField(field)).join('')}</div>${modalState.entity === 'jobs' ? `${renderAssignmentEditor()}${renderSalesforceCaseEditor()}` : ''}`;
+  document.getElementById('entity-modal-body').innerHTML = `<div class="form-grid">${(FORM_DEFINITIONS[modalState.entity] || []).map((field) => renderFormField(field)).join('')}</div>${modalState.entity === 'jobs' ? `${renderJobSampleLogisticsEditor()}${renderAssignmentEditor()}${renderSalesforceCaseEditor()}` : ''}`;
   hydrateAssetPhotoPreviews(document.getElementById('entity-modal-body'));
 }
 
@@ -2518,6 +2883,7 @@ function openEntityModal(entityKey, id = ''){
     const project = getProject(draft.projectId);
     if(project) draft.clientId = project.clientId;
   }
+  if(entityKey === 'jobs') initializeJobSampleDrafts(draft, existing?.id || '');
   modalState = { open:true, entity:entityKey, id:existing?.id || '', formData:draft, assignments:entityKey === 'jobs' ? (existing ? getAssignmentsForJob(existing.id).map((row) => clone(row)) : []) : [], openMultiSelectKey:'' };
   if(entityKey === 'equipment' && !existing) syncEquipmentAssignmentSummary();
   renderModal();
@@ -2646,6 +3012,11 @@ function changeJobProject(value){
 function changeJobType(value){
   modalState.formData.jobType = value;
   if(getJobTypeScheduleMode(value) === 'point_in_time') modalState.formData.scheduledEnd = '';
+  if(jobTypeHasDetailGroup(value, 'sample_logistics') && !Number(modalState.formData.sampleCount || 0)){
+    modalState.formData.sampleCount = 1;
+    modalState.formData.sampleDrafts = [createSampleDraft({ sampleType:'Gas' }, 1)];
+    modalState.formData.samplesRequired = true;
+  }
   renderModal();
 }
 function changeSampleJob(value){ modalState.formData.jobId = value; const job = getJob(value); if(job){ modalState.formData.clientId = job.clientId; modalState.formData.siteId = job.siteId; } renderModal(); }
@@ -2753,6 +3124,17 @@ function validateModal(){
     }
     const missing = getJobMissingRequirements({ ...formData, id:modalState.id || 'draft' }, modalState.assignments);
     if(missing.length) return `This ${formData.jobType} job still needs: ${missing.join(', ')}.`;
+    if(jobTypeHasDetailGroup(formData.jobType, 'sample_logistics')){
+      const sampleCount = Number(formData.sampleCount || 0);
+      const sampleDrafts = Array.isArray(formData.sampleDrafts) ? formData.sampleDrafts : [];
+      if(!sampleCount || sampleCount < 1) return 'Sample count is required for this job type.';
+      if(sampleDrafts.length !== sampleCount) return 'Each required sample needs a sample row.';
+      for(let index = 0; index < sampleDrafts.length; index += 1){
+        const sample = sampleDrafts[index];
+        if(!['Gas', 'Liquid'].includes(sample.sampleType)) return `Sample ${index + 1} needs a Gas or Liquid sample type.`;
+        if(!normalizeStringArray(sample.testCodes).length) return `Sample ${index + 1} needs at least one test.`;
+      }
+    }
   }
   if(entityKey === 'jobTypes'){
     if(!String(formData.jobTypeName || '').trim()) return 'Job type name is required.';
@@ -2775,7 +3157,14 @@ function validateModal(){
   if(entityKey === 'trucks' && !String(formData.unitNumber || '').trim()) return 'Truck unit number is required.';
   if(entityKey === 'trailers' && !String(formData.trailerNumber || '').trim()) return 'Trailer number is required.';
   if(entityKey === 'equipment' && !String(formData.equipmentName || '').trim()) return 'Equipment name is required.';
-  if(entityKey === 'samples'){ if(!String(formData.jobId || '').trim()) return 'Job is required for a sample.'; if(!String(formData.clientId || '').trim()) return 'Client is required for a sample.'; if(!String(formData.siteId || '').trim()) return 'Site / location is required for a sample.'; }
+  if(entityKey === 'samples'){
+    if(!String(formData.jobId || '').trim()) return 'Job is required for a sample.';
+    if(!String(formData.clientId || '').trim()) return 'Client is required for a sample.';
+    if(!String(formData.siteId || '').trim()) return 'Site / location is required for a sample.';
+    if(!['Gas', 'Liquid'].includes(formData.sampleType)) return 'Sample type must be Gas or Liquid.';
+    if(!normalizeStringArray(formData.testCodes).length) return 'At least one test is required for a sample.';
+    if(formData.sampleStatus === 'Received by Lab' && !String(formData.linkedWorkOrderId || '').trim()) return 'Use the Samples page to receive and link this sample to a lab work order.';
+  }
   if(entityKey === 'maintenanceRecords'){ if(!String(formData.assetType || '').trim()) return 'Asset type is required.'; if(!String(formData.assetId || '').trim()) return 'Asset is required.'; if(!String(formData.maintenanceType || '').trim()) return 'Maintenance type is required.'; if(!String(formData.status || '').trim()) return 'Status is required.'; if(!String(formData.assignedPerson || '').trim()) return 'Assigned person is required.'; }
   return '';
 }
@@ -2918,6 +3307,69 @@ async function saveLocalSiteTypeRecord(draft){
   return record.id;
 }
 
+function buildSampleRecordForJob(jobRecord, draft, existing, index){
+  const record = normalizeRecord('samples', {
+    ...existing,
+    id:draft.id || existing?.id || uid(ENTITY_CONFIG.samples.idPrefix),
+    jobId:jobRecord.id,
+    clientId:jobRecord.clientId,
+    siteId:jobRecord.siteId,
+    sampleType:normalizeSampleTypeForWorkflow(draft.sampleType),
+    containerType:existing?.containerType || (draft.sampleType === 'Liquid' ? 'Bottle' : 'Cylinder'),
+    sampleStatus:draft.sampleStatus || existing?.sampleStatus || 'Needs Pulled',
+    samplePoint:draft.samplePoint || '',
+    testCodes:normalizeStringArray(draft.testCodes),
+    linkedWorkOrderId:draft.linkedWorkOrderId || existing?.linkedWorkOrderId || '',
+    linkedWorkOrderNumber:draft.linkedWorkOrderNumber || existing?.linkedWorkOrderNumber || '',
+    labReceivedAt:draft.labReceivedAt || existing?.labReceivedAt || '',
+    sampleSequence:index + 1,
+    collectionDateTime:existing?.collectionDateTime || '',
+    pickedUpBy:existing?.pickedUpBy || '',
+    dropOffLocation:existing?.dropOffLocation || '',
+    priorityTat:existing?.priorityTat || '',
+    notes:existing?.notes || ''
+  }, { fromRemote:false });
+  return applySampleStatusCompatibility(record);
+}
+
+function getJobSampleDraftsForSave(draft){
+  if(!jobTypeHasDetailGroup(draft.jobType, 'sample_logistics')) return [];
+  return (Array.isArray(draft.sampleDrafts) ? draft.sampleDrafts : []).map((row, index) => createSampleDraft(row, index + 1));
+}
+
+function syncLocalJobSamples(next, jobRecord, draft){
+  const sampleDrafts = getJobSampleDraftsForSave(draft);
+  if(!sampleDrafts.length) return;
+  const existingForJob = next.samples.filter((sample) => sample.jobId === jobRecord.id);
+  const existingById = new Map(existingForJob.map((sample) => [sample.id, sample]));
+  const nextRecords = sampleDrafts.map((sampleDraft, index) => buildSampleRecordForJob(jobRecord, sampleDraft, existingById.get(sampleDraft.id), index));
+  const keepIds = new Set(nextRecords.map((sample) => sample.id));
+  next.samples = next.samples.filter((sample) => sample.jobId !== jobRecord.id || keepIds.has(sample.id));
+  nextRecords.forEach((sample) => {
+    const index = next.samples.findIndex((row) => row.id === sample.id);
+    if(index >= 0) next.samples[index] = sample;
+    else next.samples.push(sample);
+  });
+}
+
+async function syncRemoteJobSamples(jobId, jobDraft){
+  const sampleDrafts = getJobSampleDraftsForSave(jobDraft);
+  if(!sampleDrafts.length) return;
+  const jobRecord = { ...jobDraft, id:jobId };
+  const existingForJob = state.data.samples.filter((sample) => sample.jobId === jobId);
+  const existingById = new Map(existingForJob.map((sample) => [sample.id, sample]));
+  const keepIds = new Set();
+  for(let index = 0; index < sampleDrafts.length; index += 1){
+    const sampleDraft = sampleDrafts[index];
+    const sampleRecord = buildSampleRecordForJob(jobRecord, sampleDraft, existingById.get(sampleDraft.id), index);
+    const savedId = await remoteRepository.saveRecord('samples', sampleRecord);
+    keepIds.add(savedId);
+  }
+  for(const sample of existingForJob){
+    if(!keepIds.has(sample.id)) await remoteRepository.deleteRecord('samples', sample.id);
+  }
+}
+
 async function saveLocalJob(draft, assignments){
   const next = clone(state.data);
   const jobIndex = next.jobs.findIndex((row) => row.id === draft.id);
@@ -2929,6 +3381,7 @@ async function saveLocalJob(draft, assignments){
   if(jobIndex >= 0) next.jobs[jobIndex] = jobRecord; else next.jobs.unshift(jobRecord);
   next.jobAssignments = next.jobAssignments.filter((row) => row.jobId !== jobRecord.id);
   assignments.filter((row) => row.resourceId).forEach((assignment) => next.jobAssignments.push(normalizeRecord('jobAssignments', { ...assignment, id:assignment.id || uid(ENTITY_CONFIG.jobAssignments.idPrefix), jobId:jobRecord.id, createdAt:assignment.createdAt || now, updatedAt:now })));
+  syncLocalJobSamples(next, jobRecord, normalizedDraft);
   await persistLocal(next);
   return jobRecord.id;
 }
@@ -2939,6 +3392,7 @@ async function saveRemoteJob(draft, assignments){
   const jobId = await remoteRepository.saveRecord('jobs', jobDraft);
   await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'job_id', value:jobId }]);
   await remoteRepository.insertRows(ENTITY_CONFIG.jobAssignments.table, assignments.filter((row) => row.resourceId).map((row) => ({ job_id:jobId, assignment_type:row.assignmentType, resource_id:row.resourceId || null, assigned_start:null, assigned_end:null, assignment_status:'Assigned', assignment_notes:'' })));
+  await syncRemoteJobSamples(jobId, jobDraft);
   return jobId;
 }
 
@@ -3048,6 +3502,15 @@ async function saveRemoteAssetRecord(entityKey, draft){
 
 async function saveEntityFromModal(){
   if(modalState.entity === 'clients') modalState.formData.clientCode = normalizeClientCode(modalState.formData.clientCode);
+  if(modalState.entity === 'samples') applySampleStatusCompatibility(modalState.formData);
+  if(modalState.entity === 'jobs'){
+    const manualTicketNumber = String(modalState.formData.salesforceCaseNumber || '').trim();
+    modalState.formData.salesforceCaseNumber = manualTicketNumber;
+    modalState.formData.salesforceCaseUrl = String(modalState.formData.salesforceCaseUrl || '').trim();
+    modalState.formData.fieldfxTicketId = manualTicketNumber;
+    modalState.formData.salesforceSyncStatus = manualTicketNumber || modalState.formData.salesforceCaseUrl ? 'Manual Link' : '';
+    modalState.formData.salesforceSyncError = '';
+  }
   if(modalState.entity === 'jobTypes'){
     modalState.formData.jobTypeKey = normalizeJobTypeKey(modalState.formData.jobTypeKey || modalState.formData.jobTypeName);
     modalState.formData.jobTypeColor = normalizeHexColor(modalState.formData.jobTypeColor, getDefaultJobTypeColor(modalState.formData.jobTypeKey));
@@ -3203,7 +3666,7 @@ async function deleteEntityRecord(entityKey, id){
 
 async function deleteCurrentModalEntity(){ if(modalState.id) await deleteEntityRecord(modalState.entity, modalState.id); }
 
-function isInteractionOverlayOpen(){ return !!document.getElementById('entity-modal-overlay')?.classList.contains('open') || !!document.getElementById('site-editor-overlay')?.classList.contains('open') || !!document.getElementById('site-editor-address-overlay')?.classList.contains('open'); }
+function isInteractionOverlayOpen(){ return !!document.getElementById('entity-modal-overlay')?.classList.contains('open') || !!document.getElementById('sample-link-modal-overlay')?.classList.contains('open') || !!document.getElementById('site-editor-overlay')?.classList.contains('open') || !!document.getElementById('site-editor-address-overlay')?.classList.contains('open'); }
 
 async function loadData(options = {}){
   try {
@@ -3237,12 +3700,17 @@ function startAutoRefresh(){ stopAutoRefresh(); if(isRemoteMode()) state.autoRef
 function stopAutoRefresh(){ if(state.autoRefreshTimer){ clearInterval(state.autoRefreshTimer); state.autoRefreshTimer = null; } }
 
 document.getElementById('entity-modal-overlay')?.addEventListener('click', (event) => { if(event.target === document.getElementById('entity-modal-overlay')) closeEntityModal(); });
+document.getElementById('sample-link-modal-overlay')?.addEventListener('click', (event) => { if(event.target === document.getElementById('sample-link-modal-overlay')) closeSampleLinkModal(); });
 document.addEventListener('visibilitychange', () => { if(!document.hidden) refreshFromRemote(); });
-window.addEventListener('keydown', (event) => { if(event.key === 'Escape' && isInteractionOverlayOpen()) closeEntityModal(); });
+window.addEventListener('keydown', (event) => {
+  if(event.key !== 'Escape' || !isInteractionOverlayOpen()) return;
+  if(document.getElementById('sample-link-modal-overlay')?.classList.contains('open')) closeSampleLinkModal();
+  else closeEntityModal();
+});
 
 (async function init(){
   await (window.authReadyPromise || Promise.resolve());
-  await loadData({ silent:true, force:true });
+  await Promise.all([loadData({ silent:true, force:true }), loadLabTestDefinitions()]);
   render();
   startAutoRefresh();
 })();
