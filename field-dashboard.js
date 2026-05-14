@@ -113,11 +113,11 @@ const ENTITY_CONFIG = {
   trucks:{ table:'field_trucks', label:'Truck', idPrefix:'truck', defaults:{ unitNumber:'', vehicleType:'Pickup', fuelType:'', serviceStatus:'Available', currentDriver:'', assignedTechnicianId:'', model:'', licensePlateNumber:'', make:'', color:'', registeredState:'', vin:'', vehicleId:'', vehicleYear:null, assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ unitNumber:'unit_number', vehicleType:'vehicle_type', fuelType:'fuel_type', serviceStatus:'service_status', currentDriver:'current_driver', assignedTechnicianId:'assigned_technician_id', model:'model', licensePlateNumber:'license_plate_number', make:'make', color:'color', registeredState:'registered_state', vin:'vin', vehicleId:'vehicle_id', vehicleYear:'vehicle_year', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTechnicianId'], numberFields:['vehicleYear'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
   trailers:{ table:'field_trailers', label:'Trailer', idPrefix:'trailer', defaults:{ trailerNumber:'', trailerType:'', capacityConfiguration:'', serviceStatus:'Available', assignedTruckId:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ trailerNumber:'trailer_number', trailerType:'trailer_type', capacityConfiguration:'capacity_configuration', serviceStatus:'service_status', assignedTruckId:'assigned_truck_id', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTruckId'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
   equipment:{ table:'field_equipment', label:'Equipment', idPrefix:'equip', defaults:{ equipmentName:'', equipmentType:'Small Volume Prover', model:'', manufacturer:'', splInventoryBarcode:'', serialNumber:'', calibrationStatus:'Current', lastCalibrationDate:'', nextCalibrationDue:'', maintenanceStatus:'Available', storageLocation:'', assignedTrailerTruck:'', assignedTruckId:'', assignedTrailerId:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ equipmentName:'equipment_name', equipmentType:'equipment_type', model:'model', manufacturer:'manufacturer', splInventoryBarcode:'spl_inventory_barcode', serialNumber:'serial_number', calibrationStatus:'calibration_status', lastCalibrationDate:'last_calibration_date', nextCalibrationDue:'next_calibration_due', maintenanceStatus:'maintenance_status', storageLocation:'storage_location', assignedTrailerTruck:'assigned_trailer_truck', assignedTruckId:'assigned_truck_id', assignedTrailerId:'assigned_trailer_id', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTruckId', 'assignedTrailerId'], dateFields:['lastCalibrationDate', 'nextCalibrationDue'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
-  samples:{ table:'field_samples', label:'Sample', idPrefix:'sample', defaults:{ jobId:'', clientId:'', siteId:'', sampleType:'Gas', containerType:'Cylinder', collectionDateTime:'', pickedUpBy:'', dropOffLocation:'', chainOfCustodyStatus:'Requested', labReceiptStatus:'Requested', sampleStatus:'Needs Pulled', sampleName:'', samplePoint:'', testCodes:[], linkedWorkOrderId:'', linkedWorkOrderNumber:'', labReceivedAt:'', sampleSequence:null, priorityTat:'', notes:'' }, fieldMap:{ jobId:'job_id', clientId:'client_id', siteId:'site_id', sampleType:'sample_type', containerType:'container_type', collectionDateTime:'collection_date_time', pickedUpBy:'picked_up_by', dropOffLocation:'drop_off_location', chainOfCustodyStatus:'chain_of_custody_status', labReceiptStatus:'lab_receipt_status', sampleStatus:'sample_status', sampleName:'sample_name', samplePoint:'sample_point', testCodes:'test_codes', linkedWorkOrderId:'linked_work_order_id', linkedWorkOrderNumber:'linked_work_order_number', labReceivedAt:'lab_received_at', sampleSequence:'sample_sequence', priorityTat:'priority_tat', notes:'notes' }, idFields:['jobId', 'clientId', 'siteId'], arrayFields:['testCodes'], numberFields:['sampleSequence'], dateTimeFields:['collectionDateTime', 'labReceivedAt'] },
+  samples:{ table:'field_samples', label:'Sample', idPrefix:'sample', defaults:{ jobId:'', clientId:'', siteId:'', sampleType:'Gas', containerType:'Cylinder', collectionDateTime:'', sampleDate:'', sampleTime:'', pickedUpBy:'', dropOffLocation:'', chainOfCustodyStatus:'Requested', labReceiptStatus:'Requested', sampleStatus:'Needs Pulled', sampleName:'', samplePoint:'', isDuplicate:false, sampleCollectionMode:'', cylinderNumber:'', testCodes:[], sampleTempF:null, samplePressurePsig:null, linkedWorkOrderId:'', linkedWorkOrderNumber:'', labReceivedAt:'', sampleSequence:null, priorityTat:'', notes:'' }, fieldMap:{ jobId:'job_id', clientId:'client_id', siteId:'site_id', sampleType:'sample_type', containerType:'container_type', collectionDateTime:'collection_date_time', sampleDate:'sample_date', sampleTime:'sample_time', pickedUpBy:'picked_up_by', dropOffLocation:'drop_off_location', chainOfCustodyStatus:'chain_of_custody_status', labReceiptStatus:'lab_receipt_status', sampleStatus:'sample_status', sampleName:'sample_name', samplePoint:'sample_point', isDuplicate:'is_duplicate', sampleCollectionMode:'sample_collection_mode', cylinderNumber:'cylinder_number', testCodes:'test_codes', sampleTempF:'sample_temp_f', samplePressurePsig:'sample_pressure_psig', linkedWorkOrderId:'linked_work_order_id', linkedWorkOrderNumber:'linked_work_order_number', labReceivedAt:'lab_received_at', sampleSequence:'sample_sequence', priorityTat:'priority_tat', notes:'notes' }, idFields:['jobId', 'clientId', 'siteId'], booleanFields:['isDuplicate'], arrayFields:['testCodes'], numberFields:['sampleSequence', 'sampleTempF', 'samplePressurePsig'], dateFields:['sampleDate'], timeFields:['sampleTime'], dateTimeFields:['collectionDateTime', 'labReceivedAt'] },
   maintenanceRecords:{ table:'field_maintenance_records', label:'Maintenance Record', idPrefix:'maint', defaults:{ assetType:'Equipment', assetId:'', maintenanceType:'Preventive', openDate:'', dueDate:'', completedDate:'', status:'Open', issueDescription:'', resolution:'', vendorInternal:'Internal', cost:null, assignedPerson:'', notes:'' }, fieldMap:{ assetType:'asset_type', assetId:'asset_id', maintenanceType:'maintenance_type', openDate:'open_date', dueDate:'due_date', completedDate:'completed_date', status:'status', issueDescription:'issue_description', resolution:'resolution', vendorInternal:'vendor_internal', cost:'cost', assignedPerson:'assigned_person', notes:'notes' }, idFields:['assetId'], numberFields:['cost'], dateFields:['openDate', 'dueDate', 'completedDate'] }
 };
 
-let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'overview', scheduleAnchorDate:getStartOfWeekISO(new Date()), scheduleView:'work_week', scheduleJobFilter:'all', filters:{ dispatchSearch:'', dispatchPriority:'all', dispatchJobType:'all', dispatchJobFilter:'all', dispatchAlertFilter:'all', dispatchAssignmentFilter:'all', dispatchSortKey:'schedule', dispatchSortDirection:'asc', directoryClient:'all', directorySection:'overview', directoryClientSearch:'', directoryContactSearch:'', directoryContactScope:'all', directoryContactProject:'all', directoryContactSite:'all', directoryContactSortKey:'name', directoryContactSortDirection:'asc' }, data:createEmptyData(), labTestDefinitions:[], sampleLinkModal:createClosedSampleLinkModalState(), saveInFlight:false, autoRefreshInFlight:false, autoRefreshTimer:null };
+let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'overview', scheduleAnchorDate:getStartOfWeekISO(new Date()), scheduleView:'work_week', scheduleJobFilter:'all', filters:{ dispatchSearch:'', dispatchPriority:'all', dispatchJobType:'all', dispatchJobFilter:'all', dispatchAlertFilter:'all', dispatchAssignmentFilter:'all', dispatchSortKey:'schedule', dispatchSortDirection:'asc', directoryClient:'all', directorySection:'overview', directoryClientSearch:'', directoryContactSearch:'', directoryContactScope:'all', directoryContactProject:'all', directoryContactSite:'all', directoryContactSortKey:'name', directoryContactSortDirection:'asc' }, data:createEmptyData(), labTestDefinitions:[], sampleLinkModal:createClosedSampleLinkModalState(), sampleTableModalOpen:false, expandedSampleGroups:{}, saveInFlight:false, autoRefreshInFlight:false, autoRefreshTimer:null };
 let modalState = createClosedModalState();
 let lastLoadedSnapshot = '';
 let hideSaveStatusTimer = null;
@@ -125,8 +125,8 @@ const remoteAssetPhotoUrlCache = new Map();
 const remoteAssetPhotoLoadPromises = new Map();
 
 function createEmptyData(){ return { clients:[], projects:[], contacts:[], contactProjects:[], contactSites:[], billingProfiles:[], siteTypes:[], sites:[], siteProjects:[], jobTypes:[], siteTypeJobTypes:[], jobs:[], jobAssignments:[], employees:[], trucks:[], trailers:[], equipment:[], samples:[], maintenanceRecords:[], technicians:[] }; }
-function createClosedModalState(){ return { open:false, entity:'', id:'', formData:{}, assignments:[], openMultiSelectKey:'', openSampleTestDraftId:'' }; }
-function createClosedSampleLinkModalState(){ return { open:false, sampleId:'', selectedWorkOrderId:'', search:'' }; }
+function createClosedModalState(){ return { open:false, entity:'', id:'', formData:{}, assignments:[], baselineSnapshot:'', openMultiSelectKey:'', openSampleTestDraftId:'', sampleDraftExpanded:{} }; }
+function createClosedSampleLinkModalState(){ return { open:false, mode:'single', sampleId:'', sampleIds:[], selectedWorkOrderId:'', search:'', workOrders:[] }; }
 function uid(prefix = 'fld'){ return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
 function clone(value){ return JSON.parse(JSON.stringify(value)); }
 function firstRow(payload){ return Array.isArray(payload) ? payload[0] || null : payload; }
@@ -379,11 +379,24 @@ function toInputDateTime(value){
 }
 
 function nowInputDateTime(){ return toInputDateTime(new Date()); }
+function splitInputDateTime(value){
+  const input = toInputDateTime(value);
+  if(!input) return { date:'', time:'' };
+  const [date = '', time = ''] = input.split('T');
+  return { date, time };
+}
+function combineSampleDateTime(sampleDate, sampleTime){
+  const date = toInputDate(sampleDate);
+  const time = String(sampleTime || '').trim();
+  if(!date) return '';
+  return time ? `${date}T${time}` : `${date}T00:00`;
+}
 function isDateField(cfg, key, remoteKey){
   if((cfg.dateFields || []).includes(key)) return true;
   return remoteKey.endsWith('_date') || key.toLowerCase().endsWith('date');
 }
 function isDateTimeField(cfg, key, remoteKey){
+  if((cfg.timeFields || []).includes(key)) return false;
   if((cfg.dateTimeFields || []).includes(key)) return true;
   const keyLower = key.toLowerCase();
   return remoteKey.endsWith('_time') || keyLower.endsWith('datetime') || keyLower.endsWith('start') || keyLower.endsWith('end');
@@ -485,6 +498,13 @@ function normalizeRecord(entityKey, source, options = {}){
     else record[key] = raw === null || raw === undefined ? cfg.defaults[key] : String(raw);
   });
   if(entityKey === 'samples'){
+    if(record.collectionDateTime){
+      const parts = splitInputDateTime(record.collectionDateTime);
+      record.sampleDate = parts.date;
+      record.sampleTime = parts.time;
+    }
+    if(!record.collectionDateTime && record.sampleDate) record.collectionDateTime = combineSampleDateTime(record.sampleDate, record.sampleTime);
+    if(!['Composite', 'Spot'].includes(record.sampleCollectionMode)) record.sampleCollectionMode = '';
     const statusSourceKey = cfg.fieldMap.sampleStatus || 'sampleStatus';
     const statusWasMissing = fromRemote ? source?.[statusSourceKey] === undefined || source?.[statusSourceKey] === null : source?.sampleStatus === undefined || source?.sampleStatus === null;
     if(statusWasMissing) record.sampleStatus = normalizeSampleStatus('', record);
@@ -776,11 +796,17 @@ function repairDataRelationships(data){
 
 function toRemotePayload(entityKey, draft){
   const cfg = ENTITY_CONFIG[entityKey];
+  let sourceDraft = draft;
+  if(entityKey === 'samples' && draft){
+    const collectionDateTime = draft.collectionDateTime || combineSampleDateTime(draft.sampleDate, draft.sampleTime);
+    const parts = splitInputDateTime(collectionDateTime);
+    sourceDraft = { ...draft, collectionDateTime, sampleDate:parts.date || draft.sampleDate || '', sampleTime:parts.time || draft.sampleTime || '' };
+  }
   const payload = {};
   Object.keys(cfg.defaults).forEach((key) => {
     if((cfg.localOnlyFields || []).includes(key)) return;
     const remoteKey = cfg.fieldMap[key] || key;
-    const value = draft[key];
+    const value = sourceDraft[key];
     if((cfg.booleanFields || []).includes(key)) payload[remoteKey] = !!value;
     else if((cfg.numberFields || []).includes(key)) payload[remoteKey] = normalizeNumber(value);
     else if((cfg.arrayFields || []).includes(key)) payload[remoteKey] = normalizeStringArray(value);
@@ -919,6 +945,10 @@ function getJobScheduleLabel(job){
   if(getJobTypeScheduleMode(job?.jobType) === 'point_in_time' || !job?.scheduledEnd) return fmtDateTime(start);
   return `${fmtDateTime(start)} to ${fmtDateTime(job.scheduledEnd)}`;
 }
+function getSampleGroupHeaderTitle(job){
+  if(!job) return 'Manual Samples';
+  return `${getClientLabel(job.clientId)} | ${fmtDate(getJobPrimaryDate(job))}`;
+}
 function isActiveEmployee(employee){ return !!employee && employee.isActive !== false; }
 function isFieldEligibleEmployee(employee){ return isActiveEmployee(employee) && ['Field', 'Both'].includes(employee.workScope || ''); }
 function isEmployeeEligibleForJobType(employee, jobType = ''){
@@ -957,13 +987,24 @@ function getSamplesForJob(jobId){
     .sort((a, b) => (Number(a.sampleSequence || 0) - Number(b.sampleSequence || 0)) || compareStrings(a.id, b.id));
 }
 function createSampleDraft(source = {}, sequence = 1){
+  const collectionParts = splitInputDateTime(source.collectionDateTime);
+  const collectionDateTime = toInputDateTime(source.collectionDateTime || combineSampleDateTime(source.sampleDate || collectionParts.date, source.sampleTime || collectionParts.time));
   return {
     draftId:String(source.draftId || source.id || uid('sampledraft')),
     id:String(source.id || ''),
     sampleType:normalizeSampleTypeForWorkflow(source.sampleType),
     sampleName:String(source.sampleName || ''),
     samplePoint:String(source.samplePoint || ''),
+    collectionDateTime,
+    sampleDate:toInputDate(source.sampleDate || collectionParts.date),
+    sampleTime:String(source.sampleTime || collectionParts.time || ''),
+    isDuplicate:normalizeBoolean(source.isDuplicate),
+    sampleCollectionMode:['Composite', 'Spot'].includes(source.sampleCollectionMode) ? source.sampleCollectionMode : '',
+    cylinderNumber:String(source.cylinderNumber || ''),
     testCodes:filterTestCodesForSampleType(source.testCodes, source.sampleType),
+    sampleTempF:normalizeNumber(source.sampleTempF),
+    samplePressurePsig:normalizeNumber(source.samplePressurePsig),
+    notes:String(source.notes || ''),
     sampleStatus:normalizeSampleStatus(source.sampleStatus, source),
     linkedWorkOrderId:String(source.linkedWorkOrderId || ''),
     linkedWorkOrderNumber:String(source.linkedWorkOrderNumber || ''),
@@ -981,7 +1022,8 @@ function ensureModalSampleDrafts(){
   if(!modalState.open || modalState.entity !== 'jobs') return [];
   const count = Math.max(0, Number(modalState.formData.sampleCount || 0));
   const drafts = getModalSampleDrafts().map((row, index) => createSampleDraft(row, index + 1));
-  while(drafts.length < count) drafts.push(createSampleDraft({ sampleType:'Gas' }, drafts.length + 1));
+  const defaultDateTime = splitInputDateTime(modalState.formData.scheduledStart || modalState.formData.requestedDate || '');
+  while(drafts.length < count) drafts.push(createSampleDraft({ sampleType:'Gas', collectionDateTime:combineSampleDateTime(defaultDateTime.date, defaultDateTime.time) }, drafts.length + 1));
   modalState.formData.sampleDrafts = drafts.slice(0, count).map((row, index) => ({ ...row, sampleSequence:index + 1 }));
   return modalState.formData.sampleDrafts;
 }
@@ -1003,13 +1045,30 @@ function updateJobSampleDraftField(draftId, key, value){
   if(!modalState.open || modalState.entity !== 'jobs') return;
   const row = getModalSampleDrafts().find((item) => item.draftId === draftId);
   if(!row) return;
+  let shouldRender = false;
   if(key === 'sampleType'){
     row.sampleType = normalizeSampleTypeForWorkflow(value);
     row.testCodes = filterTestCodesForSampleType(row.testCodes, row.sampleType);
+    shouldRender = true;
   }
   else if(key === 'sampleName') row.sampleName = String(value || '');
   else if(key === 'samplePoint') row.samplePoint = String(value || '');
-  renderModal();
+  else if(key === 'collectionDateTime'){
+    const parts = splitInputDateTime(value);
+    row.collectionDateTime = toInputDateTime(value);
+    row.sampleDate = parts.date;
+    row.sampleTime = parts.time;
+  }
+  else if(key === 'isDuplicate') row.isDuplicate = !!value;
+  else if(key === 'sampleCollectionMode'){
+    row.sampleCollectionMode = row.sampleCollectionMode === value ? '' : (['Composite', 'Spot'].includes(value) ? value : '');
+    shouldRender = true;
+  }
+  else if(key === 'cylinderNumber') row.cylinderNumber = String(value || '');
+  else if(key === 'sampleTempF') row.sampleTempF = normalizeNumber(value);
+  else if(key === 'samplePressurePsig') row.samplePressurePsig = normalizeNumber(value);
+  else if(key === 'notes') row.notes = String(value || '');
+  if(shouldRender) renderModal();
 }
 function setJobSampleDraftTests(draftId, values){
   if(!modalState.open || modalState.entity !== 'jobs') return;
@@ -1017,6 +1076,7 @@ function setJobSampleDraftTests(draftId, values){
   if(!row) return;
   row.testCodes = filterTestCodesForSampleType(values, row.sampleType);
   renderModal();
+  renderSampleTableModal();
 }
 function toggleJobSampleDraftTest(draftId, testKey){
   if(!modalState.open || modalState.entity !== 'jobs') return;
@@ -1032,6 +1092,65 @@ function toggleJobSampleTestDropdown(draftId){
   if(!modalState.open || modalState.entity !== 'jobs') return;
   modalState.openSampleTestDraftId = modalState.openSampleTestDraftId === draftId ? '' : draftId;
   renderModal();
+}
+function saveJobSampleTestSelection(draftId){
+  if(!modalState.open || modalState.entity !== 'jobs') return;
+  if(modalState.openSampleTestDraftId === draftId) modalState.openSampleTestDraftId = '';
+  renderModal();
+}
+function isJobSampleDraftExpanded(draftId){
+  return !!modalState.sampleDraftExpanded?.[draftId];
+}
+function toggleJobSampleDraftExpanded(draftId){
+  if(!modalState.open || modalState.entity !== 'jobs') return;
+  modalState.sampleDraftExpanded = { ...(modalState.sampleDraftExpanded || {}), [draftId]:!isJobSampleDraftExpanded(draftId) };
+  renderModal();
+}
+function setAllJobSampleDraftsExpanded(expanded){
+  if(!modalState.open || modalState.entity !== 'jobs') return;
+  modalState.sampleDraftExpanded = {};
+  getModalSampleDrafts().forEach((row) => {
+    modalState.sampleDraftExpanded[row.draftId] = !!expanded;
+  });
+  renderModal();
+}
+function openSampleTableModal(){
+  if(!modalState.open || modalState.entity !== 'jobs') return;
+  ensureModalSampleDrafts();
+  state.sampleTableModalOpen = true;
+  renderSampleTableModal();
+}
+function closeSampleTableModal(){
+  state.sampleTableModalOpen = false;
+  renderSampleTableModal();
+}
+function updateSampleTableDraftField(draftId, key, value){
+  updateJobSampleDraftField(draftId, key, value);
+  if(['sampleType', 'sampleCollectionMode'].includes(key)) renderSampleTableModal();
+}
+function updateSampleTableDraftTests(draftId, selectNode){
+  const values = Array.from(selectNode?.selectedOptions || []).map((option) => option.value);
+  setJobSampleDraftTests(draftId, values);
+}
+function renderSampleTableRows(){
+  const rows = getModalSampleDrafts();
+  if(!rows.length) return '<div class="empty-state">Set the sample count in Sample Logistics before using table entry.</div>';
+  return `<div class="sample-table-wrap"><table class="sample-entry-table"><thead><tr><th>Sample #</th><th>Sample ID</th><th>Sample Point</th><th>Sample Date / Time</th><th>Sample Type</th><th>Cylinder #</th><th>Sample Temp (F)</th><th>Sample Pressure (PSIG)</th><th>Test Codes Required</th><th>Duplicate</th><th>Composite / Spot</th><th>Comments</th></tr></thead><tbody>${rows.map((row, index) => {
+    const sampleType = normalizeSampleTypeForWorkflow(row.sampleType);
+    const tests = getLabTestsForSampleType(sampleType);
+    const selectedTests = filterTestCodesForSampleType(row.testCodes, sampleType);
+    return `<tr><td class="sample-table-sequence">#${index + 1}</td><td><input class="sample-table-input" type="text" value="${esc(row.sampleName || '')}" required oninput="updateSampleTableDraftField('${esc(row.draftId)}', 'sampleName', this.value)"></td><td><input class="sample-table-input" type="text" value="${esc(row.samplePoint || '')}" oninput="updateSampleTableDraftField('${esc(row.draftId)}', 'samplePoint', this.value)"></td><td><input class="sample-table-input" type="datetime-local" value="${esc(row.collectionDateTime || '')}" oninput="updateSampleTableDraftField('${esc(row.draftId)}', 'collectionDateTime', this.value)"></td><td><select class="sample-table-input" onchange="updateSampleTableDraftField('${esc(row.draftId)}', 'sampleType', this.value)"><option value="Gas" ${sampleType === 'Gas' ? 'selected' : ''}>Gas</option><option value="Liquid" ${sampleType === 'Liquid' ? 'selected' : ''}>Liquid</option></select></td><td><input class="sample-table-input" type="text" value="${esc(row.cylinderNumber || '')}" required oninput="updateSampleTableDraftField('${esc(row.draftId)}', 'cylinderNumber', this.value)"></td><td><input class="sample-table-input" type="number" step="0.1" value="${esc(row.sampleTempF ?? '')}" oninput="updateSampleTableDraftField('${esc(row.draftId)}', 'sampleTempF', this.value)"></td><td><input class="sample-table-input" type="number" step="0.1" value="${esc(row.samplePressurePsig ?? '')}" oninput="updateSampleTableDraftField('${esc(row.draftId)}', 'samplePressurePsig', this.value)"></td><td><select class="sample-table-input sample-table-tests" multiple size="5" required onchange="updateSampleTableDraftTests('${esc(row.draftId)}', this)">${tests.map((test) => `<option value="${esc(test.key)}" ${selectedTests.includes(test.key) ? 'selected' : ''}>${esc(test.label)}</option>`).join('')}</select></td><td class="sample-table-check"><input type="checkbox" ${row.isDuplicate ? 'checked' : ''} onchange="updateSampleTableDraftField('${esc(row.draftId)}', 'isDuplicate', this.checked)"></td><td><select class="sample-table-input" onchange="updateSampleTableDraftField('${esc(row.draftId)}', 'sampleCollectionMode', this.value)"><option value="" ${!row.sampleCollectionMode ? 'selected' : ''}>Not set</option><option value="Composite" ${row.sampleCollectionMode === 'Composite' ? 'selected' : ''}>Composite</option><option value="Spot" ${row.sampleCollectionMode === 'Spot' ? 'selected' : ''}>Spot</option></select></td><td><textarea class="sample-table-input sample-table-comments" oninput="updateSampleTableDraftField('${esc(row.draftId)}', 'notes', this.value)">${esc(row.notes || '')}</textarea></td></tr>`;
+  }).join('')}</tbody></table></div>`;
+}
+function renderSampleTableModal(){
+  const overlay = document.getElementById('sample-table-modal-overlay');
+  if(!overlay) return;
+  if(!state.sampleTableModalOpen || !modalState.open || modalState.entity !== 'jobs'){
+    overlay.classList.remove('open');
+    return;
+  }
+  overlay.classList.add('open');
+  document.getElementById('sample-table-modal-body').innerHTML = `<div class="sample-table-intro"><strong>${esc(getJobTypeDisplayName(modalState.formData.jobType))}</strong><span>${esc(getModalSampleDrafts().length)} sample${getModalSampleDrafts().length === 1 ? '' : 's'} in this job draft. Use the Job Save button to persist these edits.</span></div>${renderSampleTableRows()}`;
 }
 function getSampleStatusCounts(samples){
   const counts = { needsPulled:0, received:0 };
@@ -1455,13 +1574,18 @@ const FORM_DEFINITIONS = {
     { key:'clientId', label:'Client', type:'select', options:() => buildClientOptions(), handler:'changeSampleClient' },
     { key:'siteId', label:'Site/Location', type:'select', options:() => buildSiteOptions(modalState.formData.clientId) },
     { key:'sampleSequence', label:'Sample #', type:'number' },
-    { key:'sampleType', label:'Sample Type', type:'select', options:['Gas', 'Liquid'], handler:'changeSampleType' },
-    { key:'sampleName', label:'Sample Name', type:'text' },
+    { key:'sampleType', label:'Sample Type *', type:'select', options:['Gas', 'Liquid'], handler:'changeSampleType' },
+    { key:'sampleName', label:'Sample ID *', type:'text' },
+    { key:'collectionDateTime', label:'Sample Date / Time', type:'datetime-local' },
     { key:'samplePoint', label:'Sample Point', type:'text' },
-    { key:'testCodes', label:'Tests', type:'test-dropdown', options:() => buildLabTestOptionsForSampleType(modalState.formData.sampleType) },
+    { key:'isDuplicate', label:'Duplicate', type:'checkbox' },
+    { key:'sampleCollectionMode', label:'Composite / Spot', type:'select', options:[{ value:'', label:'Not set' }, 'Composite', 'Spot'] },
+    { key:'cylinderNumber', label:'Cylinder # *', type:'text' },
+    { key:'testCodes', label:'Test Codes Required *', type:'test-dropdown', options:() => buildLabTestOptionsForSampleType(modalState.formData.sampleType) },
+    { key:'sampleTempF', label:'Sample Temp (F)', type:'number' },
+    { key:'samplePressurePsig', label:'Sample Pressure (PSIG)', type:'number' },
     { key:'sampleStatus', label:'Status', type:'select', options:SAMPLE_WORKFLOW_STATUS_OPTIONS },
     { key:'containerType', label:'Container Type', type:'select', options:CONTAINER_TYPE_OPTIONS },
-    { key:'collectionDateTime', label:'Collection Date / Time', type:'datetime-local' },
     { key:'pickedUpBy', label:'Picked Up By', type:'text' },
     { key:'dropOffLocation', label:'Drop-Off Location', type:'text' },
     { key:'linkedWorkOrderNumber', label:'Linked WO', type:'text', disabled:true },
@@ -1690,7 +1814,12 @@ function resetScheduleWeek(){
   renderSchedule(buildDerivedState());
 }
 
-function getPriorityBadge(priority){ const value = priority || 'Low'; const cls = value.toLowerCase().replace(/\s+/g, '-'); return `<span class="priority-badge ${cls}">${esc(value)}</span>`; }
+function getPriorityBadge(priority){
+  const value = priority || 'Low';
+  if(['low', 'normal'].includes(String(value).toLowerCase())) return '';
+  const cls = value.toLowerCase().replace(/\s+/g, '-');
+  return `<span class="priority-badge ${cls}">${esc(value)}</span>`;
+}
 function getStatusTone(status){ if(['In Progress', 'Available', 'Current', 'Logged In', 'Received by Lab'].includes(status)) return 'ok'; if(['Waiting', 'Scheduled', 'Due Soon', 'Collected', 'Delivered', 'Assigned', 'Needs Pulled'].includes(status)) return 'warn'; if(['Urgent', 'Overdue', 'Out of Service', 'Needs Repair', 'Canceled', 'Exception'].includes(status)) return 'danger'; if(['Complete', 'Closed', 'Inactive'].includes(status)) return 'muted'; return 'info'; }
 function getStatusBadge(status){ return `<span class="status-badge ${getStatusTone(status)}">${esc(status || 'Not set')}</span>`; }
 function getFuelTypeBadge(fuelType){
@@ -1744,7 +1873,7 @@ function getJobWarnings(job, derived){
 
 function renderMiniJobList(jobs, derived, emptyText){
   if(!jobs.length) return `<div class="empty-state"><strong>Nothing to show</strong>${esc(emptyText)}</div>`;
-  return `<div class="mini-list">${[...jobs].sort(getEntitySorter('jobs')).map((job) => `<div class="mini-card overview-job-card" style="${esc(getJobTypeScheduleStyle(job.jobType))}"><div class="mini-head"><div><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(getClientLabel(job.clientId))} | ${esc(getProjectLabel(job.projectId))} | ${esc(getSiteLabel(job.siteId))}</div></div>${getPriorityBadge(job.priority)}</div><div class="mini-tags"><span class="mini-tag">${esc(getJobScheduleLabel(job))}</span>${renderJobSalesforceTag(job)}</div>${renderWarnings(getJobWarnings(job, derived))}</div>`).join('')}</div>`;
+  return `<div class="mini-list">${[...jobs].sort(getEntitySorter('jobs')).map((job) => `<div ${renderSelectableOpenAttrs('jobs', job.id, 'mini-card overview-job-card clickable-card', 'Open Job', getJobTypeScheduleStyle(job.jobType))}><div class="mini-head"><div><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(getClientLabel(job.clientId))} | ${esc(getProjectLabel(job.projectId))} | ${esc(getSiteLabel(job.siteId))}</div></div>${getPriorityBadge(job.priority)}</div><div class="mini-tags"><span class="mini-tag">${esc(getJobScheduleLabel(job))}</span>${renderJobSalesforceTag(job)}</div>${renderWarnings(getJobWarnings(job, derived))}</div>`).join('')}</div>`;
 }
 
 function renderIssueCard(label, value, copy){
@@ -1844,11 +1973,11 @@ function getFilteredDispatchRows(derived){
 
 function renderOverview(derived){
   const todayJobs = state.data.jobs.filter((job) => isSameDay(getJobPrimaryDate(job), todayISO()));
-  const nextSevenJobs = state.data.jobs.filter((job) => { const date = getJobPrimaryDate(job); const today = parseDateOnly(todayISO()); const max = parseDateOnly(addDaysISO(todayISO(), 7)); return !!(date && today && max && date >= today && date <= max); });
+  const nextSevenJobs = state.data.jobs.filter((job) => { const date = parseDateOnly(getJobPrimaryDate(job)); const today = parseDateOnly(todayISO()); const max = parseDateOnly(addDaysISO(todayISO(), 7)); return !!(date && today && max && date > today && date <= max); });
   const samplesInTransit = state.data.samples.filter((row) => row.chainOfCustodyStatus === 'In Transit');
   const openJobs = state.data.jobs.filter((job) => !isJobClosed(job));
   document.getElementById('overview-stats').innerHTML = [{ label:'Jobs Today', value:todayJobs.length, cls:'' }, { label:'Open Jobs', value:openJobs.length, cls:'ok' }, { label:'Samples In Transit', value:samplesInTransit.length, cls:'warn' }, { label:'Assets Down', value:derived.downAssets.length, cls:'danger' }].map((card) => `<div class="stat-card ${card.cls}"><div class="stat-label">${esc(card.label)}</div><div class="stat-value ${card.cls}">${esc(card.value)}</div></div>`).join('');
-  document.getElementById('overview-actions').innerHTML = `<button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button><button class="act-btn" type="button" onclick="window.location.href='clients.html'">Open Clients</button><button class="act-btn" type="button" onclick="window.location.href='employees.html'">Open Employees</button><button class="act-btn" type="button" onclick="openEntityModal('samples')">+ Add Sample</button>`;
+  document.getElementById('overview-actions').innerHTML = `<button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button>`;
   document.getElementById('today-jobs-panel').innerHTML = renderMiniJobList(todayJobs, derived, 'No field jobs are scheduled for today yet.');
   document.getElementById('next-seven-panel').innerHTML = renderMiniJobList(nextSevenJobs, derived, 'No upcoming jobs are scheduled in the next seven days.');
 }
@@ -2396,11 +2525,42 @@ async function loadLabWorkOrders(){
   if(!raw) return [];
   const parsed = JSON.parse(raw);
   const list = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.workOrders) ? parsed.workOrders : []);
-  return list.map((wo) => ({ ...wo, id:String(wo?.id || wo?.number || ''), number:String(wo?.number || ''), clientId:String(wo?.clientId || ''), projectId:String(wo?.projectId || ''), clientCode:normalizeClientCode(wo?.clientCode), client:String(wo?.client || '') })).filter((wo) => wo.id || wo.number);
+  return list.map(normalizeLabWorkOrder).filter((wo) => wo.id || wo.number);
 }
 
 async function saveLabWorkOrders(workOrders){
   await getStorageAdapter().set(LAB_WIP_WORK_ORDER_STORAGE_KEY, JSON.stringify(workOrders));
+}
+
+function normalizeLabWorkOrderClientCode(workOrder){
+  const explicitCodeText = String(workOrder?.clientCode || '').trim();
+  if(/^[A-Za-z0-9_-]+$/.test(explicitCodeText)) return normalizeClientCode(explicitCodeText);
+  const clientText = String(workOrder?.client || '').trim();
+  return /^[A-Za-z0-9_-]+$/.test(clientText) ? normalizeClientCode(clientText) : '';
+}
+
+function findClientForLabWorkOrder(clientCode, ...clientTexts){
+  const normalizedClientTexts = clientTexts.map((value) => String(value || '').trim().toLowerCase()).filter(Boolean);
+  return state.data.clients.find((client) => (
+    (clientCode && normalizeClientCode(client.clientCode) === clientCode) ||
+    normalizedClientTexts.includes(String(client.clientName || '').trim().toLowerCase())
+  )) || null;
+}
+
+function normalizeLabWorkOrder(workOrder){
+  const clientText = String(workOrder?.client || '').trim();
+  const clientCodeText = String(workOrder?.clientCode || '').trim();
+  const clientCode = normalizeLabWorkOrderClientCode(workOrder);
+  const matchedClient = findClientForLabWorkOrder(clientCode, clientText, clientCodeText);
+  return {
+    ...workOrder,
+    id:String(workOrder?.id || workOrder?.number || ''),
+    number:String(workOrder?.number || ''),
+    clientId:String(workOrder?.clientId || matchedClient?.id || ''),
+    projectId:String(workOrder?.projectId || ''),
+    clientCode,
+    client:clientText || matchedClient?.clientName || ''
+  };
 }
 
 function getSampleDisplayId(sample){
@@ -2410,6 +2570,41 @@ function getSampleDisplayId(sample){
 
 function getSampleMatrix(sample){
   return sample?.sampleType === 'Liquid' ? 'Liquid' : 'Gas';
+}
+
+function getSampleClientIdentity(sample){
+  const job = sample?.jobId ? getJob(sample.jobId) : null;
+  const client = getClient(sample?.clientId || job?.clientId || '');
+  return {
+    id:String(client?.id || sample?.clientId || job?.clientId || ''),
+    code:normalizeClientCode(client?.clientCode || ''),
+    name:String(client?.clientName || '').trim()
+  };
+}
+
+function workOrderMatchesSampleClient(workOrder, sample){
+  const client = getSampleClientIdentity(sample);
+  if(client.id && String(workOrder?.clientId || '') === client.id) return true;
+  if(client.code && normalizeClientCode(workOrder?.clientCode) === client.code) return true;
+  if(client.name && String(workOrder?.client || '').trim().toLowerCase() === client.name.toLowerCase()) return true;
+  return false;
+}
+
+function hasFieldSampleLink(workOrder){
+  if(Array.isArray(workOrder?.fieldSampleLinks) && workOrder.fieldSampleLinks.length) return true;
+  const rows = [
+    ...(Array.isArray(workOrder?.samples) ? workOrder.samples : []),
+    ...(Array.isArray(workOrder?.testRows) ? workOrder.testRows : [])
+  ];
+  return rows.some((row) => String(row?.fieldSampleId || '').trim());
+}
+
+function getEligibleWorkOrdersForSample(sample, workOrders){
+  return workOrders
+    .filter((workOrder) => workOrderMatchesSampleClient(workOrder, sample) && !hasFieldSampleLink(workOrder))
+    .map((wo) => ({ wo, score:getWorkOrderMatchScore(wo, sample) }))
+    .sort((a, b) => b.score - a.score || compareStrings(a.wo.number, b.wo.number))
+    .map(({ wo }) => wo);
 }
 
 function removeFieldSampleFromWorkOrders(workOrders, sampleId){
@@ -2433,6 +2628,14 @@ function mergeFieldSampleIntoWorkOrder(workOrder, sample){
     sampleName:sample.sampleName,
     sampleType:sample.sampleType,
     samplePoint:sample.samplePoint,
+    sampleDate:sample.sampleDate || '',
+    sampleTime:sample.sampleTime || '',
+    isDuplicate:!!sample.isDuplicate,
+    sampleCollectionMode:sample.sampleCollectionMode || '',
+    cylinderNumber:sample.cylinderNumber || '',
+    sampleTempF:sample.sampleTempF,
+    samplePressurePsig:sample.samplePressurePsig,
+    comments:sample.notes || '',
     testCodes,
     linkedAt:new Date().toISOString()
   };
@@ -2447,7 +2650,14 @@ function mergeFieldSampleIntoWorkOrder(workOrder, sample){
       matrix:getSampleMatrix(sample),
       hydrocarbon:'',
       containerType:sample.containerType || '',
-      cylinderNumber:'',
+      cylinderNumber:sample.cylinderNumber || '',
+      sampleDate:sample.sampleDate || '',
+      sampleTime:sample.sampleTime || '',
+      isDuplicate:!!sample.isDuplicate,
+      sampleCollectionMode:sample.sampleCollectionMode || '',
+      sampleTempF:sample.sampleTempF,
+      samplePressurePsig:sample.samplePressurePsig,
+      comments:sample.notes || '',
       received:receivedDate,
       logDate:receivedDate,
       dueDate:workOrder.dueDate || ''
@@ -2459,10 +2669,17 @@ function mergeFieldSampleIntoWorkOrder(workOrder, sample){
       type:normalizeCatalogKey(testCode),
       testCode,
       sampleId,
-      cylinderNumber:'',
+      cylinderNumber:sample.cylinderNumber || '',
       matrix:getSampleMatrix(sample),
       hydrocarbon:'',
       containerType:sample.containerType || '',
+      sampleDate:sample.sampleDate || '',
+      sampleTime:sample.sampleTime || '',
+      isDuplicate:!!sample.isDuplicate,
+      sampleCollectionMode:sample.sampleCollectionMode || '',
+      sampleTempF:sample.sampleTempF,
+      samplePressurePsig:sample.samplePressurePsig,
+      comments:sample.notes || '',
       received:receivedDate,
       logDate:receivedDate,
       dueDate:workOrder.dueDate || ''
@@ -2486,6 +2703,35 @@ function renderSampleTests(sample){
   return tests.length ? tests.join(', ') : 'No tests';
 }
 
+function isSampleGroupExpanded(groupId){
+  return !!state.expandedSampleGroups?.[groupId];
+}
+function toggleSampleGroupExpanded(groupId){
+  state.expandedSampleGroups = { ...(state.expandedSampleGroups || {}), [groupId]:!isSampleGroupExpanded(groupId) };
+  renderSamples();
+}
+async function receiveAllSamplesForGroup(groupId){
+  const samples = state.data.samples.filter((sample) => (sample.jobId || '__manual__') === groupId && normalizeSampleStatus(sample.sampleStatus, sample) !== 'Received by Lab');
+  if(!samples.length) return;
+  const clientIds = [...new Set(samples.map((sample) => getSampleClientIdentity(sample).id).filter(Boolean))];
+  if(clientIds.length > 1){
+    alert('This manual sample group contains multiple clients. Receive those samples individually so the Work Order list can be filtered correctly.');
+    return;
+  }
+  state.sampleLinkModal = { ...createClosedSampleLinkModalState(), open:true, mode:'bulk', sampleId:samples[0]?.id || '', sampleIds:samples.map((sample) => sample.id) };
+  renderSampleLinkModal();
+  try {
+    const workOrders = await loadLabWorkOrders();
+    state.sampleLinkModal.workOrders = getEligibleWorkOrdersForSample(samples[0], workOrders);
+    const best = state.sampleLinkModal.workOrders[0];
+    if(best) state.sampleLinkModal.selectedWorkOrderId = best.id;
+  } catch (error){
+    console.error('Unable to load Lab WIP work orders:', error);
+    alert(error.message || 'Unable to load Lab WIP work orders.');
+  }
+  renderSampleLinkModal();
+}
+
 function renderSamples(){
   const counts = getSampleStatusCounts(state.data.samples);
   document.getElementById('samples-summary').textContent = `${state.data.samples.length} total | ${counts.needsPulled} needs pulled | ${counts.received} received by lab`;
@@ -2504,30 +2750,51 @@ function renderSamples(){
   document.getElementById('samples-table').innerHTML = `<div class="sample-job-groups">${groups.map(({ job, jobId, samples }) => {
     const groupCounts = getSampleStatusCounts(samples);
     const projectLabel = job?.projectId ? getProjectLabel(job.projectId) : 'No project';
-    const title = job ? getJobDisplayTitle(job) : 'Manual Samples';
+    const title = getSampleGroupHeaderTitle(job);
     const headerMeta = job ? `${getClientLabel(job.clientId)} | ${projectLabel} | ${getSiteLabel(job.siteId)} | ${getJobScheduleLabel(job)}` : 'Samples not linked to a field job';
-    return `<section class="sample-job-group"><div class="sample-job-header"><div><div class="item-title">${esc(title)}</div><div class="muted">${esc(headerMeta)}</div></div><div class="mini-tags"><span class="tag-chip">${samples.length} sample${samples.length === 1 ? '' : 's'}</span><span class="tag-chip">${groupCounts.needsPulled} needs pulled</span><span class="tag-chip">${groupCounts.received} received</span>${job ? `<button class="act-btn" type="button" onclick="openEntityModal('jobs','${esc(jobId)}')">Open Job</button>` : ''}</div></div><div class="sample-row-list">${samples.map((sample) => {
+    const linkedWorkOrderLabels = [...new Map(samples
+      .filter((sample) => String(sample.linkedWorkOrderId || sample.linkedWorkOrderNumber || '').trim())
+      .map((sample) => {
+        const key = String(sample.linkedWorkOrderId || sample.linkedWorkOrderNumber || '');
+        const label = sample.linkedWorkOrderNumber ? `WO ${sample.linkedWorkOrderNumber}` : `WO ${sample.linkedWorkOrderId}`;
+        return [key, label];
+      })).values()];
+    const labLinkText = linkedWorkOrderLabels.length
+      ? `Lab Link${linkedWorkOrderLabels.length === 1 ? '' : 's'}: ${linkedWorkOrderLabels.slice(0, 2).join(', ')}${linkedWorkOrderLabels.length > 2 ? ` +${linkedWorkOrderLabels.length - 2}` : ''}`
+      : 'Lab Link: Not linked';
+    const expanded = isSampleGroupExpanded(jobId);
+    const sampleRows = expanded ? `<div class="sample-row-list">${samples.map((sample) => {
       const status = normalizeSampleStatus(sample.sampleStatus, sample);
-      const linked = sample.linkedWorkOrderNumber ? `WO ${sample.linkedWorkOrderNumber}` : 'Not linked';
       const action = status === 'Received by Lab'
-        ? `<button class="act-btn danger" type="button" onclick="markSampleNeedsPulled('${esc(sample.id)}')">Revert</button>`
-        : `<button class="add-btn" type="button" onclick="openSampleReceiveModal('${esc(sample.id)}')">Receive</button>`;
-      return `<div class="sample-row"><div><div class="item-title">${esc(sample.sampleName || `Sample ${sample.sampleSequence || ''}`)} | ${esc(sample.sampleType)}</div><div class="muted">${esc(sample.samplePoint || 'No sample point')}</div></div><div><div class="muted">Tests</div><div>${esc(renderSampleTests(sample))}</div></div><div><div class="muted">Status</div>${getStatusBadge(status)}</div><div><div class="muted">Lab Link</div><div>${esc(linked)}</div>${sample.labReceivedAt ? `<div class="muted">${esc(fmtDateTime(sample.labReceivedAt))}</div>` : ''}</div><div class="table-actions"><button class="act-btn" type="button" onclick="openEntityModal('samples','${esc(sample.id)}')">Edit</button>${action}</div></div>`;
-    }).join('')}</div></section>`;
+        ? `<button class="act-btn danger" type="button" onclick="event.stopPropagation(); markSampleNeedsPulled('${esc(sample.id)}')">Revert</button>`
+        : `<button class="add-btn" type="button" onclick="event.stopPropagation(); openSampleReceiveModal('${esc(sample.id)}')">Receive</button>`;
+      const sampleMeta = [
+        sample.samplePoint || 'No sample point',
+        sample.sampleDate ? `Date ${fmtDate(sample.sampleDate)}` : '',
+        sample.sampleTime ? `Time ${sample.sampleTime}` : '',
+        sample.cylinderNumber ? `Cylinder ${sample.cylinderNumber}` : '',
+        sample.isDuplicate ? 'Duplicate' : '',
+        sample.sampleCollectionMode || ''
+      ].filter(Boolean).join(' | ');
+      return `<div class="sample-row clickable-sample-row" role="button" tabindex="0" onclick="openEntityModal('samples','${esc(sample.id)}')" onkeydown="if((event.key === 'Enter' || event.key === ' ') && event.target === this){ event.preventDefault(); openEntityModal('samples','${esc(sample.id)}'); }"><div><div class="item-title">${esc(sample.sampleName || `Sample ${sample.sampleSequence || ''}`)} | ${esc(sample.sampleType)}</div><div class="muted">${esc(sampleMeta || 'No sample details')}</div></div><div><div class="muted">Tests</div><div>${esc(renderSampleTests(sample))}</div></div><div><div class="muted">Status</div>${getStatusBadge(status)}</div><div class="table-actions">${action}</div></div>`;
+    }).join('')}</div>` : '';
+    const receiveAllButton = groupCounts.needsPulled ? `<button class="add-btn" type="button" onclick="event.stopPropagation(); receiveAllSamplesForGroup('${esc(jobId)}')">Receive All Samples</button>` : '';
+    return `<section class="sample-job-group ${expanded ? 'is-expanded' : ''}"><div class="sample-job-header sample-job-toggle" role="button" tabindex="0" onclick="toggleSampleGroupExpanded('${esc(jobId)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); toggleSampleGroupExpanded('${esc(jobId)}'); }"><div><div class="item-title"><span class="sample-group-caret">${expanded ? 'v' : '>'}</span>${esc(title)}</div><div class="muted">${esc(headerMeta)}</div></div><div class="mini-tags"><span class="tag-chip">${samples.length} sample${samples.length === 1 ? '' : 's'}</span><span class="tag-chip">${groupCounts.needsPulled} needs pulled</span><span class="tag-chip">${groupCounts.received} received</span><span class="tag-chip">${esc(labLinkText)}</span>${receiveAllButton}${job ? `<button class="act-btn" type="button" onclick="event.stopPropagation(); openEntityModal('jobs','${esc(jobId)}')">Open Job</button>` : ''}</div></div>${sampleRows}</section>`;
   }).join('')}</div>`;
 }
 
 async function openSampleReceiveModal(sampleId){
   const sample = state.data.samples.find((row) => row.id === sampleId);
   if(!sample) return;
-  state.sampleLinkModal = { open:true, sampleId, selectedWorkOrderId:sample.linkedWorkOrderId || '', search:'', workOrders:[] };
+  state.sampleLinkModal = { ...createClosedSampleLinkModalState(), open:true, mode:'single', sampleId, sampleIds:[sampleId], selectedWorkOrderId:sample.linkedWorkOrderId || '' };
   renderSampleLinkModal();
   try {
-    state.sampleLinkModal.workOrders = await loadLabWorkOrders();
-    const best = state.sampleLinkModal.workOrders
-      .map((wo) => ({ wo, score:getWorkOrderMatchScore(wo, sample) }))
-      .sort((a, b) => b.score - a.score || compareStrings(a.wo.number, b.wo.number))[0];
-    if(!state.sampleLinkModal.selectedWorkOrderId && best?.score > 0) state.sampleLinkModal.selectedWorkOrderId = best.wo.id;
+    const workOrders = await loadLabWorkOrders();
+    state.sampleLinkModal.workOrders = getEligibleWorkOrdersForSample(sample, workOrders);
+    const selectedStillEligible = state.sampleLinkModal.workOrders.some((wo) => wo.id === state.sampleLinkModal.selectedWorkOrderId);
+    if(!selectedStillEligible) state.sampleLinkModal.selectedWorkOrderId = '';
+    const best = state.sampleLinkModal.workOrders[0];
+    if(!state.sampleLinkModal.selectedWorkOrderId && best) state.sampleLinkModal.selectedWorkOrderId = best.id;
   } catch (error){
     console.error('Unable to load Lab WIP work orders:', error);
     alert(error.message || 'Unable to load Lab WIP work orders.');
@@ -2550,6 +2817,11 @@ function selectSampleLinkWorkOrder(workOrderId){
   renderSampleLinkModal();
 }
 
+function getSampleLinkModalSamples(){
+  const ids = normalizeStringArray(state.sampleLinkModal.sampleIds?.length ? state.sampleLinkModal.sampleIds : [state.sampleLinkModal.sampleId]);
+  return ids.map((sampleId) => state.data.samples.find((row) => row.id === sampleId)).filter(Boolean);
+}
+
 function renderSampleLinkModal(){
   const overlay = document.getElementById('sample-link-modal-overlay');
   if(!overlay) return;
@@ -2558,8 +2830,10 @@ function renderSampleLinkModal(){
     return;
   }
   overlay.classList.add('open');
-  const sample = state.data.samples.find((row) => row.id === state.sampleLinkModal.sampleId) || null;
+  const samples = getSampleLinkModalSamples();
+  const sample = samples[0] || null;
   const job = sample ? getJob(sample.jobId) : null;
+  const bulkMode = state.sampleLinkModal.mode === 'bulk';
   const query = String(state.sampleLinkModal.search || '').trim().toLowerCase();
   const rows = (state.sampleLinkModal.workOrders || [])
     .map((wo) => ({ wo, score:sample ? getWorkOrderMatchScore(wo, sample) : 0 }))
@@ -2568,8 +2842,12 @@ function renderSampleLinkModal(){
       return [wo.number, wo.client, wo.clientCode, getProjectLabel(wo.projectId)].some((value) => String(value || '').toLowerCase().includes(query));
     })
     .sort((a, b) => b.score - a.score || compareStrings(a.wo.number, b.wo.number));
-  document.getElementById('sample-link-modal-title').textContent = sample ? `Receive Sample ${sample.sampleSequence || ''}` : 'Receive Sample';
-  document.getElementById('sample-link-modal-body').innerHTML = sample ? `<div class="sample-link-summary"><div><div class="form-label">Field Job</div><div class="item-title">${esc(job ? getJobDisplayTitle(job) : 'Manual Sample')}</div><div class="muted">${esc(`${getClientLabel(sample.clientId)} | ${getSiteLabel(sample.siteId)}`)}</div></div><div><div class="form-label">Sample</div><div>${esc(sample.sampleName || sample.sampleType)}${sample.samplePoint ? ` | ${esc(sample.samplePoint)}` : ''}</div><div class="muted">${esc(renderSampleTests(sample))}</div></div></div><div class="form-group full"><label class="form-label">Search Work Orders</label><input class="form-input" type="text" value="${esc(state.sampleLinkModal.search)}" onchange="setSampleLinkSearch(this.value)"></div><div class="sample-workorder-list">${rows.length ? rows.map(({ wo, score }) => `<button class="sample-workorder-option ${state.sampleLinkModal.selectedWorkOrderId === wo.id ? 'is-selected' : ''}" type="button" onclick="selectSampleLinkWorkOrder('${esc(wo.id)}')"><span><strong>${esc(wo.number || 'Unnumbered WO')}</strong><span>${esc([wo.client || getClientLabel(wo.clientId), getProjectLabel(wo.projectId), wo.dueDate || 'No due date'].filter(Boolean).join(' | '))}</span></span>${score > 0 ? '<span class="tag-chip">Match</span>' : ''}</button>`).join('') : '<div class="empty-state">No existing Lab WIP work orders match.</div>'}</div>` : '<div class="empty-state">Sample not found.</div>';
+  document.getElementById('sample-link-modal-title').textContent = sample ? (bulkMode ? `Receive ${samples.length} Samples` : `Receive Sample ${sample.sampleSequence || ''}`) : 'Receive Sample';
+  const sampleSummary = bulkMode
+    ? `<div><div class="form-label">Samples</div><div>${esc(samples.length)} sample${samples.length === 1 ? '' : 's'} selected</div><div class="muted">${esc(samples.map((row) => row.sampleName || `Sample ${row.sampleSequence || ''}`).filter(Boolean).join(', ') || 'No sample names')}</div></div>`
+    : `<div><div class="form-label">Sample</div><div>${esc(sample?.sampleName || sample?.sampleType || '')}${sample?.samplePoint ? ` | ${esc(sample.samplePoint)}` : ''}</div><div class="muted">${esc(sample ? renderSampleTests(sample) : '')}</div></div>`;
+  const emptyText = query ? 'No available Lab WIP Work Orders for this client match your search.' : 'No available Lab WIP Work Orders were found for this client.';
+  document.getElementById('sample-link-modal-body').innerHTML = sample ? `<div class="sample-link-summary"><div><div class="form-label">Field Job</div><div class="item-title">${esc(job ? getJobDisplayTitle(job) : 'Manual Sample')}</div><div class="muted">${esc(`${getClientLabel(getSampleClientIdentity(sample).id || sample.clientId)} | ${getSiteLabel(sample.siteId)}`)}</div></div>${sampleSummary}</div><div class="form-group full"><label class="form-label">Search Work Orders</label><input class="form-input" type="text" value="${esc(state.sampleLinkModal.search)}" onchange="setSampleLinkSearch(this.value)"></div><div class="sample-workorder-list">${rows.length ? rows.map(({ wo, score }) => `<button class="sample-workorder-option ${state.sampleLinkModal.selectedWorkOrderId === wo.id ? 'is-selected' : ''}" type="button" onclick="selectSampleLinkWorkOrder('${esc(wo.id)}')"><span><strong>${esc(wo.number || 'Unnumbered WO')}</strong><span>${esc([wo.client || getClientLabel(wo.clientId), getProjectLabel(wo.projectId), wo.dueDate || 'No due date'].filter(Boolean).join(' | '))}</span></span>${score > 0 ? '<span class="tag-chip">Match</span>' : ''}</button>`).join('') : `<div class="empty-state">${esc(emptyText)}</div>`}</div>` : '<div class="empty-state">Sample not found.</div>';
 }
 
 async function saveFieldSampleRecord(sampleRecord){
@@ -2585,36 +2863,51 @@ async function saveFieldSampleRecord(sampleRecord){
 }
 
 async function confirmSampleWorkOrderLink(){
-  const sample = state.data.samples.find((row) => row.id === state.sampleLinkModal.sampleId);
-  if(!sample) return;
+  const samples = getSampleLinkModalSamples().filter((sample) => normalizeSampleStatus(sample.sampleStatus, sample) !== 'Received by Lab');
+  if(!samples.length) return;
   const workOrders = await loadLabWorkOrders();
   const selected = workOrders.find((wo) => wo.id === state.sampleLinkModal.selectedWorkOrderId);
   if(!selected){
     alert('Select an existing Lab WIP work order.');
     return;
   }
-  const receivedSample = applySampleStatusCompatibility({
+  if(!workOrderMatchesSampleClient(selected, samples[0]) || hasFieldSampleLink(selected)){
+    alert('Select an available Lab WIP work order for this client.');
+    return;
+  }
+  const receivedAt = nowInputDateTime();
+  const receivedSamples = samples.map((sample) => applySampleStatusCompatibility({
     ...sample,
     sampleStatus:'Received by Lab',
     linkedWorkOrderId:selected.id,
     linkedWorkOrderNumber:selected.number || selected.id,
-    labReceivedAt:sample.labReceivedAt || nowInputDateTime()
-  });
-  const cleaned = removeFieldSampleFromWorkOrders(workOrders, sample.id);
-  const merged = cleaned.map((wo) => wo.id === selected.id ? mergeFieldSampleIntoWorkOrder(wo, receivedSample) : wo);
+    labReceivedAt:sample.labReceivedAt || receivedAt
+  }));
+  const cleaned = receivedSamples.reduce((orders, sample) => removeFieldSampleFromWorkOrders(orders, sample.id), workOrders);
+  const merged = cleaned.map((wo) => wo.id === selected.id ? receivedSamples.reduce((nextWo, sample) => mergeFieldSampleIntoWorkOrder(nextWo, sample), wo) : wo);
   state.saveInFlight = true;
-  showSaveStatus('saving', 'LINKING SAMPLE');
+  showSaveStatus('saving', receivedSamples.length === 1 ? 'LINKING SAMPLE' : 'LINKING SAMPLES');
   try {
     await saveLabWorkOrders(merged);
-    await saveFieldSampleRecord(receivedSample);
+    if(isRemoteMode()){
+      await Promise.all(receivedSamples.map((sample) => remoteRepository.saveRecord('samples', sample)));
+      await loadData({ silent:true, force:true });
+    } else {
+      const next = clone(state.data);
+      receivedSamples.forEach((sample) => {
+        const index = next.samples.findIndex((row) => row.id === sample.id);
+        if(index >= 0) next.samples[index] = normalizeRecord('samples', sample, { fromRemote:false });
+      });
+      await persistLocal(next);
+    }
     closeSampleLinkModal();
-    showSaveStatus('saved', 'SAMPLE LINKED');
+    showSaveStatus('saved', receivedSamples.length === 1 ? 'SAMPLE LINKED' : 'SAMPLES LINKED');
     hideSaveStatusSoon();
   } catch (error){
-    console.error('Unable to link sample to work order:', error);
+    console.error('Unable to link sample(s) to work order:', error);
     showSaveStatus('error', 'LINK FAILED');
     hideSaveStatusSoon(4200);
-    alert(error.message || 'Unable to link this sample.');
+    alert(error.message || 'Unable to link these sample(s).');
   } finally {
     state.saveInFlight = false;
   }
@@ -2670,7 +2963,13 @@ function render(){
 
 function getNewRecordDraft(entityKey){
   const base = clone(ENTITY_CONFIG[entityKey].defaults);
-  if(entityKey === 'samples') base.collectionDateTime = nowInputDateTime();
+  if(entityKey === 'samples'){
+    const now = nowInputDateTime();
+    const parts = splitInputDateTime(now);
+    base.collectionDateTime = now;
+    base.sampleDate = parts.date;
+    base.sampleTime = parts.time;
+  }
   if(entityKey === 'maintenanceRecords') base.openDate = todayISO();
   return base;
 }
@@ -2726,6 +3025,12 @@ function toggleModalTestValue(key, optionValue){
   renderModal();
 }
 
+function saveModalTestSelection(key){
+  if(!modalState.open) return;
+  if(modalState.openMultiSelectKey === key) modalState.openMultiSelectKey = '';
+  renderModal();
+}
+
 function getModalMultiSelectSummary(options, selectedValues){
   const selectedOptions = options.filter((option) => selectedValues.includes(String(option.value)));
   if(!selectedOptions.length) return 'Select options...';
@@ -2770,7 +3075,7 @@ function renderFormField(field){
     const options = normalizeOptionsList(field.options || []);
     const selectedValues = normalizeStringArray(modalState.formData[field.key]);
     const isOpen = modalState.openMultiSelectKey === field.key;
-    return `<div class="form-group${fullClass}"><label class="form-label">${esc(field.label)}</label><div class="sample-test-dropdown ${isOpen ? 'open' : ''} ${disabled ? 'is-disabled' : ''}"><button class="multi-select-trigger" type="button" ${disabled ? 'disabled' : ''} onclick="toggleModalTestDropdown('${field.key}')"><span>${esc(getModalMultiSelectSummary(options, selectedValues))}</span><span class="multi-select-caret">v</span></button><div class="multi-select-detail">${esc(getModalMultiSelectDetail(options, selectedValues))}</div><div class="sample-test-menu">${options.length ? options.map((option) => `<button class="sample-test-option ${selectedValues.includes(String(option.value)) ? 'is-selected' : ''}" type="button" onclick="toggleModalTestValue('${field.key}', '${esc(option.value)}')">${esc(option.label)}</button>`).join('') : '<div class="empty-state">No tests available for this sample type.</div>'}</div></div></div>`;
+    return `<div class="form-group${fullClass}"><label class="form-label">${esc(field.label)}</label><div class="sample-test-dropdown ${isOpen ? 'open' : ''} ${disabled ? 'is-disabled' : ''}"><button class="multi-select-trigger" type="button" ${disabled ? 'disabled' : ''} onclick="toggleModalTestDropdown('${field.key}')"><span>${esc(getModalMultiSelectSummary(options, selectedValues))}</span><span class="multi-select-caret">v</span></button><div class="multi-select-detail">${esc(getModalMultiSelectDetail(options, selectedValues))}</div><div class="sample-test-menu"><div class="sample-test-options">${options.length ? options.map((option) => `<button class="sample-test-option ${selectedValues.includes(String(option.value)) ? 'is-selected' : ''}" type="button" onclick="toggleModalTestValue('${field.key}', '${esc(option.value)}')">${esc(option.label)}</button>`).join('') : '<div class="empty-state">No tests available for this sample type.</div>'}</div><div class="sample-test-footer"><button class="sample-test-save" type="button" onclick="saveModalTestSelection('${field.key}')">Save test selection</button></div></div></div></div>`;
   }
   if(field.type === 'image') return renderAssetPhotoField(field);
   if(field.type === 'color') return renderColorField(field);
@@ -2849,17 +3154,49 @@ function renderJobSampleLogisticsEditor(){
   if(count && getModalSampleDrafts().length !== count) ensureModalSampleDrafts();
   const rows = getModalSampleDrafts();
   const sampleCountOptions = Array.from({ length:50 }, (_, index) => index + 1);
+  const renderSampleSummary = () => {
+    const summary = {
+      Gas:{ total:0, tests:new Map() },
+      Liquid:{ total:0, tests:new Map() }
+    };
+    rows.forEach((row) => {
+      const sampleType = normalizeSampleTypeForWorkflow(row.sampleType);
+      if(!summary[sampleType]) return;
+      summary[sampleType].total += 1;
+      filterTestCodesForSampleType(row.testCodes, sampleType).forEach((testCode) => {
+        summary[sampleType].tests.set(testCode, (summary[sampleType].tests.get(testCode) || 0) + 1);
+      });
+    });
+    const renderType = (sampleType) => {
+      const typeSummary = summary[sampleType];
+      const testRows = [...typeSummary.tests.entries()]
+        .sort((a, b) => compareStrings(getLabTestLabel(a[0]), getLabTestLabel(b[0])))
+        .map(([testCode, testCount]) => `<div class="sample-summary-test"><span>${esc(getLabTestLabel(testCode))}</span><strong>${esc(testCount)}</strong></div>`)
+        .join('');
+      return `<div class="sample-summary-card"><div class="sample-summary-total"><span>Total ${esc(sampleType)} Samples</span><strong>${esc(typeSummary.total)}</strong></div><div class="sample-summary-tests">${testRows || '<div class="sample-summary-empty">No tests selected</div>'}</div></div>`;
+    };
+    return `<div class="sample-logistics-summary">${renderType('Gas')}${renderType('Liquid')}</div>`;
+  };
   const renderTestDropdown = (row) => {
     const tests = getLabTestsForSampleType(row.sampleType);
     const selected = normalizeStringArray(row.testCodes);
     const options = tests.map((test) => ({ value:test.key, label:test.label }));
     const isOpen = modalState.openSampleTestDraftId === row.draftId;
-    return `<div class="sample-test-dropdown ${isOpen ? 'open' : ''}"><button class="multi-select-trigger" type="button" onclick="toggleJobSampleTestDropdown('${esc(row.draftId)}')"><span>${esc(getModalMultiSelectSummary(options, selected))}</span><span class="multi-select-caret">v</span></button><div class="multi-select-detail">${esc(tests.length ? getModalMultiSelectDetail(options, selected) : 'No tests available for this sample type')}</div><div class="sample-test-menu">${tests.length ? tests.map((test) => `<button class="sample-test-option ${selected.includes(test.key) ? 'is-selected' : ''}" type="button" onclick="toggleJobSampleDraftTest('${esc(row.draftId)}', '${esc(test.key)}')">${esc(test.label)}</button>`).join('') : '<div class="empty-state">No tests available for this sample type.</div>'}</div></div>`;
+    return `<div class="sample-test-dropdown ${isOpen ? 'open' : ''}"><button class="multi-select-trigger" type="button" onclick="toggleJobSampleTestDropdown('${esc(row.draftId)}')"><span>${esc(getModalMultiSelectSummary(options, selected))}</span><span class="multi-select-caret">v</span></button><div class="multi-select-detail">${esc(tests.length ? getModalMultiSelectDetail(options, selected) : 'No tests available for this sample type')}</div><div class="sample-test-menu"><div class="sample-test-options">${tests.length ? tests.map((test) => `<button class="sample-test-option ${selected.includes(test.key) ? 'is-selected' : ''}" type="button" onclick="toggleJobSampleDraftTest('${esc(row.draftId)}', '${esc(test.key)}')">${esc(test.label)}</button>`).join('') : '<div class="empty-state">No tests available for this sample type.</div>'}</div><div class="sample-test-footer"><button class="sample-test-save" type="button" onclick="saveJobSampleTestSelection('${esc(row.draftId)}')">Save test selection</button></div></div></div>`;
   };
+  const renderCollectionModeControl = (row) => `<div class="form-group"><label class="form-label">Composite / Spot</label><div class="checkbox-group sample-mode-group"><label class="checkbox-chip"><input type="checkbox" ${row.sampleCollectionMode === 'Composite' ? 'checked' : ''} onchange="updateJobSampleDraftField('${esc(row.draftId)}', 'sampleCollectionMode', 'Composite')"><span>Composite</span></label><label class="checkbox-chip"><input type="checkbox" ${row.sampleCollectionMode === 'Spot' ? 'checked' : ''} onchange="updateJobSampleDraftField('${esc(row.draftId)}', 'sampleCollectionMode', 'Spot')"><span>Spot</span></label></div></div>`;
   const sampleRows = rows.length
-    ? rows.map((row, index) => `<div class="sample-draft-row"><div class="sample-draft-head"><div class="sample-sequence">#${index + 1}</div><div class="form-group"><label class="form-label">Sample Type</label><select class="form-input" onchange="updateJobSampleDraftField('${esc(row.draftId)}', 'sampleType', this.value)"><option value="Gas" ${row.sampleType === 'Gas' ? 'selected' : ''}>Gas</option><option value="Liquid" ${row.sampleType === 'Liquid' ? 'selected' : ''}>Liquid</option></select></div><div class="form-group"><label class="form-label">Sample Name</label><input class="form-input" type="text" value="${esc(row.sampleName)}" oninput="updateJobSampleDraftField('${esc(row.draftId)}', 'sampleName', this.value)"></div><div class="form-group"><label class="form-label">Sample Point</label><input class="form-input" type="text" value="${esc(row.samplePoint)}" oninput="updateJobSampleDraftField('${esc(row.draftId)}', 'samplePoint', this.value)"></div></div><div class="form-group full"><label class="form-label">Tests</label>${renderTestDropdown(row)}</div></div>`).join('')
+    ? rows.map((row, index) => {
+      const expanded = isJobSampleDraftExpanded(row.draftId);
+      const selectedTests = filterTestCodesForSampleType(row.testCodes, row.sampleType);
+      const title = `Sample ${index + 1} - ${row.sampleName || 'Sample ID'}`;
+      const point = row.samplePoint || 'No sample point';
+      const body = expanded ? `<div class="sample-draft-body"><div class="sample-coc-layout"><div class="sample-sequence">#${index + 1}</div><div class="sample-coc-fields"><div class="sample-coc-row sample-coc-row-primary"><div class="form-group"><label class="form-label">Sample ID *</label><input class="form-input" type="text" value="${esc(row.sampleName)}" oninput="updateJobSampleDraftField('${esc(row.draftId)}', 'sampleName', this.value)"></div><div class="form-group"><label class="form-label">Sample Point</label><input class="form-input" type="text" value="${esc(row.samplePoint || '')}" oninput="updateJobSampleDraftField('${esc(row.draftId)}', 'samplePoint', this.value)"></div><div class="form-group"><label class="form-label">Sample Date / Time</label><input class="form-input" type="datetime-local" value="${esc(row.collectionDateTime)}" oninput="updateJobSampleDraftField('${esc(row.draftId)}', 'collectionDateTime', this.value)"></div></div><div class="sample-coc-row sample-coc-row-measurements"><div class="form-group"><label class="form-label">Sample Type *</label><select class="form-input" onchange="updateJobSampleDraftField('${esc(row.draftId)}', 'sampleType', this.value)"><option value="Gas" ${row.sampleType === 'Gas' ? 'selected' : ''}>Gas</option><option value="Liquid" ${row.sampleType === 'Liquid' ? 'selected' : ''}>Liq</option></select></div><div class="form-group"><label class="form-label">Cylinder # *</label><input class="form-input" type="text" value="${esc(row.cylinderNumber)}" oninput="updateJobSampleDraftField('${esc(row.draftId)}', 'cylinderNumber', this.value)"></div><div class="form-group"><label class="form-label">Sample Temp (F)</label><input class="form-input" type="number" step="0.1" value="${esc(row.sampleTempF ?? '')}" oninput="updateJobSampleDraftField('${esc(row.draftId)}', 'sampleTempF', this.value)"></div><div class="form-group"><label class="form-label">Sample Pressure (PSIG)</label><input class="form-input" type="number" step="0.1" value="${esc(row.samplePressurePsig ?? '')}" oninput="updateJobSampleDraftField('${esc(row.draftId)}', 'samplePressurePsig', this.value)"></div></div></div></div><div class="form-group full"><label class="form-label">Test Codes Required *</label>${renderTestDropdown(row)}</div><div class="sample-coc-flags"><div class="form-group"><label class="form-label">Duplicate</label><label class="toggle-card sample-toggle-card"><input type="checkbox" ${row.isDuplicate ? 'checked' : ''} onchange="updateJobSampleDraftField('${esc(row.draftId)}', 'isDuplicate', this.checked)"><span>Duplicate</span></label></div>${renderCollectionModeControl(row)}</div><div class="form-group full"><label class="form-label">Comments</label><textarea class="form-input" oninput="updateJobSampleDraftField('${esc(row.draftId)}', 'notes', this.value)">${esc(row.notes || '')}</textarea></div></div>` : '';
+      return `<div class="sample-draft-row ${expanded ? 'is-expanded' : ''}"><button class="sample-draft-toggle" type="button" onclick="toggleJobSampleDraftExpanded('${esc(row.draftId)}')"><span class="sample-draft-caret">${expanded ? 'v' : '>'}</span><span><strong>${esc(title)}</strong><span>${esc(row.sampleType)} | ${esc(point)}</span></span><span class="sample-draft-test-count">${selectedTests.length} test${selectedTests.length === 1 ? '' : 's'}</span></button>${body}</div>`;
+    }).join('')
     : '<div class="empty-state">Set the sample count to add sample rows.</div>';
-  return `<div class="sample-logistics-editor"><div class="assignment-head"><div><h4>Sample Logistics</h4><div class="section-copy">${esc(getJobTypeDisplayName(modalState.formData.jobType))}</div></div><div class="form-group sample-count-field"><label class="form-label">Sample Count</label><select class="form-input" onchange="updateJobSampleCount(this.value)"><option value="">Select...</option>${sampleCountOptions.map((option) => `<option value="${option}" ${Number(modalState.formData.sampleCount || 0) === option ? 'selected' : ''}>${option}</option>`).join('')}</select></div></div><div class="sample-draft-list">${sampleRows}</div></div>`;
+  const rollupActions = rows.length ? `<div class="sample-rollup-actions"><button class="act-btn" type="button" onclick="openSampleTableModal()">Edit in Table</button><button class="act-btn" type="button" onclick="setAllJobSampleDraftsExpanded(true)">Expand All</button><button class="act-btn" type="button" onclick="setAllJobSampleDraftsExpanded(false)">Collapse All</button></div>` : '';
+  return `<div class="sample-logistics-editor"><div class="assignment-head"><div><h4>Sample Logistics</h4><div class="section-copy">${esc(getJobTypeDisplayName(modalState.formData.jobType))}</div></div><div class="form-group sample-count-field"><label class="form-label">Sample Count</label><select class="form-input" onchange="updateJobSampleCount(this.value)"><option value="">Select...</option>${sampleCountOptions.map((option) => `<option value="${option}" ${Number(modalState.formData.sampleCount || 0) === option ? 'selected' : ''}>${option}</option>`).join('')}</select></div></div>${renderSampleSummary()}${rollupActions}<div class="sample-draft-list">${sampleRows}</div></div>`;
 }
 
 function renderModal(){
@@ -2965,12 +3302,36 @@ function openEntityModal(entityKey, id = ''){
     if(project) draft.clientId = project.clientId;
   }
   if(entityKey === 'jobs') initializeJobSampleDrafts(draft, existing?.id || '');
-  modalState = { open:true, entity:entityKey, id:existing?.id || '', formData:draft, assignments:entityKey === 'jobs' ? (existing ? getAssignmentsForJob(existing.id).map((row) => clone(row)) : []) : [], openMultiSelectKey:'' };
+  modalState = { ...createClosedModalState(), open:true, entity:entityKey, id:existing?.id || '', formData:draft, assignments:entityKey === 'jobs' ? (existing ? getAssignmentsForJob(existing.id).map((row) => clone(row)) : []) : [], openMultiSelectKey:'' };
   if(entityKey === 'equipment' && !existing) syncEquipmentAssignmentSummary();
+  setEntityModalBaseline();
   renderModal();
 }
 
-function closeEntityModal(){ modalState = createClosedModalState(); renderModal(); }
+function getEntityModalDirtySnapshot(){
+  if(!modalState.open) return '';
+  return JSON.stringify({
+    entity:modalState.entity,
+    id:modalState.id,
+    formData:modalState.formData || {},
+    assignments:modalState.assignments || []
+  });
+}
+
+function setEntityModalBaseline(){ modalState.baselineSnapshot = getEntityModalDirtySnapshot(); }
+
+function isEntityModalDirty(){
+  return !!(modalState.open && modalState.baselineSnapshot && getEntityModalDirtySnapshot() !== modalState.baselineSnapshot);
+}
+
+function closeEntityModal(options = {}){
+  if(!options.force && isEntityModalDirty() && !window.confirm('Discard unsaved changes?')) return false;
+  state.sampleTableModalOpen = false;
+  renderSampleTableModal();
+  modalState = createClosedModalState();
+  renderModal();
+  return true;
+}
 function setModalField(key, value, mode = 'text'){ if(modalState.open) modalState.formData[key] = mode === 'number' ? normalizeNumber(value) : value; }
 function toggleModalField(key, checked){ if(modalState.open) modalState.formData[key] = !!checked; }
 function setJobTypeColor(value){
@@ -3017,12 +3378,14 @@ function buildDuplicatedJobAssignmentDrafts(assignments){
 function duplicateCurrentModalJob(){
   if(!modalState.open || modalState.entity !== 'jobs') return;
   modalState = {
+    ...createClosedModalState(),
     open:true,
     entity:'jobs',
     id:'',
     formData:buildDuplicatedJobDraft(modalState.formData),
     assignments:buildDuplicatedJobAssignmentDrafts(modalState.assignments)
   };
+  setEntityModalBaseline();
   renderModal();
 }
 
@@ -3094,8 +3457,9 @@ function changeJobType(value){
   modalState.formData.jobType = value;
   if(getJobTypeScheduleMode(value) === 'point_in_time') modalState.formData.scheduledEnd = '';
   if(jobTypeHasDetailGroup(value, 'sample_logistics') && !Number(modalState.formData.sampleCount || 0)){
+    const defaultDateTime = splitInputDateTime(modalState.formData.scheduledStart || modalState.formData.requestedDate || '');
     modalState.formData.sampleCount = 1;
-    modalState.formData.sampleDrafts = [createSampleDraft({ sampleType:'Gas' }, 1)];
+    modalState.formData.sampleDrafts = [createSampleDraft({ sampleType:'Gas', collectionDateTime:combineSampleDateTime(defaultDateTime.date, defaultDateTime.time) }, 1)];
     modalState.formData.samplesRequired = true;
   }
   renderModal();
@@ -3217,7 +3581,9 @@ function validateModal(){
       if(sampleDrafts.length !== sampleCount) return 'Each required sample needs a sample row.';
       for(let index = 0; index < sampleDrafts.length; index += 1){
         const sample = sampleDrafts[index];
+        if(!String(sample.sampleName || '').trim()) return `Sample ${index + 1} needs a Sample ID.`;
         if(!['Gas', 'Liquid'].includes(sample.sampleType)) return `Sample ${index + 1} needs a Gas or Liquid sample type.`;
+        if(!String(sample.cylinderNumber || '').trim()) return `Sample ${index + 1} needs a cylinder number.`;
         if(!normalizeStringArray(sample.testCodes).length) return `Sample ${index + 1} needs at least one test.`;
       }
     }
@@ -3247,7 +3613,9 @@ function validateModal(){
     if(!String(formData.jobId || '').trim()) return 'Job is required for a sample.';
     if(!String(formData.clientId || '').trim()) return 'Client is required for a sample.';
     if(!String(formData.siteId || '').trim()) return 'Site / location is required for a sample.';
+    if(!String(formData.sampleName || '').trim()) return 'Sample ID is required.';
     if(!['Gas', 'Liquid'].includes(formData.sampleType)) return 'Sample type must be Gas or Liquid.';
+    if(!String(formData.cylinderNumber || '').trim()) return 'Cylinder number is required.';
     if(!normalizeStringArray(formData.testCodes).length) return 'At least one test is required for a sample.';
     if(formData.sampleStatus === 'Received by Lab' && !String(formData.linkedWorkOrderId || '').trim()) return 'Use the Samples page to receive and link this sample to a lab work order.';
   }
@@ -3395,6 +3763,8 @@ async function saveLocalSiteTypeRecord(draft){
 
 function buildSampleRecordForJob(jobRecord, draft, existing, index, options = {}){
   const shouldGenerateId = options.generateId !== false;
+  const collectionDateTime = draft.collectionDateTime || combineSampleDateTime(draft.sampleDate || existing?.sampleDate, draft.sampleTime || existing?.sampleTime) || existing?.collectionDateTime || '';
+  const collectionParts = splitInputDateTime(collectionDateTime);
   const record = normalizeRecord('samples', {
     ...existing,
     id:existing?.id || (shouldGenerateId ? (draft.id || uid(ENTITY_CONFIG.samples.idPrefix)) : ''),
@@ -3406,16 +3776,23 @@ function buildSampleRecordForJob(jobRecord, draft, existing, index, options = {}
     sampleStatus:draft.sampleStatus || existing?.sampleStatus || 'Needs Pulled',
     sampleName:draft.sampleName || '',
     samplePoint:draft.samplePoint || '',
+    sampleDate:draft.sampleDate || collectionParts.date || existing?.sampleDate || '',
+    sampleTime:draft.sampleTime || collectionParts.time || existing?.sampleTime || '',
+    isDuplicate:!!draft.isDuplicate,
+    sampleCollectionMode:draft.sampleCollectionMode || existing?.sampleCollectionMode || '',
+    cylinderNumber:draft.cylinderNumber || existing?.cylinderNumber || '',
     testCodes:filterTestCodesForSampleType(draft.testCodes, draft.sampleType),
+    sampleTempF:normalizeNumber(draft.sampleTempF ?? existing?.sampleTempF),
+    samplePressurePsig:normalizeNumber(draft.samplePressurePsig ?? existing?.samplePressurePsig),
     linkedWorkOrderId:draft.linkedWorkOrderId || existing?.linkedWorkOrderId || '',
     linkedWorkOrderNumber:draft.linkedWorkOrderNumber || existing?.linkedWorkOrderNumber || '',
     labReceivedAt:draft.labReceivedAt || existing?.labReceivedAt || '',
     sampleSequence:index + 1,
-    collectionDateTime:existing?.collectionDateTime || '',
+    collectionDateTime,
     pickedUpBy:existing?.pickedUpBy || '',
     dropOffLocation:existing?.dropOffLocation || '',
     priorityTat:existing?.priorityTat || '',
-    notes:existing?.notes || ''
+    notes:draft.notes || existing?.notes || ''
   }, { fromRemote:false });
   return applySampleStatusCompatibility(record);
 }
@@ -3637,7 +4014,7 @@ async function saveEntityFromModal(){
     }
     else await saveLocalRecord(modalState.entity, modalState.formData);
     const savedMessage = modalState.entity === 'jobs' ? 'Job saved' : 'SAVED';
-    closeEntityModal();
+    closeEntityModal({ force:true });
     showSaveStatus('saved', savedMessage);
     hideSaveStatusSoon();
   } catch (error){
@@ -3741,7 +4118,7 @@ async function deleteEntityRecord(entityKey, id){
       await remoteRepository.deleteRecord(entityKey, id);
       await loadData({ silent:true, force:true });
     } else await persistLocal(buildLocalDeleteResult(entityKey, id));
-    if(modalState.open && modalState.entity === entityKey && modalState.id === id) closeEntityModal();
+    if(modalState.open && modalState.entity === entityKey && modalState.id === id) closeEntityModal({ force:true });
     showSaveStatus('saved', 'DELETED');
     hideSaveStatusSoon();
     return true;
@@ -3758,7 +4135,7 @@ async function deleteEntityRecord(entityKey, id){
 
 async function deleteCurrentModalEntity(){ if(modalState.id) await deleteEntityRecord(modalState.entity, modalState.id); }
 
-function isInteractionOverlayOpen(){ return !!document.getElementById('entity-modal-overlay')?.classList.contains('open') || !!document.getElementById('sample-link-modal-overlay')?.classList.contains('open') || !!document.getElementById('site-editor-overlay')?.classList.contains('open') || !!document.getElementById('site-editor-address-overlay')?.classList.contains('open'); }
+function isInteractionOverlayOpen(){ return !!document.getElementById('entity-modal-overlay')?.classList.contains('open') || !!document.getElementById('sample-link-modal-overlay')?.classList.contains('open') || !!document.getElementById('sample-table-modal-overlay')?.classList.contains('open') || !!document.getElementById('site-editor-overlay')?.classList.contains('open') || !!document.getElementById('site-editor-address-overlay')?.classList.contains('open'); }
 
 async function loadData(options = {}){
   try {
@@ -3791,12 +4168,14 @@ async function refreshFromRemote(){
 function startAutoRefresh(){ stopAutoRefresh(); if(isRemoteMode()) state.autoRefreshTimer = setInterval(refreshFromRemote, AUTO_REFRESH_MS); }
 function stopAutoRefresh(){ if(state.autoRefreshTimer){ clearInterval(state.autoRefreshTimer); state.autoRefreshTimer = null; } }
 
-document.getElementById('entity-modal-overlay')?.addEventListener('click', (event) => { if(event.target === document.getElementById('entity-modal-overlay')) closeEntityModal(); });
-document.getElementById('sample-link-modal-overlay')?.addEventListener('click', (event) => { if(event.target === document.getElementById('sample-link-modal-overlay')) closeSampleLinkModal(); });
+document.getElementById('entity-modal-overlay')?.addEventListener('click', (event) => { if(event.target === event.currentTarget) event.stopPropagation(); });
+document.getElementById('sample-link-modal-overlay')?.addEventListener('click', (event) => { if(event.target === event.currentTarget) event.stopPropagation(); });
+document.getElementById('sample-table-modal-overlay')?.addEventListener('click', (event) => { if(event.target === event.currentTarget) event.stopPropagation(); });
 document.addEventListener('visibilitychange', () => { if(!document.hidden) refreshFromRemote(); });
 window.addEventListener('keydown', (event) => {
   if(event.key !== 'Escape' || !isInteractionOverlayOpen()) return;
-  if(document.getElementById('sample-link-modal-overlay')?.classList.contains('open')) closeSampleLinkModal();
+  if(document.getElementById('sample-table-modal-overlay')?.classList.contains('open')) closeSampleTableModal();
+  else if(document.getElementById('sample-link-modal-overlay')?.classList.contains('open')) closeSampleLinkModal();
   else closeEntityModal();
 });
 

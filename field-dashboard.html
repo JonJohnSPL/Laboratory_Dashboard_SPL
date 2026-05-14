@@ -190,6 +190,19 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="sample-table-modal-overlay">
+    <div class="modal sample-table-modal">
+      <div class="modal-header">
+        <h3>Edit Samples in Table</h3>
+        <button class="modal-close" type="button" onclick="closeSampleTableModal()">X</button>
+      </div>
+      <div class="modal-body" id="sample-table-modal-body"></div>
+      <div class="modal-footer">
+        <button class="btn-save" type="button" onclick="closeSampleTableModal()">Done</button>
+      </div>
+    </div>
+  </div>
+
   <script src="app-config.js"></script>
   <script>
     window.APP_CONFIG = Object.assign({}, window.APP_CONFIG || {}, {

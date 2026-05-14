@@ -1019,6 +1019,13 @@ create table if not exists public.field_samples (
   drop_off_location text not null default '',
   chain_of_custody_status text not null default 'Requested' check (chain_of_custody_status in ('Requested', 'Collected', 'In Transit', 'Delivered', 'Logged In', 'Complete', 'Exception')),
   lab_receipt_status text not null default 'Requested' check (lab_receipt_status in ('Requested', 'Delivered', 'Logged In', 'Complete', 'Exception')),
+  sample_date date,
+  sample_time text not null default '',
+  is_duplicate boolean not null default false,
+  sample_collection_mode text not null default '' check (sample_collection_mode in ('', 'Composite', 'Spot')),
+  cylinder_number text not null default '',
+  sample_temp_f numeric,
+  sample_pressure_psig numeric,
   priority_tat text not null default '',
   notes text not null default '',
   created_at timestamptz not null default timezone('utc', now()),
@@ -1029,11 +1036,26 @@ create table if not exists public.field_samples (
 alter table public.field_samples add column if not exists sample_status text not null default 'Needs Pulled';
 alter table public.field_samples add column if not exists sample_name text not null default '';
 alter table public.field_samples add column if not exists sample_point text not null default '';
+alter table public.field_samples add column if not exists sample_date date;
+alter table public.field_samples add column if not exists sample_time text not null default '';
+alter table public.field_samples add column if not exists is_duplicate boolean not null default false;
+alter table public.field_samples add column if not exists sample_collection_mode text not null default '';
+alter table public.field_samples add column if not exists cylinder_number text not null default '';
 alter table public.field_samples add column if not exists test_codes text[] not null default array[]::text[];
+alter table public.field_samples add column if not exists sample_temp_f numeric;
+alter table public.field_samples add column if not exists sample_pressure_psig numeric;
 alter table public.field_samples add column if not exists linked_work_order_id text not null default '';
 alter table public.field_samples add column if not exists linked_work_order_number text not null default '';
 alter table public.field_samples add column if not exists lab_received_at timestamptz;
 alter table public.field_samples add column if not exists sample_sequence integer;
+alter table public.field_samples drop constraint if exists field_samples_sample_collection_mode_check;
+alter table public.field_samples add constraint field_samples_sample_collection_mode_check check (sample_collection_mode in ('', 'Composite', 'Spot'));
+update public.field_samples
+set
+  sample_date = coalesce(sample_date, collection_date_time::date),
+  sample_time = coalesce(nullif(sample_time, ''), to_char(collection_date_time, 'HH24:MI'))
+where collection_date_time is not null
+  and (sample_date is null or coalesce(sample_time, '') = '');
 alter table public.field_samples drop constraint if exists field_samples_sample_status_check;
 alter table public.field_samples add constraint field_samples_sample_status_check check (sample_status in ('Needs Pulled', 'Received by Lab'));
 alter table public.field_samples drop constraint if exists field_samples_sample_type_check;
