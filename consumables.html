@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Consumables</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="consumables.css">
+</head>
+<body>
+<header>
+  <div class="header-left">
+    <img class="spl-logo" src="assets/spl-logo.svg" alt="SPL">
+    <div class="header-brand">
+      <h1>Consumables</h1>
+      <p>AirGas cylinder inventory, reorder alerts, and lab supply activity</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-clock">
+      <span>Current Time</span>
+      <div id="clock">--:--:--</div>
+      <div id="datedisp" class="date-display"></div>
+    </div>
+    <div data-session-slot></div>
+    <div class="nav-row">
+      <button class="sec-btn" onclick="window.location.href='index.html'">Home</button>
+      <button class="sec-btn" onclick="window.location.href='field-dashboard.html'">Field Ops</button>
+      <button class="sec-btn current" onclick="window.location.href='lab-dashboard.html'">Lab WIP</button>
+      <button class="sec-btn" onclick="window.location.href='SureMap/SPLClientMap.HTML'">SureMap</button>
+      <button class="sec-btn" onclick="window.location.href='employees.html'">Employees</button>
+      <button class="sec-btn" onclick="window.location.href='clients.html'">Clients</button>
+    </div>
+    <div class="page-nav-row">
+      <button class="sec-btn" onclick="window.location.href='standards.html'">Standards</button>
+      <button class="sec-btn current" type="button">Consumables</button>
+      <button class="sec-btn" onclick="window.location.href='import.html'">Import</button>
+      <button class="sec-btn" onclick="window.location.href='test-types.html'">Test Types</button>
+    </div>
+    <div id="save-indicator" class="save-indicator" style="visibility:hidden;">Saved</div>
+  </div>
+</header>
+
+<div class="stats-bar">
+  <div class="stat-card">
+    <div class="stat-label">Gases Tracked</div>
+    <div class="stat-value" id="stat-total">0</div>
+  </div>
+  <div class="stat-card warn">
+    <div class="stat-label">Needs Order</div>
+    <div class="stat-value warn" id="stat-needs-order">0</div>
+  </div>
+  <div class="stat-card ok">
+    <div class="stat-label">New Cylinders</div>
+    <div class="stat-value ok" id="stat-new">0</div>
+  </div>
+  <div class="stat-card danger">
+    <div class="stat-label">Empty Cylinders</div>
+    <div class="stat-value danger" id="stat-empty">0</div>
+  </div>
+</div>
+
+<div class="toolbar">
+  <span class="tb-label">Filter</span>
+  <div class="filter-group">
+    <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
+    <button class="filter-btn" data-filter="needsOrder" onclick="setFilter('needsOrder')">Needs Order</button>
+    <button class="filter-btn" data-filter="openOrders" onclick="setFilter('openOrders')">Open Orders</button>
+    <button class="filter-btn" data-filter="inactive" onclick="setFilter('inactive')">Inactive</button>
+  </div>
+  <div class="tb-sep"></div>
+  <input id="search-input" type="text" placeholder="Search gas, vendor, notes..." oninput="updateSearch(this.value)">
+  <div class="toolbar-spacer"></div>
+  <button class="add-wo-btn" type="button" onclick="openItemModal()">+ Add Gas</button>
+</div>
+
+<div class="view-tabs">
+  <button class="view-btn active" data-view="inventory" onclick="setView('inventory')">Inventory</button>
+  <button class="view-btn" data-view="orders" onclick="setView('orders')">Order Queue</button>
+  <button class="view-btn" data-view="activity" onclick="setView('activity')">Activity Log</button>
+</div>
+
+<div id="inventory-screen" class="screen active">
+  <div class="standards-layout consumables-layout">
+    <section class="table-container">
+      <div class="table-header">
+        <h2>Gas Supply</h2>
+        <div class="refresh-time" id="last-update">Loading inventory...</div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Gas</th>
+            <th>Vendor</th>
+            <th>Vendor Part #</th>
+            <th>Cylinder Size</th>
+            <th class="num">New</th>
+            <th class="num">In Use</th>
+            <th class="num">Empty</th>
+            <th class="num">Reorder Point</th>
+            <th>Status</th>
+            <th>Open Order</th>
+          </tr>
+        </thead>
+        <tbody id="items-tbody">
+          <tr>
+            <td colspan="10">
+              <div class="empty-state">
+                <div class="big">[]</div>
+                Loading gas supply...
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <aside class="detail-panel" id="detail-panel">
+      <div class="detail-empty">
+        <h2>No Gas Selected</h2>
+        <p>Add a gas type or choose one from the list to review stock counts, reorder rules, and recent activity.</p>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div id="orders-screen" class="screen">
+  <section class="table-container">
+    <div class="table-header">
+      <h2>Order Queue</h2>
+      <div class="refresh-time" id="orders-summary">Loading orders...</div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Gas</th>
+          <th class="num">Quantity</th>
+          <th>Status</th>
+          <th>Ordered</th>
+          <th>Received</th>
+          <th>Notes</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="orders-tbody">
+        <tr>
+          <td colspan="7">
+            <div class="empty-state">
+              <div class="big">[]</div>
+              Loading order queue...
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+
+<div id="activity-screen" class="screen">
+  <section class="table-container">
+    <div class="table-header">
+      <h2>Activity Log</h2>
+      <div class="refresh-time" id="activity-summary">Loading activity...</div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>When</th>
+          <th>Gas</th>
+          <th>Activity</th>
+          <th>Before</th>
+          <th>After</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody id="activity-tbody">
+        <tr>
+          <td colspan="6">
+            <div class="empty-state">
+              <div class="big">[]</div>
+              Loading activity...
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+
+<div class="modal-overlay" id="item-modal-overlay">
+  <div class="modal standard-modal">
+    <div class="modal-header">
+      <h3 id="item-modal-title">Add Gas</h3>
+      <button class="modal-close" type="button" onclick="closeItemModal()">X</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label" for="item-name">Gas Name</label>
+          <input class="form-input" id="item-name" type="text" placeholder="Helium">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="item-vendor">Vendor</label>
+          <input class="form-input" id="item-vendor" type="text" placeholder="AirGas">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="item-vendor-part">Vendor Part #</label>
+          <input class="form-input" id="item-vendor-part" type="text" placeholder="Optional AirGas part number">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="item-cylinder-size">Cylinder Size</label>
+          <input class="form-input" id="item-cylinder-size" type="text" placeholder="e.g. 300, 200, T">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="item-unit">Unit</label>
+          <input class="form-input" id="item-unit" type="text" placeholder="Cylinder">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="item-reorder">Reorder Point</label>
+          <input class="form-input" id="item-reorder" type="number" min="0" step="1" placeholder="2">
+        </div>
+        <div class="form-group toggle-group">
+          <label class="form-label" for="item-active">Status</label>
+          <label class="toggle-card">
+            <input id="item-active" type="checkbox" checked>
+            <span>Active gas type</span>
+          </label>
+        </div>
+        <div class="form-group full">
+          <label class="form-label" for="item-notes">Notes</label>
+          <textarea class="form-input" id="item-notes" rows="4" placeholder="Optional storage, purchasing, or instrument notes"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" type="button" onclick="closeItemModal()">Cancel</button>
+      <button class="btn-save" type="button" onclick="saveItemFromModal()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="count-modal-overlay">
+  <div class="modal count-modal">
+    <div class="modal-header">
+      <h3 id="count-modal-title">Update Count</h3>
+      <button class="modal-close" type="button" onclick="closeCountModal()">X</button>
+    </div>
+    <div class="modal-body" id="count-modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn-cancel" type="button" onclick="closeCountModal()">Cancel</button>
+      <button class="btn-save" type="button" onclick="saveCountAction()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="order-modal-overlay">
+  <div class="modal count-modal">
+    <div class="modal-header">
+      <h3 id="order-modal-title">Create Order</h3>
+      <button class="modal-close" type="button" onclick="closeOrderModal()">X</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label" for="order-item">Gas</label>
+          <select class="form-input" id="order-item"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="order-quantity">Quantity</label>
+          <input class="form-input" id="order-quantity" type="number" min="1" step="1" placeholder="2">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="order-status">Status</label>
+          <select class="form-input" id="order-status">
+            <option value="Needed">Needed</option>
+            <option value="Ordered">Ordered</option>
+            <option value="Received">Received</option>
+            <option value="Canceled">Canceled</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="order-ordered-on">Ordered Date</label>
+          <input class="form-input" id="order-ordered-on" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="order-received-on">Received Date</label>
+          <input class="form-input" id="order-received-on" type="date">
+        </div>
+        <div class="form-group full">
+          <label class="form-label" for="order-notes">Notes</label>
+          <textarea class="form-input" id="order-notes" rows="4" placeholder="Optional purchasing notes"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" type="button" onclick="closeOrderModal()">Cancel</button>
+      <button class="btn-save" type="button" onclick="saveOrderFromModal()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="app-config.js"></script>
+<script>
+  window.APP_CONFIG = Object.assign({}, window.APP_CONFIG || {}, {
+    authTitle: 'SPL Consumables',
+    authHelpText: 'Sign in to manage AirGas cylinder inventory and consumable order status.'
+  });
+</script>
+<script src="cloud-auth.js"></script>
+<script src="consumables.js"></script>
+</body>
+</html>

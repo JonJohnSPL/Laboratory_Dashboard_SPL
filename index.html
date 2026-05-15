@@ -203,6 +203,7 @@
     .launch-card.field:hover{border-color:rgba(89,214,125,.42);}
     .launch-card.tests:hover{border-color:rgba(255,140,66,.38);}
     .launch-card.standards:hover{border-color:rgba(255,209,102,.36);}
+    .launch-card.consumables:hover{border-color:rgba(6,214,160,.34);}
     .launch-card.import:hover{border-color:rgba(255,56,96,.3);}
     .launch-card.map:hover{border-color:rgba(91,140,245,.36);}
     .launch-card.people:hover{border-color:rgba(116,213,255,.34);}
@@ -223,6 +224,7 @@
     .launch-card.field h3{color:var(--field);}
     .launch-card.tests h3{color:var(--tests);}
     .launch-card.standards h3{color:var(--warn);}
+    .launch-card.consumables h3{color:#06d6a0;}
     .launch-card.import h3{color:#ff93ac;}
     .launch-card.map h3{color:#8db3ff;}
     .launch-card.people h3{color:#74d5ff;}
@@ -266,7 +268,7 @@
         <div>
           <div class="kicker">Shared Operations Workspace</div>
           <h1>SPL Dashboard Launchpad</h1>
-          <p class="header-copy">Choose the operational workspace you need right now. Lab WIP, Field Ops, SureMap, Test Types, Standards, and Import all stay inside the same static app shell with the shared authenticated access pattern already in this repo.</p>
+          <p class="header-copy">Choose the operational workspace you need right now. Lab WIP, Field Ops, SureMap, Test Types, Standards, Consumables, and Import all stay inside the same static app shell with the shared authenticated access pattern already in this repo.</p>
         </div>
       </div>
       <div class="header-right">
@@ -322,7 +324,7 @@
           </div>
           <div class="status-item warn">
             <div class="status-dot"></div>
-            <div>Existing Lab WIP, Standards, Import, and the new SureMap client directory stay connected through shared navigation across pages.</div>
+            <div>Existing Lab WIP, Standards, Consumables, Import, and the new SureMap client directory stay connected through shared navigation across pages.</div>
           </div>
         </div>
       </div>
@@ -377,6 +379,16 @@
           <span class="meta-pill">Inventory</span>
           <span class="meta-pill">Tag OCR</span>
           <span class="meta-pill">Logs</span>
+        </div>
+      </a>
+      <a class="launch-card consumables" href="consumables.html">
+        <div class="launch-eyebrow">Lab Supply</div>
+        <h3>Consumables</h3>
+        <p class="launch-copy">Track AirGas cylinder counts, low-stock reorder points, order status, and supply activity for the gas inventory used around the lab.</p>
+        <div class="launch-meta">
+          <span class="meta-pill">Gas Supply</span>
+          <span class="meta-pill">Orders</span>
+          <span class="meta-pill">Tally</span>
         </div>
       </a>
       <a class="launch-card tests" href="test-types.html">

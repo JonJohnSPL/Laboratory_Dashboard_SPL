@@ -1092,6 +1092,158 @@ create table if not exists public.field_maintenance_records (
   updated_by uuid
 );
 
+create table if not exists public.consumable_items (
+  id uuid primary key default gen_random_uuid(),
+  item_key text not null default '',
+  item_name text not null default '',
+  category text not null default 'Gas Supply',
+  vendor_name text not null default 'AirGas',
+  vendor_part_number text not null default '',
+  cylinder_size text not null default '',
+  unit_name text not null default 'Cylinder',
+  reorder_point integer not null default 2 check (reorder_point >= 0),
+  gas_symbol text not null default '',
+  gas_formula text not null default '',
+  gas_code text not null default '',
+  gas_subtitle text not null default '',
+  is_active boolean not null default true,
+  notes text not null default '',
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+alter table public.consumable_items add column if not exists item_key text not null default '';
+alter table public.consumable_items add column if not exists item_name text not null default '';
+alter table public.consumable_items add column if not exists category text not null default 'Gas Supply';
+alter table public.consumable_items add column if not exists vendor_name text not null default 'AirGas';
+alter table public.consumable_items add column if not exists vendor_part_number text not null default '';
+alter table public.consumable_items add column if not exists cylinder_size text not null default '';
+alter table public.consumable_items add column if not exists unit_name text not null default 'Cylinder';
+alter table public.consumable_items add column if not exists reorder_point integer not null default 2;
+alter table public.consumable_items add column if not exists gas_symbol text not null default '';
+alter table public.consumable_items add column if not exists gas_formula text not null default '';
+alter table public.consumable_items add column if not exists gas_code text not null default '';
+alter table public.consumable_items add column if not exists gas_subtitle text not null default '';
+alter table public.consumable_items add column if not exists is_active boolean not null default true;
+alter table public.consumable_items add column if not exists notes text not null default '';
+alter table public.consumable_items drop constraint if exists consumable_items_reorder_point_check;
+alter table public.consumable_items add constraint consumable_items_reorder_point_check check (reorder_point >= 0);
+create unique index if not exists consumable_items_item_key_unique_idx on public.consumable_items(item_key);
+create unique index if not exists consumable_items_item_key_lower_unique_idx on public.consumable_items(lower(item_key));
+
+create table if not exists public.consumable_stock_counts (
+  id uuid primary key default gen_random_uuid(),
+  item_id uuid not null references public.consumable_items(id) on delete cascade,
+  new_count integer not null default 0 check (new_count >= 0),
+  in_use_count integer not null default 0 check (in_use_count >= 0),
+  empty_count integer not null default 0 check (empty_count >= 0),
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid,
+  unique (item_id)
+);
+alter table public.consumable_stock_counts add column if not exists item_id uuid;
+alter table public.consumable_stock_counts add column if not exists new_count integer not null default 0;
+alter table public.consumable_stock_counts add column if not exists in_use_count integer not null default 0;
+alter table public.consumable_stock_counts add column if not exists empty_count integer not null default 0;
+alter table public.consumable_stock_counts drop constraint if exists consumable_stock_counts_item_id_fkey;
+alter table public.consumable_stock_counts add constraint consumable_stock_counts_item_id_fkey foreign key (item_id) references public.consumable_items(id) on delete cascade;
+alter table public.consumable_stock_counts drop constraint if exists consumable_stock_counts_new_count_check;
+alter table public.consumable_stock_counts add constraint consumable_stock_counts_new_count_check check (new_count >= 0);
+alter table public.consumable_stock_counts drop constraint if exists consumable_stock_counts_in_use_count_check;
+alter table public.consumable_stock_counts add constraint consumable_stock_counts_in_use_count_check check (in_use_count >= 0);
+alter table public.consumable_stock_counts drop constraint if exists consumable_stock_counts_empty_count_check;
+alter table public.consumable_stock_counts add constraint consumable_stock_counts_empty_count_check check (empty_count >= 0);
+create unique index if not exists consumable_stock_counts_item_id_unique_idx on public.consumable_stock_counts(item_id);
+
+create table if not exists public.consumable_orders (
+  id uuid primary key default gen_random_uuid(),
+  item_id uuid not null references public.consumable_items(id) on delete cascade,
+  quantity integer not null default 1 check (quantity > 0),
+  order_status text not null default 'Needed' check (order_status in ('Needed', 'Ordered', 'Received', 'Canceled')),
+  ordered_on date,
+  received_on date,
+  notes text not null default '',
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+alter table public.consumable_orders add column if not exists item_id uuid;
+alter table public.consumable_orders add column if not exists quantity integer not null default 1;
+alter table public.consumable_orders add column if not exists order_status text not null default 'Needed';
+alter table public.consumable_orders add column if not exists ordered_on date;
+alter table public.consumable_orders add column if not exists received_on date;
+alter table public.consumable_orders add column if not exists notes text not null default '';
+alter table public.consumable_orders drop constraint if exists consumable_orders_item_id_fkey;
+alter table public.consumable_orders add constraint consumable_orders_item_id_fkey foreign key (item_id) references public.consumable_items(id) on delete cascade;
+alter table public.consumable_orders drop constraint if exists consumable_orders_quantity_check;
+alter table public.consumable_orders add constraint consumable_orders_quantity_check check (quantity > 0);
+alter table public.consumable_orders drop constraint if exists consumable_orders_order_status_check;
+alter table public.consumable_orders add constraint consumable_orders_order_status_check check (order_status in ('Needed', 'Ordered', 'Received', 'Canceled'));
+create index if not exists consumable_orders_item_id_idx on public.consumable_orders(item_id);
+create index if not exists consumable_orders_status_idx on public.consumable_orders(order_status);
+
+create table if not exists public.consumable_activity (
+  id uuid primary key default gen_random_uuid(),
+  item_id uuid not null references public.consumable_items(id) on delete cascade,
+  order_id uuid references public.consumable_orders(id) on delete set null,
+  activity_type text not null default '',
+  quantity_delta integer not null default 0,
+  new_before integer not null default 0,
+  new_after integer not null default 0,
+  in_use_before integer not null default 0,
+  in_use_after integer not null default 0,
+  empty_before integer not null default 0,
+  empty_after integer not null default 0,
+  notes text not null default '',
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+alter table public.consumable_activity add column if not exists item_id uuid;
+alter table public.consumable_activity add column if not exists order_id uuid;
+alter table public.consumable_activity add column if not exists activity_type text not null default '';
+alter table public.consumable_activity add column if not exists quantity_delta integer not null default 0;
+alter table public.consumable_activity add column if not exists new_before integer not null default 0;
+alter table public.consumable_activity add column if not exists new_after integer not null default 0;
+alter table public.consumable_activity add column if not exists in_use_before integer not null default 0;
+alter table public.consumable_activity add column if not exists in_use_after integer not null default 0;
+alter table public.consumable_activity add column if not exists empty_before integer not null default 0;
+alter table public.consumable_activity add column if not exists empty_after integer not null default 0;
+alter table public.consumable_activity add column if not exists notes text not null default '';
+alter table public.consumable_activity drop constraint if exists consumable_activity_item_id_fkey;
+alter table public.consumable_activity add constraint consumable_activity_item_id_fkey foreign key (item_id) references public.consumable_items(id) on delete cascade;
+alter table public.consumable_activity drop constraint if exists consumable_activity_order_id_fkey;
+alter table public.consumable_activity add constraint consumable_activity_order_id_fkey foreign key (order_id) references public.consumable_orders(id) on delete set null;
+create index if not exists consumable_activity_item_id_idx on public.consumable_activity(item_id);
+create index if not exists consumable_activity_created_at_idx on public.consumable_activity(created_at desc);
+
+insert into public.consumable_items (item_key, item_name, category, vendor_name, unit_name, reorder_point, gas_symbol, gas_formula, gas_code, gas_subtitle, is_active)
+values
+  ('HELIUM', 'Helium', 'Gas Supply', 'AirGas', 'Cylinder', 2, 'He', 'He', 'HE', 'Helium', true),
+  ('ARGON', 'Argon', 'Gas Supply', 'AirGas', 'Cylinder', 2, 'Ar', 'Ar', 'AR', 'Argon', true),
+  ('AIR', 'Air', 'Gas Supply', 'AirGas', 'Cylinder', 2, 'Air', 'Air', 'AI', 'Compressed', true),
+  ('HYDROGEN', 'Hydrogen', 'Gas Supply', 'AirGas', 'Cylinder', 2, 'H2', 'H<sub>2</sub>', 'HY', 'Hydrogen', true),
+  ('NITROGEN', 'Nitrogen', 'Gas Supply', 'AirGas', 'Cylinder', 2, 'N2', 'N<sub>2</sub>', 'NI', 'Nitrogen', true)
+on conflict (item_key) do update
+set gas_symbol = excluded.gas_symbol,
+    gas_formula = excluded.gas_formula,
+    gas_code = excluded.gas_code,
+    gas_subtitle = excluded.gas_subtitle;
+
+insert into public.consumable_stock_counts (item_id, new_count, in_use_count, empty_count)
+select i.id, 0, 0, 0
+from public.consumable_items i
+where not exists (
+  select 1
+  from public.consumable_stock_counts c
+  where c.item_id = i.id
+);
+
 create index if not exists field_sites_client_id_idx on public.field_sites(client_id);
 create index if not exists field_projects_client_id_idx on public.field_projects(client_id);
 create unique index if not exists field_clients_client_code_unique_idx on public.field_clients (lower(client_code)) where btrim(client_code) <> '';
@@ -1175,7 +1327,11 @@ declare
     'field_trailers',
     'field_equipment',
     'field_samples',
-    'field_maintenance_records'
+    'field_maintenance_records',
+    'consumable_items',
+    'consumable_stock_counts',
+    'consumable_orders',
+    'consumable_activity'
   ];
 begin
   foreach tbl in array field_tables loop
