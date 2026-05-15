@@ -22,6 +22,7 @@ let selectedItemId = null;
 let editItemId = '';
 let countModalState = { itemId:'', action:'' };
 let editOrderId = '';
+let itemIconLabelEdited = false;
 let autoRefreshTimer = null;
 let autoRefreshInFlight = false;
 let saveInFlight = false;
@@ -88,6 +89,17 @@ function normalizeKey(value){
     .replace(/^_+|_+$/g, '') || `GAS_${Date.now()}`;
 }
 
+function gasIconAbbreviation(value){
+  const letters = String(value || '').match(/[A-Za-z0-9]/g) || [];
+  const raw = letters.slice(0, 2).join('');
+  if(!raw) return 'Ga';
+  return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+}
+
+function gasIconCode(value){
+  return gasIconAbbreviation(value).toUpperCase();
+}
+
 function toCount(value){
   return Math.max(0, Math.trunc(Number(value || 0)));
 }
@@ -149,9 +161,16 @@ function normalizeItem(source, index = 0){
   const item = createDefaultItem(source || {}, index);
   item.itemName = item.itemName || item.itemKey;
   const icon = getGasIconMeta(item.itemKey || item.itemName);
-  item.gasSymbol = item.gasSymbol || icon.symbol || item.itemName;
-  item.gasFormula = item.gasFormula || icon.formula || item.gasSymbol;
-  item.gasCode = item.gasCode || icon.code || item.itemKey.slice(0, 2);
+  const defaultSymbol = icon.symbol || gasIconAbbreviation(item.itemName || item.itemKey);
+  const defaultFormula = icon.formula || defaultSymbol;
+  const defaultCode = icon.code || gasIconCode(item.itemName || item.itemKey);
+  const fullNameWasSavedAsIcon = !icon.symbol && item.itemName && (
+    item.gasSymbol.toLowerCase() === item.itemName.toLowerCase()
+    || item.gasFormula.toLowerCase() === item.itemName.toLowerCase()
+  );
+  item.gasSymbol = fullNameWasSavedAsIcon ? defaultSymbol : (item.gasSymbol || defaultSymbol);
+  item.gasFormula = fullNameWasSavedAsIcon ? defaultFormula : (item.gasFormula || defaultFormula);
+  item.gasCode = item.gasCode || defaultCode;
   item.gasSubtitle = item.gasSubtitle || icon.subtitle || item.itemName;
   item.isActive = item.isActive !== false && item.isActive !== 'false';
   return item;
@@ -614,9 +633,9 @@ function renderTable(){
         <td>${esc(item.vendorName || 'AirGas')}</td>
         <td>${esc(item.vendorPartNumber || 'Not set')}</td>
         <td>${esc(item.cylinderSize || 'Not set')}</td>
-        <td class="count-cell">${count.newCount}</td>
-        <td class="count-cell">${count.inUseCount}</td>
-        <td class="count-cell">${count.emptyCount}</td>
+        <td class="count-cell new-count">${count.newCount}</td>
+        <td class="count-cell in-use-count">${count.inUseCount}</td>
+        <td class="count-cell empty-count">${count.emptyCount}</td>
         <td class="count-cell">${item.reorderPoint}</td>
         <td>${statusPill(getItemStatus(item))}</td>
         <td>${openOrderCell}</td>
@@ -884,8 +903,10 @@ function formatCountChange(row){
 function openItemModal(itemId = ''){
   const item = getItem(itemId) || null;
   editItemId = item?.id || '';
+  itemIconLabelEdited = false;
   document.getElementById('item-modal-title').textContent = item ? 'Edit Gas' : 'Add Gas';
   document.getElementById('item-name').value = item?.itemName || '';
+  document.getElementById('item-icon-label').value = item?.gasSymbol || item?.gasFormula || '';
   document.getElementById('item-vendor').value = item?.vendorName || 'AirGas';
   document.getElementById('item-vendor-part').value = item?.vendorPartNumber || '';
   document.getElementById('item-cylinder-size').value = item?.cylinderSize || '';
@@ -896,9 +917,27 @@ function openItemModal(itemId = ''){
   document.getElementById('item-modal-overlay').classList.add('open');
 }
 
+function markGasIconLabelEdited(){
+  itemIconLabelEdited = true;
+}
+
+function syncDefaultGasIconLabel(){
+  if(editItemId || itemIconLabelEdited) return;
+  const name = document.getElementById('item-name')?.value.trim() || '';
+  const labelNode = document.getElementById('item-icon-label');
+  if(!labelNode) return;
+  if(!name){
+    labelNode.value = '';
+    return;
+  }
+  const icon = getGasIconMeta(name);
+  labelNode.value = icon.symbol || gasIconAbbreviation(name);
+}
+
 function closeItemModal(){
   document.getElementById('item-modal-overlay').classList.remove('open');
   editItemId = '';
+  itemIconLabelEdited = false;
 }
 
 async function saveItemFromModal(){
@@ -908,6 +947,10 @@ async function saveItemFromModal(){
     return;
   }
   const existing = getItem(editItemId);
+  const icon = getGasIconMeta(existing?.itemKey || name);
+  const defaultIconLabel = icon.symbol || gasIconAbbreviation(name);
+  const iconLabel = document.getElementById('item-icon-label').value.trim() || defaultIconLabel;
+  const gasCode = existing?.gasCode || icon.code || gasIconCode(name);
   const draft = {
     itemKey: existing?.itemKey || normalizeKey(name),
     itemName: name,
@@ -916,10 +959,10 @@ async function saveItemFromModal(){
     cylinderSize: document.getElementById('item-cylinder-size').value.trim(),
     unitName: document.getElementById('item-unit').value.trim() || 'Cylinder',
     reorderPoint: toCount(document.getElementById('item-reorder').value),
-    gasSymbol: existing?.gasSymbol || getGasIconMeta(existing?.itemKey || name).symbol || name,
-    gasFormula: existing?.gasFormula || getGasIconMeta(existing?.itemKey || name).formula || name,
-    gasCode: existing?.gasCode || getGasIconMeta(existing?.itemKey || name).code || normalizeKey(name).slice(0, 2),
-    gasSubtitle: existing?.gasSubtitle || getGasIconMeta(existing?.itemKey || name).subtitle || name,
+    gasSymbol: iconLabel,
+    gasFormula: icon.formula && iconLabel === icon.symbol ? icon.formula : iconLabel,
+    gasCode,
+    gasSubtitle: existing?.gasSubtitle || icon.subtitle || name,
     isActive: document.getElementById('item-active').checked,
     notes: document.getElementById('item-notes').value.trim()
   };

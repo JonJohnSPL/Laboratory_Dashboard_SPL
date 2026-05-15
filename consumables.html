@@ -197,7 +197,11 @@
       <div class="form-grid">
         <div class="form-group">
           <label class="form-label" for="item-name">Gas Name</label>
-          <input class="form-input" id="item-name" type="text" placeholder="Helium">
+          <input class="form-input" id="item-name" type="text" placeholder="Helium" oninput="syncDefaultGasIconLabel()">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="item-icon-label">Icon Label</label>
+          <input class="form-input" id="item-icon-label" type="text" placeholder="He" oninput="markGasIconLabelEdited()">
         </div>
         <div class="form-group">
           <label class="form-label" for="item-vendor">Vendor</label>

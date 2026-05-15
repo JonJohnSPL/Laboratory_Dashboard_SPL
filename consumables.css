@@ -2,6 +2,11 @@
 
 .consumables-layout{grid-template-columns:minmax(0,1.45fr) minmax(360px,.95fr);}
 td.num,th.num{text-align:right;}
+.table-container .status-pill{
+  justify-content:center;
+  text-align:center;
+  white-space:normal;
+}
 .gas-title-wrap{display:flex;align-items:center;gap:12px;}
 .gas-icon{
   position:relative;
@@ -58,6 +63,9 @@ td.num,th.num{text-align:right;}
   text-align:center;
 }
 .count-cell{font-family:var(--mono);font-size:18px;color:var(--text);text-align:right;}
+.count-cell.new-count{color:var(--ok);}
+.count-cell.in-use-count{color:var(--warn);}
+.count-cell.empty-count{color:var(--danger);}
 .stock-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}
 .stock-box{
   border:1px solid var(--border);
