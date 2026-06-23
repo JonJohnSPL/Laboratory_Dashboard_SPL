@@ -31,6 +31,12 @@ Do not put private service-role keys or webhook URLs in `app-config.js`; GitHub 
 
 With `authEmailSuffix` set, staff can type `jsmith` plus their password, and the frontend will resolve it to `jsmith@lab.local` during sign-in.
 
+For password recovery, add this redirect URL in Supabase Auth URL Configuration:
+
+```text
+https://jonjohnspl.github.io/Laboratory_Dashboard_SPL/password-reset.html
+```
+
 ## GitHub repo and Pages
 
 1. Create a new empty GitHub repository.
