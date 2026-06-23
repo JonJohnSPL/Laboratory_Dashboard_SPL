@@ -19,6 +19,11 @@ h1{font-size:28px;letter-spacing:3px;text-transform:uppercase;color:var(--accent
 .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
 .nav-row,.page-nav-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;}
+.nav-menu{position:relative;display:inline-flex;}
+.nav-menu > .btn{width:100%;}
+.nav-submenu{display:none;position:absolute;top:calc(100% + 7px);right:0;z-index:80;min-width:170px;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);box-shadow:0 18px 40px rgba(0,0,0,.38);}
+.nav-menu:hover .nav-submenu,.nav-menu:focus-within .nav-submenu{display:grid;gap:6px;}
+.nav-submenu .btn{display:block;text-align:left;text-decoration:none;}
 .btn{background:transparent;color:var(--muted);border:1px solid var(--border);padding:8px 16px;font-family:var(--sans);
   font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;border-radius:4px;cursor:pointer;transition:all .2s;}
 .btn:hover,.btn.current{border-color:var(--accent);color:var(--accent);}
@@ -35,6 +40,7 @@ h1{font-size:28px;letter-spacing:3px;text-transform:uppercase;color:var(--accent
   body{padding:14px;}
   header{flex-direction:column;align-items:flex-start;}
   .nav-row,.page-nav-row{justify-content:flex-start;}
+  .nav-submenu{left:0;right:auto;}
 }
 </style>
 </head>
@@ -49,16 +55,18 @@ h1{font-size:28px;letter-spacing:3px;text-transform:uppercase;color:var(--accent
     <div class="nav-row">
       <button class="btn" onclick="window.location.href='index.html'">Home</button>
       <button class="btn" onclick="window.location.href='field-dashboard.html'">Field Ops</button>
-      <button class="btn current" onclick="window.location.href='lab-dashboard.html'">Lab WIP</button>
+      <div class="nav-menu">
+        <button class="btn current" onclick="window.location.href='lab-dashboard.html'">Lab WIP</button>
+        <div class="nav-submenu">
+          <a class="btn" href="standards.html">Standards</a>
+          <a class="btn" href="consumables.html">Consumables</a>
+          <a class="btn current" href="import.html">Import</a>
+          <a class="btn" href="test-types.html">Test Types</a>
+        </div>
+      </div>
       <button class="btn" onclick="window.location.href='SureMap/SPLClientMap.HTML'">SureMap</button>
       <button class="btn" onclick="window.location.href='employees.html'">Employees</button>
       <button class="btn" onclick="window.location.href='clients.html'">Clients</button>
-    </div>
-    <div class="page-nav-row">
-      <button class="btn" onclick="window.location.href='standards.html'">Standards</button>
-      <button class="btn" onclick="window.location.href='consumables.html'">Consumables</button>
-      <button class="btn current" type="button">Import</button>
-      <button class="btn" onclick="window.location.href='test-types.html'">Test Types</button>
     </div>
   </div>
 </header>

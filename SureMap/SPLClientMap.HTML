@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>SPL Pittsburgh SureMap</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../field-dashboard.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -42,8 +45,25 @@
   <div class="toolbar suremap-toolbar">
     <div class="toolbar-summary" id="toolbar-summary">Shared client and site directory synced with Field Ops.</div>
     <div class="toolbar-spacer"></div>
-    <button class="act-btn" type="button" id="all-clients-btn">All Clients</button>
-    <label class="label" for="suremap-client-picker-input">Client</label>
+    <div class="segmented-control suremap-mode-toggle" aria-label="SureMap mode">
+      <button class="view-btn active" type="button" id="sites-mode-btn" data-mode="sites">Sites</button>
+      <button class="view-btn" type="button" id="routes-mode-btn" data-mode="routes">Routes</button>
+    </div>
+    <label class="label suremap-route-filter-control hidden" for="route-date-preset">Route Dates</label>
+    <select class="suremap-route-filter-control hidden" id="route-date-preset">
+      <option value="next_30_days">Next 30 Days</option>
+      <option value="this_month">This Month</option>
+      <option value="next_month">Next Month</option>
+      <option value="last_month">Last Month</option>
+      <option value="this_week">This Week</option>
+      <option value="next_week">Next Week</option>
+      <option value="last_week">Last Week</option>
+      <option value="custom">Custom Date Range</option>
+    </select>
+    <input class="suremap-route-filter-control suremap-route-custom-filter hidden" type="date" id="route-date-start">
+    <input class="suremap-route-filter-control suremap-route-custom-filter hidden" type="date" id="route-date-end">
+    <button class="add-btn suremap-route-filter-control hidden" type="button" id="new-route-btn">+ Route</button>
+    <label class="label" for="suremap-client-picker-input">Site Lists</label>
     <div class="suremap-client-picker" id="client-picker"></div>
   </div>
 
@@ -93,8 +113,8 @@
     });
   </script>
   <script src="../cloud-auth.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-  <script src="../site-editor.js"></script>
-  <script src="suremap.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
+  <script src="../site-editor.js" defer></script>
+  <script src="suremap.js" defer></script>
 </body>
 </html>

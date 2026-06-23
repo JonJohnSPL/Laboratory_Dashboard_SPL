@@ -1,11 +1,51 @@
-const CONSUMABLES_STORAGE_KEY = 'lab-consumables-gas-supply';
+const CONSUMABLES_LEGACY_STORAGE_KEY = 'lab-consumables-gas-supply';
+const CONSUMABLES_STORAGE_KEY = 'lab-consumables-v2';
+const DEFAULT_PAGE_CONFIG = {
+  category:'Gas Supply',
+  isGas:true,
+  seedDefaults:true,
+  itemNoun:'Gas',
+  itemNounLower:'gas',
+  itemNounPlural:'Gas Types',
+  itemNounPluralLower:'gas types',
+  inventoryTitle:'Gas Supply',
+  vendorDefault:'AirGas',
+  unitDefault:'Cylinder',
+  packageLabel:'Cylinder Size',
+  packagePlaceholder:'e.g. 300, 200, T',
+  itemNameLabel:'Gas Name',
+  itemNamePlaceholder:'Helium',
+  iconLabel:'Icon Label',
+  activeLabel:'Active gas type',
+  notesPlaceholder:'Optional storage, purchasing, or instrument notes',
+  searchPlaceholder:'Search gas, vendor, notes...',
+  addButtonLabel:'+ Add Gas',
+  modalAddTitle:'Add Gas',
+  modalEditTitle:'Edit Gas',
+  noSelectionTitle:'No Gas Selected',
+  noSelectionText:'Add a gas type or choose one from the list to review stock counts, reorder rules, and recent activity.',
+  emptyTableText:'No gas supply rows match the current filter.',
+  emptyInventoryText:'Add a gas type to begin tracking AirGas cylinder inventory.',
+  unknownItemLabel:'Unknown gas',
+  detailNoNotesText:'No notes saved for this gas type.',
+  countLabels:{ new:'New', inUse:'In Use', empty:'Empty' },
+  countUnitNote:'tally',
+  reorderRuleText:(item) => `Needs order when unopened backup cylinders are ${esc(item.reorderPoint)} or fewer.`,
+  actionLabels:{ receive:'Receive Stock', start:'Start Cylinder', empty:'Mark Empty', return:'Return Empty', adjust:'Adjust Counts' },
+  receiveOrderNote:(order) => `Received order for ${order.quantity} cylinder(s).`
+};
+const pageConfig = Object.assign({}, DEFAULT_PAGE_CONFIG, window.CONSUMABLES_PAGE_CONFIG || {});
+pageConfig.countLabels = Object.assign({}, DEFAULT_PAGE_CONFIG.countLabels, pageConfig.countLabels || {});
+pageConfig.actionLabels = Object.assign({}, DEFAULT_PAGE_CONFIG.actionLabels, pageConfig.actionLabels || {});
+const PAGE_CATEGORY = String(pageConfig.category || 'Gas Supply').trim() || 'Gas Supply';
+const IS_GAS_CATEGORY = pageConfig.isGas !== false;
 const AUTO_REFRESH_MS = 15000;
 const DEFAULT_ITEMS = [
-  { itemKey:'HELIUM', itemName:'Helium', gasSymbol:'He', gasFormula:'He', gasCode:'HE' },
-  { itemKey:'ARGON', itemName:'Argon', gasSymbol:'Ar', gasFormula:'Ar', gasCode:'AR' },
-  { itemKey:'AIR', itemName:'Air', gasSymbol:'Air', gasFormula:'Air', gasCode:'AI', gasSubtitle:'Compressed' },
-  { itemKey:'HYDROGEN', itemName:'Hydrogen', gasSymbol:'H2', gasFormula:'H<sub>2</sub>', gasCode:'HY' },
-  { itemKey:'NITROGEN', itemName:'Nitrogen', gasSymbol:'N2', gasFormula:'N<sub>2</sub>', gasCode:'NI' }
+  { itemKey:'HELIUM', itemName:'Helium', category:'Gas Supply', gasSymbol:'He', gasFormula:'He', gasCode:'HE' },
+  { itemKey:'ARGON', itemName:'Argon', category:'Gas Supply', gasSymbol:'Ar', gasFormula:'Ar', gasCode:'AR' },
+  { itemKey:'AIR', itemName:'Air', category:'Gas Supply', gasSymbol:'Air', gasFormula:'Air', gasCode:'AI', gasSubtitle:'Compressed' },
+  { itemKey:'HYDROGEN', itemName:'Hydrogen', category:'Gas Supply', gasSymbol:'H2', gasFormula:'H<sub>2</sub>', gasCode:'HY' },
+  { itemKey:'NITROGEN', itemName:'Nitrogen', category:'Gas Supply', gasSymbol:'N2', gasFormula:'N<sub>2</sub>', gasCode:'NI' }
 ];
 const OPEN_ORDER_STATUSES = ['Needed', 'Ordered'];
 
@@ -82,11 +122,29 @@ function fmtDateTime(value){
 }
 
 function normalizeKey(value){
+  const fallbackPrefix = IS_GAS_CATEGORY ? 'GAS' : 'ITEM';
   return String(value || '')
     .trim()
     .toUpperCase()
     .replace(/[^A-Z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '') || `GAS_${Date.now()}`;
+    .replace(/^_+|_+$/g, '') || `${fallbackPrefix}_${Date.now()}`;
+}
+
+function categoryKey(value = PAGE_CATEGORY){
+  return normalizeKey(value) || 'CONSUMABLE';
+}
+
+function buildItemKey(name){
+  const base = normalizeKey(name);
+  return IS_GAS_CATEGORY ? base : `${categoryKey()}_${base}`;
+}
+
+function normalizeCategory(value){
+  return String(value || PAGE_CATEGORY).trim() || PAGE_CATEGORY;
+}
+
+function matchesPageCategory(item){
+  return normalizeCategory(item?.category).toLowerCase() === PAGE_CATEGORY.toLowerCase();
 }
 
 function gasIconAbbreviation(value){
@@ -141,10 +199,11 @@ function createDefaultItem(source, index = 0){
     id: source.id || uid('item'),
     itemKey: normalizeKey(source.itemKey || source.item_key || source.itemName || source.item_name || `GAS_${index + 1}`),
     itemName: String(source.itemName || source.item_name || source.itemKey || source.item_key || '').trim(),
-    vendorName: String(source.vendorName || source.vendor_name || 'AirGas').trim() || 'AirGas',
+    category: normalizeCategory(source.category),
+    vendorName: String(source.vendorName || source.vendor_name || pageConfig.vendorDefault || '').trim() || pageConfig.vendorDefault || '',
     vendorPartNumber: String(source.vendorPartNumber || source.vendor_part_number || '').trim(),
     cylinderSize: String(source.cylinderSize || source.cylinder_size || '').trim(),
-    unitName: String(source.unitName || source.unit_name || 'Cylinder').trim() || 'Cylinder',
+    unitName: String(source.unitName || source.unit_name || pageConfig.unitDefault || 'Each').trim() || pageConfig.unitDefault || 'Each',
     reorderPoint: toCount(source.reorderPoint ?? source.reorder_point ?? 2),
     gasSymbol: String(source.gasSymbol || source.gas_symbol || icon.symbol || '').trim(),
     gasFormula: String(source.gasFormula || source.gas_formula || icon.formula || '').trim(),
@@ -160,18 +219,21 @@ function createDefaultItem(source, index = 0){
 function normalizeItem(source, index = 0){
   const item = createDefaultItem(source || {}, index);
   item.itemName = item.itemName || item.itemKey;
-  const icon = getGasIconMeta(item.itemKey || item.itemName);
-  const defaultSymbol = icon.symbol || gasIconAbbreviation(item.itemName || item.itemKey);
-  const defaultFormula = icon.formula || defaultSymbol;
-  const defaultCode = icon.code || gasIconCode(item.itemName || item.itemKey);
-  const fullNameWasSavedAsIcon = !icon.symbol && item.itemName && (
-    item.gasSymbol.toLowerCase() === item.itemName.toLowerCase()
-    || item.gasFormula.toLowerCase() === item.itemName.toLowerCase()
-  );
-  item.gasSymbol = fullNameWasSavedAsIcon ? defaultSymbol : (item.gasSymbol || defaultSymbol);
-  item.gasFormula = fullNameWasSavedAsIcon ? defaultFormula : (item.gasFormula || defaultFormula);
-  item.gasCode = item.gasCode || defaultCode;
-  item.gasSubtitle = item.gasSubtitle || icon.subtitle || item.itemName;
+  item.category = normalizeCategory(item.category);
+  if(IS_GAS_CATEGORY){
+    const icon = getGasIconMeta(item.itemKey || item.itemName);
+    const defaultSymbol = icon.symbol || gasIconAbbreviation(item.itemName || item.itemKey);
+    const defaultFormula = icon.formula || defaultSymbol;
+    const defaultCode = icon.code || gasIconCode(item.itemName || item.itemKey);
+    const fullNameWasSavedAsIcon = !icon.symbol && item.itemName && (
+      item.gasSymbol.toLowerCase() === item.itemName.toLowerCase()
+      || item.gasFormula.toLowerCase() === item.itemName.toLowerCase()
+    );
+    item.gasSymbol = fullNameWasSavedAsIcon ? defaultSymbol : (item.gasSymbol || defaultSymbol);
+    item.gasFormula = fullNameWasSavedAsIcon ? defaultFormula : (item.gasFormula || defaultFormula);
+    item.gasCode = item.gasCode || defaultCode;
+    item.gasSubtitle = item.gasSubtitle || icon.subtitle || item.itemName;
+  }
   item.isActive = item.isActive !== false && item.isActive !== 'false';
   return item;
 }
@@ -232,10 +294,17 @@ function normalizeActivity(source){
   };
 }
 
-function normalizePayload(payload){
+function normalizePayload(payload, options = {}){
   const seededItems = DEFAULT_ITEMS.map((item, index) => createDefaultItem(item, index));
-  const rawItems = Array.isArray(payload?.items) && payload.items.length ? payload.items : seededItems;
-  const items = rawItems.map(normalizeItem).sort((a, b) => a.itemName.localeCompare(b.itemName));
+  const rawItems = Array.isArray(payload?.items) && payload.items.length
+    ? payload.items
+    : (pageConfig.seedDefaults === false ? [] : seededItems);
+  let allItems = rawItems.map(normalizeItem);
+  if(!options.includeAllCategories && pageConfig.seedDefaults !== false && !allItems.some(matchesPageCategory)){
+    allItems = [...allItems, ...seededItems.map((item) => normalizeItem(item))];
+  }
+  allItems.sort((a, b) => a.itemName.localeCompare(b.itemName));
+  const items = options.includeAllCategories ? allItems : allItems.filter(matchesPageCategory);
   const itemIds = new Set(items.map((item) => item.id));
   const counts = (Array.isArray(payload?.counts) ? payload.counts : [])
     .map(normalizeCount)
@@ -253,6 +322,11 @@ function normalizePayload(payload){
     .filter((row) => itemIds.has(row.itemId))
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   return { items, counts, orders, activity };
+}
+
+function readLocalPayload(){
+  const raw = localStorage.getItem(CONSUMABLES_STORAGE_KEY) || localStorage.getItem(CONSUMABLES_LEGACY_STORAGE_KEY);
+  return raw ? JSON.parse(raw) : {};
 }
 
 function serializeState(nextState = state){
@@ -275,8 +349,7 @@ function getRepository(){
 const localRepository = {
   async list(){
     try {
-      const raw = localStorage.getItem(CONSUMABLES_STORAGE_KEY);
-      return normalizePayload(raw ? JSON.parse(raw) : {});
+      return normalizePayload(readLocalPayload());
     } catch {
       return normalizePayload({});
     }
@@ -286,8 +359,17 @@ const localRepository = {
     localStorage.setItem(CONSUMABLES_STORAGE_KEY, serializeState(nextState));
   },
 
+  async listAll(){
+    try {
+      return normalizePayload(readLocalPayload(), { includeAllCategories:true });
+    } catch {
+      return normalizePayload({}, { includeAllCategories:true });
+    }
+  },
+
   async saveItem(draft, existing){
     const now = new Date().toISOString();
+    const fullState = await this.listAll();
     const item = normalizeItem({
       ...existing,
       ...draft,
@@ -295,20 +377,22 @@ const localRepository = {
       createdAt: existing?.createdAt || now,
       updatedAt: now
     });
-    const next = { ...state };
+    const next = { ...fullState };
     next.items = existing ? next.items.map((row) => row.id === item.id ? item : row) : [...next.items, item];
     if(!next.counts.some((count) => count.itemId === item.id)){
       next.counts = [...next.counts, { id:uid('count'), itemId:item.id, newCount:0, inUseCount:0, emptyCount:0, updatedAt:now }];
     }
     state = normalizePayload(next);
-    await this.persist(state);
+    await this.persist(next);
     return item.id;
   },
 
   async saveCounts(itemId, nextCounts, activityDraft){
     const now = new Date().toISOString();
-    const next = { ...state };
-    const count = { ...getCount(itemId), ...nextCounts, updatedAt:now };
+    const fullState = await this.listAll();
+    const next = { ...fullState };
+    const currentCount = next.counts.find((count) => count.itemId === itemId) || getCount(itemId);
+    const count = { ...currentCount, ...nextCounts, updatedAt:now };
     next.counts = next.counts.some((row) => row.itemId === itemId)
       ? next.counts.map((row) => row.itemId === itemId ? count : row)
       : [...next.counts, count];
@@ -316,11 +400,12 @@ const localRepository = {
       next.activity = [normalizeActivity({ ...activityDraft, id:uid('act'), createdAt:now }), ...next.activity];
     }
     state = normalizePayload(next);
-    await this.persist(state);
+    await this.persist(next);
   },
 
   async saveOrder(draft, existing){
     const now = new Date().toISOString();
+    const fullState = await this.listAll();
     const order = normalizeOrder({
       ...existing,
       ...draft,
@@ -328,18 +413,19 @@ const localRepository = {
       createdAt: existing?.createdAt || now,
       updatedAt: now
     });
-    const next = { ...state };
+    const next = { ...fullState };
+    const orderItem = next.items.find((item) => item.id === order.itemId) || getItem(order.itemId);
     next.orders = existing ? next.orders.map((row) => row.id === order.id ? order : row) : [order, ...next.orders];
     next.activity = [normalizeActivity({
       id:uid('act'),
       itemId: order.itemId,
       orderId: order.id,
       activityType: existing ? 'order_updated' : 'order_created',
-      notes: `${order.orderStatus} order for ${order.quantity} ${getItem(order.itemId)?.unitName || 'cylinder'}(s). ${order.notes || ''}`.trim(),
+      notes: `${order.orderStatus} order for ${order.quantity} ${orderItem?.unitName || pageConfig.unitDefault || 'unit'}(s). ${order.notes || ''}`.trim(),
       createdAt:now
     }), ...next.activity];
     state = normalizePayload(next);
-    await this.persist(state);
+    await this.persist(next);
     return order.id;
   }
 };
@@ -347,7 +433,7 @@ const localRepository = {
 const remoteRepository = {
   async list(){
     const [items, counts, orders, activity] = await Promise.all([
-      window.appAuth.requestJson('/rest/v1/consumable_items?select=*&order=item_name.asc'),
+      window.appAuth.requestJson(`/rest/v1/consumable_items?select=*&category=eq.${encodeURIComponent(PAGE_CATEGORY)}&order=item_name.asc`),
       window.appAuth.requestJson('/rest/v1/consumable_stock_counts?select=*'),
       window.appAuth.requestJson('/rest/v1/consumable_orders?select=*&order=created_at.desc'),
       window.appAuth.requestJson('/rest/v1/consumable_activity?select=*&order=created_at.desc&limit=200')
@@ -359,6 +445,7 @@ const remoteRepository = {
     const payload = {
       item_key: draft.itemKey,
       item_name: draft.itemName,
+      category: draft.category || PAGE_CATEGORY,
       vendor_name: draft.vendorName,
       vendor_part_number: draft.vendorPartNumber,
       cylinder_size: draft.cylinderSize,
@@ -380,7 +467,7 @@ const remoteRepository = {
       body:JSON.stringify(payload)
     }));
     if(!row?.id){
-      throw new Error('Supabase did not return the saved gas type.');
+      throw new Error(`Supabase did not return the saved ${pageConfig.itemNounLower}.`);
     }
     await ensureRemoteCount(row.id);
     return row.id;
@@ -436,7 +523,7 @@ const remoteRepository = {
       itemId: draft.itemId,
       orderId: row.id,
       activityType: existing ? 'order_updated' : 'order_created',
-      notes: `${draft.orderStatus} order for ${draft.quantity} ${getItem(draft.itemId)?.unitName || 'cylinder'}(s). ${draft.notes || ''}`.trim()
+      notes: `${draft.orderStatus} order for ${draft.quantity} ${getItem(draft.itemId)?.unitName || pageConfig.unitDefault || 'unit'}(s). ${draft.notes || ''}`.trim()
     });
     return row.id;
   }
@@ -604,7 +691,7 @@ function renderTable(){
         <td colspan="10">
           <div class="empty-state">
             <div class="big">[]</div>
-            No gas supply rows match the current filter.
+            ${esc(pageConfig.emptyTableText)}
           </div>
         </td>
       </tr>
@@ -623,14 +710,14 @@ function renderTable(){
       <tr class="${selectedItemId === item.id ? 'selected' : ''}" onclick="selectItem('${esc(item.id)}')">
         <td>
           <div class="gas-title-wrap">
-            ${gasIconHtml(item)}
+            ${itemIconHtml(item)}
             <div>
               <div class="record-title">${esc(item.itemName)}</div>
-              <div class="record-sub">${esc(item.unitName)} tally</div>
+              <div class="record-sub">${esc(item.unitName)} ${esc(pageConfig.countUnitNote || 'tally')}</div>
             </div>
           </div>
         </td>
-        <td>${esc(item.vendorName || 'AirGas')}</td>
+        <td>${esc(item.vendorName || pageConfig.vendorDefault || 'Not set')}</td>
         <td>${esc(item.vendorPartNumber || 'Not set')}</td>
         <td>${esc(item.cylinderSize || 'Not set')}</td>
         <td class="count-cell new-count">${count.newCount}</td>
@@ -654,8 +741,8 @@ function renderDetail(){
   if(!item){
     panel.innerHTML = `
       <div class="detail-empty">
-        <h2>No Gas Selected</h2>
-        <p>Add a gas type to begin tracking AirGas cylinder inventory.</p>
+        <h2>${esc(pageConfig.noSelectionTitle)}</h2>
+        <p>${esc(pageConfig.emptyInventoryText)}</p>
       </div>
     `;
     return;
@@ -668,10 +755,10 @@ function renderDetail(){
       <div class="detail-head">
         <div>
           <div class="gas-title-wrap">
-            ${gasIconHtml(item, 'large')}
+            ${itemIconHtml(item, 'large')}
             <div>
               <div class="detail-title">${esc(item.itemName)}</div>
-              <div class="detail-meta">${esc(item.vendorName || 'AirGas')} | ${esc(item.unitName || 'Cylinder')} | reorder when New <= ${esc(item.reorderPoint)}</div>
+              <div class="detail-meta">${esc(item.vendorName || pageConfig.vendorDefault || 'Not set')} | ${esc(item.unitName || pageConfig.unitDefault || 'Each')} | reorder when ${esc(pageConfig.countLabels.new)} <= ${esc(item.reorderPoint)}</div>
             </div>
           </div>
         </div>
@@ -683,25 +770,31 @@ function renderDetail(){
 
       <div class="stock-strip">
         <div class="stock-box new">
-          <div class="detail-item-label">New</div>
+          <div class="detail-item-label">${esc(pageConfig.countLabels.new)}</div>
           <strong>${count.newCount}</strong>
         </div>
         <div class="stock-box use">
-          <div class="detail-item-label">In Use</div>
+          <div class="detail-item-label">${esc(pageConfig.countLabels.inUse)}</div>
           <strong>${count.inUseCount}</strong>
         </div>
         <div class="stock-box empty">
-          <div class="detail-item-label">Empty</div>
+          <div class="detail-item-label">${esc(pageConfig.countLabels.empty)}</div>
           <strong>${count.emptyCount}</strong>
         </div>
       </div>
 
-      <div class="action-grid">
-        <button class="add-wo-btn" type="button" onclick="openCountModal('${esc(item.id)}', 'receive')">Receive Stock</button>
-        <button class="add-wo-btn" type="button" onclick="openCountModal('${esc(item.id)}', 'start')">Start Cylinder</button>
-        <button class="add-wo-btn" type="button" onclick="openCountModal('${esc(item.id)}', 'empty')">Mark Empty</button>
-        <button class="add-wo-btn" type="button" onclick="openCountModal('${esc(item.id)}', 'return')">Return Empty</button>
-        <button class="sec-btn small" type="button" onclick="openCountModal('${esc(item.id)}', 'adjust')">Adjust Counts</button>
+      <div class="quick-action-panel">
+        <div class="action-grid">
+          <button class="add-wo-btn" type="button" onclick="runQuickCountAction('${esc(item.id)}', 'receive')">${esc(pageConfig.actionLabels.receive)}</button>
+          <button class="add-wo-btn" type="button" onclick="runQuickCountAction('${esc(item.id)}', 'start')">${esc(pageConfig.actionLabels.start)}</button>
+          <button class="add-wo-btn" type="button" onclick="runQuickCountAction('${esc(item.id)}', 'empty')">${esc(pageConfig.actionLabels.empty)}</button>
+          <button class="add-wo-btn" type="button" onclick="runQuickCountAction('${esc(item.id)}', 'return')">${esc(pageConfig.actionLabels.return)}</button>
+          <button class="sec-btn small" type="button" onclick="openCountModal('${esc(item.id)}', 'adjust')">${esc(pageConfig.actionLabels.adjust)}</button>
+        </div>
+        <label class="quick-count-control" for="quick-count-${esc(item.id)}">
+          <span>Qty</span>
+          <input id="quick-count-${esc(item.id)}" type="number" min="1" step="1" value="1" inputmode="numeric">
+        </label>
       </div>
 
       <div class="detail-grid">
@@ -711,14 +804,14 @@ function renderDetail(){
         </div>
         <div class="detail-item">
           <div class="detail-item-label">Reorder Rule</div>
-          <div class="detail-item-value">Needs order when unopened backup cylinders are ${esc(item.reorderPoint)} or fewer.</div>
+          <div class="detail-item-value">${typeof pageConfig.reorderRuleText === 'function' ? pageConfig.reorderRuleText(item) : `Needs order when ${esc(pageConfig.countLabels.new)} is ${esc(item.reorderPoint)} or fewer.`}</div>
         </div>
         <div class="detail-item">
           <div class="detail-item-label">Vendor Part #</div>
           <div class="detail-item-value">${esc(item.vendorPartNumber || 'Not set')}</div>
         </div>
         <div class="detail-item">
-          <div class="detail-item-label">Cylinder Size</div>
+          <div class="detail-item-label">${esc(pageConfig.packageLabel)}</div>
           <div class="detail-item-value">${esc(item.cylinderSize || 'Not set')}</div>
         </div>
       </div>
@@ -726,7 +819,7 @@ function renderDetail(){
       <div class="component-card">
         <h3>Open Order</h3>
         <div class="order-list">
-          ${order ? renderOrderCard(order) : '<div class="activity-row">No open order for this gas.</div>'}
+          ${order ? renderOrderCard(order) : `<div class="activity-row">No open order for this ${esc(pageConfig.itemNounLower)}.</div>`}
         </div>
       </div>
 
@@ -737,7 +830,22 @@ function renderDetail(){
         </div>
       </div>
 
-      <div class="detail-note">${esc(item.notes || 'No notes saved for this gas type.')}</div>
+      <div class="detail-note">${esc(item.notes || pageConfig.detailNoNotesText)}</div>
+    </div>
+  `;
+}
+
+function itemIconHtml(item, size = ''){
+  return IS_GAS_CATEGORY ? gasIconHtml(item, size) : genericItemIconHtml(item);
+}
+
+function genericItemIconHtml(item){
+  const key = String(item.itemName || item.itemKey || PAGE_CATEGORY);
+  const letters = (key.match(/[A-Za-z0-9]/g) || []).slice(0, 2).join('').toUpperCase() || 'IT';
+  return `
+    <div class="supply-icon" aria-hidden="true">
+      <strong>${esc(letters)}</strong>
+      <span>${esc(item.unitName || pageConfig.unitDefault || 'Each')}</span>
     </div>
   `;
 }
@@ -765,7 +873,7 @@ function renderOrderCard(order){
   const item = getItem(order.itemId);
   return `
     <div class="order-card">
-      <strong>${orderStatusPill(order.orderStatus)} ${esc(order.quantity)} ${esc(item?.unitName || 'Cylinder')}(s)</strong>
+      <strong>${orderStatusPill(order.orderStatus)} ${esc(order.quantity)} ${esc(item?.unitName || pageConfig.unitDefault || 'Each')}(s)</strong>
       <div>Ordered: ${esc(fmtDate(order.orderedOn))} | Received: ${esc(fmtDate(order.receivedOn))}</div>
       ${order.notes ? `<div>${esc(order.notes)}</div>` : ''}
       <div class="inline-actions" style="margin-top:8px;">
@@ -817,7 +925,7 @@ function renderOrders(){
     return `
       <tr>
         <td>
-          <div class="record-title">${esc(item?.itemName || 'Unknown gas')}</div>
+          <div class="record-title">${esc(item?.itemName || pageConfig.unknownItemLabel)}</div>
           <div class="record-sub">${esc(item?.vendorName || '')}</div>
         </td>
         <td class="count-cell">${order.quantity}</td>
@@ -863,7 +971,7 @@ function renderActivity(){
     return `
       <tr>
         <td>${esc(fmtDateTime(row.createdAt))}</td>
-        <td>${esc(item?.itemName || 'Unknown gas')}</td>
+        <td>${esc(item?.itemName || pageConfig.unknownItemLabel)}</td>
         <td>${esc(activityLabel(row.activityType))}</td>
         <td>${esc(formatBeforeCounts(row))}</td>
         <td>${esc(formatAfterCounts(row))}</td>
@@ -904,13 +1012,14 @@ function openItemModal(itemId = ''){
   const item = getItem(itemId) || null;
   editItemId = item?.id || '';
   itemIconLabelEdited = false;
-  document.getElementById('item-modal-title').textContent = item ? 'Edit Gas' : 'Add Gas';
+  document.getElementById('item-modal-title').textContent = item ? pageConfig.modalEditTitle : pageConfig.modalAddTitle;
   document.getElementById('item-name').value = item?.itemName || '';
-  document.getElementById('item-icon-label').value = item?.gasSymbol || item?.gasFormula || '';
-  document.getElementById('item-vendor').value = item?.vendorName || 'AirGas';
+  const iconNode = document.getElementById('item-icon-label');
+  if(iconNode) iconNode.value = item?.gasSymbol || item?.gasFormula || '';
+  document.getElementById('item-vendor').value = item?.vendorName || pageConfig.vendorDefault || '';
   document.getElementById('item-vendor-part').value = item?.vendorPartNumber || '';
   document.getElementById('item-cylinder-size').value = item?.cylinderSize || '';
-  document.getElementById('item-unit').value = item?.unitName || 'Cylinder';
+  document.getElementById('item-unit').value = item?.unitName || pageConfig.unitDefault || 'Each';
   document.getElementById('item-reorder').value = String(item?.reorderPoint ?? 2);
   document.getElementById('item-active').checked = item?.isActive !== false;
   document.getElementById('item-notes').value = item?.notes || '';
@@ -922,6 +1031,7 @@ function markGasIconLabelEdited(){
 }
 
 function syncDefaultGasIconLabel(){
+  if(!IS_GAS_CATEGORY) return;
   if(editItemId || itemIconLabelEdited) return;
   const name = document.getElementById('item-name')?.value.trim() || '';
   const labelNode = document.getElementById('item-icon-label');
@@ -943,26 +1053,27 @@ function closeItemModal(){
 async function saveItemFromModal(){
   const name = document.getElementById('item-name').value.trim();
   if(!name){
-    alert('Gas name is required.');
+    alert(`${pageConfig.itemNoun} name is required.`);
     return;
   }
   const existing = getItem(editItemId);
   const icon = getGasIconMeta(existing?.itemKey || name);
   const defaultIconLabel = icon.symbol || gasIconAbbreviation(name);
-  const iconLabel = document.getElementById('item-icon-label').value.trim() || defaultIconLabel;
+  const iconLabel = document.getElementById('item-icon-label')?.value.trim() || defaultIconLabel;
   const gasCode = existing?.gasCode || icon.code || gasIconCode(name);
   const draft = {
-    itemKey: existing?.itemKey || normalizeKey(name),
+    itemKey: existing?.itemKey || buildItemKey(name),
     itemName: name,
-    vendorName: document.getElementById('item-vendor').value.trim() || 'AirGas',
+    category: PAGE_CATEGORY,
+    vendorName: document.getElementById('item-vendor').value.trim() || pageConfig.vendorDefault || '',
     vendorPartNumber: document.getElementById('item-vendor-part').value.trim(),
     cylinderSize: document.getElementById('item-cylinder-size').value.trim(),
-    unitName: document.getElementById('item-unit').value.trim() || 'Cylinder',
+    unitName: document.getElementById('item-unit').value.trim() || pageConfig.unitDefault || 'Each',
     reorderPoint: toCount(document.getElementById('item-reorder').value),
-    gasSymbol: iconLabel,
-    gasFormula: icon.formula && iconLabel === icon.symbol ? icon.formula : iconLabel,
-    gasCode,
-    gasSubtitle: existing?.gasSubtitle || icon.subtitle || name,
+    gasSymbol: IS_GAS_CATEGORY ? iconLabel : '',
+    gasFormula: IS_GAS_CATEGORY ? (icon.formula && iconLabel === icon.symbol ? icon.formula : iconLabel) : '',
+    gasCode: IS_GAS_CATEGORY ? gasCode : '',
+    gasSubtitle: IS_GAS_CATEGORY ? (existing?.gasSubtitle || icon.subtitle || name) : '',
     isActive: document.getElementById('item-active').checked,
     notes: document.getElementById('item-notes').value.trim()
   };
@@ -975,9 +1086,9 @@ async function saveItemFromModal(){
     showSaveStatus('saved', 'SAVED');
     hideSaveStatusSoon();
   } catch (error){
-    console.error('Unable to save gas type:', error);
+    console.error(`Unable to save ${pageConfig.itemNounLower}:`, error);
     showSaveStatus('error', 'SAVE FAILED');
-    alert(error.message || 'Unable to save the gas type.');
+    alert(error.message || `Unable to save the ${pageConfig.itemNounLower}.`);
   } finally {
     saveInFlight = false;
   }
@@ -989,19 +1100,19 @@ function openCountModal(itemId, action){
   countModalState = { itemId, action };
   const count = getCount(itemId);
   const titles = {
-    receive:'Receive Stock',
-    start:'Start Cylinder',
-    empty:'Mark Empty',
-    return:'Return Empty',
-    adjust:'Adjust Counts'
+    receive:pageConfig.actionLabels.receive,
+    start:pageConfig.actionLabels.start,
+    empty:pageConfig.actionLabels.empty,
+    return:pageConfig.actionLabels.return,
+    adjust:pageConfig.actionLabels.adjust
   };
   document.getElementById('count-modal-title').textContent = `${titles[action] || 'Update Count'} - ${item.itemName}`;
   const body = document.getElementById('count-modal-body');
   const preview = `
     <div class="count-preview">
-      <div class="detail-item"><div class="detail-item-label">New</div><div class="detail-item-value">${count.newCount}</div></div>
-      <div class="detail-item"><div class="detail-item-label">In Use</div><div class="detail-item-value">${count.inUseCount}</div></div>
-      <div class="detail-item"><div class="detail-item-label">Empty</div><div class="detail-item-value">${count.emptyCount}</div></div>
+      <div class="detail-item"><div class="detail-item-label">${esc(pageConfig.countLabels.new)}</div><div class="detail-item-value">${count.newCount}</div></div>
+      <div class="detail-item"><div class="detail-item-label">${esc(pageConfig.countLabels.inUse)}</div><div class="detail-item-value">${count.inUseCount}</div></div>
+      <div class="detail-item"><div class="detail-item-label">${esc(pageConfig.countLabels.empty)}</div><div class="detail-item-value">${count.emptyCount}</div></div>
     </div>
   `;
   if(action === 'adjust'){
@@ -1009,15 +1120,15 @@ function openCountModal(itemId, action){
       ${preview}
       <div class="form-grid">
         <div class="form-group">
-          <label class="form-label" for="count-new">New</label>
+          <label class="form-label" for="count-new">${esc(pageConfig.countLabels.new)}</label>
           <input class="form-input" id="count-new" type="number" min="0" step="1" value="${count.newCount}">
         </div>
         <div class="form-group">
-          <label class="form-label" for="count-in-use">In Use</label>
+          <label class="form-label" for="count-in-use">${esc(pageConfig.countLabels.inUse)}</label>
           <input class="form-input" id="count-in-use" type="number" min="0" step="1" value="${count.inUseCount}">
         </div>
         <div class="form-group">
-          <label class="form-label" for="count-empty">Empty</label>
+          <label class="form-label" for="count-empty">${esc(pageConfig.countLabels.empty)}</label>
           <input class="form-input" id="count-empty" type="number" min="0" step="1" value="${count.emptyCount}">
         </div>
         <div class="form-group full">
@@ -1049,6 +1160,20 @@ function closeCountModal(){
   countModalState = { itemId:'', action:'' };
 }
 
+function getQuickActionQuantity(itemId){
+  const input = document.getElementById(`quick-count-${itemId}`);
+  const quantity = toPositiveCount(input?.value, 1);
+  if(input) input.value = String(quantity);
+  return quantity;
+}
+
+async function runQuickCountAction(itemId, action){
+  await performCountAction(itemId, action, {
+    quantity: getQuickActionQuantity(itemId),
+    note: ''
+  });
+}
+
 async function saveCountAction(){
   const { itemId, action } = countModalState;
   const item = getItem(itemId);
@@ -1071,34 +1196,12 @@ async function saveCountAction(){
     };
     activityType = 'adjust_counts';
   } else {
-    quantity = toPositiveCount(document.getElementById('count-quantity')?.value, 1);
-    if(action === 'receive'){
-      next.newCount += quantity;
-      activityType = 'receive_stock';
-    } else if(action === 'start'){
-      if(current.newCount < quantity){
-        alert('There are not enough new cylinders to start.');
-        return;
-      }
-      next.newCount -= quantity;
-      next.inUseCount += quantity;
-      activityType = 'start_cylinder';
-    } else if(action === 'empty'){
-      if(current.inUseCount < quantity){
-        alert('There are not enough in-use cylinders to mark empty.');
-        return;
-      }
-      next.inUseCount -= quantity;
-      next.emptyCount += quantity;
-      activityType = 'mark_empty';
-    } else if(action === 'return'){
-      if(current.emptyCount < quantity){
-        alert('There are not enough empty cylinders to return.');
-        return;
-      }
-      next.emptyCount -= quantity;
-      activityType = 'return_empty';
-    }
+    await performCountAction(itemId, action, {
+      quantity: toPositiveCount(document.getElementById('count-quantity')?.value, 1),
+      note,
+      closeModal: true
+    });
+    return;
   }
   try {
     saveInFlight = true;
@@ -1116,6 +1219,73 @@ async function saveCountAction(){
       notes: note
     });
     closeCountModal();
+    await loadConsumables({ force:true, silent:true, preferredId:itemId });
+    showSaveStatus('saved', 'SAVED');
+    hideSaveStatusSoon();
+  } catch (error){
+    console.error('Unable to update count:', error);
+    showSaveStatus('error', 'SAVE FAILED');
+    alert(error.message || 'Unable to update count.');
+  } finally {
+    saveInFlight = false;
+  }
+}
+
+async function performCountAction(itemId, action, options = {}){
+  const item = getItem(itemId);
+  if(!item) return;
+  const current = getCount(itemId);
+  const quantity = toPositiveCount(options.quantity, 1);
+  const note = String(options.note || '').trim();
+  let next = { ...current };
+  let activityType = '';
+
+  if(action === 'receive'){
+    next.newCount += quantity;
+    activityType = 'receive_stock';
+  } else if(action === 'start'){
+    if(current.newCount < quantity){
+      alert(`There are not enough ${pageConfig.countLabels.new.toLowerCase()} units to move.`);
+      return;
+    }
+    next.newCount -= quantity;
+    next.inUseCount += quantity;
+    activityType = 'start_cylinder';
+  } else if(action === 'empty'){
+    if(current.inUseCount < quantity){
+      alert(`There are not enough ${pageConfig.countLabels.inUse.toLowerCase()} units to mark ${pageConfig.countLabels.empty.toLowerCase()}.`);
+      return;
+    }
+    next.inUseCount -= quantity;
+    next.emptyCount += quantity;
+    activityType = 'mark_empty';
+  } else if(action === 'return'){
+    if(current.emptyCount < quantity){
+      alert(`There are not enough ${pageConfig.countLabels.empty.toLowerCase()} units to remove.`);
+      return;
+    }
+    next.emptyCount -= quantity;
+    activityType = 'return_empty';
+  } else {
+    return;
+  }
+
+  try {
+    saveInFlight = true;
+    showSaveStatus('saving', 'SAVING...');
+    await getRepository().saveCounts(itemId, next, {
+      itemId,
+      activityType,
+      quantityDelta: quantity,
+      newBefore: current.newCount,
+      newAfter: next.newCount,
+      inUseBefore: current.inUseCount,
+      inUseAfter: next.inUseCount,
+      emptyBefore: current.emptyCount,
+      emptyAfter: next.emptyCount,
+      notes: note
+    });
+    if(options.closeModal) closeCountModal();
     await loadConsumables({ force:true, silent:true, preferredId:itemId });
     showSaveStatus('saved', 'SAVED');
     hideSaveStatusSoon();
@@ -1247,7 +1417,9 @@ async function applyReceivedOrder(order, existing){
     inUseAfter: next.inUseCount,
     emptyBefore: current.emptyCount,
     emptyAfter: next.emptyCount,
-    notes: `Received order for ${order.quantity} cylinder(s).`
+    notes: typeof pageConfig.receiveOrderNote === 'function'
+      ? pageConfig.receiveOrderNote(order)
+      : `Received order for ${order.quantity} ${pageConfig.unitDefault || 'unit'}(s).`
   });
 }
 
@@ -1271,7 +1443,7 @@ async function loadConsumables(options = {}){
     }
     render();
     const modeLabel = isRemoteMode() ? 'Remote sync' : 'Local browser mode';
-    setLastUpdateText(`${state.items.length} gas type(s) | ${modeLabel} | ${new Date().toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' })}`);
+    setLastUpdateText(`${state.items.length} ${pageConfig.itemNounPluralLower || 'item(s)'} | ${modeLabel} | ${new Date().toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' })}`);
     if(!options.silent){
       showSaveStatus('loaded', isRemoteMode() ? 'SYNCED' : 'LOADED');
       hideSaveStatusSoon(1800);

@@ -39,6 +39,8 @@ let appView = 'queue';
 let scheduleDragIndex = null;
 let scheduleState = {date:'',rosterEmployeeIds:[],entries:[],tasks:[]};
 let editingTestDefinitionId = null;
+let subcontractLabs = [];
+let subcontractModalWOId = '';
 const WO_STAGE = { RUNNING:'running', PENDING:'pending', DONE:'done' };
 function normalizeCatalogKey(raw){ return String(raw || '').trim().toUpperCase().replace(/\s+/g,'_').replace(/[^A-Z0-9_-]/g,''); }
 function normalizeAliasToken(raw){ return String(raw || '').trim().toUpperCase().replace(/[^A-Z0-9]/g,''); }
@@ -70,6 +72,35 @@ function getTestRowDiagnostics(row){ const rawCode = String(row?.testCode || '')
 function normalizeHydrocarbonCode(code){ const raw = String(code || '').trim().toUpperCase().replace(/\s+/g,''); if(raw === 'UNKNOWN' || raw === 'UNK') return 'UNKNOWN'; if(/^C(?:10|[1-9])$/.test(raw)) return raw; const numeric = raw.replace(/^C/i,''); return /^(?:10|[1-9])$/.test(numeric) ? `C${numeric}` : ''; }
 function getHydrocarbonRank(code){ const normalized = normalizeHydrocarbonCode(code); if(!normalized) return 999; if(normalized === 'UNKNOWN') return 998; return Number(normalized.slice(1)); }
 function isLiquidTestCode(code){ const def = getTestDefinitionByKey(normalizeTestCode(code)); return !!def && (def.matrixType === 'Liquid' || def.tone === 'liq'); }
+function normalizeSubcontractLab(src){ if(typeof src === 'string') src = { name:src };
+const name = String(src?.name || src?.labName || '').trim();
+if(!name) return null;
+return { id:String(src?.id || `lab-${normalizeAliasToken(name).toLowerCase() || uid()}`), name, isActive:src?.isActive === undefined ? true : src.isActive !== false };
+}
+function setSubcontractLabs(list){ subcontractLabs = (Array.isArray(list) ? list : []).map(normalizeSubcontractLab).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name)); }
+function getSubcontractLabName(labId, fallback = ''){ const lab = subcontractLabs.find(item => item.id === labId); return lab?.name || String(fallback || '').trim() || 'Unassigned Lab'; }
+function buildTestRowKey(row, rowIndex = 0){ const id = String(row?.id || '').trim(); if(id) return id; const sampleId = String(row?.sampleId || `UNASSIGNED-${rowIndex + 1}`).trim(); const code = String(row?.testCode || row?.type || '').trim(); return `${sampleId}::${code}::${rowIndex}`; }
+function normalizeSubcontractedTests(list){ return (Array.isArray(list) ? list : []).map(item => {
+const rowKey = String(item?.rowKey || item?.rowId || item?.id || '').trim();
+const labName = String(item?.labName || '').trim();
+const labId = String(item?.labId || '').trim();
+if(!rowKey || (!labId && !labName)) return null;
+return { id:String(item?.id || `sub-${rowKey}`), rowKey, labId, labName, sampleId:String(item?.sampleId || ''), testType:normalizeTestCode(item?.testType || item?.type || item?.testCode) || String(item?.testType || ''), testCode:String(item?.testCode || ''), subcontractedAt:String(item?.subcontractedAt || item?.createdAt || todayISO()) };
+}).filter(Boolean);
+}
+function getAllTestRowsForWO(w){ const testRows = Array.isArray(w?.testRows) ? w.testRows : [];
+if(testRows.length){ return testRows.map((row, rowIndex) => ({ ...row, rowKey:buildTestRowKey(row, rowIndex), rowIndex, type:getCanonicalTestTypeForRow(row), testType:getCanonicalTestTypeForRow(row), sampleId:String(row?.sampleId || `UNASSIGNED-${rowIndex + 1}`) })); }
+const samples = Array.isArray(w?.samples) ? w.samples : [];
+if(samples.length){ const rows = [];
+samples.forEach((sample, sampleIndex) => { const codes = Array.isArray(sample?.testCodes) ? sample.testCodes : []; codes.forEach((code, codeIndex) => { const rowIndex = (sampleIndex * 1000) + codeIndex; const testType = normalizeTestCode(code); rows.push({ id:'', rowKey:buildTestRowKey({ sampleId:sample?.sampleId || `UNASSIGNED-${sampleIndex + 1}`, testCode:code }, rowIndex), rowIndex, type:testType, testType, testCode:code || '', sampleId:String(sample?.sampleId || `UNASSIGNED-${sampleIndex + 1}`), cylinderNumber:String(sample?.cylinderNumber || ''), matrix:String(sample?.matrix || ''), hydrocarbon:normalizeHydrocarbonCode(sample?.hydrocarbon), containerType:String(sample?.containerType || ''), received:String(sample?.received || ''), logDate:String(sample?.logDate || ''), dueDate:String(sample?.dueDate || w?.dueDate || '') }); }); });
+return rows; }
+return [];
+}
+function getSubcontractMap(w){ return new Map(normalizeSubcontractedTests(w?.subcontractedTests).map(item => [item.rowKey, item])); }
+function getActiveTestRowsForWO(w){ const subMap = getSubcontractMap(w); return getAllTestRowsForWO(w).filter(row => !subMap.has(row.rowKey)); }
+function getSubcontractedRowsForWO(w){ const allRows = getAllTestRowsForWO(w); const rowMap = new Map(allRows.map(row => [row.rowKey, row])); return normalizeSubcontractedTests(w?.subcontractedTests).map(item => ({ ...item, row:rowMap.get(item.rowKey) || null, labName:getSubcontractLabName(item.labId, item.labName) })).filter(item => item.row || item.testType || item.testCode); }
+function isFullySubcontractedWO(w){ const allRows = getAllTestRowsForWO(w); return allRows.length > 0 && getSubcontractedRowsForWO(w).length > 0 && getActiveTestRowsForWO(w).length === 0; }
+function getSubcontractLabSummaryForWO(w){ const labs = [...new Set(getSubcontractedRowsForWO(w).map(item => item.labName).filter(Boolean))]; if(!labs.length) return ''; return labs.length === 1 ? labs[0] : 'Multiple Labs'; }
 function blankCounts(){ return TEST_CODES.reduce((acc,code)=>{acc[code]=0;
 return acc;},{});
 }
@@ -100,8 +131,9 @@ return; }
 if(codeSet.has(def.key)){ counts[def.key] += 1; totalTests += 1; minutes += Number(def.minutes || 0); } }); }
 return {counts,minutes,totalTests};
 }
-function getWOMetrics(w){ const rows = Array.isArray(w.testRows) ? w.testRows : [];
+function getWOMetrics(w){ const rows = getActiveTestRowsForWO(w);
 if(rows.length) return calculateCountsFromRows(rows);
+if(getAllTestRowsForWO(w).length) return {counts:blankCounts(),minutes:0,totalTests:0};
 const counts = blankCounts();
 let minutes = 0;
 let totalTests = 0;
@@ -115,10 +147,11 @@ return {counts,minutes,totalTests};
 const WO_FALLBACK_ASSIGNMENT_KEY = '__WO_TASK__';
 function buildScheduleAssignmentKey(testType){ return testType ? String(testType || '') : WO_FALLBACK_ASSIGNMENT_KEY; }
 function getScheduleTaskRowsForWO(w){
-const testRows = Array.isArray(w?.testRows) ? w.testRows : [];
+const testRows = getActiveTestRowsForWO(w);
 if(testRows.length){
-return testRows.map((row, rowIndex) => { const diag = getTestRowDiagnostics(row); return { sampleId:String(row?.sampleId || `UNASSIGNED-${rowIndex + 1}`), testType:diag.canonicalType || '', matrix:String(row?.matrix || ''), hydrocarbon:normalizeHydrocarbonCode(row?.hydrocarbon), containerType:String(row?.containerType || ''), cylinderNumber:String(row?.cylinderNumber || ''), received:String(row?.received || ''), logDate:String(row?.logDate || ''), rawIndex:rowIndex, }; }).filter(row => row.testType);
+return testRows.map((row, rowIndex) => { const diag = getTestRowDiagnostics(row); return { sampleId:String(row?.sampleId || `UNASSIGNED-${rowIndex + 1}`), testType:diag.canonicalType || row?.testType || '', matrix:String(row?.matrix || ''), hydrocarbon:normalizeHydrocarbonCode(row?.hydrocarbon), containerType:String(row?.containerType || ''), cylinderNumber:String(row?.cylinderNumber || ''), received:String(row?.received || ''), logDate:String(row?.logDate || ''), rawIndex:Number(row?.rowIndex ?? rowIndex), }; }).filter(row => row.testType);
 }
+if(getAllTestRowsForWO(w).length) return [];
 const samples = Array.isArray(w?.samples) ? w.samples : [];
 if(samples.length){
 const rows = [];
@@ -229,7 +262,7 @@ const project = getSharedProjectRecord(String(src.projectId || ''));
 const matchedClient = getSharedClientRecord(String(src.clientId || '')) || getSharedClientRecordByCode(src.clientCode) || (!src.clientId ? getSharedClientRecordByCode(src.client) : null);
 const resolvedClientId = String(src.clientId || project?.clientId || matchedClient?.id || '');
 const resolvedClientCode = normalizeClientCode(src.clientCode || matchedClient?.clientCode || inferClientCodeFromLegacyValue(!src.clientId ? src.client : ''));
-return { ...src, id: String(src.id || uid()), number: String(src.number || ''), client: String(src.client || ''), clientCode: resolvedClientCode, clientId: resolvedClientId, projectId: String(src.projectId || ''), location: String(src.location || 'Pittsburgh'), dueDate: src.dueDate || null, priority: PRI[String(src.priority || '').toUpperCase()] !== undefined ? String(src.priority).toUpperCase() : 'NONE', stage, complete: stage === WO_STAGE.DONE, notes: String(src.notes || ''), gas: Number(src.gas || 0), liq: Number(src.liq || 0), gc: Number(src.gc || 0), samples: Array.isArray(src.samples) ? src.samples : [], testRows: Array.isArray(src.testRows) ? src.testRows : [], pdfAttachment: normalizePdfAttachment(src.pdfAttachment) }; }
+return { ...src, id: String(src.id || uid()), number: String(src.number || ''), client: String(src.client || ''), clientCode: resolvedClientCode, clientId: resolvedClientId, projectId: String(src.projectId || ''), location: String(src.location || 'Pittsburgh'), dueDate: src.dueDate || null, priority: PRI[String(src.priority || '').toUpperCase()] !== undefined ? String(src.priority).toUpperCase() : 'NONE', stage, complete: stage === WO_STAGE.DONE, notes: String(src.notes || ''), gas: Number(src.gas || 0), liq: Number(src.liq || 0), gc: Number(src.gc || 0), samples: Array.isArray(src.samples) ? src.samples : [], testRows: Array.isArray(src.testRows) ? src.testRows : [], subcontractedTests:normalizeSubcontractedTests(src.subcontractedTests), pdfAttachment: normalizePdfAttachment(src.pdfAttachment) }; }
 function normalizeWorkOrders(list){ if(!Array.isArray(list)) return [];
 return list.map(normalizeWorkOrder).filter(w => w.number || w.id); } const calcM = w => getWOMetrics(w).minutes;
 const getWOCounts = w => getWOMetrics(w).counts;
@@ -271,6 +304,7 @@ if(av>bv)return d==='asc'?1:-1;
 return 0; }); arr.sort((a,b)=>a.complete===b.complete?0:a.complete?1:-1);
 return arr; }
 function getStatus(w){ if(w.stage===WO_STAGE.DONE)return{label:'COMPLETE',cls:'sb-done',overdue:false,dl:''};
+if(isFullySubcontractedWO(w))return{label:'SUBCONTRACTED',cls:'sb-pending',overdue:false,dl:getSubcontractLabSummaryForWO(w) || 'Outside lab'};
 if(w.stage===WO_STAGE.PENDING)return{label:'RESULTS PENDING',cls:'sb-pending',overdue:false,dl:'Waiting for posting/review'};
 const d=parseDate(w.dueDate);
 if(!d)return{label:'No Due Date',cls:'sb-warn',overdue:false,dl:''};
@@ -397,7 +431,7 @@ seenWOIds.add(group.woId);
 scheduleState.entries = normalizedEntries;
 scheduleState.tasks = scheduleState.tasks.map(task => ({ id: String(task?.id || uid()), employeeId: normalizeEmployeeIdValue(task?.employeeId || task?.employee || '', employeeSet, nameLookup), name: String(task?.name || '').trim(), minutes: Number(task?.minutes || 0) })).filter(task => task.employeeId && employeeSet.has(task.employeeId) && task.name).map(task => ({ ...task, minutes: task.minutes > 0 ? task.minutes : 0 }));
 }
-function getOpenWOsSorted(){ const arr = WOs.filter(w => w.stage === WO_STAGE.RUNNING);
+function getOpenWOsSorted(){ const arr = WOs.filter(w => w.stage === WO_STAGE.RUNNING && !isFullySubcontractedWO(w));
 const now = new Date(); now.setHours(0,0,0,0);
 const diff = (w) => { const dt = parseDate(w.dueDate);
 return dt ? Math.round((dt - now) / 86400000) : 9999; }; arr.sort((a,b) => { const priA = PRI[a.priority || 'NONE'];
@@ -438,12 +472,12 @@ return out;
 }
 function getEmployeeTasks(employeeId){ return scheduleState.tasks.filter(task => task.employeeId === employeeId); }
 function getWOAssigneeList(w){ const entry = scheduleState.entries.find(item => item.woId === w?.id); if(!entry) return []; const wo = WOs.find(item => item.id === w?.id); if(!wo) return []; return collectAssignmentTechs(getScheduleAssignmentsForWO(wo, entry.assignments)); }
-function getWOAssigneeLabel(w){ const assignees = getWOAssigneeList(w); return assignees.length ? assignees.join(' | ') : 'Unassigned'; }
+function getWOAssigneeLabel(w){ if(isFullySubcontractedWO(w)) return `Subcontracted - ${getSubcontractLabSummaryForWO(w) || 'Unassigned Lab'}`; const assignees = getWOAssigneeList(w); return assignees.length ? assignees.join(' | ') : 'Unassigned'; }
 function getFilteredWorkOrders(){ const showDone = document.getElementById('show-done').checked;
 let sorted = getSorted();
-if(appView === 'pending') return sorted.filter(w => w.stage === WO_STAGE.PENDING);
-if(showDone) return sorted.filter(w => w.stage !== WO_STAGE.PENDING);
-return sorted.filter(w => w.stage === WO_STAGE.RUNNING);
+if(appView === 'pending') return sorted.filter(w => w.stage === WO_STAGE.PENDING || isFullySubcontractedWO(w));
+if(showDone) return sorted.filter(w => w.stage !== WO_STAGE.PENDING && !isFullySubcontractedWO(w));
+return sorted.filter(w => w.stage === WO_STAGE.RUNNING && !isFullySubcontractedWO(w));
 }
 function syncWorkOrderModalActions(id){ const w = id ? WOs.find(x => x.id === id) : null;
 const doneBtn = document.getElementById('modal-done-btn');
@@ -574,17 +608,112 @@ if(m.includes('oil') || m.includes('liq')) return 'Liquid';
 return ''; }
 function isLiquidSampleRecord(sample){ return normalizeMatrixBucket(sample?.matrix) === 'Liquid'; }
 function isLiquidScheduleTask(task){ if(!task || task.isFallback) return false; if(task.matrixType === 'Liquid') return true; if(normalizeMatrixBucket(task.matrixType) === 'Liquid') return true; if(normalizeMatrixBucket(task.matrix) === 'Liquid') return true; return !!task.testType && isLiquidTestCode(task.testType); }
-function getLiquidSamplesForWO(w){ const samples = Array.isArray(w?.samples) ? w.samples : []; if(samples.length){ return samples.map((sample, sampleIndex) => ({ sampleId:String(sample?.sampleId || `UNASSIGNED-${sampleIndex + 1}`), matrix:String(sample?.matrix || ''), hydrocarbon:normalizeHydrocarbonCode(sample?.hydrocarbon), sourceIndex:sampleIndex })).filter(sample => isLiquidSampleRecord(sample)); } const rows = Array.isArray(w?.testRows) ? w.testRows : []; const grouped = new Map(); rows.forEach((row, rowIndex) => { const sampleId = String(row?.sampleId || `UNASSIGNED-${rowIndex + 1}`); if(!grouped.has(sampleId)) grouped.set(sampleId, { sampleId, matrix:String(row?.matrix || ''), hydrocarbon:normalizeHydrocarbonCode(row?.hydrocarbon), sourceIndex:rowIndex, hasLiquidTest:false }); const sample = grouped.get(sampleId); if(!sample.matrix) sample.matrix = String(row?.matrix || ''); if(!sample.hydrocarbon) sample.hydrocarbon = normalizeHydrocarbonCode(row?.hydrocarbon); if(isLiquidTestCode(row?.testCode || row?.type)) sample.hasLiquidTest = true; }); return [...grouped.values()].filter(sample => isLiquidSampleRecord(sample) || sample.hasLiquidTest); }
+function getLiquidSamplesForWO(w){ const rows = getActiveTestRowsForWO(w); const grouped = new Map(); rows.forEach((row, rowIndex) => { const sampleId = String(row?.sampleId || `UNASSIGNED-${rowIndex + 1}`); if(!grouped.has(sampleId)) grouped.set(sampleId, { sampleId, matrix:String(row?.matrix || ''), hydrocarbon:normalizeHydrocarbonCode(row?.hydrocarbon), sourceIndex:Number(row?.rowIndex ?? rowIndex), hasLiquidTest:false }); const sample = grouped.get(sampleId); if(!sample.matrix) sample.matrix = String(row?.matrix || ''); if(!sample.hydrocarbon) sample.hydrocarbon = normalizeHydrocarbonCode(row?.hydrocarbon); if(isLiquidTestCode(row?.testCode || row?.type || row?.testType)) sample.hasLiquidTest = true; }); return [...grouped.values()].filter(sample => isLiquidSampleRecord(sample) || sample.hasLiquidTest); }
 function getLiquidLaneRows(scheduleRows, techScope = ''){ const grouped = new Map(); scheduleRows.forEach(row => { const taskRows = getScheduleTaskRowsForWO(row.wo); const liquidSamples = getLiquidSamplesForWO(row.wo); liquidSamples.forEach(sample => { const liquidTypes = [...new Set(taskRows.filter(task => String(task.sampleId || '') === String(sample.sampleId || '') && isLiquidScheduleTask(task)).map(task => task.testType).filter(Boolean))]; const techIds = new Set(); liquidTypes.forEach(testType => { const techId = String(row.assignmentMap?.[buildScheduleAssignmentKey(testType)] || '').trim(); if(techId && (!techScope || techId === techScope)) techIds.add(techId); }); if(techScope && !techIds.size) return; const key = `${row.wo.id}::${sample.sampleId}`; if(!grouped.has(key)) grouped.set(key, { wo:row.wo, scheduleOrder:row.order, sampleId:String(sample.sampleId || 'UNASSIGNED'), hydrocarbon:sample.hydrocarbon || '', hydrocarbonRank:getHydrocarbonRank(sample.hydrocarbon), sourceIndex:Number(sample.sourceIndex || 0), techIds:new Set(), }); const lane = grouped.get(key); lane.scheduleOrder = Math.min(lane.scheduleOrder, row.order); if(!lane.hydrocarbon && sample.hydrocarbon) lane.hydrocarbon = sample.hydrocarbon; lane.hydrocarbonRank = getHydrocarbonRank(lane.hydrocarbon); lane.sourceIndex = Math.min(lane.sourceIndex, Number(sample.sourceIndex || 0)); techIds.forEach(employeeId => lane.techIds.add(employeeId)); }); }); const laneRows = [...grouped.values()]; laneRows.sort((a,b) => { if(a.hydrocarbonRank !== b.hydrocarbonRank) return a.hydrocarbonRank - b.hydrocarbonRank; if(a.scheduleOrder !== b.scheduleOrder) return a.scheduleOrder - b.scheduleOrder; if(a.sourceIndex !== b.sourceIndex) return a.sourceIndex - b.sourceIndex; return a.sampleId.localeCompare(b.sampleId); }); return laneRows.map((row, index) => ({ ...row, assignees:[...row.techIds].map(employeeId => getSharedEmployeeName(employeeId)).filter(Boolean), laneOrder:index + 1 })); }
 function updateSampleHydrocarbon(woId, sampleId, hydrocarbon){ const wo = WOs.find(item => item.id === woId); if(!wo) return; const nextCode = normalizeHydrocarbonCode(hydrocarbon); if(Array.isArray(wo.samples)){ wo.samples.forEach(sample => { if(String(sample?.sampleId || '') === String(sampleId || '')) sample.hydrocarbon = nextCode; }); } if(Array.isArray(wo.testRows)){ wo.testRows.forEach(row => { if(String(row?.sampleId || '') === String(sampleId || '')) row.hydrocarbon = nextCode; }); } render(); scheduleSave(); }
 function getPrimaryMatrixGroup(w){ let gas = 0;
 let liquid = 0;
-const samples = Array.isArray(w.samples) ? w.samples : [];
-const rows = Array.isArray(w.testRows) ? w.testRows : [];
-if(samples.length){ for(const s of samples){ const bucket = normalizeMatrixBucket(s.matrix);
-if(bucket==='Gas') gas += 1; else if(bucket==='Liquid') liquid += 1; } } else if(rows.length){ for(const r of rows){ const bucket = normalizeMatrixBucket(r.matrix);
-if(bucket==='Gas') gas += 1; else if(bucket==='Liquid') liquid += 1; } } else { gas = Number(w.gas || 0); liquid = Number(w.liq || 0); } if(gas===0 && liquid===0) return 'Unknown Matrix';
+const rows = getActiveTestRowsForWO(w);
+if(rows.length){ for(const r of rows){ const bucket = normalizeMatrixBucket(r.matrix);
+if(bucket==='Gas') gas += 1; else if(bucket==='Liquid') liquid += 1; } } else if(!getAllTestRowsForWO(w).length){ gas = Number(w.gas || 0); liquid = Number(w.liq || 0); } if(gas===0 && liquid===0) return 'Unknown Matrix';
 return gas >= liquid ? 'Gas' : 'Liquid'; }
+function getSubcontractEligibleWorkOrders(){ return WOs.filter(w => w.stage !== WO_STAGE.DONE && getAllTestRowsForWO(w).length > 0).sort((a,b)=>String(a.number || '').localeCompare(String(b.number || ''))); }
+function renderSubcontractLabOptions(){ const select = document.getElementById('subcontract-lab-select');
+if(!select) return;
+const current = select.value || '';
+select.innerHTML = ['<option value="">Select lab...</option>', ...subcontractLabs.filter(lab => lab.isActive !== false).map(lab => `<option value="${esc(lab.id)}">${esc(lab.name)}</option>`)].join('');
+select.value = subcontractLabs.some(lab => lab.id === current) ? current : '';
+}
+function renderSubcontractWorkOrderOptions(){ const select = document.getElementById('subcontract-wo-select');
+if(!select) return;
+const current = subcontractModalWOId || select.value || '';
+const options = getSubcontractEligibleWorkOrders();
+select.innerHTML = ['<option value="">Select work order...</option>', ...options.map(wo => `<option value="${esc(wo.id)}">${esc(wo.number || 'WO')} | ${esc(getWorkOrderClientLabel(wo))}</option>`)].join('');
+select.value = options.some(wo => wo.id === current) ? current : '';
+subcontractModalWOId = select.value || '';
+}
+function getSubcontractRowLabel(row){ const testType = row?.testType || getCanonicalTestTypeForRow(row) || '';
+const testLabel = testType ? getTestLabel(testType) : (row?.testCode || 'Unmapped Test');
+return `${testLabel}${row?.testCode && row.testCode !== testLabel ? ` | ${row.testCode}` : ''}`;
+}
+function renderSubcontractTestList(){ const list = document.getElementById('subcontract-test-list');
+const summary = document.getElementById('subcontract-modal-summary');
+if(!list || !summary) return;
+const wo = WOs.find(item => item.id === subcontractModalWOId);
+if(!wo){ summary.textContent = 'Select a work order to view imported tests.'; list.innerHTML = '<div class="schedule-empty">No work order selected.</div>'; return; }
+const rows = getAllTestRowsForWO(wo);
+const subMap = getSubcontractMap(wo);
+const grouped = new Map();
+rows.forEach(row => { const sampleId = String(row.sampleId || 'UNASSIGNED'); if(!grouped.has(sampleId)) grouped.set(sampleId, []); grouped.get(sampleId).push(row); });
+summary.textContent = `${rows.length} imported test row(s) | ${getActiveTestRowsForWO(wo).length} remaining in-house | ${getSubcontractedRowsForWO(wo).length} subcontracted`;
+list.innerHTML = [...grouped.entries()].map(([sampleId, sampleRows]) => {
+const items = sampleRows.map(row => { const sub = subMap.get(row.rowKey); const subLabel = sub ? `Subcontracted - ${esc(getSubcontractLabName(sub.labId, sub.labName))}` : 'In-house'; return ` <label class="subcontract-test-row ${sub ? 'is-subcontracted' : ''}"> <input type="checkbox" value="${esc(row.rowKey)}" ${sub ? 'checked' : ''}> <span> <strong>${esc(getSubcontractRowLabel(row))}</strong> <em>Sample ${esc(sampleId)} | ${esc(row.matrix || 'Unknown Matrix')} | ${esc(row.cylinderNumber || '')}</em> </span> <small>${subLabel}</small> </label> `; }).join('');
+return `<div class="subcontract-sample-group"><div class="subcontract-sample-head">Sample ${esc(sampleId)}</div>${items}</div>`;
+}).join('') || '<div class="schedule-empty">No imported test rows are attached to this work order.</div>';
+}
+function openSubcontractModal(woId = ''){ renderSubcontractLabOptions(); subcontractModalWOId = String(woId || subcontractModalWOId || '').trim(); renderSubcontractWorkOrderOptions(); renderSubcontractTestList(); document.getElementById('subcontract-overlay')?.classList.add('open'); }
+function closeSubcontractModal(){ document.getElementById('subcontract-overlay')?.classList.remove('open'); subcontractModalWOId = ''; }
+function onSubcontractWorkOrderChange(value){ subcontractModalWOId = String(value || ''); renderSubcontractTestList(); }
+function setAllSubcontractChecks(checked){ document.querySelectorAll('#subcontract-test-list input[type=checkbox]').forEach(input => { input.checked = !!checked; }); }
+function addSubcontractLabFromModal(){ const input = document.getElementById('subcontract-new-lab');
+const name = String(input?.value || '').trim();
+if(!name){ alert('Lab name is required.'); return; }
+const existing = subcontractLabs.find(lab => lab.name.toLowerCase() === name.toLowerCase());
+if(existing){ renderSubcontractLabOptions(); document.getElementById('subcontract-lab-select').value = existing.id; if(input) input.value = ''; return; }
+const lab = normalizeSubcontractLab({ id:`lab-${Date.now()}-${Math.random().toString(36).slice(2,6)}`, name, isActive:true });
+subcontractLabs.push(lab);
+subcontractLabs.sort((a,b)=>a.name.localeCompare(b.name));
+renderSubcontractLabOptions();
+document.getElementById('subcontract-lab-select').value = lab.id;
+if(input) input.value = '';
+scheduleSave();
+}
+function syncWorkOrderStageAfterSubcontract(w){ if(!w || w.stage === WO_STAGE.DONE) return;
+w.subcontractedTests = normalizeSubcontractedTests(w.subcontractedTests);
+if(isFullySubcontractedWO(w)){ w.stage = WO_STAGE.PENDING; w.complete = false; return; }
+if(w.stage === WO_STAGE.PENDING && getSubcontractedRowsForWO(w).length){ w.stage = WO_STAGE.RUNNING; w.complete = false; }
+}
+function saveSubcontractSelection(){ const wo = WOs.find(item => item.id === subcontractModalWOId);
+if(!wo){ alert('Select a work order.'); return; }
+const labId = String(document.getElementById('subcontract-lab-select')?.value || '').trim();
+const lab = subcontractLabs.find(item => item.id === labId);
+if(!lab){ alert('Select or add a subcontract lab.'); return; }
+const selectedKeys = [...document.querySelectorAll('#subcontract-test-list input[type=checkbox]:checked')].map(input => String(input.value || '').trim()).filter(Boolean);
+if(!selectedKeys.length){ alert('Select at least one test to subcontract.'); return; }
+const rows = new Map(getAllTestRowsForWO(wo).map(row => [row.rowKey, row]));
+const existing = new Map(normalizeSubcontractedTests(wo.subcontractedTests).map(item => [item.rowKey, item]));
+selectedKeys.forEach(rowKey => { const row = rows.get(rowKey); if(!row) return; const testType = row.testType || getCanonicalTestTypeForRow(row); existing.set(rowKey, { ...(existing.get(rowKey) || {}), id:existing.get(rowKey)?.id || `sub-${Date.now()}-${Math.random().toString(36).slice(2,6)}`, rowKey, labId:lab.id, labName:lab.name, sampleId:String(row.sampleId || ''), testType, testCode:String(row.testCode || getTestLabel(testType) || ''), subcontractedAt:existing.get(rowKey)?.subcontractedAt || todayISO() }); });
+wo.subcontractedTests = [...existing.values()];
+syncWorkOrderStageAfterSubcontract(wo);
+normalizeScheduleState();
+closeSubcontractModal();
+render();
+scheduleSave();
+}
+function buildSubcontractedWorkRows(){ const rows = [];
+WOs.forEach(wo => { const grouped = new Map(); getSubcontractedRowsForWO(wo).forEach(item => { const labName = item.labName || 'Unassigned Lab'; const labKey = item.labId || labName; const key = `${wo.id}::${labKey}`; if(!grouped.has(key)) grouped.set(key, { wo, labKey, labName, items:[], sampleIds:new Set(), testLabels:new Set(), dates:[] }); const group = grouped.get(key); group.items.push(item); if(item.sampleId || item.row?.sampleId) group.sampleIds.add(item.sampleId || item.row?.sampleId); const testType = item.testType || item.row?.testType || getCanonicalTestTypeForRow(item.row); group.testLabels.add(testType ? getTestLabel(testType) : (item.testCode || 'Unmapped Test')); if(item.subcontractedAt) group.dates.push(item.subcontractedAt); }); grouped.forEach(group => rows.push(group)); });
+rows.sort((a,b) => { const ad = parseDate(a.wo.dueDate)?.getTime() || 9999999999999; const bd = parseDate(b.wo.dueDate)?.getTime() || 9999999999999; if(ad !== bd) return ad - bd; return String(a.wo.number || '').localeCompare(String(b.wo.number || '')); });
+return rows;
+}
+function renderSubcontractedWorkOrders(){ const container = document.getElementById('subcontracted-work-list');
+if(!container) return;
+const rows = buildSubcontractedWorkRows();
+if(!rows.length){ container.innerHTML = '<div class="schedule-empty">No subcontracted tests yet.</div>'; return; }
+container.innerHTML = `<div class="subcontract-table-wrap"><table class="subcontract-table"><thead><tr><th>WO</th><th>Client</th><th>Lab</th><th>Tests</th><th>Samples</th><th>Due Date</th><th>Subcontract Date</th><th>Actions</th></tr></thead><tbody>${rows.map(row => { const dateValue = row.dates.sort()[0] || ''; return `<tr><td><button type="button" class="subcontract-link" onclick="openModal('${esc(row.wo.id)}')">${esc(row.wo.number || '')}</button></td><td>${esc(getWorkOrderClientLabel(row.wo))}</td><td>${esc(row.labName)}</td><td>${esc([...row.testLabels].join(' | '))}</td><td>${esc([...row.sampleIds].filter(Boolean).join(' | ') || 'Unassigned')}</td><td>${esc(fmtDate(row.wo.dueDate) || 'Not set')}</td><td>${esc(fmtDate(dateValue) || dateValue || 'Not set')}</td><td><button type="button" class="act-btn" onclick="openSubcontractModal('${esc(row.wo.id)}')">Edit</button><button type="button" class="act-btn" onclick="undoSubcontractGroup('${esc(row.wo.id)}','${encodeURIComponent(row.labKey)}')">Undo</button></td></tr>`; }).join('')}</tbody></table></div>`;
+}
+function undoSubcontractGroup(woId, labKeyEncoded){ const wo = WOs.find(item => item.id === woId);
+if(!wo) return;
+const labKey = decodeURIComponent(String(labKeyEncoded || ''));
+const labName = getSubcontractLabName(labKey, labKey);
+if(!confirm(`Remove subcontracted tests for ${labName}?`)) return;
+const wasFullySubcontracted = isFullySubcontractedWO(wo);
+wo.subcontractedTests = normalizeSubcontractedTests(wo.subcontractedTests).filter(item => (item.labId || getSubcontractLabName(item.labId, item.labName)) !== labKey);
+if(wasFullySubcontracted && wo.stage === WO_STAGE.PENDING){ wo.stage = WO_STAGE.RUNNING; wo.complete = false; }
+syncWorkOrderStageAfterSubcontract(wo);
+normalizeScheduleState();
+render();
+scheduleSave();
+}
 function renderSchedule(){ normalizeScheduleState();
 const schedDate = document.getElementById('sched-date');
 if(schedDate) schedDate.value = scheduleState.date || todayISO();
@@ -610,6 +739,7 @@ document.getElementById('sch-time').textContent = fmtMOrZero(rows.reduce((sum, r
 document.getElementById('sch-employees').textContent = scheduleState.rosterEmployeeIds.length;
 const testSummaryEl = document.getElementById('schedule-test-summary');
 if(testSummaryEl){ testSummaryEl.innerHTML = ` <div><strong>Scheduled:</strong> ${formatCountsSummary(scheduledCounts)}</div> <div class="test-summary-line"><strong>Remaining:</strong> ${formatCountsSummary(unscheduledCounts)}</div> `; }
+renderSubcontractedWorkOrders();
 const unscheduledList = document.getElementById('unscheduled-list');
 if(!unscheduledWOs.length){
 unscheduledList.innerHTML = '<div class="schedule-empty">All open work orders are already on the run order.</div>';
@@ -796,8 +926,8 @@ const name = String(file.name || '');
 const isPdf = (file.type === 'application/pdf') || name.toLowerCase().endsWith('.pdf');
 if(!isPdf){ alert('Please select a PDF file.'); event.target.value = ''; return; } const reader = new FileReader(); reader.onload = () => { modalPdfAttachment = { name, type:'application/pdf', size:Number(file.size || 0), dataUrl:String(reader.result || '') }; renderPdfAttachmentInfo(); }; reader.onerror = () => { alert('Unable to read PDF file.'); event.target.value = ''; }; reader.readAsDataURL(file); }
 function updateStats(){ const now=new Date();now.setHours(0,0,0,0);
-const running=WOs.filter(w=>w.stage===WO_STAGE.RUNNING);
-const pending=WOs.filter(w=>w.stage===WO_STAGE.PENDING);
+const running=WOs.filter(w=>w.stage===WO_STAGE.RUNNING && !isFullySubcontractedWO(w));
+const pending=WOs.filter(w=>w.stage===WO_STAGE.PENDING || isFullySubcontractedWO(w));
 const countOverdue = list => list.filter(w=>{const d=parseDate(w.dueDate); return d&&(d-now)<0;}).length;
 const countHigh = list => list.filter(w=>w.priority==='CRITICAL'||w.priority==='HIGH').length;
 document.getElementById('s-wo').textContent=running.length; document.getElementById('s-tests').textContent=running.reduce((s,w)=>s+getWOTestTotal(w),0); document.getElementById('s-overdue').textContent=countOverdue(running); document.getElementById('s-time').textContent=fmtMOrZero(running.reduce((s,w)=>s+calcM(w),0)); document.getElementById('s-pri').textContent=countHigh(running);
@@ -949,19 +1079,21 @@ closeModal();render();
 return true; }
 function deleteWO(){/* overridden by storage wrapper below */}
 function selPri(el){ document.querySelectorAll('#pri-grid .pri-opt').forEach(e=>e.classList.remove('sel')); el.classList.add('sel'); }
-function selPriVal(v){ document.querySelectorAll('#pri-grid .pri-opt').forEach(e=>e.classList.toggle('sel',e.dataset.p===v)); } document.getElementById('modal-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('modal-overlay'))closeModal(); }); document.getElementById('samples-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('samples-overlay'))closeSamplesModal(); }); document.getElementById('test-select-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('test-select-overlay'))closeTestSelectorModal(); }); document.getElementById('test-edit-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('test-edit-overlay'))closeTestEditModal();
+function selPriVal(v){ document.querySelectorAll('#pri-grid .pri-opt').forEach(e=>e.classList.toggle('sel',e.dataset.p===v)); } document.getElementById('modal-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('modal-overlay'))closeModal(); }); document.getElementById('samples-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('samples-overlay'))closeSamplesModal(); }); document.getElementById('subcontract-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('subcontract-overlay'))closeSubcontractModal(); }); document.getElementById('test-select-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('test-select-overlay'))closeTestSelectorModal(); }); document.getElementById('test-edit-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('test-edit-overlay'))closeTestEditModal();
 }); document.getElementById('test-catalog-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('test-catalog-overlay'))closeTestCatalogModal();
 });
 document.getElementById('employee-input').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); addEmployee(); }
 });
 document.getElementById('task-name-input').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); addEmployeeTask(); } });
 document.getElementById('task-time-input').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); addEmployeeTask(); } });
+document.getElementById('subcontract-new-lab').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); addSubcontractLabFromModal(); } });
 document.addEventListener('click',e=>{ const panel = document.getElementById('column-panel');
 const wrap = e.target?.closest('.column-wrap');
 if(!wrap && panel.classList.contains('open')) panel.classList.remove('open');
 });
 const STORAGE_KEY = 'lab-wip-workorders';
 const SCHEDULE_STORAGE_KEY = 'lab-wip-daily-schedule';
+const SUBCONTRACT_LABS_STORAGE_KEY = 'lab-wip-subcontract-labs';
 const AUTO_REFRESH_MS = 15000;
 let saveTimer = null;
 let autoRefreshTimer = null;
@@ -969,15 +1101,44 @@ let autoRefreshInFlight = false;
 let lastLoadedWorkOrdersRaw = '';
 let lastLoadedScheduleRaw = '';
 let lastLoadedTestDefinitionsRaw = '';
+let lastLoadedSubcontractLabsRaw = '';
 function getStorageAdapter() { return ( window.storage && typeof window.storage.get === 'function' && typeof window.storage.set === 'function' ) ? window.storage : { get: async (key) => ({ value: localStorage.getItem(key) }), set: async (key, value) => { localStorage.setItem(key, value); } }; }
 function showSaveStatus(state, msg) { const el = document.getElementById('save-indicator'); el.style.visibility = 'visible'; el.className = 'save-indicator ' + state; el.textContent = msg; }
 function hideSaveStatusSoon(delay = 3000) { setTimeout(() => { const el = document.getElementById('save-indicator'); if(el) el.style.visibility = 'hidden'; }, delay); }
 function isRemoteStorageMode(){ return !!(window.appAuth && typeof window.appAuth.getMode === 'function' && window.appAuth.getMode() === 'remote'); }
-function isInteractionOverlayOpen(){ return ['modal-overlay','samples-overlay','test-select-overlay','test-edit-overlay','test-catalog-overlay'].some(id => document.getElementById(id)?.classList.contains('open')); }
-function rememberLoadedState(woRaw, scheduleRaw, testDefinitionsRaw){ lastLoadedWorkOrdersRaw = typeof woRaw === 'string' ? woRaw : ''; lastLoadedScheduleRaw = typeof scheduleRaw === 'string' ? scheduleRaw : ''; lastLoadedTestDefinitionsRaw = typeof testDefinitionsRaw === 'string' ? testDefinitionsRaw : ''; }
-async function saveData() { const storageAdapter = getStorageAdapter(); clearTimeout(saveTimer); saveTimer = null; showSaveStatus('saving', 'SAVING...'); try { normalizeScheduleState(); const woRaw = JSON.stringify(WOs); const scheduleRaw = JSON.stringify(scheduleState); const testDefinitionsRaw = JSON.stringify(getTestDefinitions()); await Promise.all([ storageAdapter.set(STORAGE_KEY, woRaw), storageAdapter.set(SCHEDULE_STORAGE_KEY, scheduleRaw), storageAdapter.set(TEST_DEFINITION_STORAGE_KEY, testDefinitionsRaw) ]); rememberLoadedState(woRaw, scheduleRaw, testDefinitionsRaw); showSaveStatus('saved', 'SAVED'); hideSaveStatusSoon(); } catch (e) { showSaveStatus('error', 'SAVE FAILED'); console.error('Storage save error:', e); } }
+function isInteractionOverlayOpen(){ return ['modal-overlay','samples-overlay','subcontract-overlay','test-select-overlay','test-edit-overlay','test-catalog-overlay'].some(id => document.getElementById(id)?.classList.contains('open')); }
+function rememberLoadedState(woRaw, scheduleRaw, testDefinitionsRaw, subcontractLabsRaw){ lastLoadedWorkOrdersRaw = typeof woRaw === 'string' ? woRaw : ''; lastLoadedScheduleRaw = typeof scheduleRaw === 'string' ? scheduleRaw : ''; lastLoadedTestDefinitionsRaw = typeof testDefinitionsRaw === 'string' ? testDefinitionsRaw : ''; lastLoadedSubcontractLabsRaw = typeof subcontractLabsRaw === 'string' ? subcontractLabsRaw : ''; }
+async function saveData() { const storageAdapter = getStorageAdapter(); clearTimeout(saveTimer); saveTimer = null; showSaveStatus('saving', 'SAVING...'); try { WOs.forEach(syncWorkOrderStageAfterSubcontract); normalizeScheduleState(); setSubcontractLabs(subcontractLabs); const woRaw = JSON.stringify(WOs); const scheduleRaw = JSON.stringify(scheduleState); const testDefinitionsRaw = JSON.stringify(getTestDefinitions()); const subcontractLabsRaw = JSON.stringify(subcontractLabs); await Promise.all([ storageAdapter.set(STORAGE_KEY, woRaw), storageAdapter.set(SCHEDULE_STORAGE_KEY, scheduleRaw), storageAdapter.set(TEST_DEFINITION_STORAGE_KEY, testDefinitionsRaw), storageAdapter.set(SUBCONTRACT_LABS_STORAGE_KEY, subcontractLabsRaw) ]); rememberLoadedState(woRaw, scheduleRaw, testDefinitionsRaw, subcontractLabsRaw); showSaveStatus('saved', 'SAVED'); hideSaveStatusSoon(); } catch (e) { showSaveStatus('error', 'SAVE FAILED'); console.error('Storage save error:', e); } }
 function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(saveData, 600); }
-async function loadData(options = {}) { const silent = !!options.silent; let loadedWOs = false; let loadedSchedule = false; let loadedTestDefinitions = false; let changed = false; let sharedChanged = false; try { const storageAdapter = getStorageAdapter(); const [woResult, scheduleResult, testDefinitionsResult, sharedDirectoryChanged] = await Promise.all([ storageAdapter.get(STORAGE_KEY), storageAdapter.get(SCHEDULE_STORAGE_KEY), storageAdapter.get(TEST_DEFINITION_STORAGE_KEY), loadSharedDirectory() ]); sharedChanged = !!sharedDirectoryChanged; const woRaw = typeof woResult?.value === 'string' ? woResult.value : ''; const scheduleRaw = typeof scheduleResult?.value === 'string' ? scheduleResult.value : ''; const testDefinitionsRaw = typeof testDefinitionsResult?.value === 'string' ? testDefinitionsResult.value : ''; if(woRaw === lastLoadedWorkOrdersRaw && scheduleRaw === lastLoadedScheduleRaw && testDefinitionsRaw === lastLoadedTestDefinitionsRaw && !sharedChanged) return false; if(testDefinitionsRaw) { const parsedTestDefinitions = JSON.parse(testDefinitionsRaw); if(Array.isArray(parsedTestDefinitions) && parsedTestDefinitions.length) { setTestDefinitions(parsedTestDefinitions); loadedTestDefinitions = true; changed = true; } } else if(lastLoadedTestDefinitionsRaw !== '') { setTestDefinitions(getDefaultTestDefinitions()); changed = true; } if(woRaw) { const parsed = JSON.parse(woRaw); if (Array.isArray(parsed)) { WOs = normalizeWorkOrders(parsed); loadedWOs = true; changed = true; } else if(parsed && Array.isArray(parsed.workOrders)) { WOs = normalizeWorkOrders(parsed.workOrders); loadedWOs = true; changed = true; } } else if(lastLoadedWorkOrdersRaw !== '') { WOs = []; changed = true; } if (scheduleRaw) { const parsedSchedule = JSON.parse(scheduleRaw); if(parsedSchedule && typeof parsedSchedule === 'object') { scheduleState = { date: parsedSchedule.date || todayISO(), rosterEmployeeIds: Array.isArray(parsedSchedule.rosterEmployeeIds) ? parsedSchedule.rosterEmployeeIds : (Array.isArray(parsedSchedule.employees) ? parsedSchedule.employees : []), entries: Array.isArray(parsedSchedule.entries) ? parsedSchedule.entries : [], tasks: Array.isArray(parsedSchedule.tasks) ? parsedSchedule.tasks : [] }; loadedSchedule = true; changed = true; } } else if(lastLoadedScheduleRaw !== '') { scheduleState = {date:todayISO(),rosterEmployeeIds:[],entries:[],tasks:[]}; changed = true; } normalizeScheduleState(); renderDynamicTestUI(); rememberLoadedState(woRaw, scheduleRaw, testDefinitionsRaw); if (changed || sharedChanged) { render(); renderSchedule(); if (!silent) { showSaveStatus('loaded', `${WOs.length} WOs | ${scheduleState.entries.length} scheduled`); hideSaveStatusSoon(); } } } catch (e) { console.log('No saved data found.'); } return changed || loadedWOs || loadedSchedule || loadedTestDefinitions || sharedChanged; }
+async function loadData(options = {}) {
+const silent = !!options.silent;
+let loadedWOs = false;
+let loadedSchedule = false;
+let loadedTestDefinitions = false;
+let loadedSubcontractLabs = false;
+let changed = false;
+let sharedChanged = false;
+try {
+const storageAdapter = getStorageAdapter();
+const [woResult, scheduleResult, testDefinitionsResult, subcontractLabsResult, sharedDirectoryChanged] = await Promise.all([ storageAdapter.get(STORAGE_KEY), storageAdapter.get(SCHEDULE_STORAGE_KEY), storageAdapter.get(TEST_DEFINITION_STORAGE_KEY), storageAdapter.get(SUBCONTRACT_LABS_STORAGE_KEY), loadSharedDirectory() ]);
+sharedChanged = !!sharedDirectoryChanged;
+const woRaw = typeof woResult?.value === 'string' ? woResult.value : '';
+const scheduleRaw = typeof scheduleResult?.value === 'string' ? scheduleResult.value : '';
+const testDefinitionsRaw = typeof testDefinitionsResult?.value === 'string' ? testDefinitionsResult.value : '';
+const subcontractLabsRaw = typeof subcontractLabsResult?.value === 'string' ? subcontractLabsResult.value : '';
+if(woRaw === lastLoadedWorkOrdersRaw && scheduleRaw === lastLoadedScheduleRaw && testDefinitionsRaw === lastLoadedTestDefinitionsRaw && subcontractLabsRaw === lastLoadedSubcontractLabsRaw && !sharedChanged) return false;
+if(testDefinitionsRaw) { const parsedTestDefinitions = JSON.parse(testDefinitionsRaw); if(Array.isArray(parsedTestDefinitions) && parsedTestDefinitions.length) { setTestDefinitions(parsedTestDefinitions); loadedTestDefinitions = true; changed = true; } } else if(lastLoadedTestDefinitionsRaw !== '') { setTestDefinitions(getDefaultTestDefinitions()); changed = true; }
+if(subcontractLabsRaw) { const parsedLabs = JSON.parse(subcontractLabsRaw); if(Array.isArray(parsedLabs)) { setSubcontractLabs(parsedLabs); loadedSubcontractLabs = true; changed = true; } } else if(lastLoadedSubcontractLabsRaw !== '') { setSubcontractLabs([]); changed = true; }
+if(woRaw) { const parsed = JSON.parse(woRaw); if (Array.isArray(parsed)) { WOs = normalizeWorkOrders(parsed); loadedWOs = true; changed = true; } else if(parsed && Array.isArray(parsed.workOrders)) { WOs = normalizeWorkOrders(parsed.workOrders); loadedWOs = true; changed = true; } } else if(lastLoadedWorkOrdersRaw !== '') { WOs = []; changed = true; }
+if (scheduleRaw) { const parsedSchedule = JSON.parse(scheduleRaw); if(parsedSchedule && typeof parsedSchedule === 'object') { scheduleState = { date: parsedSchedule.date || todayISO(), rosterEmployeeIds: Array.isArray(parsedSchedule.rosterEmployeeIds) ? parsedSchedule.rosterEmployeeIds : (Array.isArray(parsedSchedule.employees) ? parsedSchedule.employees : []), entries: Array.isArray(parsedSchedule.entries) ? parsedSchedule.entries : [], tasks: Array.isArray(parsedSchedule.tasks) ? parsedSchedule.tasks : [] }; loadedSchedule = true; changed = true; } } else if(lastLoadedScheduleRaw !== '') { scheduleState = {date:todayISO(),rosterEmployeeIds:[],entries:[],tasks:[]}; changed = true; }
+WOs.forEach(syncWorkOrderStageAfterSubcontract);
+normalizeScheduleState();
+renderDynamicTestUI();
+rememberLoadedState(woRaw, scheduleRaw, testDefinitionsRaw, subcontractLabsRaw);
+if (changed || sharedChanged) { render(); renderSchedule(); if (!silent) { showSaveStatus('loaded', `${WOs.length} WOs | ${scheduleState.entries.length} scheduled`); hideSaveStatusSoon(); } }
+} catch (e) { console.log('No saved data found.'); }
+return changed || loadedWOs || loadedSchedule || loadedTestDefinitions || loadedSubcontractLabs || sharedChanged;
+}
 async function refreshFromSharedStorage(){ if(!isRemoteStorageMode() || document.hidden || saveTimer || isInteractionOverlayOpen() || autoRefreshInFlight) return; autoRefreshInFlight = true; try { const changed = await loadData({ silent:true }); if(changed){ showSaveStatus('loaded', 'SYNCED'); hideSaveStatusSoon(1800); } } finally { autoRefreshInFlight = false; } }
 function stopAutoRefresh(){ if(autoRefreshTimer){ clearInterval(autoRefreshTimer); autoRefreshTimer = null; } }
 function startAutoRefresh(){ stopAutoRefresh(); if(!isRemoteStorageMode()) return; autoRefreshTimer = setInterval(() => { refreshFromSharedStorage(); }, AUTO_REFRESH_MS); }

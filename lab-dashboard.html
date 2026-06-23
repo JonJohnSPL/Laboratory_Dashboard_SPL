@@ -27,16 +27,18 @@
 <div class="nav-row">
 <button class="sec-btn" onclick="window.location.href='index.html'">Home</button>
 <button class="sec-btn" onclick="window.location.href='field-dashboard.html'">Field Ops</button>
+<div class="nav-menu">
 <button class="sec-btn current" type="button">Lab WIP</button>
+<div class="nav-submenu">
+<a class="sec-btn" href="standards.html">Standards</a>
+<a class="sec-btn" href="consumables.html">Consumables</a>
+<a class="sec-btn" href="import.html">Import</a>
+<a class="sec-btn" href="test-types.html">Test Types</a>
+</div>
+</div>
 <button class="sec-btn" onclick="window.location.href='SureMap/SPLClientMap.HTML'">SureMap</button>
 <button class="sec-btn" onclick="window.location.href='employees.html'">Employees</button>
 <button class="sec-btn" onclick="window.location.href='clients.html'">Clients</button>
-</div>
-<div class="page-nav-row">
-<button class="sec-btn" onclick="window.location.href='standards.html'">Standards</button>
-<button class="sec-btn" onclick="window.location.href='consumables.html'">Consumables</button>
-<button class="sec-btn" onclick="window.location.href='import.html'">Import</button>
-<button class="sec-btn" onclick="window.location.href='test-types.html'">Test Types</button>
 </div>
 <div id="save-indicator" class="save-indicator" style="visibility:hidden"> SAVED</div>
 </div>
@@ -191,6 +193,7 @@
 </label>
 <button class="sec-btn" onclick="autofillScheduleFromQueue()">Auto Build from Queue</button>
 <button class="sec-btn" onclick="clearSchedule()">Clear Day</button>
+<button class="sec-btn" onclick="openSubcontractModal()">Sub Contract Tests</button>
 <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;">
 <button class="sec-btn" onclick="exportRunOrderCsv()">Export CSV</button>
 <select id="print-report-target" class="form-input schedule-print-select" title="Choose report scope">
@@ -234,6 +237,14 @@
 <div class="refresh-time">Scheduled vs remaining</div>
 </div>
 <div id="schedule-test-summary" class="test-summary">
+</div>
+</div>
+<div class="schedule-panel" style="margin-bottom:12px;">
+<div class="table-header">
+<h2>Subcontracted Work Orders</h2>
+<div class="refresh-time">Outside lab test assignments</div>
+</div>
+<div id="subcontracted-work-list" class="subcontract-list">
 </div>
 </div>
 <div class="schedule-grid">
@@ -285,6 +296,52 @@
 <button class="add-wo-btn" onclick="addEmployeeTask()">+ Add Task</button>
 </div>
 <div id="task-list" class="task-list"></div>
+</div>
+</div>
+<!-- SUBCONTRACT MODAL -->
+<div class="modal-overlay" id="subcontract-overlay">
+<div class="modal" style="width:980px;max-width:96vw;">
+<div class="modal-header">
+<h3>Sub Contract Tests</h3>
+<button class="modal-close" onclick="closeSubcontractModal()">X</button>
+</div>
+<div class="modal-body">
+<div class="form-grid subcontract-grid">
+<div class="form-group">
+<label class="form-label">Work Order</label>
+<select class="form-input" id="subcontract-wo-select" onchange="onSubcontractWorkOrderChange(this.value)">
+</select>
+</div>
+<div class="form-group">
+<label class="form-label">Subcontract Lab</label>
+<select class="form-input" id="subcontract-lab-select">
+</select>
+</div>
+<div class="form-group">
+<label class="form-label">Add Lab</label>
+<div class="subcontract-inline">
+<input class="form-input" id="subcontract-new-lab" type="text" placeholder="Lab name">
+<button type="button" class="act-btn" onclick="addSubcontractLabFromModal()">Add</button>
+</div>
+</div>
+<div class="form-group full">
+<div id="subcontract-modal-summary" class="form-label" style="font-size:11px;text-transform:none;letter-spacing:1px;">
+</div>
+</div>
+<div class="form-group full">
+<div class="subcontract-select-actions">
+<button type="button" class="act-btn" onclick="setAllSubcontractChecks(true)">Select All</button>
+<button type="button" class="act-btn" onclick="setAllSubcontractChecks(false)">Clear Selected</button>
+</div>
+<div id="subcontract-test-list" class="subcontract-test-list">
+</div>
+</div>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn-cancel" onclick="closeSubcontractModal()">Cancel</button>
+<button class="btn-save" onclick="saveSubcontractSelection()">Save Subcontract</button>
+</div>
 </div>
 </div>
 <!-- SAMPLE MODAL -->

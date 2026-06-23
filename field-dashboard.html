@@ -39,6 +39,7 @@
   <div class="view-tabs">
     <button class="view-btn active" data-view="overview" onclick="switchView('overview')">Overview</button>
     <button class="view-btn" data-view="schedule" onclick="switchView('schedule')">Schedule</button>
+    <button class="view-btn" data-view="inventory" onclick="switchView('inventory')">Inventory</button>
     <button class="view-btn" data-view="resources" onclick="switchView('resources')">Resources</button>
     <button class="view-btn" data-view="samples" onclick="switchView('samples')">Samples</button>
     <button class="view-btn" data-view="maintenance" onclick="switchView('maintenance')">Maintenance</button>
@@ -77,6 +78,16 @@
         <div class="panel-body" id="schedule-board"></div>
       </section>
     </div>
+    <section class="panel travel-schedule-panel">
+      <div class="panel-header">
+        <h2>Technician Travel Schedule</h2>
+        <div class="panel-actions">
+          <div class="panel-meta" id="travel-summary"></div>
+          <button class="act-btn" type="button" onclick="openEntityModal('technicianTravel')">+ Add Travel</button>
+        </div>
+      </div>
+      <div class="panel-body" id="travel-board"></div>
+    </section>
     <div class="toolbar dispatch-toolbar" id="dispatch-toolbar"></div>
     <section class="panel table-panel schedule-dispatch-panel">
       <div class="panel-header">
@@ -87,8 +98,46 @@
     </section>
   </div>
 
+  <div id="inventory-screen" class="screen">
+    <div class="toolbar simple-toolbar">
+      <div class="toolbar-summary">Manage Field Ops parts, on-hand stock, low-stock attention, and job usage history.</div>
+      <button class="add-btn" type="button" onclick="openEntityModal('parts')">+ Add Part</button>
+    </div>
+    <div class="toolbar inventory-toolbar">
+      <span class="label">Search</span>
+      <input type="text" placeholder="Part, vendor, category, location..." oninput="setInventoryFilter('inventorySearch', this.value)">
+      <span class="label">Status</span>
+      <select onchange="setInventoryFilter('inventoryStatus', this.value)">
+        <option value="active" selected>Active Parts</option>
+        <option value="low">Low Stock</option>
+        <option value="inactive">Inactive</option>
+        <option value="all">All Parts</option>
+      </select>
+    </div>
+    <section class="panel table-panel">
+      <div class="panel-header">
+        <h2>Field Parts Inventory</h2>
+        <div class="panel-meta" id="inventory-summary"></div>
+      </div>
+      <div class="panel-body" id="parts-table"></div>
+    </section>
+    <section class="panel table-panel part-activity-section">
+      <div class="panel-header">
+        <h2>Recent Part Activity</h2>
+      </div>
+      <div class="panel-body" id="part-activity-panel"></div>
+    </section>
+  </div>
+
   <div id="resources-screen" class="screen">
     <div class="resource-grid">
+      <section class="panel">
+        <div class="panel-header">
+          <h2>SPL Sites</h2>
+          <button class="act-btn" type="button" onclick="openEntityModal('splSites')">+ Add SPL Site</button>
+        </div>
+        <div class="panel-body" id="spl-sites-panel"></div>
+      </section>
       <section class="panel">
         <div class="panel-header">
           <h2>Trucks</h2>
@@ -128,6 +177,12 @@
           <button class="act-btn" type="button" onclick="openEntityModal('jobTypes')">+ Add Job Type</button>
         </div>
         <div class="panel-body" id="job-types-panel"></div>
+      </section>
+      <section class="panel part-catalog-panel">
+        <div class="panel-header">
+          <h2>Inventory Lists</h2>
+        </div>
+        <div class="panel-body" id="part-catalogs-panel"></div>
       </section>
     </div>
   </div>
@@ -176,6 +231,33 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="job-part-modal-overlay">
+    <div class="modal job-part-modal">
+      <div class="modal-header">
+        <h3>Add Parts To Job</h3>
+        <button class="modal-close" type="button" onclick="closeJobPartPicker()">X</button>
+      </div>
+      <div class="modal-body" id="job-part-modal-body"></div>
+      <div class="modal-footer">
+        <button class="btn-save" type="button" onclick="closeJobPartPicker()">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="part-adjust-modal-overlay">
+    <div class="modal part-adjust-modal">
+      <div class="modal-header">
+        <h3 id="part-adjust-modal-title">Adjust Stock</h3>
+        <button class="modal-close" type="button" onclick="closePartAdjustModal()">X</button>
+      </div>
+      <div class="modal-body" id="part-adjust-modal-body"></div>
+      <div class="modal-footer">
+        <button class="btn-cancel" type="button" onclick="closePartAdjustModal()">Cancel</button>
+        <button class="btn-save" type="button" onclick="savePartAdjustment()">Save</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="sample-link-modal-overlay">
     <div class="modal sample-link-modal">
       <div class="modal-header">
@@ -202,6 +284,7 @@
       </div>
     </div>
   </div>
+  <input id="sample-logistics-import-file" type="file" accept=".csv,text/csv" style="display:none" onchange="handleSampleLogisticsImportSelected(event)">
 
   <script src="app-config.js"></script>
   <script>

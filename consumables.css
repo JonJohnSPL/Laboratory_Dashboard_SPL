@@ -62,6 +62,79 @@ td.num,th.num{text-align:right;}
   font-size:9px;
   text-align:center;
 }
+.supply-icon{
+  display:grid;
+  place-items:center;
+  flex:0 0 auto;
+  width:58px;
+  height:58px;
+  border:1px solid rgba(111,227,255,.28);
+  border-radius:8px;
+  background:linear-gradient(145deg,rgba(8,20,24,.96),rgba(20,28,38,.96));
+  color:#dbeafe;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.04), 6px 7px 0 rgba(0,0,0,.2);
+}
+.supply-icon strong{font-family:var(--mono);font-size:22px;font-weight:400;line-height:1;}
+.supply-icon span{margin-top:3px;color:var(--muted);font-family:var(--mono);font-size:9px;text-transform:uppercase;}
+.consumables-dashboard{display:grid;gap:18px;margin-top:18px;}
+.dashboard-intro{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  gap:16px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--surface);
+  padding:20px;
+}
+.dashboard-intro h2{color:var(--accent);font-size:24px;letter-spacing:2px;text-transform:uppercase;}
+.dashboard-intro p{margin-top:6px;color:var(--muted);font-family:var(--mono);font-size:12px;line-height:1.45;}
+.category-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;}
+.category-card{
+  display:flex;
+  flex-direction:column;
+  min-height:320px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--surface);
+  color:inherit;
+  padding:18px;
+  text-decoration:none;
+  transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease;
+}
+.category-card:hover{transform:translateY(-3px);box-shadow:0 20px 44px rgba(0,0,0,.28);}
+.category-card.gas:hover{border-color:rgba(6,214,160,.36);}
+.category-card.chem:hover{border-color:rgba(255,209,102,.4);}
+.category-card.containers:hover{border-color:rgba(0,212,255,.36);}
+.category-card.instrument:hover{border-color:rgba(255,140,66,.36);}
+.category-card.general:hover{border-color:rgba(186,150,255,.34);}
+.category-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+.category-card h2{margin-top:8px;font-size:23px;letter-spacing:1px;line-height:1;text-transform:uppercase;}
+.category-card.gas h2{color:#06d6a0;}
+.category-card.chem h2{color:var(--warn);}
+.category-card.containers h2{color:var(--accent);}
+.category-card.instrument h2{color:#ff9d5c;}
+.category-card.general h2{color:#c4a5ff;}
+.category-card p{margin-top:14px;color:#c3d0df;font-size:14px;line-height:1.45;flex:1 1 auto;}
+.category-glyph{
+  display:grid;
+  place-items:center;
+  width:44px;
+  height:44px;
+  border:1px solid rgba(100,116,139,.28);
+  border-radius:8px;
+  background:var(--surface2);
+  color:var(--text);
+  font-family:var(--mono);
+  font-size:16px;
+}
+.category-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:16px;}
+.category-metrics div{border:1px solid rgba(100,116,139,.24);border-radius:8px;background:rgba(26,30,40,.72);padding:10px;}
+.category-metrics strong{display:block;color:var(--text);font-family:var(--mono);font-size:22px;font-weight:400;}
+.category-metrics span{display:block;margin-top:4px;color:var(--muted);font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;}
+.launch-eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;}
+.launch-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;}
+.meta-pill{border:1px solid rgba(100,116,139,.28);border-radius:999px;color:var(--muted);font-family:var(--mono);font-size:10px;letter-spacing:1px;padding:4px 9px;text-transform:uppercase;}
 .count-cell{font-family:var(--mono);font-size:18px;color:var(--text);text-align:right;}
 .count-cell.new-count{color:var(--ok);}
 .count-cell.in-use-count{color:var(--warn);}
@@ -77,7 +150,35 @@ td.num,th.num{text-align:right;}
 .stock-box.new strong{color:var(--ok);}
 .stock-box.use strong{color:var(--accent);}
 .stock-box.empty strong{color:var(--danger);}
+.quick-action-panel{display:grid;gap:8px;}
 .action-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+.quick-count-control{
+  justify-self:end;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  color:var(--muted);
+  font-family:var(--mono);
+  font-size:10px;
+  letter-spacing:1px;
+  text-transform:uppercase;
+}
+.quick-count-control input{
+  width:58px;
+  border:1px solid var(--border);
+  border-radius:6px;
+  background:var(--surface2);
+  color:var(--text);
+  font-family:var(--mono);
+  font-size:13px;
+  padding:7px 8px;
+  text-align:right;
+}
+.quick-count-control input:focus{
+  outline:none;
+  border-color:var(--accent);
+  box-shadow:0 0 0 2px rgba(0,212,255,.12);
+}
 .activity-list,.order-list{display:grid;gap:8px;}
 .activity-row,.order-card{
   border:1px solid var(--border);
@@ -134,4 +235,10 @@ td.num,th.num{text-align:right;}
 }
 @media (max-width:800px){
   .stock-strip,.action-grid,.count-preview{grid-template-columns:1fr;}
+  .quick-count-control{justify-self:stretch;justify-content:flex-end;}
+  .dashboard-intro{align-items:stretch;flex-direction:column;}
+  .category-grid{grid-template-columns:1fr;}
+}
+@media (min-width:801px) and (max-width:1300px){
+  .category-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
 }

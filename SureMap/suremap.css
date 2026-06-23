@@ -2,6 +2,18 @@
   justify-content:flex-end;
 }
 
+.suremap-toolbar .hidden{
+  display:none !important;
+}
+
+.suremap-mode-toggle{
+  margin-right:4px;
+}
+
+.suremap-route-filter-control{
+  max-width:160px;
+}
+
 .suremap-toolbar input[type=text]{
   width:min(320px, 100%);
 }
@@ -12,6 +24,30 @@
 
 .suremap-client-picker .client-picker-shell input{
   min-width:min(250px, 46vw);
+}
+
+.site-list-picker-section{
+  display:grid;
+  gap:6px;
+  padding:6px;
+}
+
+.site-list-picker-section + .site-list-picker-section{
+  border-top:1px solid var(--border);
+}
+
+.site-list-picker-heading{
+  padding:3px 5px;
+  color:var(--muted);
+  font-family:var(--mono);
+  font-size:10px;
+  letter-spacing:1.5px;
+  text-transform:uppercase;
+}
+
+.site-list-picker-option{
+  width:100%;
+  min-width:0;
 }
 
 .suremap-layout{
@@ -40,26 +76,30 @@
 
 .suremap-filter-row{
   display:flex;
-  align-items:center;
+  flex-wrap:wrap;
   gap:8px;
   padding:14px 16px 0;
 }
 
-.suremap-filter-select{
-  flex:1;
-  width:100%;
-  min-width:0;
-  height:34px;
-  padding:0 10px;
-  border-radius:6px;
+.suremap-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:5px 10px;
+  border-radius:999px;
   border:1px solid var(--border);
-  background:var(--surface2);
-  color:var(--text);
+  background:transparent;
+  color:var(--muted);
   font-family:var(--mono);
-  font-size:11px;
+  font-size:10px;
+  letter-spacing:1px;
+  text-transform:uppercase;
+  cursor:pointer;
+  transition:all .18s ease;
 }
 
-.suremap-toolbar .act-btn.active{
+.suremap-chip:hover,
+.suremap-chip.active{
   color:var(--accent);
   border-color:rgba(89,214,125,.34);
   background:rgba(89,214,125,.08);
@@ -70,6 +110,7 @@
   gap:10px;
   padding:14px 12px 16px;
   overflow:auto;
+  overscroll-behavior:contain;
 }
 
 .suremap-site-card{
@@ -81,141 +122,219 @@
   border:1px solid rgba(45,58,49,.95);
   background:rgba(18,26,21,.76);
   cursor:pointer;
+  content-visibility:auto;
+  contain-intrinsic-size:88px;
+}
+
+.suremap-route-client-note{
+  min-height:38px;
+  display:flex;
+  align-items:center;
+  color:var(--muted);
+  font-family:var(--mono);
+  font-size:11px;
+}
+
+.suremap-route-card{
+  display:grid;
+  gap:10px;
+  padding:12px;
+  border:1px solid rgba(45,58,49,.95);
+  border-radius:8px;
+  background:rgba(18,26,21,.76);
+  cursor:pointer;
+  content-visibility:auto;
+  contain-intrinsic-size:108px;
+}
+
+.suremap-route-card.active{
+  border-color:rgba(255,209,102,.52);
+}
+
+.suremap-route-card-head{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:flex-start;
+}
+
+.suremap-route-editor{
+  gap:16px;
+}
+
+.route-title-input{
+  font-family:var(--condensed);
+  font-size:24px;
+  font-weight:700;
+}
+
+.suremap-route-form-grid,
+.suremap-route-location-grid{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:12px;
+}
+
+.suremap-route-form-grid .full{
+  grid-column:1 / -1;
+}
+
+.suremap-route-location{
+  display:grid;
+  gap:10px;
+  padding:12px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--surface2);
+}
+
+.suremap-route-stop-tools{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:12px;
+  align-items:stretch;
+}
+
+.suremap-route-stop-tool-group{
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) auto;
+  gap:10px;
+  align-items:end;
+  min-width:0;
+  padding:10px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--surface2);
+}
+
+.suremap-route-stop-tool-group.destination{
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+}
+
+.suremap-route-stop-tool-group .form-group{
+  min-width:0;
+}
+
+.suremap-route-stop-tool-group .add-btn,
+.suremap-route-stop-tool-group .act-btn{
+  min-height:34px;
+  white-space:nowrap;
+}
+
+.suremap-route-stops{
+  display:grid;
+  gap:12px;
+}
+
+.suremap-route-stop-card{
+  display:grid;
+  gap:12px;
+  padding:12px;
+  border:1px solid rgba(45,58,49,.95);
+  border-radius:8px;
+  background:rgba(18,26,21,.68);
+}
+
+.suremap-route-stop-head{
+  display:grid;
+  grid-template-columns:auto minmax(0, 1fr) auto;
+  gap:10px;
+  align-items:start;
+}
+
+.suremap-route-leg-meta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.suremap-route-stop-number{
+  width:30px;
+  height:30px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:50%;
+  background:#ffd166;
+  color:#071009;
+  font-family:var(--mono);
+  font-weight:700;
+}
+
+.suremap-route-place-stop{
+  border-color:var(--place-color, #6fe3ff);
+}
+
+.suremap-route-place-stop-number{
+  border-radius:8px;
+  background:var(--place-color, #6fe3ff);
+}
+
+.suremap-route-place-details{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+}
+
+.suremap-route-job-options{
+  display:grid;
+  gap:8px;
+}
+
+.suremap-route-job-option{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  padding:9px 10px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--surface2);
+}
+
+.suremap-route-job-option input{
+  margin-top:2px;
+}
+
+.suremap-route-job-option span{
+  display:grid;
+  gap:3px;
+  min-width:0;
+}
+
+.suremap-route-job-option strong,
+.suremap-route-job-option small{
+  font-family:var(--mono);
+  line-height:1.35;
+}
+
+.suremap-route-job-option strong{
+  font-size:11px;
+  color:var(--text);
+}
+
+.suremap-route-job-option small{
+  font-size:10px;
+  color:var(--muted);
+}
+
+.suremap-route-summary{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
 }
 
 .suremap-site-card.active{
   border-color:rgba(176,242,143,.42);
 }
 
-.suremap-client-site-card{
-  display:grid;
-  gap:10px;
-  padding:10px;
-  border-radius:10px;
-  border:1px solid rgba(45,58,49,.95);
-  background:rgba(18,26,21,.76);
+.suremap-other-site-card{
+  border-color:rgba(111,227,255,.24);
 }
 
-.suremap-client-site-header{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  width:100%;
-  min-width:0;
-  padding:0;
-  border:0;
-  background:transparent;
-  color:inherit;
-  text-align:left;
-  cursor:pointer;
-}
-
-.suremap-client-site-list{
-  display:grid;
-  gap:6px;
-}
-
-.suremap-client-site-list[hidden]{
-  display:none;
-}
-
-.suremap-client-logo{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  width:34px;
-  height:34px;
-  border-radius:8px;
-  border:1px solid rgba(176,242,143,.16);
-  object-fit:contain;
-  background:rgba(8,12,10,.5);
-  color:var(--text);
-  flex-shrink:0;
-  font-family:var(--mono);
-  font-size:11px;
-  font-weight:700;
-}
-
-.suremap-client-logo.small{
-  width:28px;
-  height:28px;
-  font-size:10px;
-}
-
-.suremap-client-logo.large{
-  width:48px;
-  height:48px;
-  border-radius:10px;
-  font-size:13px;
-}
-
-.suremap-client-logo.empty{
-  object-fit:initial;
-}
-
-.suremap-client-logo.asset-photo-error{
-  display:none;
-}
-
-.suremap-grouped-site{
-  display:grid;
-  grid-template-columns:auto minmax(0, 1fr) auto;
-  align-items:center;
-  gap:8px;
-  width:100%;
-  min-width:0;
-  padding:7px 8px;
-  border:1px solid transparent;
-  border-radius:8px;
-  background:rgba(8,12,10,.42);
-  color:var(--text);
-  cursor:pointer;
-  text-align:left;
-}
-
-.suremap-grouped-site:hover,
-.suremap-grouped-site.active{
-  border-color:rgba(176,242,143,.34);
-  background:rgba(89,214,125,.08);
-}
-
-.suremap-grouped-site-token{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  width:24px;
-  height:24px;
-  border-radius:7px;
-  flex-shrink:0;
-  font-family:var(--mono);
-  font-size:10px;
-  font-weight:700;
-}
-
-.suremap-grouped-site-copy{
-  display:grid;
-  gap:2px;
-  min-width:0;
-}
-
-.suremap-grouped-site-copy strong,
-.suremap-grouped-site-copy span{
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-  font-family:var(--mono);
-  line-height:1.35;
-}
-
-.suremap-grouped-site-copy strong{
-  color:var(--text);
-  font-size:11px;
-  font-weight:400;
-}
-
-.suremap-grouped-site-copy span{
-  color:var(--muted);
-  font-size:10px;
+.suremap-other-site-card.active{
+  border-color:rgba(111,227,255,.58);
+  background:rgba(111,227,255,.08);
 }
 
 .suremap-site-icon{
@@ -235,12 +354,14 @@
 .suremap-site-copy{
   min-width:0;
   flex:1;
+  overflow-wrap:anywhere;
 }
 
 .suremap-map-body{
   position:relative;
   min-height:72vh;
   padding:0;
+  contain:layout paint;
 }
 
 #map{
@@ -274,16 +395,14 @@
   gap:14px;
 }
 
+.suremap-other-site-detail{
+  border-left:3px solid rgba(111,227,255,.5);
+  padding-left:12px;
+}
+
 .suremap-detail-title{
   display:grid;
   gap:6px;
-}
-
-.suremap-detail-heading{
-  display:flex;
-  align-items:center;
-  gap:12px;
-  min-width:0;
 }
 
 .suremap-detail-grid{
@@ -321,6 +440,11 @@
   display:flex;
   flex-wrap:wrap;
   gap:10px;
+}
+
+.suremap-detail-actions button:disabled{
+  opacity:.45;
+  cursor:not-allowed;
 }
 
 .suremap-empty-state{
@@ -506,6 +630,123 @@
   width:min(760px, 100%);
 }
 
+.route-place-modal-card{
+  width:min(720px, 100%);
+}
+
+.route-place-list-modal-card{
+  width:min(640px, 100%);
+}
+
+.route-add-stop-modal-card{
+  width:min(860px, 100%);
+}
+
+.suremap-route-place-form{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:12px;
+}
+
+.suremap-route-place-form .full{
+  grid-column:1 / -1;
+}
+
+.suremap-checkbox-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-height:38px;
+  padding:9px 10px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--surface2);
+  color:var(--text);
+  font-family:var(--mono);
+  font-size:11px;
+}
+
+.suremap-add-stop-btn{
+  width:max-content;
+  max-width:100%;
+}
+
+.suremap-add-stop-modal-grid{
+  display:grid;
+  grid-template-columns:minmax(240px, .85fr) minmax(0, 1.15fr);
+  gap:14px;
+  align-items:start;
+}
+
+.suremap-add-stop-list-options,
+.suremap-add-stop-site-options{
+  display:grid;
+  gap:8px;
+  max-height:min(58vh, 520px);
+  overflow:auto;
+  padding:6px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:rgba(8,12,10,.28);
+}
+
+.suremap-add-stop-site-option{
+  display:grid;
+  grid-template-columns:auto minmax(0, 1fr);
+  gap:10px;
+  align-items:center;
+  width:100%;
+  min-width:0;
+  padding:10px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:rgba(18,26,21,.76);
+  color:var(--text);
+  text-align:left;
+  cursor:pointer;
+}
+
+.suremap-add-stop-site-option:hover{
+  border-color:rgba(176,242,143,.34);
+  background:rgba(89,214,125,.08);
+}
+
+.suremap-add-stop-site-token{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:30px;
+  height:30px;
+  border-radius:8px;
+  font-family:var(--mono);
+  font-weight:700;
+}
+
+.suremap-add-stop-site-option span:last-child{
+  display:grid;
+  gap:3px;
+  min-width:0;
+}
+
+.suremap-add-stop-site-option strong,
+.suremap-add-stop-site-option small{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-family:var(--mono);
+  line-height:1.35;
+}
+
+.suremap-add-stop-site-option strong{
+  font-size:12px;
+  color:var(--text);
+}
+
+.suremap-add-stop-site-option small{
+  font-size:10px;
+  color:var(--muted);
+}
+
 .leaflet-container{
   background:#d9e8d6 !important;
 }
@@ -572,6 +813,20 @@
   }
 
   .suremap-layout{
+    grid-template-columns:1fr;
+  }
+
+  .suremap-route-form-grid,
+  .suremap-route-location-grid,
+  .suremap-route-stop-tools,
+  .suremap-route-place-form,
+  .suremap-add-stop-modal-grid,
+  .suremap-route-stop-head{
+    grid-template-columns:1fr;
+  }
+
+  .suremap-route-stop-tool-group,
+  .suremap-route-stop-tool-group.destination{
     grid-template-columns:1fr;
   }
 

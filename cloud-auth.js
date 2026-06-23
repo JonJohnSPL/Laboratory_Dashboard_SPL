@@ -49,6 +49,23 @@
     renderSessionControls();
 
     try {
+      const linkSession = parseEmailLinkSession();
+      if(linkSession){
+        const isRecovery = linkSession.auth_link_type === 'recovery';
+        state.session = linkSession;
+        state.user = linkSession.user || await fetchCurrentUser(linkSession.access_token);
+        persistSession({ ...linkSession, user: state.user });
+        renderSessionControls();
+        cleanAuthUrl();
+        if(isRecovery){
+          showPasswordResetOverlay();
+          return;
+        }
+        hideOverlay();
+        markReady();
+        return;
+      }
+
       state.session = loadStoredSession();
       if(state.session){
         await ensureSession();
@@ -178,6 +195,34 @@
     document.body.appendChild(overlay);
   }
 
+  function showPasswordResetOverlay(){
+    ensureOverlay();
+    document.body.classList.add('app-auth-pending');
+    state.overlay.classList.add('open');
+    state.overlay.querySelector('.auth-card').innerHTML = `
+      <div class="auth-card-head">
+        <div class="auth-kicker">Password Reset</div>
+        <div class="auth-title">${escapeHtml(state.config.authTitle)}</div>
+        <div class="auth-copy">Enter a new password to finish resetting your account.</div>
+      </div>
+      <form class="auth-form" autocomplete="on">
+        <div class="auth-field">
+          <label for="auth-new-password">New Password</label>
+          <input id="auth-new-password" name="password" type="password" autocomplete="new-password" required minlength="6">
+        </div>
+        <div class="auth-field">
+          <label for="auth-confirm-password">Confirm Password</label>
+          <input id="auth-confirm-password" name="confirmPassword" type="password" autocomplete="new-password" required minlength="6">
+        </div>
+        <div class="auth-status" aria-live="polite"></div>
+        <button type="submit" class="auth-submit">Update Password</button>
+      </form>
+    `;
+    state.formEl = state.overlay.querySelector('form');
+    state.statusEl = state.overlay.querySelector('.auth-status');
+    state.formEl.addEventListener('submit', handlePasswordResetSubmit);
+  }
+
   function renderSessionControls(){
     const slot = document.querySelector('[data-session-slot]');
     if(!slot){
@@ -253,6 +298,38 @@
     } catch (error){
       console.error('Sign-in failed:', error);
       setStatus(error.message || 'Sign-in failed.', true);
+    } finally {
+      submitBtn.disabled = false;
+    }
+  }
+
+  async function handlePasswordResetSubmit(event){
+    event.preventDefault();
+    const formData = new FormData(state.formEl);
+    const password = String(formData.get('password') || '');
+    const confirmPassword = String(formData.get('confirmPassword') || '');
+
+    if(password.length < 6){
+      setStatus('Password must be at least 6 characters.', true);
+      return;
+    }
+    if(password !== confirmPassword){
+      setStatus('Passwords do not match.', true);
+      return;
+    }
+
+    const submitBtn = state.formEl.querySelector('.auth-submit');
+    submitBtn.disabled = true;
+    setStatus('Updating password...', false);
+
+    try {
+      await updatePassword(password);
+      hideOverlay();
+      renderSessionControls();
+      markReady();
+    } catch (error){
+      console.error('Password reset failed:', error);
+      setStatus(error.message || 'Password reset failed.', true);
     } finally {
       submitBtn.disabled = false;
     }
@@ -376,6 +453,26 @@
     return response.json();
   }
 
+  async function updatePassword(password){
+    const session = await ensureSession();
+    const response = await fetch(buildUrl('/auth/v1/user'), {
+      method: 'PUT',
+      headers: {
+        'apikey': state.config.supabaseAnonKey,
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ password })
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if(!response.ok){
+      throw new Error(payload?.msg || payload?.error_description || payload?.error || 'Unable to update password.');
+    }
+    state.user = payload;
+    persistSession({ ...session, user: state.user });
+  }
+
   async function parseAuthResponse(response){
     const payload = await response.json().catch(() => ({}));
     if(!response.ok){
@@ -443,6 +540,29 @@
 
   function buildUrl(path){
     return `${state.config.supabaseUrl}${path}`;
+  }
+
+  function parseEmailLinkSession(){
+    const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    if(!accessToken || !refreshToken){
+      return null;
+    }
+    return {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      expires_in: Number(params.get('expires_in') || 3600),
+      expires_at: Math.floor(Date.now() / 1000) + Number(params.get('expires_in') || 3600),
+      token_type: params.get('token_type') || 'bearer',
+      auth_link_type: params.get('type') || ''
+    };
+  }
+
+  function cleanAuthUrl(){
+    if(window.location.hash){
+      history.replaceState(null, document.title, `${window.location.pathname}${window.location.search}`);
+    }
   }
 
   function resolveEmail(identifier){

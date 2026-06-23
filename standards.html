@@ -26,16 +26,18 @@
     <div class="nav-row">
       <button class="sec-btn" onclick="window.location.href='index.html'">Home</button>
       <button class="sec-btn" onclick="window.location.href='field-dashboard.html'">Field Ops</button>
-      <button class="sec-btn current" onclick="window.location.href='lab-dashboard.html'">Lab WIP</button>
+      <div class="nav-menu">
+        <button class="sec-btn current" onclick="window.location.href='lab-dashboard.html'">Lab WIP</button>
+        <div class="nav-submenu">
+          <a class="sec-btn current" href="standards.html">Standards</a>
+          <a class="sec-btn" href="consumables.html">Consumables</a>
+          <a class="sec-btn" href="import.html">Import</a>
+          <a class="sec-btn" href="test-types.html">Test Types</a>
+        </div>
+      </div>
       <button class="sec-btn" onclick="window.location.href='SureMap/SPLClientMap.HTML'">SureMap</button>
       <button class="sec-btn" onclick="window.location.href='employees.html'">Employees</button>
       <button class="sec-btn" onclick="window.location.href='clients.html'">Clients</button>
-    </div>
-    <div class="page-nav-row">
-      <button class="sec-btn current" type="button">Standards</button>
-      <button class="sec-btn" onclick="window.location.href='consumables.html'">Consumables</button>
-      <button class="sec-btn" onclick="window.location.href='import.html'">Import</button>
-      <button class="sec-btn" onclick="window.location.href='test-types.html'">Test Types</button>
     </div>
     <div id="save-indicator" class="save-indicator" style="visibility:hidden;">Saved</div>
   </div>

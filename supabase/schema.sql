@@ -726,6 +726,35 @@ create table if not exists public.field_job_assignments (
   updated_by uuid
 );
 
+create table if not exists public.field_job_sites (
+  id uuid primary key default gen_random_uuid(),
+  job_id uuid not null references public.field_jobs(id) on delete cascade,
+  site_id uuid not null references public.field_sites(id) on delete cascade,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid,
+  unique (job_id, site_id)
+);
+alter table public.field_job_sites add column if not exists job_id uuid;
+alter table public.field_job_sites add column if not exists site_id uuid;
+alter table public.field_job_sites add column if not exists sort_order integer not null default 0;
+alter table public.field_job_sites drop constraint if exists field_job_sites_job_id_fkey;
+alter table public.field_job_sites add constraint field_job_sites_job_id_fkey foreign key (job_id) references public.field_jobs(id) on delete cascade;
+alter table public.field_job_sites drop constraint if exists field_job_sites_site_id_fkey;
+alter table public.field_job_sites add constraint field_job_sites_site_id_fkey foreign key (site_id) references public.field_sites(id) on delete cascade;
+create unique index if not exists field_job_sites_job_site_unique_idx on public.field_job_sites(job_id, site_id);
+create index if not exists field_job_sites_job_id_idx on public.field_job_sites(job_id);
+create index if not exists field_job_sites_site_id_idx on public.field_job_sites(site_id);
+create index if not exists field_job_sites_job_sort_idx on public.field_job_sites(job_id, sort_order);
+
+insert into public.field_job_sites (job_id, site_id, sort_order)
+select j.id, j.site_id, 0
+from public.field_jobs j
+where j.site_id is not null
+on conflict (job_id, site_id) do nothing;
+
 create table if not exists public.employees (
   id uuid primary key default gen_random_uuid(),
   employee_first_name text not null default '',
@@ -753,6 +782,7 @@ create table if not exists public.field_job_types (
   job_type_color text not null default '#f56584',
   is_active boolean not null default true,
   lab_employee_eligible boolean not null default false,
+  allow_multiple_sites boolean not null default false,
   schedule_mode text not null default 'range' check (schedule_mode in ('range', 'point_in_time')),
   required_assignment_types text[] not null default '{}'::text[],
   detail_groups text[] not null default '{}'::text[],
@@ -767,6 +797,7 @@ alter table public.field_job_types add column if not exists job_type_color text 
 alter table public.field_job_types alter column job_type_color set default '#f56584';
 alter table public.field_job_types add column if not exists is_active boolean not null default true;
 alter table public.field_job_types add column if not exists lab_employee_eligible boolean not null default false;
+alter table public.field_job_types add column if not exists allow_multiple_sites boolean not null default false;
 alter table public.field_job_types add column if not exists schedule_mode text not null default 'range';
 alter table public.field_job_types add column if not exists required_assignment_types text[] not null default '{}'::text[];
 alter table public.field_job_types add column if not exists detail_groups text[] not null default '{}'::text[];
@@ -781,24 +812,19 @@ insert into public.field_job_types (
   job_type_color,
   is_active,
   lab_employee_eligible,
+  allow_multiple_sites,
   schedule_mode,
   required_assignment_types,
   detail_groups
 )
 values
-  ('ALLOCATION_PROVING', 'Allocation Proving', '#f56584', true, false, 'range', array['Technician', 'Truck', 'Equipment'], array['proving', 'execution']),
-  ('LACT_PROVING', 'LACT Proving', '#ffa29f', true, false, 'range', array['Technician', 'Truck', 'Equipment'], array['proving', 'execution']),
-  ('SAMPLE_PICKUP', 'Sample Pickup', '#ffff97', true, false, 'point_in_time', array['Technician', 'Truck'], array['sample_logistics', 'execution']),
-  ('SAMPLE_DROP_OFF', 'Sample Drop-Off', '#cdff82', true, false, 'point_in_time', array['Technician', 'Truck'], array['sample_logistics', 'execution']),
-  ('MAINTENANCE', 'Maintenance', '#8afcc3', true, false, 'range', '{}'::text[], array['maintenance', 'execution']),
-  ('MULTI_SERVICE', 'Multi-Service', '#90eeff', true, false, 'range', '{}'::text[], array['proving', 'sample_logistics', 'maintenance', 'execution'])
-on conflict (job_type_key) do update
-set job_type_name = excluded.job_type_name,
-    job_type_color = excluded.job_type_color,
-    is_active = excluded.is_active,
-    schedule_mode = excluded.schedule_mode,
-    required_assignment_types = excluded.required_assignment_types,
-    detail_groups = excluded.detail_groups;
+  ('ALLOCATION_PROVING', 'Allocation Proving', '#f56584', true, false, false, 'range', array['Technician', 'Truck', 'Equipment'], array['proving', 'execution']),
+  ('LACT_PROVING', 'LACT Proving', '#ffa29f', true, false, true, 'range', array['Technician', 'Truck', 'Equipment'], array['proving', 'execution']),
+  ('SAMPLE_PICKUP', 'Sample Pickup', '#ffff97', true, false, false, 'point_in_time', array['Technician', 'Truck'], array['sample_logistics', 'execution']),
+  ('SAMPLE_DROP_OFF', 'Sample Drop-Off', '#cdff82', true, false, false, 'point_in_time', array['Technician', 'Truck'], array['sample_logistics', 'execution']),
+  ('MAINTENANCE', 'Maintenance', '#8afcc3', true, false, false, 'range', '{}'::text[], array['maintenance', 'execution']),
+  ('MULTI_SERVICE', 'Multi-Service', '#90eeff', true, false, false, 'range', '{}'::text[], array['proving', 'sample_logistics', 'maintenance', 'execution'])
+on conflict (job_type_key) do nothing;
 
 alter table public.employees add column if not exists employee_first_name text not null default '';
 alter table public.employees add column if not exists employee_last_name text not null default '';
@@ -836,6 +862,119 @@ update public.employees
 set employee_name = btrim(coalesce(nullif(employee_first_name, ''), '') || ' ' || coalesce(nullif(employee_last_name, ''), ''))
 where btrim(coalesce(employee_first_name, '') || ' ' || coalesce(employee_last_name, '')) <> ''
   and employee_name <> btrim(coalesce(nullif(employee_first_name, ''), '') || ' ' || coalesce(nullif(employee_last_name, ''), ''));
+
+create table if not exists public.field_spl_sites (
+  id uuid primary key default gen_random_uuid(),
+  site_name text not null default '',
+  site_code text not null default '',
+  location_label text not null default '',
+  street_address text not null default '',
+  city text not null default '',
+  state text not null default '',
+  zip_code text not null default '',
+  is_active boolean not null default true,
+  notes text not null default '',
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+alter table public.field_spl_sites add column if not exists site_name text not null default '';
+alter table public.field_spl_sites add column if not exists site_code text not null default '';
+alter table public.field_spl_sites add column if not exists location_label text not null default '';
+alter table public.field_spl_sites add column if not exists street_address text not null default '';
+alter table public.field_spl_sites add column if not exists city text not null default '';
+alter table public.field_spl_sites add column if not exists state text not null default '';
+alter table public.field_spl_sites add column if not exists zip_code text not null default '';
+alter table public.field_spl_sites add column if not exists is_active boolean not null default true;
+alter table public.field_spl_sites add column if not exists notes text not null default '';
+update public.field_spl_sites
+set site_code = upper(btrim(site_code))
+where coalesce(site_code, '') <> '';
+create unique index if not exists field_spl_sites_site_code_lower_unique_idx on public.field_spl_sites(lower(site_code)) where btrim(site_code) <> '';
+
+insert into public.field_spl_sites (site_name, site_code, location_label, is_active, notes)
+values ('SPL Pittsburgh', 'PITTSBURGH', 'SPL Pittsburgh', true, 'Default internal SPL site for Field Ops travel scheduling.')
+on conflict do nothing;
+
+create table if not exists public.field_technician_travel (
+  id uuid primary key default gen_random_uuid(),
+  technician_id uuid not null references public.employees(id) on delete cascade,
+  direction text not null default 'Outbound' check (direction in ('Inbound', 'Outbound')),
+  travel_status text not null default 'Planned' check (travel_status in ('Planned', 'In Transit', 'On Site', 'Complete', 'Canceled')),
+  origin_type text not null default 'spl_site' check (origin_type in ('spl_site', 'client_site', 'other')),
+  origin_spl_site_id uuid references public.field_spl_sites(id),
+  origin_client_site_id uuid references public.field_sites(id),
+  origin_label text not null default '',
+  origin_location text not null default '',
+  destination_type text not null default 'client_site' check (destination_type in ('spl_site', 'client_site', 'other')),
+  destination_spl_site_id uuid references public.field_spl_sites(id),
+  destination_client_site_id uuid references public.field_sites(id),
+  destination_label text not null default '',
+  destination_location text not null default '',
+  arrival_at timestamptz not null,
+  departure_at timestamptz not null,
+  purpose text not null default '',
+  notes text not null default '',
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+alter table public.field_technician_travel add column if not exists technician_id uuid;
+alter table public.field_technician_travel add column if not exists direction text not null default 'Outbound';
+alter table public.field_technician_travel add column if not exists travel_status text not null default 'Planned';
+alter table public.field_technician_travel add column if not exists origin_type text not null default 'spl_site';
+alter table public.field_technician_travel add column if not exists origin_spl_site_id uuid;
+alter table public.field_technician_travel add column if not exists origin_client_site_id uuid;
+alter table public.field_technician_travel add column if not exists origin_label text not null default '';
+alter table public.field_technician_travel add column if not exists origin_location text not null default '';
+alter table public.field_technician_travel add column if not exists destination_type text not null default 'client_site';
+alter table public.field_technician_travel add column if not exists destination_spl_site_id uuid;
+alter table public.field_technician_travel add column if not exists destination_client_site_id uuid;
+alter table public.field_technician_travel add column if not exists destination_label text not null default '';
+alter table public.field_technician_travel add column if not exists destination_location text not null default '';
+alter table public.field_technician_travel add column if not exists arrival_at timestamptz;
+alter table public.field_technician_travel add column if not exists departure_at timestamptz;
+alter table public.field_technician_travel add column if not exists purpose text not null default '';
+alter table public.field_technician_travel add column if not exists notes text not null default '';
+alter table public.field_technician_travel drop constraint if exists field_technician_travel_technician_id_fkey;
+alter table public.field_technician_travel add constraint field_technician_travel_technician_id_fkey foreign key (technician_id) references public.employees(id) on delete cascade;
+alter table public.field_technician_travel drop constraint if exists field_technician_travel_origin_spl_site_id_fkey;
+alter table public.field_technician_travel add constraint field_technician_travel_origin_spl_site_id_fkey foreign key (origin_spl_site_id) references public.field_spl_sites(id);
+alter table public.field_technician_travel drop constraint if exists field_technician_travel_origin_client_site_id_fkey;
+alter table public.field_technician_travel add constraint field_technician_travel_origin_client_site_id_fkey foreign key (origin_client_site_id) references public.field_sites(id);
+alter table public.field_technician_travel drop constraint if exists field_technician_travel_destination_spl_site_id_fkey;
+alter table public.field_technician_travel add constraint field_technician_travel_destination_spl_site_id_fkey foreign key (destination_spl_site_id) references public.field_spl_sites(id);
+alter table public.field_technician_travel drop constraint if exists field_technician_travel_destination_client_site_id_fkey;
+alter table public.field_technician_travel add constraint field_technician_travel_destination_client_site_id_fkey foreign key (destination_client_site_id) references public.field_sites(id);
+alter table public.field_technician_travel drop constraint if exists field_technician_travel_direction_check;
+alter table public.field_technician_travel add constraint field_technician_travel_direction_check check (direction in ('Inbound', 'Outbound'));
+alter table public.field_technician_travel drop constraint if exists field_technician_travel_travel_status_check;
+alter table public.field_technician_travel add constraint field_technician_travel_travel_status_check check (travel_status in ('Planned', 'In Transit', 'On Site', 'Complete', 'Canceled'));
+alter table public.field_technician_travel drop constraint if exists field_technician_travel_origin_type_check;
+alter table public.field_technician_travel add constraint field_technician_travel_origin_type_check check (origin_type in ('spl_site', 'client_site', 'other'));
+alter table public.field_technician_travel drop constraint if exists field_technician_travel_destination_type_check;
+alter table public.field_technician_travel add constraint field_technician_travel_destination_type_check check (destination_type in ('spl_site', 'client_site', 'other'));
+alter table public.field_technician_travel drop constraint if exists field_technician_travel_time_order_check;
+alter table public.field_technician_travel add constraint field_technician_travel_time_order_check check (departure_at > arrival_at);
+alter table public.field_technician_travel drop constraint if exists field_technician_travel_direction_location_check;
+alter table public.field_technician_travel add constraint field_technician_travel_direction_location_check check (
+  (direction = 'Inbound' and destination_type = 'spl_site')
+  or (direction = 'Outbound' and origin_type = 'spl_site')
+);
+alter table public.field_technician_travel drop constraint if exists field_technician_travel_origin_target_check;
+alter table public.field_technician_travel add constraint field_technician_travel_origin_target_check check (
+  (origin_type = 'spl_site' and origin_spl_site_id is not null and origin_client_site_id is null)
+  or (origin_type = 'client_site' and origin_client_site_id is not null and origin_spl_site_id is null)
+  or (origin_type = 'other' and origin_spl_site_id is null and origin_client_site_id is null and btrim(origin_label) <> '')
+);
+alter table public.field_technician_travel drop constraint if exists field_technician_travel_destination_target_check;
+alter table public.field_technician_travel add constraint field_technician_travel_destination_target_check check (
+  (destination_type = 'spl_site' and destination_spl_site_id is not null and destination_client_site_id is null)
+  or (destination_type = 'client_site' and destination_client_site_id is not null and destination_spl_site_id is null)
+  or (destination_type = 'other' and destination_spl_site_id is null and destination_client_site_id is null and btrim(destination_label) <> '')
+);
 
 create table if not exists public.field_technicians (
   id uuid primary key default gen_random_uuid(),
@@ -919,6 +1058,7 @@ create table if not exists public.field_trucks (
   vin text not null default '',
   vehicle_id text not null default '',
   vehicle_year integer,
+  next_inspection_due date,
   notes text not null default '',
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
@@ -937,6 +1077,7 @@ alter table public.field_trucks add column if not exists registered_state text n
 alter table public.field_trucks add column if not exists vin text not null default '';
 alter table public.field_trucks add column if not exists vehicle_id text not null default '';
 alter table public.field_trucks add column if not exists vehicle_year integer;
+alter table public.field_trucks add column if not exists next_inspection_due date;
 alter table public.field_trucks drop column if exists plate_vin;
 alter table public.field_trucks drop column if exists assigned_region;
 alter table public.field_trucks drop column if exists odometer;
@@ -1092,6 +1233,453 @@ create table if not exists public.field_maintenance_records (
   updated_by uuid
 );
 
+create table if not exists public.field_parts (
+  id uuid primary key default gen_random_uuid(),
+  part_key text not null default '',
+  part_number text not null default '',
+  part_name text not null default '',
+  category text not null default '',
+  vendor_name text not null default '',
+  vendor_part_number text not null default '',
+  unit_cost numeric(12,2),
+  unit_name text not null default 'Each',
+  storage_location text not null default '',
+  on_hand_quantity integer not null default 0 check (on_hand_quantity >= 0),
+  reorder_point integer not null default 0 check (reorder_point >= 0),
+  is_active boolean not null default true,
+  notes text not null default '',
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+alter table public.field_parts add column if not exists part_key text not null default '';
+alter table public.field_parts add column if not exists part_number text not null default '';
+alter table public.field_parts add column if not exists part_name text not null default '';
+alter table public.field_parts add column if not exists category text not null default '';
+alter table public.field_parts add column if not exists vendor_name text not null default '';
+alter table public.field_parts add column if not exists vendor_part_number text not null default '';
+alter table public.field_parts add column if not exists unit_cost numeric(12,2);
+alter table public.field_parts add column if not exists unit_name text not null default 'Each';
+alter table public.field_parts add column if not exists storage_location text not null default '';
+alter table public.field_parts add column if not exists on_hand_quantity integer not null default 0;
+alter table public.field_parts add column if not exists reorder_point integer not null default 0;
+alter table public.field_parts add column if not exists is_active boolean not null default true;
+alter table public.field_parts add column if not exists notes text not null default '';
+update public.field_parts
+set part_key = coalesce(nullif(public.field_ops_catalog_key(part_key), ''), public.field_ops_catalog_key(coalesce(nullif(part_number, ''), part_name)))
+where coalesce(part_key, '') = '' or part_key <> public.field_ops_catalog_key(part_key);
+alter table public.field_parts drop constraint if exists field_parts_on_hand_quantity_check;
+alter table public.field_parts add constraint field_parts_on_hand_quantity_check check (on_hand_quantity >= 0);
+alter table public.field_parts drop constraint if exists field_parts_reorder_point_check;
+alter table public.field_parts add constraint field_parts_reorder_point_check check (reorder_point >= 0);
+create unique index if not exists field_parts_part_key_active_unique_idx on public.field_parts(lower(part_key)) where is_active and btrim(part_key) <> '';
+create unique index if not exists field_parts_part_number_active_unique_idx on public.field_parts(lower(part_number)) where is_active and btrim(part_number) <> '';
+create index if not exists field_parts_is_active_idx on public.field_parts(is_active);
+create index if not exists field_parts_low_stock_idx on public.field_parts(is_active, on_hand_quantity, reorder_point);
+create index if not exists field_parts_category_idx on public.field_parts(category);
+
+create table if not exists public.field_job_parts (
+  id uuid primary key default gen_random_uuid(),
+  job_id uuid not null references public.field_jobs(id) on delete cascade,
+  part_id uuid not null references public.field_parts(id) on delete restrict,
+  quantity integer not null default 1 check (quantity > 0),
+  part_key_snapshot text not null default '',
+  part_number_snapshot text not null default '',
+  part_name_snapshot text not null default '',
+  unit_cost_snapshot numeric(12,2),
+  unit_name_snapshot text not null default 'Each',
+  notes text not null default '',
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid,
+  unique (job_id, part_id)
+);
+alter table public.field_job_parts add column if not exists job_id uuid;
+alter table public.field_job_parts add column if not exists part_id uuid;
+alter table public.field_job_parts add column if not exists quantity integer not null default 1;
+alter table public.field_job_parts add column if not exists part_key_snapshot text not null default '';
+alter table public.field_job_parts add column if not exists part_number_snapshot text not null default '';
+alter table public.field_job_parts add column if not exists part_name_snapshot text not null default '';
+alter table public.field_job_parts add column if not exists unit_cost_snapshot numeric(12,2);
+alter table public.field_job_parts add column if not exists unit_name_snapshot text not null default 'Each';
+alter table public.field_job_parts add column if not exists notes text not null default '';
+alter table public.field_job_parts drop constraint if exists field_job_parts_job_id_fkey;
+alter table public.field_job_parts add constraint field_job_parts_job_id_fkey foreign key (job_id) references public.field_jobs(id) on delete cascade;
+alter table public.field_job_parts drop constraint if exists field_job_parts_part_id_fkey;
+alter table public.field_job_parts add constraint field_job_parts_part_id_fkey foreign key (part_id) references public.field_parts(id) on delete restrict;
+alter table public.field_job_parts drop constraint if exists field_job_parts_quantity_check;
+alter table public.field_job_parts add constraint field_job_parts_quantity_check check (quantity > 0);
+create unique index if not exists field_job_parts_job_part_unique_idx on public.field_job_parts(job_id, part_id);
+create index if not exists field_job_parts_job_id_idx on public.field_job_parts(job_id);
+create index if not exists field_job_parts_part_id_idx on public.field_job_parts(part_id);
+
+create table if not exists public.field_part_activity (
+  id uuid primary key default gen_random_uuid(),
+  part_id uuid not null references public.field_parts(id) on delete cascade,
+  job_id uuid,
+  job_part_id uuid,
+  activity_type text not null default '',
+  quantity_delta integer not null default 0,
+  quantity_before integer not null default 0,
+  quantity_after integer not null default 0,
+  notes text not null default '',
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+alter table public.field_part_activity add column if not exists part_id uuid;
+alter table public.field_part_activity add column if not exists job_id uuid;
+alter table public.field_part_activity add column if not exists job_part_id uuid;
+alter table public.field_part_activity add column if not exists activity_type text not null default '';
+alter table public.field_part_activity add column if not exists quantity_delta integer not null default 0;
+alter table public.field_part_activity add column if not exists quantity_before integer not null default 0;
+alter table public.field_part_activity add column if not exists quantity_after integer not null default 0;
+alter table public.field_part_activity add column if not exists notes text not null default '';
+alter table public.field_part_activity drop constraint if exists field_part_activity_part_id_fkey;
+alter table public.field_part_activity add constraint field_part_activity_part_id_fkey foreign key (part_id) references public.field_parts(id) on delete cascade;
+alter table public.field_part_activity drop constraint if exists field_part_activity_job_id_fkey;
+alter table public.field_part_activity drop constraint if exists field_part_activity_job_part_id_fkey;
+create index if not exists field_part_activity_part_id_idx on public.field_part_activity(part_id);
+create index if not exists field_part_activity_job_id_idx on public.field_part_activity(job_id);
+create index if not exists field_part_activity_created_at_idx on public.field_part_activity(created_at desc);
+
+create or replace function public.log_field_part_activity(
+  part_id_value uuid,
+  job_id_value uuid,
+  job_part_id_value uuid,
+  activity_type_value text,
+  quantity_delta_value integer,
+  quantity_before_value integer,
+  quantity_after_value integer,
+  notes_value text
+)
+returns void
+language plpgsql
+as $$
+begin
+  insert into public.field_part_activity (
+    part_id,
+    job_id,
+    job_part_id,
+    activity_type,
+    quantity_delta,
+    quantity_before,
+    quantity_after,
+    notes
+  )
+  values (
+    part_id_value,
+    job_id_value,
+    job_part_id_value,
+    activity_type_value,
+    quantity_delta_value,
+    quantity_before_value,
+    quantity_after_value,
+    coalesce(notes_value, '')
+  );
+end;
+$$;
+
+create or replace function public.apply_field_job_part_stock()
+returns trigger
+language plpgsql
+as $$
+declare
+  part_record public.field_parts%rowtype;
+  old_part_record public.field_parts%rowtype;
+  quantity_delta integer;
+  quantity_before integer;
+  quantity_after integer;
+  activity_label text;
+begin
+  if tg_op = 'INSERT' then
+    select * into part_record
+    from public.field_parts
+    where id = new.part_id
+    for update;
+
+    if part_record.id is null then
+      raise exception 'Field part was not found.';
+    end if;
+
+    quantity_delta = -new.quantity;
+    quantity_before = part_record.on_hand_quantity;
+    quantity_after = quantity_before + quantity_delta;
+
+    if quantity_after < 0 then
+      raise exception 'Insufficient inventory for %. Available: %, requested: %.', coalesce(part_record.part_name, 'field part'), quantity_before, new.quantity;
+    end if;
+
+    update public.field_parts
+    set on_hand_quantity = quantity_after
+    where id = new.part_id;
+
+    new.part_key_snapshot = coalesce(nullif(new.part_key_snapshot, ''), part_record.part_key);
+    new.part_number_snapshot = coalesce(nullif(new.part_number_snapshot, ''), part_record.part_number);
+    new.part_name_snapshot = coalesce(nullif(new.part_name_snapshot, ''), part_record.part_name);
+    new.unit_cost_snapshot = coalesce(new.unit_cost_snapshot, part_record.unit_cost);
+    new.unit_name_snapshot = coalesce(nullif(new.unit_name_snapshot, ''), part_record.unit_name, 'Each');
+
+    perform public.log_field_part_activity(new.part_id, new.job_id, null, 'job_part_added', quantity_delta, quantity_before, quantity_after, new.notes);
+    return new;
+  end if;
+
+  if tg_op = 'UPDATE' then
+    if old.part_id is distinct from new.part_id then
+      select * into old_part_record
+      from public.field_parts
+      where id = old.part_id
+      for update;
+
+      if old_part_record.id is not null then
+        quantity_before = old_part_record.on_hand_quantity;
+        quantity_after = quantity_before + old.quantity;
+        update public.field_parts
+        set on_hand_quantity = quantity_after
+        where id = old.part_id;
+        perform public.log_field_part_activity(old.part_id, old.job_id, old.id, 'job_part_removed', old.quantity, quantity_before, quantity_after, old.notes);
+      end if;
+
+      select * into part_record
+      from public.field_parts
+      where id = new.part_id
+      for update;
+
+      if part_record.id is null then
+        raise exception 'Field part was not found.';
+      end if;
+
+      quantity_delta = -new.quantity;
+      quantity_before = part_record.on_hand_quantity;
+      quantity_after = quantity_before + quantity_delta;
+
+      if quantity_after < 0 then
+        raise exception 'Insufficient inventory for %. Available: %, requested: %.', coalesce(part_record.part_name, 'field part'), quantity_before, new.quantity;
+      end if;
+
+      update public.field_parts
+      set on_hand_quantity = quantity_after
+      where id = new.part_id;
+
+      new.part_key_snapshot = coalesce(nullif(new.part_key_snapshot, ''), part_record.part_key);
+      new.part_number_snapshot = coalesce(nullif(new.part_number_snapshot, ''), part_record.part_number);
+      new.part_name_snapshot = coalesce(nullif(new.part_name_snapshot, ''), part_record.part_name);
+      new.unit_cost_snapshot = coalesce(new.unit_cost_snapshot, part_record.unit_cost);
+      new.unit_name_snapshot = coalesce(nullif(new.unit_name_snapshot, ''), part_record.unit_name, 'Each');
+
+      perform public.log_field_part_activity(new.part_id, new.job_id, new.id, 'job_part_added', quantity_delta, quantity_before, quantity_after, new.notes);
+      return new;
+    end if;
+
+    select * into part_record
+    from public.field_parts
+    where id = new.part_id
+    for update;
+
+    if part_record.id is null then
+      raise exception 'Field part was not found.';
+    end if;
+
+    quantity_delta = old.quantity - new.quantity;
+    quantity_before = part_record.on_hand_quantity;
+    quantity_after = quantity_before + quantity_delta;
+
+    if quantity_after < 0 then
+      raise exception 'Insufficient inventory for %. Available: %, additional requested: %.', coalesce(part_record.part_name, 'field part'), quantity_before, abs(quantity_delta);
+    end if;
+
+    if quantity_delta <> 0 then
+      update public.field_parts
+      set on_hand_quantity = quantity_after
+      where id = new.part_id;
+
+      activity_label = case
+        when quantity_delta < 0 then 'job_part_increased'
+        else 'job_part_decreased'
+      end;
+
+      perform public.log_field_part_activity(new.part_id, new.job_id, new.id, activity_label, quantity_delta, quantity_before, quantity_after, new.notes);
+    end if;
+
+    new.part_key_snapshot = coalesce(nullif(new.part_key_snapshot, ''), part_record.part_key);
+    new.part_number_snapshot = coalesce(nullif(new.part_number_snapshot, ''), part_record.part_number);
+    new.part_name_snapshot = coalesce(nullif(new.part_name_snapshot, ''), part_record.part_name);
+    new.unit_cost_snapshot = coalesce(new.unit_cost_snapshot, part_record.unit_cost);
+    new.unit_name_snapshot = coalesce(nullif(new.unit_name_snapshot, ''), part_record.unit_name, 'Each');
+
+    return new;
+  end if;
+
+  if tg_op = 'DELETE' then
+    select * into part_record
+    from public.field_parts
+    where id = old.part_id
+    for update;
+
+    if part_record.id is not null then
+      quantity_before = part_record.on_hand_quantity;
+      quantity_after = quantity_before + old.quantity;
+      update public.field_parts
+      set on_hand_quantity = quantity_after
+      where id = old.part_id;
+      perform public.log_field_part_activity(old.part_id, old.job_id, old.id, 'job_part_removed', old.quantity, quantity_before, quantity_after, old.notes);
+    end if;
+
+    return old;
+  end if;
+
+  return null;
+end;
+$$;
+
+drop trigger if exists field_job_parts_stock_sync on public.field_job_parts;
+create trigger field_job_parts_stock_sync
+before insert or update or delete on public.field_job_parts
+for each row
+execute function public.apply_field_job_part_stock();
+
+create or replace function public.save_field_job_parts(target_job_id uuid, part_rows jsonb)
+returns integer
+language plpgsql
+as $$
+declare
+  saved_count integer;
+begin
+  if target_job_id is null then
+    raise exception 'Job id is required.';
+  end if;
+
+  if not exists (select 1 from public.field_jobs where id = target_job_id) then
+    raise exception 'Field job was not found.';
+  end if;
+
+  if part_rows is null then
+    part_rows = '[]'::jsonb;
+  end if;
+
+  if jsonb_typeof(part_rows) <> 'array' then
+    raise exception 'Part rows must be a JSON array.';
+  end if;
+
+  if exists (
+    select 1
+    from jsonb_to_recordset(part_rows) as row(part_id uuid, quantity integer, notes text)
+    where row.part_id is null or coalesce(row.quantity, 0) <= 0
+  ) then
+    raise exception 'Each job part requires a part id and a quantity greater than zero.';
+  end if;
+
+  if exists (
+    select 1
+    from (
+      select part_id
+      from jsonb_to_recordset(part_rows) as row(part_id uuid, quantity integer, notes text)
+      group by part_id
+      having count(*) > 1
+    ) duplicates
+  ) then
+    raise exception 'A part can only appear once on a job.';
+  end if;
+
+  delete from public.field_job_parts existing
+  where existing.job_id = target_job_id
+    and not exists (
+      select 1
+      from jsonb_to_recordset(part_rows) as row(part_id uuid, quantity integer, notes text)
+      where row.part_id = existing.part_id
+    );
+
+  update public.field_job_parts existing
+  set quantity = row.quantity,
+      notes = coalesce(row.notes, '')
+  from jsonb_to_recordset(part_rows) as row(part_id uuid, quantity integer, notes text)
+  where existing.job_id = target_job_id
+    and existing.part_id = row.part_id;
+
+  insert into public.field_job_parts (job_id, part_id, quantity, notes)
+  select target_job_id, row.part_id, row.quantity, coalesce(row.notes, '')
+  from jsonb_to_recordset(part_rows) as row(part_id uuid, quantity integer, notes text)
+  where not exists (
+    select 1
+    from public.field_job_parts existing
+    where existing.job_id = target_job_id
+      and existing.part_id = row.part_id
+  );
+
+  select count(*)
+  into saved_count
+  from public.field_job_parts
+  where job_id = target_job_id;
+
+  return saved_count;
+end;
+$$;
+
+create or replace function public.adjust_field_part_stock(
+  target_part_id uuid,
+  quantity_delta integer,
+  activity_type text,
+  notes text
+)
+returns integer
+language plpgsql
+as $$
+declare
+  part_record public.field_parts%rowtype;
+  quantity_before integer;
+  quantity_after integer;
+begin
+  if target_part_id is null then
+    raise exception 'Part id is required.';
+  end if;
+
+  if quantity_delta is null or quantity_delta = 0 then
+    raise exception 'Quantity delta must be non-zero.';
+  end if;
+
+  select * into part_record
+  from public.field_parts
+  where id = target_part_id
+  for update;
+
+  if part_record.id is null then
+    raise exception 'Field part was not found.';
+  end if;
+
+  quantity_before = part_record.on_hand_quantity;
+  quantity_after = quantity_before + quantity_delta;
+
+  if quantity_after < 0 then
+    raise exception 'Inventory cannot be adjusted below zero. Available: %, requested adjustment: %.', quantity_before, quantity_delta;
+  end if;
+
+  update public.field_parts
+  set on_hand_quantity = quantity_after
+  where id = target_part_id;
+
+  perform public.log_field_part_activity(
+    target_part_id,
+    null,
+    null,
+    coalesce(nullif(activity_type, ''), case when quantity_delta > 0 then 'stock_received' else 'stock_adjusted' end),
+    quantity_delta,
+    quantity_before,
+    quantity_after,
+    notes
+  );
+
+  return quantity_after;
+end;
+$$;
+
+revoke all on function public.save_field_job_parts(uuid, jsonb) from public;
+grant execute on function public.save_field_job_parts(uuid, jsonb) to authenticated;
+revoke all on function public.adjust_field_part_stock(uuid, integer, text, text) from public;
+grant execute on function public.adjust_field_part_stock(uuid, integer, text, text) to authenticated;
+
 create table if not exists public.consumable_items (
   id uuid primary key default gen_random_uuid(),
   item_key text not null default '',
@@ -1127,8 +1715,12 @@ alter table public.consumable_items add column if not exists gas_code text not n
 alter table public.consumable_items add column if not exists gas_subtitle text not null default '';
 alter table public.consumable_items add column if not exists is_active boolean not null default true;
 alter table public.consumable_items add column if not exists notes text not null default '';
+update public.consumable_items
+set category = 'Gas Supply'
+where coalesce(btrim(category), '') = '';
 alter table public.consumable_items drop constraint if exists consumable_items_reorder_point_check;
 alter table public.consumable_items add constraint consumable_items_reorder_point_check check (reorder_point >= 0);
+create index if not exists consumable_items_category_idx on public.consumable_items(category);
 create unique index if not exists consumable_items_item_key_unique_idx on public.consumable_items(item_key);
 create unique index if not exists consumable_items_item_key_lower_unique_idx on public.consumable_items(lower(item_key));
 
@@ -1260,10 +1852,474 @@ create index if not exists field_site_projects_project_id_idx on public.field_si
 create index if not exists field_jobs_client_id_idx on public.field_jobs(client_id);
 create index if not exists field_jobs_project_id_idx on public.field_jobs(project_id);
 create index if not exists field_jobs_site_id_idx on public.field_jobs(site_id);
+create unique index if not exists field_job_sites_job_site_unique_idx on public.field_job_sites(job_id, site_id);
+create index if not exists field_job_sites_job_id_idx on public.field_job_sites(job_id);
+create index if not exists field_job_sites_site_id_idx on public.field_job_sites(site_id);
+create index if not exists field_job_sites_job_sort_idx on public.field_job_sites(job_id, sort_order);
 create index if not exists field_jobs_salesforce_case_id_idx on public.field_jobs(salesforce_case_id) where btrim(salesforce_case_id) <> '';
 create unique index if not exists field_job_assignments_unique_resource_per_job_idx on public.field_job_assignments(job_id, assignment_type, resource_id);
 create unique index if not exists field_job_types_job_type_key_lower_unique_idx on public.field_job_types (lower(job_type_key));
 drop index if exists public.field_job_types_sort_order_idx;
+
+create table if not exists public.field_routes (
+  id uuid primary key default gen_random_uuid(),
+  route_name text not null default '',
+  route_date date not null,
+  route_status text not null default 'Draft' check (route_status in ('Draft', 'Planned', 'Assigned', 'Complete', 'Archived')),
+  assigned_technician_id uuid references public.employees(id) on delete set null,
+  origin_type text not null default 'spl' check (origin_type in ('spl', 'site', 'address', 'gps')),
+  origin_site_id uuid references public.field_sites(id) on delete set null,
+  origin_label text not null default 'SPL Pittsburgh',
+  origin_value text not null default '',
+  origin_latitude numeric,
+  origin_longitude numeric,
+  destination_type text not null default 'spl' check (destination_type in ('spl', 'site', 'address', 'gps')),
+  destination_site_id uuid references public.field_sites(id) on delete set null,
+  destination_label text not null default 'SPL Pittsburgh',
+  destination_value text not null default '',
+  destination_latitude numeric,
+  destination_longitude numeric,
+  distance_meters integer,
+  duration_seconds integer,
+  return_distance_meters integer,
+  return_duration_seconds integer,
+  notes text not null default '',
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+alter table public.field_routes add column if not exists route_name text not null default '';
+alter table public.field_routes add column if not exists route_date date;
+alter table public.field_routes add column if not exists route_status text not null default 'Draft';
+alter table public.field_routes add column if not exists assigned_technician_id uuid;
+alter table public.field_routes add column if not exists origin_type text not null default 'spl';
+alter table public.field_routes add column if not exists origin_site_id uuid;
+alter table public.field_routes add column if not exists origin_label text not null default 'SPL Pittsburgh';
+alter table public.field_routes add column if not exists origin_value text not null default '';
+alter table public.field_routes add column if not exists origin_latitude numeric;
+alter table public.field_routes add column if not exists origin_longitude numeric;
+alter table public.field_routes add column if not exists destination_type text not null default 'spl';
+alter table public.field_routes add column if not exists destination_site_id uuid;
+alter table public.field_routes add column if not exists destination_label text not null default 'SPL Pittsburgh';
+alter table public.field_routes add column if not exists destination_value text not null default '';
+alter table public.field_routes add column if not exists destination_latitude numeric;
+alter table public.field_routes add column if not exists destination_longitude numeric;
+alter table public.field_routes add column if not exists distance_meters integer;
+alter table public.field_routes add column if not exists duration_seconds integer;
+alter table public.field_routes add column if not exists return_distance_meters integer;
+alter table public.field_routes add column if not exists return_duration_seconds integer;
+alter table public.field_routes add column if not exists notes text not null default '';
+update public.field_routes
+set route_date = current_date
+where route_date is null;
+alter table public.field_routes alter column route_date set not null;
+alter table public.field_routes drop constraint if exists field_routes_route_status_check;
+alter table public.field_routes add constraint field_routes_route_status_check check (route_status in ('Draft', 'Planned', 'Assigned', 'Complete', 'Archived'));
+alter table public.field_routes drop constraint if exists field_routes_origin_type_check;
+alter table public.field_routes add constraint field_routes_origin_type_check check (origin_type in ('spl', 'site', 'address', 'gps'));
+alter table public.field_routes drop constraint if exists field_routes_destination_type_check;
+alter table public.field_routes add constraint field_routes_destination_type_check check (destination_type in ('spl', 'site', 'address', 'gps'));
+alter table public.field_routes drop constraint if exists field_routes_assigned_technician_id_fkey;
+alter table public.field_routes add constraint field_routes_assigned_technician_id_fkey foreign key (assigned_technician_id) references public.employees(id) on delete set null;
+alter table public.field_routes drop constraint if exists field_routes_origin_site_id_fkey;
+alter table public.field_routes add constraint field_routes_origin_site_id_fkey foreign key (origin_site_id) references public.field_sites(id) on delete set null;
+alter table public.field_routes drop constraint if exists field_routes_destination_site_id_fkey;
+alter table public.field_routes add constraint field_routes_destination_site_id_fkey foreign key (destination_site_id) references public.field_sites(id) on delete set null;
+
+create table if not exists public.field_route_place_lists (
+  id uuid primary key default gen_random_uuid(),
+  list_name text not null default '',
+  list_color text not null default '#6fe3ff',
+  icon_key text not null default 'pin',
+  is_active boolean not null default true,
+  notes text not null default '',
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+alter table public.field_route_place_lists add column if not exists list_name text not null default '';
+alter table public.field_route_place_lists add column if not exists list_color text not null default '#6fe3ff';
+alter table public.field_route_place_lists add column if not exists icon_key text not null default 'pin';
+alter table public.field_route_place_lists add column if not exists is_active boolean not null default true;
+alter table public.field_route_place_lists add column if not exists notes text not null default '';
+create unique index if not exists field_route_place_lists_list_name_lower_unique_idx on public.field_route_place_lists(lower(list_name)) where btrim(list_name) <> '';
+
+insert into public.field_route_place_lists (list_name, list_color, icon_key, is_active)
+values
+  ('Auto Repair', '#ff8fa3', 'wrench', true),
+  ('Supply Store', '#6fe3ff', 'store', true),
+  ('Other Destinations', '#ffd166', 'pin', true)
+on conflict do nothing;
+
+create table if not exists public.field_route_places (
+  id uuid primary key default gen_random_uuid(),
+  list_id uuid not null references public.field_route_place_lists(id) on delete restrict,
+  place_name text not null default '',
+  location_type text not null default 'address' check (location_type in ('address', 'gps')),
+  address_value text not null default '',
+  latitude numeric,
+  longitude numeric,
+  phone text not null default '',
+  website_url text not null default '',
+  is_active boolean not null default true,
+  notes text not null default '',
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+alter table public.field_route_places add column if not exists list_id uuid;
+alter table public.field_route_places add column if not exists place_name text not null default '';
+alter table public.field_route_places add column if not exists location_type text not null default 'address';
+alter table public.field_route_places add column if not exists address_value text not null default '';
+alter table public.field_route_places add column if not exists latitude numeric;
+alter table public.field_route_places add column if not exists longitude numeric;
+alter table public.field_route_places add column if not exists phone text not null default '';
+alter table public.field_route_places add column if not exists website_url text not null default '';
+alter table public.field_route_places add column if not exists is_active boolean not null default true;
+alter table public.field_route_places add column if not exists notes text not null default '';
+alter table public.field_route_places drop constraint if exists field_route_places_list_id_fkey;
+alter table public.field_route_places add constraint field_route_places_list_id_fkey foreign key (list_id) references public.field_route_place_lists(id) on delete restrict;
+alter table public.field_route_places drop constraint if exists field_route_places_location_type_check;
+alter table public.field_route_places add constraint field_route_places_location_type_check check (location_type in ('address', 'gps'));
+create index if not exists field_route_places_list_id_idx on public.field_route_places(list_id);
+create index if not exists field_route_places_is_active_idx on public.field_route_places(is_active);
+
+create table if not exists public.field_route_stops (
+  id uuid primary key default gen_random_uuid(),
+  route_id uuid not null references public.field_routes(id) on delete cascade,
+  site_id uuid not null references public.field_sites(id) on delete cascade,
+  stop_order integer not null default 0,
+  stop_notes text not null default '',
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+alter table public.field_route_stops add column if not exists route_id uuid;
+alter table public.field_route_stops add column if not exists site_id uuid;
+alter table public.field_route_stops alter column site_id drop not null;
+alter table public.field_route_stops add column if not exists stop_type text not null default 'site';
+alter table public.field_route_stops add column if not exists place_id uuid;
+alter table public.field_route_stops add column if not exists stop_label text not null default '';
+alter table public.field_route_stops add column if not exists stop_value text not null default '';
+alter table public.field_route_stops add column if not exists stop_latitude numeric;
+alter table public.field_route_stops add column if not exists stop_longitude numeric;
+alter table public.field_route_stops add column if not exists stop_order integer not null default 0;
+alter table public.field_route_stops add column if not exists leg_distance_meters integer;
+alter table public.field_route_stops add column if not exists leg_duration_seconds integer;
+alter table public.field_route_stops add column if not exists stop_notes text not null default '';
+update public.field_route_stops
+set stop_type = 'site'
+where coalesce(stop_type, '') = '';
+alter table public.field_route_stops drop constraint if exists field_route_stops_route_id_fkey;
+alter table public.field_route_stops add constraint field_route_stops_route_id_fkey foreign key (route_id) references public.field_routes(id) on delete cascade;
+alter table public.field_route_stops drop constraint if exists field_route_stops_site_id_fkey;
+alter table public.field_route_stops add constraint field_route_stops_site_id_fkey foreign key (site_id) references public.field_sites(id) on delete cascade;
+alter table public.field_route_stops drop constraint if exists field_route_stops_place_id_fkey;
+alter table public.field_route_stops add constraint field_route_stops_place_id_fkey foreign key (place_id) references public.field_route_places(id) on delete restrict;
+alter table public.field_route_stops drop constraint if exists field_route_stops_stop_type_check;
+alter table public.field_route_stops add constraint field_route_stops_stop_type_check check (stop_type in ('site', 'place'));
+alter table public.field_route_stops drop constraint if exists field_route_stops_stop_target_check;
+alter table public.field_route_stops add constraint field_route_stops_stop_target_check check (
+  (stop_type = 'site' and site_id is not null and place_id is null)
+  or (stop_type = 'place' and place_id is not null and site_id is null)
+);
+
+create table if not exists public.field_route_stop_jobs (
+  id uuid primary key default gen_random_uuid(),
+  route_stop_id uuid not null references public.field_route_stops(id) on delete cascade,
+  job_id uuid not null references public.field_jobs(id) on delete cascade,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+alter table public.field_route_stop_jobs add column if not exists route_stop_id uuid;
+alter table public.field_route_stop_jobs add column if not exists job_id uuid;
+alter table public.field_route_stop_jobs drop constraint if exists field_route_stop_jobs_route_stop_id_fkey;
+alter table public.field_route_stop_jobs add constraint field_route_stop_jobs_route_stop_id_fkey foreign key (route_stop_id) references public.field_route_stops(id) on delete cascade;
+alter table public.field_route_stop_jobs drop constraint if exists field_route_stop_jobs_job_id_fkey;
+alter table public.field_route_stop_jobs add constraint field_route_stop_jobs_job_id_fkey foreign key (job_id) references public.field_jobs(id) on delete cascade;
+create unique index if not exists field_route_stop_jobs_stop_job_unique_idx on public.field_route_stop_jobs(route_stop_id, job_id);
+create index if not exists field_routes_route_date_idx on public.field_routes(route_date);
+create index if not exists field_routes_assigned_technician_id_idx on public.field_routes(assigned_technician_id);
+create index if not exists field_route_stops_route_id_idx on public.field_route_stops(route_id);
+create index if not exists field_route_stops_site_id_idx on public.field_route_stops(site_id);
+create index if not exists field_route_stops_place_id_idx on public.field_route_stops(place_id);
+create index if not exists field_route_stop_jobs_route_stop_id_idx on public.field_route_stop_jobs(route_stop_id);
+create index if not exists field_route_stop_jobs_job_id_idx on public.field_route_stop_jobs(job_id);
+create index if not exists field_spl_sites_is_active_idx on public.field_spl_sites(is_active);
+create index if not exists field_technician_travel_technician_id_idx on public.field_technician_travel(technician_id);
+create index if not exists field_technician_travel_arrival_departure_idx on public.field_technician_travel(arrival_at, departure_at);
+create index if not exists field_technician_travel_status_idx on public.field_technician_travel(travel_status);
+create index if not exists field_technician_travel_origin_spl_site_id_idx on public.field_technician_travel(origin_spl_site_id);
+create index if not exists field_technician_travel_destination_spl_site_id_idx on public.field_technician_travel(destination_spl_site_id);
+create index if not exists field_technician_travel_origin_client_site_id_idx on public.field_technician_travel(origin_client_site_id);
+create index if not exists field_technician_travel_destination_client_site_id_idx on public.field_technician_travel(destination_client_site_id);
+
+create or replace function public.field_travel_status_blocks(status_value text)
+returns boolean
+language sql
+immutable
+as $$
+  select coalesce(status_value, 'Planned') not in ('Complete', 'Canceled');
+$$;
+
+create or replace function public.field_employee_is_pittsburgh(employee_id uuid)
+returns boolean
+language sql
+stable
+as $$
+  select coalesce(
+    (
+      select lower(btrim(e.home_spl_site)) in ('pittsburgh', 'spl pittsburgh')
+        or upper(btrim(e.home_spl_site)) = 'PITTSBURGH'
+      from public.employees e
+      where e.id = employee_id
+    ),
+    false
+  );
+$$;
+
+create or replace function public.field_spl_site_is_pittsburgh(site_id uuid)
+returns boolean
+language sql
+stable
+as $$
+  select coalesce(
+    (
+      select upper(btrim(s.site_code)) = 'PITTSBURGH'
+        or lower(btrim(s.site_name)) = 'pittsburgh'
+        or lower(btrim(s.site_name)) = 'spl pittsburgh'
+        or lower(btrim(s.location_label)) = 'pittsburgh'
+        or lower(btrim(s.location_label)) = 'spl pittsburgh'
+      from public.field_spl_sites s
+      where s.id = site_id
+    ),
+    false
+  );
+$$;
+
+create or replace function public.field_travel_is_pittsburgh_availability(
+  direction_value text,
+  destination_type_value text,
+  destination_spl_site_id_value uuid
+)
+returns boolean
+language sql
+stable
+as $$
+  select direction_value = 'Inbound'
+    and destination_type_value = 'spl_site'
+    and public.field_spl_site_is_pittsburgh(destination_spl_site_id_value);
+$$;
+
+create or replace function public.field_job_overlaps_travel_window(
+  job_start timestamptz,
+  job_end timestamptz,
+  travel_start timestamptz,
+  travel_end timestamptz
+)
+returns boolean
+language sql
+immutable
+as $$
+  select case
+    when job_start is null or travel_start is null or travel_end is null then false
+    when job_end is null or job_end <= job_start then job_start >= travel_start and job_start < travel_end
+    else job_start < travel_end and job_end > travel_start
+  end;
+$$;
+
+create or replace function public.field_job_within_travel_window(
+  job_start timestamptz,
+  job_end timestamptz,
+  travel_start timestamptz,
+  travel_end timestamptz
+)
+returns boolean
+language sql
+immutable
+as $$
+  select case
+    when job_start is null or travel_start is null or travel_end is null then false
+    when job_end is null or job_end <= job_start then job_start >= travel_start and job_start < travel_end
+    else job_start >= travel_start and job_end <= travel_end
+  end;
+$$;
+
+create or replace function public.field_technician_has_pittsburgh_availability(
+  technician_id_value uuid,
+  job_start timestamptz,
+  job_end timestamptz
+)
+returns boolean
+language sql
+stable
+as $$
+  select exists (
+    select 1
+    from public.field_technician_travel t
+    where t.technician_id = technician_id_value
+      and public.field_travel_is_pittsburgh_availability(t.direction, t.destination_type, t.destination_spl_site_id)
+      and public.field_job_within_travel_window(job_start, job_end, t.arrival_at, t.departure_at)
+  );
+$$;
+
+create or replace function public.validate_field_technician_travel()
+returns trigger
+language plpgsql
+as $$
+begin
+  if exists (
+    select 1
+    from public.field_technician_travel t
+    where t.technician_id = new.technician_id
+      and t.id is distinct from new.id
+      and new.arrival_at < t.departure_at
+      and new.departure_at > t.arrival_at
+  ) then
+    raise exception 'Technician travel overlaps another travel entry.';
+  end if;
+
+  if exists (
+    select 1
+    from public.field_job_assignments a
+    join public.field_jobs j on j.id = a.job_id
+    where a.assignment_type = 'Technician'
+      and a.resource_id = new.technician_id
+      and not public.field_travel_is_pittsburgh_availability(new.direction, new.destination_type, new.destination_spl_site_id)
+      and public.field_job_overlaps_travel_window(coalesce(j.scheduled_start, j.requested_date::timestamptz), j.scheduled_end, new.arrival_at, new.departure_at)
+  ) then
+    raise exception 'Technician travel away from Pittsburgh overlaps an assigned field job.';
+  end if;
+
+  if not public.field_employee_is_pittsburgh(new.technician_id)
+    and exists (
+      select 1
+      from public.field_job_assignments a
+      join public.field_jobs j on j.id = a.job_id
+      where a.assignment_type = 'Technician'
+        and a.resource_id = new.technician_id
+        and coalesce(j.scheduled_start, j.requested_date::timestamptz) is not null
+        and not (
+          exists (
+            select 1
+            from public.field_technician_travel t
+            where t.technician_id = new.technician_id
+              and t.id is distinct from new.id
+              and public.field_travel_is_pittsburgh_availability(t.direction, t.destination_type, t.destination_spl_site_id)
+              and public.field_job_within_travel_window(coalesce(j.scheduled_start, j.requested_date::timestamptz), j.scheduled_end, t.arrival_at, t.departure_at)
+          )
+          or (
+            public.field_travel_is_pittsburgh_availability(new.direction, new.destination_type, new.destination_spl_site_id)
+            and public.field_job_within_travel_window(coalesce(j.scheduled_start, j.requested_date::timestamptz), j.scheduled_end, new.arrival_at, new.departure_at)
+          )
+        )
+    ) then
+    raise exception 'Visiting technician must have Pittsburgh travel covering assigned field jobs.';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists field_technician_travel_validate_overlap on public.field_technician_travel;
+create trigger field_technician_travel_validate_overlap
+before insert or update on public.field_technician_travel
+for each row
+execute function public.validate_field_technician_travel();
+
+create or replace function public.validate_field_job_travel_overlap()
+returns trigger
+language plpgsql
+as $$
+begin
+  if coalesce(new.scheduled_start, new.requested_date::timestamptz) is null then
+    return new;
+  end if;
+
+  if exists (
+    select 1
+    from public.field_job_assignments a
+    join public.field_technician_travel t on t.technician_id = a.resource_id
+    where a.job_id = new.id
+      and a.assignment_type = 'Technician'
+      and not public.field_travel_is_pittsburgh_availability(t.direction, t.destination_type, t.destination_spl_site_id)
+      and public.field_job_overlaps_travel_window(coalesce(new.scheduled_start, new.requested_date::timestamptz), new.scheduled_end, t.arrival_at, t.departure_at)
+  ) then
+    raise exception 'Field job schedule overlaps technician travel away from Pittsburgh.';
+  end if;
+
+  if exists (
+    select 1
+    from public.field_job_assignments a
+    where a.job_id = new.id
+      and a.assignment_type = 'Technician'
+      and not public.field_employee_is_pittsburgh(a.resource_id)
+      and not public.field_technician_has_pittsburgh_availability(a.resource_id, coalesce(new.scheduled_start, new.requested_date::timestamptz), new.scheduled_end)
+  ) then
+    raise exception 'Visiting technician must have Pittsburgh travel covering the field job.';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists field_jobs_validate_travel_overlap on public.field_jobs;
+create trigger field_jobs_validate_travel_overlap
+before insert or update on public.field_jobs
+for each row
+execute function public.validate_field_job_travel_overlap();
+
+create or replace function public.validate_field_job_assignment_travel_overlap()
+returns trigger
+language plpgsql
+as $$
+declare
+  job_start timestamptz;
+  job_end timestamptz;
+begin
+  if new.assignment_type <> 'Technician' or new.resource_id is null then
+    return new;
+  end if;
+
+  select coalesce(scheduled_start, requested_date::timestamptz), scheduled_end
+  into job_start, job_end
+  from public.field_jobs
+  where id = new.job_id;
+
+  if job_start is null then
+    return new;
+  end if;
+
+  if exists (
+    select 1
+    from public.field_technician_travel t
+    where t.technician_id = new.resource_id
+      and not public.field_travel_is_pittsburgh_availability(t.direction, t.destination_type, t.destination_spl_site_id)
+      and public.field_job_overlaps_travel_window(job_start, job_end, t.arrival_at, t.departure_at)
+  ) then
+    raise exception 'Field job assignment overlaps technician travel away from Pittsburgh.';
+  end if;
+
+  if not public.field_employee_is_pittsburgh(new.resource_id)
+    and not public.field_technician_has_pittsburgh_availability(new.resource_id, job_start, job_end) then
+    raise exception 'Visiting technician must have Pittsburgh travel covering the field job assignment.';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists field_job_assignments_validate_travel_overlap on public.field_job_assignments;
+create trigger field_job_assignments_validate_travel_overlap
+before insert or update on public.field_job_assignments
+for each row
+execute function public.validate_field_job_assignment_travel_overlap();
 
 create table if not exists public.field_site_type_job_types (
   id uuid primary key default gen_random_uuid(),
@@ -1304,6 +2360,77 @@ create index if not exists field_samples_linked_work_order_idx on public.field_s
 create index if not exists field_maintenance_asset_idx on public.field_maintenance_records(asset_type, asset_id);
 create index if not exists field_maintenance_status_due_idx on public.field_maintenance_records(status, due_date);
 
+create table if not exists public.field_part_catalogs (
+  id uuid primary key default gen_random_uuid(),
+  catalog_type text not null default '',
+  catalog_value text not null default '',
+  sort_order integer not null default 0,
+  is_active boolean not null default true,
+  notes text not null default '',
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+alter table public.field_part_catalogs add column if not exists catalog_type text not null default '';
+alter table public.field_part_catalogs add column if not exists catalog_value text not null default '';
+alter table public.field_part_catalogs add column if not exists sort_order integer not null default 0;
+alter table public.field_part_catalogs add column if not exists is_active boolean not null default true;
+alter table public.field_part_catalogs add column if not exists notes text not null default '';
+update public.field_part_catalogs
+set catalog_type = lower(btrim(catalog_type)),
+    catalog_value = btrim(catalog_value);
+alter table public.field_part_catalogs drop constraint if exists field_part_catalogs_catalog_type_check;
+alter table public.field_part_catalogs add constraint field_part_catalogs_catalog_type_check check (catalog_type in ('category', 'vendor', 'unit', 'storage_location'));
+alter table public.field_part_catalogs drop constraint if exists field_part_catalogs_catalog_value_check;
+alter table public.field_part_catalogs add constraint field_part_catalogs_catalog_value_check check (btrim(catalog_value) <> '');
+create unique index if not exists field_part_catalogs_type_value_unique_idx on public.field_part_catalogs(catalog_type, lower(catalog_value));
+create index if not exists field_part_catalogs_type_active_sort_idx on public.field_part_catalogs(catalog_type, is_active, sort_order, catalog_value);
+
+insert into public.field_part_catalogs (catalog_type, catalog_value, sort_order, is_active)
+values
+  ('category', 'Fittings', 10, true),
+  ('category', 'Valves', 20, true),
+  ('category', 'Gaskets / Seals', 30, true),
+  ('category', 'Tubing', 40, true),
+  ('category', 'Hoses', 50, true),
+  ('category', 'Meters', 60, true),
+  ('category', 'Electrical', 70, true),
+  ('category', 'Hardware', 80, true),
+  ('category', 'Consumables', 90, true),
+  ('category', 'Tools', 100, true),
+  ('category', 'Safety', 110, true),
+  ('category', 'Other', 120, true),
+  ('vendor', 'SPL Stock', 10, true),
+  ('vendor', 'Airgas', 20, true),
+  ('vendor', 'Amazon Business', 30, true),
+  ('vendor', 'Grainger', 40, true),
+  ('vendor', 'McMaster-Carr', 50, true),
+  ('vendor', 'Fastenal', 60, true),
+  ('vendor', 'Home Depot', 70, true),
+  ('vendor', 'Lowe''s', 80, true),
+  ('vendor', 'Other', 90, true),
+  ('unit', 'Each', 10, true),
+  ('unit', 'Box', 20, true),
+  ('unit', 'Pack', 30, true),
+  ('unit', 'Set', 40, true),
+  ('unit', 'Kit', 50, true),
+  ('unit', 'Foot', 60, true),
+  ('unit', 'Roll', 70, true),
+  ('unit', 'Case', 80, true),
+  ('unit', 'Bag', 90, true),
+  ('storage_location', 'Field Warehouse', 10, true),
+  ('storage_location', 'Pittsburgh Shop', 20, true),
+  ('storage_location', 'Service Truck', 30, true),
+  ('storage_location', 'Trailer', 40, true),
+  ('storage_location', 'Tool Room', 50, true),
+  ('storage_location', 'Parts Cabinet', 60, true),
+  ('storage_location', 'Client Site', 70, true),
+  ('storage_location', 'Other', 80, true)
+on conflict do nothing;
+
+grant select, insert, update, delete on public.field_part_catalogs to authenticated;
+
 do $$
 declare
   tbl text;
@@ -1318,16 +2445,28 @@ declare
     'field_sites',
     'field_site_projects',
     'field_jobs',
+    'field_job_sites',
     'field_job_assignments',
     'field_job_types',
     'field_site_type_job_types',
+    'field_routes',
+    'field_route_place_lists',
+    'field_route_places',
+    'field_route_stops',
+    'field_route_stop_jobs',
     'employees',
+    'field_spl_sites',
+    'field_technician_travel',
     'field_technicians',
     'field_trucks',
     'field_trailers',
     'field_equipment',
     'field_samples',
     'field_maintenance_records',
+    'field_part_catalogs',
+    'field_parts',
+    'field_job_parts',
+    'field_part_activity',
     'consumable_items',
     'consumable_stock_counts',
     'consumable_orders',

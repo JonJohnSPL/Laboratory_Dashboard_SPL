@@ -57,14 +57,6 @@
       text-transform:uppercase;
       color:var(--accent);
     }
-    .header-copy{
-      margin-top:10px;
-      max-width:620px;
-      color:#b7c4d6;
-      font-size:15px;
-      line-height:1.5;
-      letter-spacing:.3px;
-    }
     .header-right{display:flex;flex-direction:column;align-items:flex-end;gap:10px;}
     .nav-row,.page-nav-row{
       display:flex;
@@ -112,82 +104,25 @@
       font-style:normal;
       font-size:11px;
     }
-    .intro-card{
-      display:grid;
-      grid-template-columns:minmax(0, 1.45fr) minmax(280px, .95fr);
-      gap:16px;
-      margin-bottom:18px;
-    }
-    .hero-panel,.status-panel,.launch-card{
-      background:rgba(19,22,30,.92);
-      border:1px solid var(--border);
-      border-radius:16px;
-      box-shadow:0 18px 48px rgba(0,0,0,.24);
-    }
-    .hero-panel,.status-panel{padding:22px 24px;}
-    .hero-panel h2,.status-panel h2{
-      font-size:14px;
-      letter-spacing:2px;
-      color:var(--muted);
-      text-transform:uppercase;
-    }
-    .hero-grid{
-      display:grid;
-      grid-template-columns:repeat(3, minmax(0, 1fr));
-      gap:12px;
-      margin-top:16px;
-    }
-    .hero-stat{
-      padding:14px;
-      border-radius:12px;
-      border:1px solid rgba(42,47,63,.95);
-      background:rgba(26,30,40,.7);
-    }
-    .hero-stat strong{
-      display:block;
-      font-family:var(--mono);
-      font-size:24px;
-      color:var(--text);
-      font-weight:400;
-    }
-    .hero-stat span{
-      display:block;
-      margin-top:6px;
-      font-size:10px;
-      letter-spacing:2px;
-      color:var(--muted);
-      text-transform:uppercase;
-      font-family:var(--mono);
-    }
-    .status-list{margin-top:14px;display:grid;gap:10px;}
-    .status-item{
-      display:flex;
-      gap:10px;
-      align-items:flex-start;
-      padding:12px 14px;
-      border-radius:12px;
-      background:rgba(26,30,40,.7);
-      border:1px solid rgba(42,47,63,.95);
-      font-family:var(--mono);
-      font-size:12px;
-      color:#c9d5e5;
-      line-height:1.45;
-    }
-    .status-dot{width:9px;height:9px;margin-top:4px;border-radius:999px;flex:0 0 auto;background:var(--accent);}
-    .status-item.field .status-dot{background:var(--field);}
-    .status-item.warn .status-dot{background:var(--warn);}
-    .launch-grid{display:grid;grid-template-columns:repeat(6, minmax(0, 1fr));gap:16px;}
+    .launch-grid{display:grid;grid-template-columns:repeat(4, minmax(0, 1fr));gap:16px;}
     .launch-card{
       display:flex;
       flex-direction:column;
-      min-height:250px;
-      padding:20px;
+      align-items:center;
+      justify-content:center;
+      min-height:132px;
+      padding:24px;
+      background:rgba(19,22,30,.92);
+      border:1px solid var(--border);
+      border-radius:12px;
+      box-shadow:0 18px 48px rgba(0,0,0,.24);
       text-decoration:none;
       color:inherit;
       position:relative;
       overflow:hidden;
       transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease;
     }
+    .launch-card.has-children{gap:16px;}
     .launch-card::before{
       content:'';
       position:absolute;
@@ -199,6 +134,14 @@
       filter:blur(8px);
     }
     .launch-card:hover{transform:translateY(-4px);box-shadow:0 24px 54px rgba(0,0,0,.32);}
+    .launch-card:focus-visible{outline:2px solid var(--accent);outline-offset:4px;}
+    .launch-card-main{
+      color:inherit;
+      text-decoration:none;
+      position:relative;
+      z-index:1;
+    }
+    .launch-card-main:focus-visible{outline:2px solid currentColor;outline-offset:5px;border-radius:4px;}
     .launch-card.lab:hover{border-color:rgba(0,212,255,.36);}
     .launch-card.field:hover{border-color:rgba(89,214,125,.42);}
     .launch-card.tests:hover{border-color:rgba(255,140,66,.38);}
@@ -207,18 +150,14 @@
     .launch-card.import:hover{border-color:rgba(255,56,96,.3);}
     .launch-card.map:hover{border-color:rgba(91,140,245,.36);}
     .launch-card.people:hover{border-color:rgba(116,213,255,.34);}
-    .launch-eyebrow{
-      font-family:var(--mono);
-      font-size:10px;
-      letter-spacing:2px;
-      color:var(--muted);
-      text-transform:uppercase;
-    }
+    .launch-card.clients:hover{border-color:rgba(255,188,109,.34);}
     .launch-card h3{
-      margin-top:10px;
       font-size:26px;
       letter-spacing:2px;
       text-transform:uppercase;
+      text-align:center;
+      position:relative;
+      z-index:1;
     }
     .launch-card.lab h3{color:var(--accent);}
     .launch-card.field h3{color:var(--field);}
@@ -228,33 +167,43 @@
     .launch-card.import h3{color:#ff93ac;}
     .launch-card.map h3{color:#8db3ff;}
     .launch-card.people h3{color:#74d5ff;}
-    .launch-copy{
-      margin-top:12px;
-      color:#c0cedf;
-      line-height:1.5;
-      font-size:14px;
-      flex:1 1 auto;
+    .launch-card.clients h3{color:#ffbc6d;}
+    .launch-sublinks{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:8px;
+      width:100%;
+      position:relative;
+      z-index:1;
     }
-    .launch-meta{margin-top:18px;display:flex;flex-wrap:wrap;gap:8px;}
-    .meta-pill{
-      padding:4px 9px;
-      border-radius:999px;
+    .launch-sublink{
+      padding:8px 10px;
       border:1px solid rgba(100,116,139,.28);
+      border-radius:6px;
       color:var(--muted);
+      text-align:center;
+      text-decoration:none;
       font-family:var(--mono);
       font-size:10px;
       letter-spacing:1px;
       text-transform:uppercase;
+      transition:all .18s ease;
+    }
+    .launch-sublink:hover,.launch-sublink:focus-visible{
+      border-color:rgba(0,212,255,.36);
+      color:var(--accent);
+      outline:none;
     }
     @media (max-width: 1100px){
-      .intro-card,.launch-grid{grid-template-columns:repeat(2, minmax(0, 1fr));}
+      .launch-grid{grid-template-columns:repeat(2, minmax(0, 1fr));}
     }
     @media (max-width: 760px){
       body{padding:14px;}
       header{flex-direction:column;align-items:stretch;}
       .header-right{align-items:flex-start;}
       .nav-row,.page-nav-row{justify-content:flex-start;}
-      .intro-card,.launch-grid,.hero-grid{grid-template-columns:1fr;}
+      .launch-grid{grid-template-columns:1fr;}
+      .launch-sublinks{grid-template-columns:1fr;}
       .spl-logo{width:138px;}
       h1{font-size:28px;}
     }
@@ -268,7 +217,6 @@
         <div>
           <div class="kicker">Shared Operations Workspace</div>
           <h1>SPL Dashboard Launchpad</h1>
-          <p class="header-copy">Choose the operational workspace you need right now. Lab WIP, Field Ops, SureMap, Test Types, Standards, Consumables, and Import all stay inside the same static app shell with the shared authenticated access pattern already in this repo.</p>
         </div>
       </div>
       <div class="header-right">
@@ -289,127 +237,27 @@
       </div>
     </header>
 
-    <section class="intro-card">
-      <div class="hero-panel" id="launchpad-focus">
-        <h2>Operational Focus</h2>
-        <div class="hero-grid">
-          <div class="hero-stat">
-            <strong>Lab</strong>
-            <span>SureChem queue, pending results, daily scheduling</span>
-          </div>
-          <div class="hero-stat">
-            <strong>Field</strong>
-            <span>Dispatch, resource readiness, sample logistics, maintenance</span>
-          </div>
-          <div class="hero-stat">
-            <strong>Shared</strong>
-            <span>Supabase auth, static hosting, team access, low-overhead rollout</span>
-          </div>
-          <div class="hero-stat">
-            <strong>SureMap</strong>
-            <span>Client directory, mapping, site locations, and address-based setup</span>
-          </div>
-        </div>
-      </div>
-      <div class="status-panel" id="launchpad-changes">
-        <h2>What Changed</h2>
-        <div class="status-list">
-          <div class="status-item">
-            <div class="status-dot"></div>
-            <div>The root page is now a launchpad instead of redirecting straight into the lab dashboard.</div>
-          </div>
-          <div class="status-item field">
-            <div class="status-dot"></div>
-            <div>The new Pittsburgh Field Ops dashboard lives alongside the existing lab and standards pages.</div>
-          </div>
-          <div class="status-item warn">
-            <div class="status-dot"></div>
-            <div>Existing Lab WIP, Standards, Consumables, Import, and the new SureMap client directory stay connected through shared navigation across pages.</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <section class="launch-grid" id="launchpad-workspaces">
       <a class="launch-card field" href="field-dashboard.html">
-        <div class="launch-eyebrow">New Workspace</div>
         <h3>Field Ops</h3>
-        <p class="launch-copy">Daily dispatch, weekly schedule, client and site directory, crew and asset readiness, samples, and maintenance tracking for SPL Pittsburgh Field.</p>
-        <div class="launch-meta">
-          <span class="meta-pill">Dispatch</span>
-          <span class="meta-pill">Scheduling</span>
-          <span class="meta-pill">Green Theme</span>
-        </div>
       </a>
-      <a class="launch-card lab" href="lab-dashboard.html">
-        <div class="launch-eyebrow">Existing Workspace</div>
-        <h3>Lab WIP</h3>
-        <p class="launch-copy">Open work order queue, pending tests, lab scheduling, and the current Pittsburgh laboratory workflow management view.</p>
-        <div class="launch-meta">
-          <span class="meta-pill">Queue</span>
-          <span class="meta-pill">Pending</span>
-          <span class="meta-pill">Scheduling</span>
+      <div class="launch-card lab has-children">
+        <a class="launch-card-main" href="lab-dashboard.html"><h3>Lab WIP</h3></a>
+        <div class="launch-sublinks">
+          <a class="launch-sublink" href="standards.html">Standards</a>
+          <a class="launch-sublink" href="consumables.html">Consumables</a>
+          <a class="launch-sublink" href="import.html">Import</a>
+          <a class="launch-sublink" href="test-types.html">Test Types</a>
         </div>
-      </a>
+      </div>
       <a class="launch-card people" href="employees.html">
-        <div class="launch-eyebrow">Shared Directory</div>
         <h3>Employees</h3>
-        <p class="launch-copy">Manage the shared employee roster used by lab scheduling, field resources, truck defaults, and sample pickup or drop-off eligibility.</p>
-        <div class="launch-meta">
-          <span class="meta-pill">Roster</span>
-          <span class="meta-pill">Lab</span>
-          <span class="meta-pill">Field</span>
-        </div>
+      </a>
+      <a class="launch-card clients" href="clients.html">
+        <h3>Clients</h3>
       </a>
       <a class="launch-card map" href="SureMap/SPLClientMap.HTML">
-        <div class="launch-eyebrow">Client Mapping</div>
         <h3>SureMap</h3>
-        <p class="launch-copy">Manage mapped client accounts, contact details, sub-locations, and site geography used to organize customer information.</p>
-        <div class="launch-meta">
-          <span class="meta-pill">Clients</span>
-          <span class="meta-pill">Sites</span>
-          <span class="meta-pill">Mapping</span>
-        </div>
-      </a>
-      <a class="launch-card standards" href="standards.html">
-        <div class="launch-eyebrow">Reference Data</div>
-        <h3>Standards</h3>
-        <p class="launch-copy">Manage standards inventory, tag images, gas mix details, logs, and the calibration reference records used by the lab team.</p>
-        <div class="launch-meta">
-          <span class="meta-pill">Inventory</span>
-          <span class="meta-pill">Tag OCR</span>
-          <span class="meta-pill">Logs</span>
-        </div>
-      </a>
-      <a class="launch-card consumables" href="consumables.html">
-        <div class="launch-eyebrow">Lab Supply</div>
-        <h3>Consumables</h3>
-        <p class="launch-copy">Track AirGas cylinder counts, low-stock reorder points, order status, and supply activity for the gas inventory used around the lab.</p>
-        <div class="launch-meta">
-          <span class="meta-pill">Gas Supply</span>
-          <span class="meta-pill">Orders</span>
-          <span class="meta-pill">Tally</span>
-        </div>
-      </a>
-      <a class="launch-card tests" href="test-types.html">
-        <div class="launch-eyebrow">Configuration</div>
-        <h3>Test Types</h3>
-        <p class="launch-copy">Manage the shared lab test catalog, including display labels, estimated minutes, grouped-family behavior, and the aliases used to map historical work orders.</p>
-        <div class="launch-meta">
-          <span class="meta-pill">Catalog</span>
-          <span class="meta-pill">Timing</span>
-          <span class="meta-pill">Aliases</span>
-        </div>
-      </a>
-      <a class="launch-card import" href="import.html">
-        <div class="launch-eyebrow">Utility</div>
-        <h3>Import</h3>
-        <p class="launch-copy">Bring SureChem CSV data into the Lab WIP dashboard and choose whether to replace current data or append without wiping it.</p>
-        <div class="launch-meta">
-          <span class="meta-pill">CSV</span>
-          <span class="meta-pill">Replace</span>
-          <span class="meta-pill">Append</span>
-        </div>
       </a>
     </section>
   </div>
