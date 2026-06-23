@@ -1,7 +1,6 @@
-app-config.js
 app-config.local.js
 
-# Local secret/config files for Google API keys and Microsoft Power Apps/Power Automate webhooks.
+# Local secret/config files for Microsoft Power Apps/Power Automate webhooks.
 google-api-key*
 google-maps-api-key*
 power-apps-webhook*

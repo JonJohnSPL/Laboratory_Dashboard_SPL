@@ -13,11 +13,12 @@ GitHub alone is not enough for shared runtime data or secure login. The app was 
 ## What changed
 
 - `cloud-auth.js` adds a sign-in gate and provides a shared `window.storage` adapter.
-- `app-config.js` is the runtime config file for the Supabase URL and anon key.
+- `app-config.js` is the public runtime config file for browser-safe values such as the Supabase URL and anon key.
 - `index.html` redirects GitHub Pages root traffic to `lab-dashboard.html`.
 - `supabase/schema.sql` creates the shared storage table and access policies.
 
-If `app-config.js` is left blank, the app stays in local browser mode so you can still use it before cloud setup is finished.
+If `app-config.js` is left blank or missing from the hosted site, the app stays in local browser mode so you can still use it before cloud setup is finished.
+Do not put private service-role keys or webhook URLs in `app-config.js`; GitHub Pages serves it publicly.
 
 ## Supabase setup
 
