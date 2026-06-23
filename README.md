@@ -37,6 +37,21 @@ For password recovery, add this redirect URL in Supabase Auth URL Configuration:
 https://jonjohnspl.github.io/Laboratory_Dashboard_SPL/password-reset.html
 ```
 
+## Field Ops Teams alerts
+
+The browser calls the `field-ops-teams` Supabase Edge Function instead of calling the Teams webhook directly.
+Store the Teams/Power Automate URL as a Supabase secret:
+
+```text
+FIELD_OPS_TEAMS_WEBHOOK_URL
+```
+
+Then deploy the function:
+
+```text
+supabase functions deploy field-ops-teams
+```
+
 ## GitHub repo and Pages
 
 1. Create a new empty GitHub repository.
