@@ -1,6 +1,6 @@
 const STORAGE_KEY = 'field-ops-dashboard-data';
 const AUTO_REFRESH_MS = 15000;
-const ENTITY_ORDER = ['clients', 'projects', 'contacts', 'contactProjects', 'contactSites', 'billingProfiles', 'siteTypes', 'sites', 'siteProjects', 'jobTypes', 'siteTypeJobTypes', 'jobs', 'jobSites', 'jobAssignments', 'partCatalogs', 'parts', 'jobParts', 'partActivity', 'fieldRoutes', 'routePlaceLists', 'routePlaces', 'fieldRouteStops', 'fieldRouteStopJobs', 'employees', 'splSites', 'technicianTravel', 'trucks', 'trailers', 'equipment', 'samples', 'maintenanceRecords'];
+const ENTITY_ORDER = ['clients', 'projects', 'contacts', 'contactProjects', 'contactSites', 'billingProfiles', 'siteTypes', 'sites', 'siteProjects', 'jobTypes', 'siteTypeJobTypes', 'jobs', 'jobSites', 'jobAssignments', 'partCatalogs', 'parts', 'jobParts', 'partActivity', 'fieldRoutes', 'routePlaceLists', 'routePlaces', 'restrictedRoads', 'fieldRouteStops', 'fieldRouteStopJobs', 'employees', 'splSites', 'technicianTravel', 'trucks', 'trailers', 'equipment', 'samples', 'maintenanceRecords'];
 const FIELD_ASSET_BUCKET = 'field-assets';
 const ASSET_PHOTO_ENTITY_KEYS = ['clients', 'trucks', 'trailers', 'equipment'];
 const DEFAULT_ASSET_ICON_PATHS = {
@@ -125,7 +125,7 @@ const ENTITY_CONFIG = {
   contactSites:{ table:'field_contact_sites', label:'Contact Site Link', idPrefix:'contactsite', defaults:{ contactId:'', siteId:'' }, fieldMap:{ contactId:'contact_id', siteId:'site_id' }, idFields:['contactId', 'siteId'] },
   billingProfiles:{ table:'field_billing_profiles', label:'Billing Profile', idPrefix:'bill', defaults:{ clientId:'', projectId:'', billingName:'', billingAddress:'', billingEmail:'', billingPhone:'', poNumber:'', referenceNumber:'', invoiceNotes:'', fieldBillingNotes:'', labBillingNotes:'', isDefault:false }, fieldMap:{ clientId:'client_id', projectId:'project_id', billingName:'billing_name', billingAddress:'billing_address', billingEmail:'billing_email', billingPhone:'billing_phone', poNumber:'po_number', referenceNumber:'reference_number', invoiceNotes:'invoice_notes', fieldBillingNotes:'field_billing_notes', labBillingNotes:'lab_billing_notes', isDefault:'is_default' }, idFields:['clientId', 'projectId'], booleanFields:['isDefault'] },
   siteTypes:{ table:'field_site_types', label:'Site Type', idPrefix:'sitetype', defaults:{ siteTypeKey:'', siteTypeName:'', isActive:true, siteTypeStatus:'active', defaultJobTypes:[], notes:'' }, fieldMap:{ siteTypeKey:'site_type_key', siteTypeName:'site_type_name', isActive:'is_active', notes:'notes' }, booleanFields:['isActive'], arrayFields:['defaultJobTypes'], localOnlyFields:['siteTypeStatus', 'defaultJobTypes'] },
-  sites:{ table:'field_sites', label:'Site/Location', idPrefix:'site', defaults:{ clientId:'', projectId:'', projectIds:[], siteName:'', siteType:'OTHER', physicalAddress:'', countyState:'', gpsCoordinates:'', accessInstructions:'', safetyPpeNotes:'', gateCodeEntryRequirements:'', clientSiteContact:'', siteStatus:'Active', standardJobTypes:'', notes:'' }, fieldMap:{ clientId:'client_id', projectId:'project_id', siteName:'site_name', siteType:'site_type', physicalAddress:'physical_address', countyState:'county_state', gpsCoordinates:'gps_coordinates', accessInstructions:'access_instructions', safetyPpeNotes:'safety_ppe_notes', gateCodeEntryRequirements:'gate_code_entry_requirements', clientSiteContact:'client_site_contact', siteStatus:'site_status', standardJobTypes:'standard_job_types', notes:'notes' }, idFields:['clientId', 'projectId'], arrayFields:['projectIds'], localOnlyFields:['projectIds'] },
+  sites:{ table:'field_sites', label:'Site/Location', idPrefix:'site', defaults:{ clientId:'', projectId:'', projectIds:[], siteName:'', siteType:'OTHER', physicalAddress:'', countyState:'', gpsCoordinates:'', accessInstructions:'', safetyPpeNotes:'', gateCodeEntryRequirements:'', clientSiteContact:'', accessRequired:false, approvedAccessLabel:'', approvedAccessLatitude:null, approvedAccessLongitude:null, approvedAccessNotes:'', siteStatus:'Active', standardJobTypes:'', notes:'' }, fieldMap:{ clientId:'client_id', projectId:'project_id', siteName:'site_name', siteType:'site_type', physicalAddress:'physical_address', countyState:'county_state', gpsCoordinates:'gps_coordinates', accessInstructions:'access_instructions', safetyPpeNotes:'safety_ppe_notes', gateCodeEntryRequirements:'gate_code_entry_requirements', clientSiteContact:'client_site_contact', accessRequired:'access_required', approvedAccessLabel:'approved_access_label', approvedAccessLatitude:'approved_access_latitude', approvedAccessLongitude:'approved_access_longitude', approvedAccessNotes:'approved_access_notes', siteStatus:'site_status', standardJobTypes:'standard_job_types', notes:'notes' }, idFields:['clientId', 'projectId'], arrayFields:['projectIds'], localOnlyFields:['projectIds'], numberFields:['approvedAccessLatitude', 'approvedAccessLongitude'], booleanFields:['accessRequired'] },
   siteProjects:{ table:'field_site_projects', label:'Site Project Link', idPrefix:'siteproj', defaults:{ siteId:'', projectId:'' }, fieldMap:{ siteId:'site_id', projectId:'project_id' }, idFields:['siteId', 'projectId'] },
   jobTypes:{ table:'field_job_types', label:'Job Type', idPrefix:'jobtype', defaults:{ jobTypeKey:'', jobTypeName:'', jobTypeColor:DEFAULT_JOB_TYPE_COLOR, isActive:true, jobTypeStatus:'active', labEmployeeEligible:false, allowMultipleSites:false, scheduleMode:'range', requiredAssignmentTypes:[], detailGroups:[] }, fieldMap:{ jobTypeKey:'job_type_key', jobTypeName:'job_type_name', jobTypeColor:'job_type_color', isActive:'is_active', labEmployeeEligible:'lab_employee_eligible', allowMultipleSites:'allow_multiple_sites', scheduleMode:'schedule_mode', requiredAssignmentTypes:'required_assignment_types', detailGroups:'detail_groups' }, booleanFields:['isActive', 'labEmployeeEligible', 'allowMultipleSites'], arrayFields:['requiredAssignmentTypes', 'detailGroups'], localOnlyFields:['jobTypeStatus'] },
   siteTypeJobTypes:{ table:'field_site_type_job_types', label:'Site Type Job Type Link', idPrefix:'sitetypejob', defaults:{ siteTypeKey:'', jobTypeKey:'' }, fieldMap:{ siteTypeKey:'site_type_key', jobTypeKey:'job_type_key' } },
@@ -139,6 +139,7 @@ const ENTITY_CONFIG = {
   fieldRoutes:{ table:'field_routes', label:'Route', idPrefix:'route', defaults:{ routeName:'', routeDate:'', routeStatus:'Draft', assignedTechnicianId:'', originType:'spl', originSiteId:'', originLabel:'SPL Pittsburgh', originValue:'', originLatitude:null, originLongitude:null, destinationType:'spl', destinationSiteId:'', destinationLabel:'SPL Pittsburgh', destinationValue:'', destinationLatitude:null, destinationLongitude:null, distanceMeters:null, durationSeconds:null, returnDistanceMeters:null, returnDurationSeconds:null, notes:'' }, fieldMap:{ routeName:'route_name', routeDate:'route_date', routeStatus:'route_status', assignedTechnicianId:'assigned_technician_id', originType:'origin_type', originSiteId:'origin_site_id', originLabel:'origin_label', originValue:'origin_value', originLatitude:'origin_latitude', originLongitude:'origin_longitude', destinationType:'destination_type', destinationSiteId:'destination_site_id', destinationLabel:'destination_label', destinationValue:'destination_value', destinationLatitude:'destination_latitude', destinationLongitude:'destination_longitude', distanceMeters:'distance_meters', durationSeconds:'duration_seconds', returnDistanceMeters:'return_distance_meters', returnDurationSeconds:'return_duration_seconds', notes:'notes' }, idFields:['assignedTechnicianId', 'originSiteId', 'destinationSiteId'], numberFields:['originLatitude', 'originLongitude', 'destinationLatitude', 'destinationLongitude', 'distanceMeters', 'durationSeconds', 'returnDistanceMeters', 'returnDurationSeconds'], dateFields:['routeDate'] },
   routePlaceLists:{ table:'field_route_place_lists', label:'Route Place List', idPrefix:'rplist', defaults:{ listName:'', listColor:'#6fe3ff', iconKey:'pin', isActive:true, notes:'' }, fieldMap:{ listName:'list_name', listColor:'list_color', iconKey:'icon_key', isActive:'is_active', notes:'notes' }, booleanFields:['isActive'] },
   routePlaces:{ table:'field_route_places', label:'Route Place', idPrefix:'rplace', defaults:{ listId:'', placeName:'', locationType:'address', addressValue:'', latitude:null, longitude:null, phone:'', websiteUrl:'', isActive:true, notes:'' }, fieldMap:{ listId:'list_id', placeName:'place_name', locationType:'location_type', addressValue:'address_value', latitude:'latitude', longitude:'longitude', phone:'phone', websiteUrl:'website_url', isActive:'is_active', notes:'notes' }, idFields:['listId'], numberFields:['latitude', 'longitude'], booleanFields:['isActive'] },
+  restrictedRoads:{ table:'field_restricted_roads', label:'Restricted Road', idPrefix:'rroad', optional:true, defaults:{ roadName:'', isActive:true, clientId:'', siteId:'', polylinePoints:[], bufferMeters:75, notes:'' }, fieldMap:{ roadName:'road_name', isActive:'is_active', clientId:'client_id', siteId:'site_id', polylinePoints:'polyline_points', bufferMeters:'buffer_meters', notes:'notes' }, idFields:['clientId', 'siteId'], numberFields:['bufferMeters'], booleanFields:['isActive'], jsonFields:['polylinePoints'] },
   fieldRouteStops:{ table:'field_route_stops', label:'Route Stop', idPrefix:'rstop', defaults:{ routeId:'', siteId:'', stopType:'site', placeId:'', stopLabel:'', stopValue:'', stopLatitude:null, stopLongitude:null, stopOrder:0, legDistanceMeters:null, legDurationSeconds:null, stopNotes:'' }, fieldMap:{ routeId:'route_id', siteId:'site_id', stopType:'stop_type', placeId:'place_id', stopLabel:'stop_label', stopValue:'stop_value', stopLatitude:'stop_latitude', stopLongitude:'stop_longitude', stopOrder:'stop_order', legDistanceMeters:'leg_distance_meters', legDurationSeconds:'leg_duration_seconds', stopNotes:'stop_notes' }, idFields:['routeId', 'siteId', 'placeId'], numberFields:['stopLatitude', 'stopLongitude', 'stopOrder', 'legDistanceMeters', 'legDurationSeconds'] },
   fieldRouteStopJobs:{ table:'field_route_stop_jobs', label:'Route Stop Job', idPrefix:'rjob', defaults:{ routeStopId:'', jobId:'' }, fieldMap:{ routeStopId:'route_stop_id', jobId:'job_id' }, idFields:['routeStopId', 'jobId'] },
   employees:{ table:'employees', label:'Employee', idPrefix:'emp', defaults:{ employeeFirstName:'', employeeLastName:'', employeeName:'', homeSplSite:LOCAL_SPL_SITE, workScope:'Field', labRole:'', fieldRole:'Field Tech', canSampleTransport:false, isActive:true, phone:'', email:'', notes:'' }, fieldMap:{ employeeFirstName:'employee_first_name', employeeLastName:'employee_last_name', employeeName:'employee_name', homeSplSite:'home_spl_site', workScope:'work_scope', labRole:'lab_role', fieldRole:'field_role', canSampleTransport:'can_sample_transport', isActive:'is_active', phone:'phone', email:'email', notes:'notes' }, booleanFields:['canSampleTransport', 'isActive'] },
@@ -158,7 +159,7 @@ let hideSaveStatusTimer = null;
 const remoteAssetPhotoUrlCache = new Map();
 const remoteAssetPhotoLoadPromises = new Map();
 
-function createEmptyData(){ return { clients:[], projects:[], contacts:[], contactProjects:[], contactSites:[], billingProfiles:[], siteTypes:[], sites:[], siteProjects:[], jobTypes:[], siteTypeJobTypes:[], jobs:[], jobSites:[], jobAssignments:[], partCatalogs:[], parts:[], jobParts:[], partActivity:[], fieldRoutes:[], routePlaceLists:[], routePlaces:[], fieldRouteStops:[], fieldRouteStopJobs:[], employees:[], splSites:[], technicianTravel:[], trucks:[], trailers:[], equipment:[], samples:[], maintenanceRecords:[], technicians:[] }; }
+function createEmptyData(){ return { clients:[], projects:[], contacts:[], contactProjects:[], contactSites:[], billingProfiles:[], siteTypes:[], sites:[], siteProjects:[], jobTypes:[], siteTypeJobTypes:[], jobs:[], jobSites:[], jobAssignments:[], partCatalogs:[], parts:[], jobParts:[], partActivity:[], fieldRoutes:[], routePlaceLists:[], routePlaces:[], restrictedRoads:[], fieldRouteStops:[], fieldRouteStopJobs:[], employees:[], splSites:[], technicianTravel:[], trucks:[], trailers:[], equipment:[], samples:[], maintenanceRecords:[], technicians:[] }; }
 function createClosedModalState(){ return { open:false, entity:'', id:'', formData:{}, assignments:[], baselineSnapshot:'', openMultiSelectKey:'', openSampleTestDraftId:'', sampleDraftExpanded:{} }; }
 function createClosedSampleLinkModalState(){ return { open:false, mode:'single', sampleId:'', sampleIds:[], selectedWorkOrderId:'', search:'', workOrders:[] }; }
 function createClosedPartAdjustModalState(){ return { open:false, partId:'', mode:'receive' }; }
@@ -515,6 +516,7 @@ function getEntitySorter(entityKey){
     case 'fieldRoutes': return (a, b) => compareOptionalDates(parseDateOnly(a.routeDate), parseDateOnly(b.routeDate)) || compareStrings(a.routeName, b.routeName);
     case 'routePlaceLists': return (a, b) => compareStrings(a.listName, b.listName);
     case 'routePlaces': return (a, b) => compareStrings(a.listId, b.listId) || compareStrings(a.placeName, b.placeName);
+    case 'restrictedRoads': return (a, b) => Number(b.isActive) - Number(a.isActive) || compareStrings(a.roadName, b.roadName);
     case 'fieldRouteStops': return (a, b) => compareStrings(a.routeId, b.routeId) || Number(a.stopOrder || 0) - Number(b.stopOrder || 0);
     case 'fieldRouteStopJobs': return (a, b) => compareStrings(a.routeStopId, b.routeStopId) || compareStrings(a.jobId, b.jobId);
     case 'employees': return (a, b) => compareStrings(getEmployeeListName(a), getEmployeeListName(b));
@@ -538,6 +540,7 @@ function normalizeRecord(entityKey, source, options = {}){
     const raw = fromRemote ? source?.[remoteKey] : source?.[key];
     if((cfg.booleanFields || []).includes(key)) record[key] = raw === null || raw === undefined ? cfg.defaults[key] : normalizeBoolean(raw);
     else if((cfg.numberFields || []).includes(key)) record[key] = normalizeNumber(raw);
+    else if((cfg.jsonFields || []).includes(key)) record[key] = raw === null || raw === undefined ? clone(cfg.defaults[key]) : clone(raw);
     else if((cfg.arrayFields || []).includes(key)) record[key] = normalizeStringArray(raw);
     else if((cfg.idFields || []).includes(key)) record[key] = raw ? String(raw) : '';
     else if(isDateField(cfg, key, remoteKey)) record[key] = toInputDate(raw);
@@ -964,6 +967,7 @@ function toRemotePayload(entityKey, draft){
     const value = sourceDraft[key];
     if((cfg.booleanFields || []).includes(key)) payload[remoteKey] = !!value;
     else if((cfg.numberFields || []).includes(key)) payload[remoteKey] = normalizeNumber(value);
+    else if((cfg.jsonFields || []).includes(key)) payload[remoteKey] = value === null || value === undefined ? clone(cfg.defaults[key]) : clone(value);
     else if((cfg.arrayFields || []).includes(key)) payload[remoteKey] = normalizeStringArray(value);
     else if((cfg.idFields || []).includes(key)) payload[remoteKey] = value ? String(value) : null;
     else if(isDateField(cfg, key, remoteKey)) payload[remoteKey] = toRemoteDate(value);
@@ -980,7 +984,13 @@ const localRepository = {
 
 const remoteRepository = {
   async list(){
-    const responses = await Promise.all(ENTITY_ORDER.map((entityKey) => window.appAuth.requestJson(`/rest/v1/${ENTITY_CONFIG[entityKey].table}?select=*`)));
+    const responses = await Promise.all(ENTITY_ORDER.map((entityKey) => window.appAuth.requestJson(`/rest/v1/${ENTITY_CONFIG[entityKey].table}?select=*`).catch((error) => {
+      if(ENTITY_CONFIG[entityKey].optional){
+        console.warn(`Optional Field Ops table ${ENTITY_CONFIG[entityKey].table} is unavailable.`, error);
+        return [];
+      }
+      throw error;
+    })));
     const out = createEmptyData();
     ENTITY_ORDER.forEach((entityKey, index) => { out[entityKey] = responses[index]; });
     return normalizeData(out, true);
@@ -2167,9 +2177,23 @@ const FORM_DEFINITIONS = {
     { key:'gpsCoordinates', label:'GPS Coordinates', type:'text' },
     { key:'siteStatus', label:'Site Status', type:'select', options:SITE_STATUS_OPTIONS },
     { key:'clientSiteContact', label:'Client Site Contact', type:'text' },
+    { key:'accessRequired', label:'Approved Access Required', type:'checkbox' },
+    { key:'approvedAccessLabel', label:'Approved Access Label', type:'text' },
+    { key:'approvedAccessLatitude', label:'Approved Access Latitude', type:'number' },
+    { key:'approvedAccessLongitude', label:'Approved Access Longitude', type:'number' },
+    { key:'approvedAccessNotes', label:'Approved Access Notes', type:'textarea', full:true },
     { key:'accessInstructions', label:'Access Instructions', type:'textarea', full:true },
     { key:'safetyPpeNotes', label:'Safety / PPE Notes', type:'textarea', full:true },
     { key:'gateCodeEntryRequirements', label:'Gate Code / Entry Requirements', type:'textarea', full:true },
+    { key:'notes', label:'Notes', type:'textarea', full:true }
+  ],
+  restrictedRoads:[
+    { kind:'section', label:'Restricted Road' },
+    { key:'roadName', label:'Road Name', type:'text', required:true },
+    { key:'isActive', label:'Active Restriction', type:'checkbox' },
+    { key:'clientId', label:'Client Scope', type:'select', options:() => buildClientOptions() },
+    { key:'siteId', label:'Site Scope', type:'select', options:() => buildSiteOptions(modalState.formData.clientId), disabled:() => !modalState.formData.clientId },
+    { key:'bufferMeters', label:'Buffer Meters', type:'number' },
     { key:'notes', label:'Notes', type:'textarea', full:true }
   ],
   jobs:[

@@ -579,6 +579,11 @@ create table if not exists public.field_sites (
   safety_ppe_notes text not null default '',
   gate_code_entry_requirements text not null default '',
   client_site_contact text not null default '',
+  access_required boolean not null default false,
+  approved_access_label text not null default '',
+  approved_access_latitude numeric,
+  approved_access_longitude numeric,
+  approved_access_notes text not null default '',
   site_status text not null default 'Active' check (site_status in ('Active', 'Restricted', 'Inactive')),
   standard_job_types text not null default '',
   notes text not null default '',
@@ -591,6 +596,11 @@ create table if not exists public.field_sites (
 alter table public.field_sites drop constraint if exists field_sites_site_type_check;
 alter table public.field_sites add column if not exists site_type text not null default 'OTHER';
 alter table public.field_sites add column if not exists standard_job_types text not null default '';
+alter table public.field_sites add column if not exists access_required boolean not null default false;
+alter table public.field_sites add column if not exists approved_access_label text not null default '';
+alter table public.field_sites add column if not exists approved_access_latitude numeric;
+alter table public.field_sites add column if not exists approved_access_longitude numeric;
+alter table public.field_sites add column if not exists approved_access_notes text not null default '';
 update public.field_sites
 set site_type = coalesce(nullif(public.field_ops_catalog_key(site_type), ''), 'OTHER');
 insert into public.field_site_types (site_type_key, site_type_name, is_active)
@@ -1987,6 +1997,38 @@ alter table public.field_route_places add constraint field_route_places_location
 create index if not exists field_route_places_list_id_idx on public.field_route_places(list_id);
 create index if not exists field_route_places_is_active_idx on public.field_route_places(is_active);
 
+create table if not exists public.field_restricted_roads (
+  id uuid primary key default gen_random_uuid(),
+  road_name text not null default '',
+  is_active boolean not null default true,
+  client_id uuid references public.field_clients(id) on delete set null,
+  site_id uuid references public.field_sites(id) on delete set null,
+  polyline_points jsonb not null default '[]'::jsonb,
+  buffer_meters integer not null default 75 check (buffer_meters > 0),
+  notes text not null default '',
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+alter table public.field_restricted_roads add column if not exists road_name text not null default '';
+alter table public.field_restricted_roads add column if not exists is_active boolean not null default true;
+alter table public.field_restricted_roads add column if not exists client_id uuid;
+alter table public.field_restricted_roads add column if not exists site_id uuid;
+alter table public.field_restricted_roads add column if not exists polyline_points jsonb not null default '[]'::jsonb;
+alter table public.field_restricted_roads add column if not exists buffer_meters integer not null default 75;
+alter table public.field_restricted_roads add column if not exists notes text not null default '';
+alter table public.field_restricted_roads drop constraint if exists field_restricted_roads_client_id_fkey;
+alter table public.field_restricted_roads add constraint field_restricted_roads_client_id_fkey foreign key (client_id) references public.field_clients(id) on delete set null;
+alter table public.field_restricted_roads drop constraint if exists field_restricted_roads_site_id_fkey;
+alter table public.field_restricted_roads add constraint field_restricted_roads_site_id_fkey foreign key (site_id) references public.field_sites(id) on delete set null;
+alter table public.field_restricted_roads drop constraint if exists field_restricted_roads_buffer_meters_check;
+alter table public.field_restricted_roads add constraint field_restricted_roads_buffer_meters_check check (buffer_meters > 0);
+create index if not exists field_restricted_roads_client_id_idx on public.field_restricted_roads(client_id);
+create index if not exists field_restricted_roads_site_id_idx on public.field_restricted_roads(site_id);
+create index if not exists field_restricted_roads_is_active_idx on public.field_restricted_roads(is_active);
+grant select, insert, update, delete on public.field_restricted_roads to authenticated;
+
 create table if not exists public.field_route_stops (
   id uuid primary key default gen_random_uuid(),
   route_id uuid not null references public.field_routes(id) on delete cascade,
@@ -2452,6 +2494,7 @@ declare
     'field_routes',
     'field_route_place_lists',
     'field_route_places',
+    'field_restricted_roads',
     'field_route_stops',
     'field_route_stop_jobs',
     'employees',

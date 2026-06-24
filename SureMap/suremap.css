@@ -151,6 +151,22 @@
   border-color:rgba(255,209,102,.52);
 }
 
+.suremap-restricted-road-card.active{
+  border-color:rgba(255,93,115,.58);
+}
+
+.tag-chip.warn{
+  color:var(--warn);
+  border-color:rgba(255,209,102,.32);
+  background:rgba(255,209,102,.1);
+}
+
+.tag-chip.danger{
+  color:var(--danger);
+  border-color:rgba(255,93,115,.32);
+  background:rgba(255,93,115,.12);
+}
+
 .suremap-route-card-head{
   display:flex;
   justify-content:space-between;
@@ -322,6 +338,73 @@
   display:flex;
   flex-wrap:wrap;
   gap:8px;
+}
+
+.suremap-compliance-summary{
+  display:grid;
+  gap:8px;
+  padding:12px;
+  border:1px solid rgba(255,93,115,.32);
+  border-radius:8px;
+  background:rgba(255,93,115,.08);
+}
+
+.suremap-compliance-title{
+  color:var(--danger);
+  font-family:var(--mono);
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:1px;
+  text-transform:uppercase;
+}
+
+.suremap-compliance-issue{
+  color:var(--text);
+  font-family:var(--mono);
+  font-size:11px;
+  line-height:1.45;
+}
+
+.suremap-restriction-point-tools{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.suremap-restriction-point-tools .active{
+  color:var(--warn);
+  border-color:rgba(255,209,102,.36);
+  background:rgba(255,209,102,.1);
+}
+
+.suremap-restriction-points{
+  display:grid;
+  gap:8px;
+}
+
+.suremap-restriction-point-row{
+  display:grid;
+  grid-template-columns:32px minmax(0, 1fr);
+  gap:10px;
+  align-items:center;
+  padding:8px 10px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--surface2);
+  font-family:var(--mono);
+  font-size:11px;
+}
+
+.suremap-restriction-point-row span{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:24px;
+  height:24px;
+  border-radius:50%;
+  color:#071009;
+  background:var(--danger);
+  font-weight:700;
 }
 
 .suremap-site-card.active{

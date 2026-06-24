@@ -66,10 +66,12 @@
     routeCustomStartDate: '',
     routeCustomEndDate: '',
     routeStatusFilter: 'Active',
+    restrictionStatusFilter: 'Active',
     activeSiteListKey: '',
     activeClientId: '',
     activeSiteId: '',
     activeRoutePlaceId: '',
+    activeRestrictedRoadId: '',
     activeRouteId: '',
     routePlaceListFilter: '',
     routeAddStopListKey: '',
@@ -77,6 +79,9 @@
     routePlaceListModalListId: '',
     routeDraft: null,
     routeDirty: false,
+    restrictedRoadDraft: null,
+    restrictedRoadDirty: false,
+    restrictionCaptureEnabled: false,
     expandedIds: new Set(),
     map: null,
     mapProvider: 'leaflet',
@@ -88,6 +93,8 @@
     homeMarker: null,
     markerCache: new Map(),
     routeMarkerCache: new Map(),
+    restrictionMarkerCache: new Map(),
+    restrictionOverlayCache: new Map(),
     routePolyline: null,
     googleDirectionsRenderer: null,
     googleDirectionsService: null,
@@ -126,14 +133,14 @@
   function cacheElements(){
     [
       'clock', 'datedisp', 'save-indicator', 'toolbar-summary', 'client-picker',
-      'sites-mode-btn', 'routes-mode-btn', 'route-date-preset', 'route-date-start', 'route-date-end', 'new-route-btn',
+      'sites-mode-btn', 'routes-mode-btn', 'restrictions-mode-btn', 'route-date-preset', 'route-date-start', 'route-date-end', 'new-route-btn',
       'list-summary', 'map-summary', 'fit-sites-btn', 'filter-row', 'client-list', 'map',
       'map-placeholder', 'detail-panel'
     ].forEach((id) => { els[id] = document.getElementById(id); });
   }
 
   function createEmptyData(){
-    return { clients: [], projects: [], sites: [], siteProjects: [], jobTypes: getDefaultJobTypeRecords(), jobs: [], jobSites: [], jobAssignments: [], employees: [], trucks: [], samples: [], fieldRoutes: [], routePlaceLists: [], routePlaces: [], fieldRouteStops: [], fieldRouteStopJobs: [] };
+    return { clients: [], projects: [], sites: [], siteProjects: [], jobTypes: getDefaultJobTypeRecords(), jobs: [], jobSites: [], jobAssignments: [], employees: [], trucks: [], samples: [], fieldRoutes: [], routePlaceLists: [], routePlaces: [], restrictedRoads: [], fieldRouteStops: [], fieldRouteStopJobs: [] };
   }
 
   function createEmptyIndexes(){
@@ -146,6 +153,7 @@
       routePlaceListsById:new Map(),
       routePlacesById:new Map(),
       routePlacesByListId:new Map(),
+      restrictedRoadsById:new Map(),
       jobsById:new Map(),
       jobSiteIdsByJobId:new Map(),
       jobAssignmentsByJobId:new Map(),
@@ -199,6 +207,7 @@
       indexes.routePlacesById.set(place.id, place);
       addIndexedListValue(indexes.routePlacesByListId, place.listId, place);
     });
+    (data.restrictedRoads || []).forEach((road) => indexes.restrictedRoadsById.set(road.id, road));
     (data.siteProjects || []).forEach((link) => addIndexedUniqueValue(indexes.siteProjectIdsBySiteId, link.siteId, link.projectId));
     (data.jobs || []).forEach((job) => {
       indexes.jobsById.set(job.id, job);
@@ -535,6 +544,14 @@
 
   function bindPanels(){
     els['filter-row'].addEventListener('click', (event) => {
+      const restrictionStatusChip = event.target.closest('[data-restriction-status-filter]');
+      if(restrictionStatusChip){
+        state.restrictionStatusFilter = restrictionStatusChip.dataset.restrictionStatusFilter || 'Active';
+        renderFilterRow();
+        renderRestrictedRoadList();
+        syncMarkers();
+        return;
+      }
       const routeStatusChip = event.target.closest('[data-route-status-filter]');
       if(routeStatusChip){
         state.routeStatusFilter = routeStatusChip.dataset.routeStatusFilter || 'Active';
@@ -549,9 +566,19 @@
     });
 
     els['client-list'].addEventListener('click', (event) => {
+      const listAction = event.target.closest('[data-action]');
+      if(listAction?.dataset.action === 'new-restricted-road'){
+        openNewRestrictedRoad();
+        return;
+      }
       const routeCard = event.target.closest('[data-route-id]');
       if(routeCard){
         selectRoute(routeCard.dataset.routeId, { focusMap:true });
+        return;
+      }
+      const restrictedRoadCard = event.target.closest('[data-restricted-road-id]');
+      if(restrictedRoadCard){
+        selectRestrictedRoad(restrictedRoadCard.dataset.restrictedRoadId, { focusMap:true });
         return;
       }
       const placeCard = event.target.closest('[data-route-place-id]');
@@ -588,6 +615,12 @@
       if(actionName === 'open-directions-route-place') openDirections(getRoutePlaceDirections(getRoutePlace(action.dataset.placeId)));
       if(actionName === 'route-choice-custom') openNewRouteDraft();
       if(actionName === 'route-choice-build-job') buildRouteDraftFromSelectedJob();
+      if(actionName === 'new-restricted-road') openNewRestrictedRoad();
+      if(actionName === 'save-restricted-road') saveCurrentRestrictedRoad();
+      if(actionName === 'delete-restricted-road') deleteCurrentRestrictedRoad();
+      if(actionName === 'toggle-restriction-capture') toggleRestrictionCapture();
+      if(actionName === 'undo-restriction-point') undoRestrictionPoint();
+      if(actionName === 'clear-restriction-points') clearRestrictionPoints();
       if(actionName === 'save-route') saveCurrentRoute({ assign:true });
       if(actionName === 'save-route-draft') saveCurrentRoute({ draft:true });
       if(actionName === 'delete-route') deleteCurrentRoute();
@@ -601,8 +634,12 @@
 
     els['detail-panel'].addEventListener('input', (event) => {
       const field = event.target.closest('[data-route-field]');
-      if(!field) return;
-      setRouteDraftField(field.dataset.routeField, field.value);
+      if(field){
+        setRouteDraftField(field.dataset.routeField, field.value);
+        return;
+      }
+      const restrictionField = event.target.closest('[data-restriction-field]');
+      if(restrictionField) setRestrictedRoadDraftField(restrictionField.dataset.restrictionField, restrictionField.type === 'checkbox' ? restrictionField.checked : restrictionField.value, restrictionField.type);
     });
 
     els['detail-panel'].addEventListener('change', (event) => {
@@ -610,6 +647,8 @@
       if(field) setRouteDraftField(field.dataset.routeField, field.value);
       const locationField = event.target.closest('[data-route-location-field]');
       if(locationField) setRouteLocationField(locationField.dataset.routeLocationField, locationField.value);
+      const restrictionField = event.target.closest('[data-restriction-field]');
+      if(restrictionField) setRestrictedRoadDraftField(restrictionField.dataset.restrictionField, restrictionField.type === 'checkbox' ? restrictionField.checked : restrictionField.value, restrictionField.type);
       const jobToggle = event.target.closest('[data-route-job-toggle]');
       if(jobToggle) toggleRouteStopJob(jobToggle.dataset.stopId, jobToggle.value, jobToggle.checked);
     });
@@ -732,6 +771,7 @@
       suppressMarkers: true,
       preserveViewport: true
     });
+    bindRestrictionMapClickCapture();
     scheduleMapResize();
   }
 
@@ -741,6 +781,7 @@
     state.geocoder = null;
     state.map = L.map(els.map, { zoomControl:true }).setView([40.44, -79.99], 10);
     state.map.options.closePopupOnClick = false;
+    bindRestrictionMapClickCapture();
     replaceBasemapLayer();
   }
 
@@ -849,6 +890,7 @@
       fieldRoutes: Array.isArray(raw.fieldRoutes) ? raw.fieldRoutes.map(normalizeRoute).sort(sortByRoute) : [],
       routePlaceLists: Array.isArray(raw.routePlaceLists) ? raw.routePlaceLists.map(normalizeRoutePlaceList).sort(sortByRoutePlaceList) : [],
       routePlaces: Array.isArray(raw.routePlaces) ? raw.routePlaces.map(normalizeRoutePlace).sort(sortByRoutePlace) : [],
+      restrictedRoads: Array.isArray(raw.restrictedRoads) ? raw.restrictedRoads.map(normalizeRestrictedRoad).sort(sortByRestrictedRoad) : [],
       fieldRouteStops: Array.isArray(raw.fieldRouteStops) ? raw.fieldRouteStops.map(normalizeRouteStop).sort(sortByRouteStop) : [],
       fieldRouteStopJobs: Array.isArray(raw.fieldRouteStopJobs) ? raw.fieldRouteStopJobs.map(normalizeRouteStopJob).sort(sortByRouteStopJob) : []
     };
@@ -860,7 +902,7 @@
   }
 
   async function readRemoteData(){
-    const [clients, projects, sites, siteProjects, jobTypes, jobs, jobSites, jobAssignments, employees, trucks, samples, fieldRoutes, routePlaceLists, routePlaces, fieldRouteStops, fieldRouteStopJobs] = await Promise.all([
+    const [clients, projects, sites, siteProjects, jobTypes, jobs, jobSites, jobAssignments, employees, trucks, samples, fieldRoutes, routePlaceLists, routePlaces, restrictedRoads, fieldRouteStops, fieldRouteStopJobs] = await Promise.all([
       window.appAuth.requestJson('/rest/v1/field_clients?select=*'),
       window.appAuth.requestJson('/rest/v1/field_projects?select=*'),
       window.appAuth.requestJson('/rest/v1/field_sites?select=*'),
@@ -878,6 +920,10 @@
       window.appAuth.requestJson('/rest/v1/field_routes?select=*'),
       window.appAuth.requestJson('/rest/v1/field_route_place_lists?select=*'),
       window.appAuth.requestJson('/rest/v1/field_route_places?select=*'),
+      window.appAuth.requestJson('/rest/v1/field_restricted_roads?select=*').catch((error) => {
+        console.warn('Unable to load restricted roads. Run the latest Supabase schema to enable restrictions.', error);
+        return [];
+      }),
       window.appAuth.requestJson('/rest/v1/field_route_stops?select=*'),
       window.appAuth.requestJson('/rest/v1/field_route_stop_jobs?select=*')
     ]);
@@ -896,6 +942,7 @@
       fieldRoutes: (fieldRoutes || []).map((row) => normalizeRoute(row, true)).sort(sortByRoute),
       routePlaceLists: (routePlaceLists || []).map((row) => normalizeRoutePlaceList(row, true)).sort(sortByRoutePlaceList),
       routePlaces: (routePlaces || []).map((row) => normalizeRoutePlace(row, true)).sort(sortByRoutePlace),
+      restrictedRoads: (restrictedRoads || []).map((row) => normalizeRestrictedRoad(row, true)).sort(sortByRestrictedRoad),
       fieldRouteStops: (fieldRouteStops || []).map((row) => normalizeRouteStop(row, true)).sort(sortByRouteStop),
       fieldRouteStopJobs: (fieldRouteStopJobs || []).map((row) => normalizeRouteStopJob(row, true)).sort(sortByRouteStopJob)
     };
@@ -945,6 +992,11 @@
       safetyPpeNotes: String((fromRemote ? row?.safety_ppe_notes : row?.safetyPpeNotes) || '').trim(),
       gateCodeEntryRequirements: String((fromRemote ? row?.gate_code_entry_requirements : row?.gateCodeEntryRequirements) || '').trim(),
       clientSiteContact: String((fromRemote ? row?.client_site_contact : row?.clientSiteContact) || '').trim(),
+      accessRequired: (fromRemote ? row?.access_required : row?.accessRequired) === true || String(fromRemote ? row?.access_required : row?.accessRequired || '').toLowerCase() === 'true',
+      approvedAccessLabel: String((fromRemote ? row?.approved_access_label : row?.approvedAccessLabel) || '').trim(),
+      approvedAccessLatitude: normalizeNumber(fromRemote ? row?.approved_access_latitude : row?.approvedAccessLatitude),
+      approvedAccessLongitude: normalizeNumber(fromRemote ? row?.approved_access_longitude : row?.approvedAccessLongitude),
+      approvedAccessNotes: String((fromRemote ? row?.approved_access_notes : row?.approvedAccessNotes) || '').trim(),
       siteStatus: normalizeSiteStatus(fromRemote ? row?.site_status : row?.siteStatus),
       standardJobTypes: String((fromRemote ? row?.standard_job_types : row?.standardJobTypes) || '').trim(),
       notes: String(row?.notes || '').trim()
@@ -1114,7 +1166,7 @@
       listName: String((fromRemote ? row?.list_name : row?.listName) || '').trim(),
       listColor: normalizeHexColor(fromRemote ? row?.list_color : row?.listColor),
       iconKey: String((fromRemote ? row?.icon_key : row?.iconKey) || 'pin').trim() || 'pin',
-      isActive: (fromRemote ? row?.is_active : row?.isActive) !== false,
+      isActive: !['false', '0', 'no'].includes(String((fromRemote ? row?.is_active : row?.isActive) ?? true).toLowerCase()),
       notes: String(row?.notes || '').trim()
     };
   }
@@ -1130,7 +1182,40 @@
       longitude: normalizeNumber(fromRemote ? row?.longitude : row?.longitude),
       phone: String(row?.phone || '').trim(),
       websiteUrl: String((fromRemote ? row?.website_url : row?.websiteUrl) || '').trim(),
-      isActive: (fromRemote ? row?.is_active : row?.isActive) !== false,
+      isActive: !['false', '0', 'no'].includes(String((fromRemote ? row?.is_active : row?.isActive) ?? true).toLowerCase()),
+      notes: String(row?.notes || '').trim()
+    };
+  }
+
+  function normalizeRestrictedRoadPoints(value){
+    let source = value;
+    if(typeof source === 'string'){
+      try {
+        source = JSON.parse(source);
+      } catch (_error){
+        source = source.split(/\n|;/).map((line) => {
+          const parsed = parseGps(line);
+          return parsed ? { lat:parsed.lat, lng:parsed.lng } : null;
+        }).filter(Boolean);
+      }
+    }
+    if(!Array.isArray(source)) return [];
+    return source.map((point) => {
+      const lat = normalizeNumber(point?.lat ?? point?.latitude);
+      const lng = normalizeNumber(point?.lng ?? point?.longitude);
+      return hasUsableCoords(lat, lng) ? { lat, lng } : null;
+    }).filter(Boolean);
+  }
+
+  function normalizeRestrictedRoad(row, fromRemote = false){
+    return {
+      id: String(row?.id || ''),
+      roadName: String((fromRemote ? row?.road_name : row?.roadName) || '').trim(),
+      isActive: !['false', '0', 'no'].includes(String((fromRemote ? row?.is_active : row?.isActive) ?? true).toLowerCase()),
+      clientId: String((fromRemote ? row?.client_id : row?.clientId) || ''),
+      siteId: String((fromRemote ? row?.site_id : row?.siteId) || ''),
+      polylinePoints: normalizeRestrictedRoadPoints(fromRemote ? row?.polyline_points : row?.polylinePoints),
+      bufferMeters: Math.max(1, Math.round(normalizeNumber(fromRemote ? row?.buffer_meters : row?.bufferMeters) || 75)),
       notes: String(row?.notes || '').trim()
     };
   }
@@ -1264,6 +1349,7 @@
   function sortByRoute(left, right){ return left.routeDate.localeCompare(right.routeDate) || getRouteName(left).localeCompare(getRouteName(right)); }
   function sortByRoutePlaceList(left, right){ return left.listName.localeCompare(right.listName); }
   function sortByRoutePlace(left, right){ return left.listId.localeCompare(right.listId) || left.placeName.localeCompare(right.placeName); }
+  function sortByRestrictedRoad(left, right){ return Number(right.isActive) - Number(left.isActive) || left.roadName.localeCompare(right.roadName); }
   function sortByRouteStop(left, right){ return left.routeId.localeCompare(right.routeId) || Number(left.stopOrder || 0) - Number(right.stopOrder || 0); }
   function sortByRouteStopJob(left, right){ return left.routeStopId.localeCompare(right.routeStopId) || left.jobId.localeCompare(right.jobId); }
 
@@ -1286,6 +1372,11 @@
         notes: site.notes || '',
         address: site.physicalAddress || '',
         coordsLabel: site.gpsCoordinates || '',
+        accessRequired: site.accessRequired === true,
+        approvedAccessLabel: site.approvedAccessLabel || '',
+        approvedAccessLatitude: site.approvedAccessLatitude,
+        approvedAccessLongitude: site.approvedAccessLongitude,
+        approvedAccessNotes: site.approvedAccessNotes || '',
         lat: coords?.lat ?? null,
         lng: coords?.lng ?? null
       });
@@ -1322,7 +1413,7 @@
   }
 
   function getFilteredClients(){
-    if(state.activeMode === 'routes') return state.viewClients;
+    if(state.activeMode === 'routes' || state.activeMode === 'restrictions') return state.viewClients;
     const query = state.searchQuery;
     const clients = state.activeClientId ? state.viewClients.filter((client) => client.id === state.activeClientId) : state.viewClients;
     return clients.map((client) => ({
@@ -1346,6 +1437,15 @@
       state.activeClientId = '';
       state.activeSiteId = '';
       state.activeRoutePlaceId = '';
+      state.activeRestrictedRoadId = '';
+      return;
+    }
+    if(state.activeMode === 'restrictions'){
+      if(state.activeRestrictedRoadId === 'draft' && state.restrictedRoadDraft) return;
+      if(state.activeRestrictedRoadId && state.indexes.restrictedRoadsById.has(state.activeRestrictedRoadId)) return;
+      state.activeRestrictedRoadId = '';
+      state.restrictedRoadDraft = null;
+      state.restrictedRoadDirty = false;
       return;
     }
     const parsedList = parseSiteListKey(state.activeSiteListKey);
@@ -1392,6 +1492,13 @@
   }
 
   function renderToolbarSummary(){
+    if(state.activeMode === 'restrictions'){
+      const road = getCurrentRestrictedRoadDraft();
+      els['toolbar-summary'].textContent = road
+        ? `${road.roadName || 'Restricted road'} selected. Capture GPS points, set the buffer, then save the restriction.`
+        : 'Restricted Roads marks private or prohibited access roads and checks routes before assignment.';
+      return;
+    }
     if(state.activeMode === 'routes'){
       const route = getCurrentRouteDraft();
       els['toolbar-summary'].textContent = route
@@ -1425,6 +1532,10 @@
   }
 
   function renderClientPicker(){
+    if(state.activeMode === 'restrictions'){
+      els['client-picker'].innerHTML = '<div class="suremap-route-client-note">Restricted road scopes are managed in the editor.</div>';
+      return;
+    }
     if(state.activeMode === 'routes'){
       els['client-picker'].innerHTML = '<div class="suremap-route-client-note">Site Lists are managed in Sites mode.</div>';
       return;
@@ -1497,6 +1608,10 @@
   }
 
   function renderFilterRow(){
+    if(state.activeMode === 'restrictions'){
+      els['filter-row'].innerHTML = getRestrictionStatusFilters().map((status) => `<button class="suremap-chip ${status === getRestrictionStatusFilter() ? 'active' : ''}" type="button" data-restriction-status-filter="${esc(status)}">${esc(status)}</button>`).join('');
+      return;
+    }
     if(state.activeMode === 'routes'){
       els['filter-row'].innerHTML = getRouteStatusFilters().map((status) => `<button class="suremap-chip ${status === getRouteStatusFilter() ? 'active' : ''}" type="button" data-route-status-filter="${esc(status)}">${esc(status)}</button>`).join('');
       return;
@@ -1511,6 +1626,10 @@
   }
 
   function renderList(){
+    if(state.activeMode === 'restrictions'){
+      renderRestrictedRoadList();
+      return;
+    }
     if(state.activeMode === 'routes'){
       renderRouteList();
       return;
@@ -1603,6 +1722,12 @@
   }
 
   function renderMapSummary(){
+    if(state.activeMode === 'restrictions'){
+      const count = getFilteredRestrictedRoads().length;
+      const providerLabel = state.mapProvider === 'google' ? 'SureMap' : 'Default map';
+      els['map-summary'].textContent = `${count} restricted road${count === 1 ? '' : 's'} | ${providerLabel}`;
+      return;
+    }
     if(state.activeMode === 'routes'){
       const route = getCurrentRouteDraft();
       const stopCount = route ? route.stops.length : 0;
@@ -1616,6 +1741,10 @@
   }
 
   function renderDetailPanel(){
+    if(state.activeMode === 'restrictions'){
+      renderRestrictedRoadEditor();
+      return;
+    }
     if(state.activeMode === 'routes'){
       renderRouteEditor();
       return;
@@ -1675,6 +1804,7 @@
   function renderSiteDetail(client, site){
     const projectLabel = (site.projectNames || []).join(', ') || 'No linked project';
     const jobTypes = site.standardJobTypes || 'No standard job types set';
+    const accessPoint = getApprovedAccessPointForSite(site);
     return `
       <div class="suremap-detail-card">
         <div class="suremap-detail-title">
@@ -1682,6 +1812,7 @@
           <div class="tag-row">
             <span class="status-badge ${esc(siteStatusClass(site.status))}">${esc(site.status)}</span>
             <span class="tag-chip">${esc(site.type)}</span>
+            ${site.accessRequired ? '<span class="tag-chip warn">Approved access required</span>' : ''}
           </div>
           <div class="item-sub">${esc(client.name)}</div>
         </div>
@@ -1691,6 +1822,7 @@
           <div class="suremap-detail-item full"><label>Linked Projects</label><span>${esc(projectLabel)}</span></div>
           <div class="suremap-detail-item full"><label>Standard Job Types</label><span>${esc(jobTypes)}</span></div>
           <div class="suremap-detail-item full"><label>Address</label><span>${esc(site.address || 'No address set')}</span></div>
+          <div class="suremap-detail-item full"><label>Approved Access</label><span>${esc(accessPoint ? `${accessPoint.label} | ${formatGps(accessPoint.lat, accessPoint.lng)}` : (site.accessRequired ? 'Required but not mapped' : 'Not required'))}</span></div>
           <div class="suremap-detail-item full"><label>Notes</label><span>${esc(site.notes || 'No notes')}</span></div>
           <div class="suremap-detail-item"><label>Directions From</label><span>${esc(HOME_BASE.name)}</span></div>
         </div>
@@ -1763,11 +1895,17 @@
 
   function syncMarkers(){
     if(!state.map) return;
+    if(state.activeMode === 'restrictions'){
+      syncRestrictionMarkers();
+      return;
+    }
     if(state.activeMode === 'routes'){
+      clearRestrictionOverlays();
       syncRouteMarkers();
       return;
     }
     clearRouteOverlay();
+    clearRestrictionOverlays();
     const visibleKeys = new Set();
     ensureHomeMarker();
     state.filteredClients.forEach((client) => {
@@ -1806,6 +1944,104 @@
       return;
     }
     state.map.removeLayer(marker);
+  }
+
+  function removeMapLayer(layer){
+    if(!layer) return;
+    if(state.mapProvider === 'google' && typeof layer.setMap === 'function'){
+      layer.setMap(null);
+      return;
+    }
+    if(state.map && typeof state.map.removeLayer === 'function') state.map.removeLayer(layer);
+  }
+
+  function clearRestrictionOverlays(){
+    state.restrictionMarkerCache.forEach((marker) => removeMapMarker(marker));
+    state.restrictionMarkerCache.clear();
+    state.restrictionOverlayCache.forEach((layer) => removeMapLayer(layer));
+    state.restrictionOverlayCache.clear();
+  }
+
+  function bindRestrictionMapClickCapture(){
+    if(!state.map) return;
+    if(state.mapProvider === 'google'){
+      state.map.addListener('click', (event) => {
+        const lat = typeof event?.latLng?.lat === 'function' ? event.latLng.lat() : normalizeNumber(event?.latLng?.lat);
+        const lng = typeof event?.latLng?.lng === 'function' ? event.latLng.lng() : normalizeNumber(event?.latLng?.lng);
+        handleRestrictionMapClick(lat, lng);
+      });
+      return;
+    }
+    state.map.on('click', (event) => handleRestrictionMapClick(event?.latlng?.lat, event?.latlng?.lng));
+  }
+
+  function handleRestrictionMapClick(lat, lng){
+    if(state.activeMode !== 'restrictions' || !state.restrictionCaptureEnabled) return;
+    addRestrictedRoadPoint(lat, lng);
+  }
+
+  function getRestrictionRoadsForMap(){
+    const roads = getFilteredRestrictedRoads();
+    const draft = state.activeMode === 'restrictions' ? getCurrentRestrictedRoadDraft() : null;
+    if(!draft) return roads;
+    const draftKey = draft.id || 'draft';
+    return [draft, ...roads.filter((road) => road.id !== draftKey)];
+  }
+
+  function syncRestrictionMarkers(){
+    state.markerCache.forEach((marker) => removeMapMarker(marker));
+    state.markerCache.clear();
+    clearRouteOverlay();
+    clearRestrictionOverlays();
+    els['map-placeholder'].classList.add('hidden');
+    const roads = getRestrictionRoadsForMap();
+    roads.forEach((road) => drawRestrictedRoadOverlay(road, road.id && road.id === state.activeRestrictedRoadId));
+    if(!state.restrictionCaptureEnabled && !roads.some((road) => road.polylinePoints.length)){
+      els['map-placeholder'].classList.remove('hidden');
+    }
+  }
+
+  function drawRestrictedRoadOverlay(road, selected = false){
+    const points = normalizeRestrictedRoadPoints(road?.polylinePoints);
+    if(!points.length) return;
+    const color = road?.isActive === false ? '#7b8880' : '#ff4d4f';
+    const opacity = selected ? .95 : .72;
+    const weight = selected ? 5 : 4;
+    const key = road?.id || 'draft';
+    if(points.length > 1){
+      if(state.mapProvider === 'google'){
+        const polyline = new google.maps.Polyline({
+          path: points.map((point) => ({ lat:point.lat, lng:point.lng })),
+          strokeColor: color,
+          strokeOpacity: opacity,
+          strokeWeight: weight,
+          map: state.map
+        });
+        state.restrictionOverlayCache.set(`road:${key}`, polyline);
+      } else {
+        const polyline = L.polyline(points.map((point) => [point.lat, point.lng]), { color, opacity, weight }).addTo(state.map);
+        state.restrictionOverlayCache.set(`road:${key}`, polyline);
+      }
+    }
+    points.forEach((point, index) => {
+      const markerKey = `road:${key}:point:${index}`;
+      const popup = buildPopup(road?.roadName || 'Restricted road', `${index + 1}. ${formatGps(point.lat, point.lng)} | ${road?.bufferMeters || 75}m buffer`);
+      if(state.mapProvider === 'google'){
+        const marker = new google.maps.Marker({
+          map: state.map,
+          position: { lat:point.lat, lng:point.lng },
+          icon: makeRestrictionPointIcon(index + 1, color)
+        });
+        marker.__popupHtml = popup;
+        marker.addListener('click', () => openMapPopup(marker));
+        state.restrictionMarkerCache.set(markerKey, marker);
+      } else {
+        const marker = L.marker([point.lat, point.lng], { icon:makeRestrictionPointIcon(index + 1, color) })
+          .bindPopup(popup, { autoPan:false })
+          .addTo(state.map);
+        state.restrictionMarkerCache.set(markerKey, marker);
+      }
+    });
   }
 
   function openMapPopup(marker){
@@ -1883,6 +2119,19 @@
     return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
   }
 
+  function makeRestrictionPointIcon(token, color){
+    const label = String(token || '').slice(0, 2);
+    const cacheKey = `${state.mapProvider}:restriction:${label}:${color}`;
+    const cached = state.markerIconCache.get(cacheKey);
+    if(cached) return cached;
+    const svg = `<svg width="28" height="28" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg"><circle cx="14" cy="14" r="13" fill="${esc(color)}"/><circle cx="14" cy="14" r="8" fill="#071009"/><text x="14" y="17" text-anchor="middle" font-family="Arial" font-size="8" font-weight="700" fill="${esc(color)}">${esc(label)}</text></svg>`;
+    const icon = state.mapProvider === 'google'
+      ? { url:svgToDataUri(svg), scaledSize:new google.maps.Size(28, 28), anchor:new google.maps.Point(14, 14) }
+      : L.divIcon({ className:'', iconSize:[28, 28], iconAnchor:[14, 14], popupAnchor:[0, -14], html:svg });
+    state.markerIconCache.set(cacheKey, icon);
+    return icon;
+  }
+
   function makeMarkerIcon(color, isSite){
     const cacheKey = `${state.mapProvider}:${isSite ? 'site' : 'client'}:${color}`;
     const cached = state.markerIconCache.get(cacheKey);
@@ -1955,6 +2204,12 @@
   }
 
   function focusSelectionOnMap(){
+    if(state.activeMode === 'restrictions'){
+      const road = getCurrentRestrictedRoadDraft();
+      if(fitRestrictionRoads(road ? [road] : getFilteredRestrictedRoads(), { alertWhenEmpty:false })) return;
+      els['map-placeholder'].classList.remove('hidden');
+      return;
+    }
     const place = getActiveRoutePlace();
     if(place){
       const point = getRoutePlacePoint(place);
@@ -2023,6 +2278,10 @@
 
   function fitVisibleSites(){
     if(!state.map) return;
+    if(state.activeMode === 'restrictions'){
+      if(!fitRestrictionRoads(getRestrictionRoadsForMap())) alert('No restricted roads have GPS points to fit on the map.');
+      return;
+    }
     if(state.activeMode === 'routes'){
       syncRouteMarkers();
       return;
@@ -2055,6 +2314,35 @@
       return;
     }
     state.map.fitBounds(L.latLngBounds(latLngs), { padding:[28, 28] });
+  }
+
+  function fitRestrictionRoads(roads, options = {}){
+    const points = (Array.isArray(roads) ? roads : [])
+      .flatMap((road) => normalizeRestrictedRoadPoints(road?.polylinePoints))
+      .filter((point) => hasUsableCoords(point.lat, point.lng));
+    if(!points.length){
+      if(options.alertWhenEmpty !== false) alert('No restricted road points are available to fit on the map.');
+      return false;
+    }
+    els['map-placeholder'].classList.add('hidden');
+    if(state.mapProvider === 'google'){
+      if(points.length === 1){
+        state.map.panTo({ lat:points[0].lat, lng:points[0].lng });
+        state.map.setZoom(15);
+        return true;
+      }
+      const bounds = new google.maps.LatLngBounds();
+      points.forEach((point) => bounds.extend({ lat:point.lat, lng:point.lng }));
+      state.map.fitBounds(bounds);
+      return true;
+    }
+    const latLngs = points.map((point) => [point.lat, point.lng]);
+    if(latLngs.length === 1){
+      state.map.flyTo(latLngs[0], 15, { animate:true, duration:.6 });
+      return true;
+    }
+    state.map.fitBounds(L.latLngBounds(latLngs), { padding:[28, 28] });
+    return true;
   }
 
   function selectSiteList(siteListKey, options = {}){
@@ -2148,9 +2436,9 @@
     document.querySelectorAll('.suremap-route-filter-control').forEach((node) => {
       node.classList.toggle('hidden', state.activeMode !== 'routes');
     });
-    if(els['fit-sites-btn']) els['fit-sites-btn'].textContent = state.activeMode === 'routes' ? 'Fit Route' : 'Fit Sites';
+    if(els['fit-sites-btn']) els['fit-sites-btn'].textContent = state.activeMode === 'routes' ? 'Fit Route' : (state.activeMode === 'restrictions' ? 'Fit Roads' : 'Fit Sites');
     const listTitle = document.querySelector('#suremap-directory-section .panel-header h2');
-    if(listTitle) listTitle.textContent = state.activeMode === 'routes' ? 'Routes' : 'Sites';
+    if(listTitle) listTitle.textContent = state.activeMode === 'routes' ? 'Routes' : (state.activeMode === 'restrictions' ? 'Restricted Roads' : 'Sites');
     const showCustomRouteRange = state.activeMode === 'routes' && state.routeDatePreset === 'custom';
     document.querySelectorAll('.suremap-route-custom-filter').forEach((node) => node.classList.toggle('hidden', !showCustomRouteRange));
     if(els['route-date-preset'] && els['route-date-preset'].value !== state.routeDatePreset) els['route-date-preset'].value = state.routeDatePreset || 'next_30_days';
@@ -2159,17 +2447,39 @@
   }
 
   function setActiveMode(mode){
-    state.activeMode = mode === 'routes' ? 'routes' : 'sites';
+    state.activeMode = mode === 'routes' ? 'routes' : (mode === 'restrictions' ? 'restrictions' : 'sites');
     if(state.activeMode === 'routes'){
       state.activeSiteListKey = '';
       state.activeClientId = '';
       state.activeSiteId = '';
       state.activeRoutePlaceId = '';
+      state.activeRestrictedRoadId = '';
+      state.restrictedRoadDraft = null;
+      state.restrictedRoadDirty = false;
+      state.restrictionCaptureEnabled = false;
       if(!state.activeRouteId && state.data.fieldRoutes.length){
         const first = getFilteredRoutes()[0];
         if(first) selectRoute(first.id, { focusMap:false, refresh:false });
       }
+    } else if(state.activeMode === 'restrictions'){
+      state.activeSiteListKey = '';
+      state.activeClientId = '';
+      state.activeSiteId = '';
+      state.activeRoutePlaceId = '';
+      state.activeRouteId = '';
+      state.routeAddStopListKey = '';
+      state.routeDraft = null;
+      state.routeDirty = false;
+      clearRouteOverlay();
+      if(!state.activeRestrictedRoadId && state.data.restrictedRoads.length){
+        const first = getFilteredRestrictedRoads()[0];
+        if(first) selectRestrictedRoad(first.id, { focusMap:false, refresh:false });
+      }
     } else {
+      state.activeRestrictedRoadId = '';
+      state.restrictedRoadDraft = null;
+      state.restrictedRoadDirty = false;
+      state.restrictionCaptureEnabled = false;
       state.activeRouteId = '';
       state.routeAddStopListKey = '';
       state.routeDraft = null;
@@ -2185,6 +2495,290 @@
 
   function getRouteStatusFilters(){
     return ['Active', 'Draft', 'Planned', 'Assigned', 'Complete', 'Archived', 'All'];
+  }
+
+  function getRestrictionStatusFilter(){
+    return state.restrictionStatusFilter || 'Active';
+  }
+
+  function getRestrictionStatusFilters(){
+    return ['Active', 'Inactive', 'All'];
+  }
+
+  function getFilteredRestrictedRoads(){
+    const filter = getRestrictionStatusFilter();
+    return (state.data.restrictedRoads || []).filter((road) => {
+      if(filter === 'All') return true;
+      return filter === 'Active' ? road.isActive !== false : road.isActive === false;
+    }).sort(sortByRestrictedRoad);
+  }
+
+  function createRestrictedRoadDraft(road = null){
+    return normalizeRestrictedRoad(road || {
+      roadName:'',
+      isActive:true,
+      clientId:'',
+      siteId:'',
+      polylinePoints:[],
+      bufferMeters:75,
+      notes:''
+    });
+  }
+
+  function getCurrentRestrictedRoadDraft(){
+    if(state.restrictedRoadDraft) return state.restrictedRoadDraft;
+    if(state.activeRestrictedRoadId){
+      const road = state.indexes.restrictedRoadsById.get(state.activeRestrictedRoadId);
+      if(road) state.restrictedRoadDraft = createRestrictedRoadDraft(road);
+    }
+    return state.restrictedRoadDraft;
+  }
+
+  function selectRestrictedRoad(roadId, options = {}){
+    const road = state.indexes.restrictedRoadsById.get(String(roadId));
+    if(!road) return;
+    state.activeMode = 'restrictions';
+    state.activeRestrictedRoadId = road.id;
+    state.restrictedRoadDraft = createRestrictedRoadDraft(road);
+    state.restrictedRoadDirty = false;
+    state.restrictionCaptureEnabled = false;
+    if(options.refresh !== false) refreshFilteredView({ syncMap:true, preserveSelection:true, focusSelection:options.focusMap !== false });
+  }
+
+  function openNewRestrictedRoad(){
+    state.activeMode = 'restrictions';
+    state.activeRestrictedRoadId = 'draft';
+    state.restrictedRoadDraft = createRestrictedRoadDraft();
+    state.restrictedRoadDirty = true;
+    state.restrictionCaptureEnabled = true;
+    refreshFilteredView({ syncMap:true, preserveSelection:true, focusSelection:false });
+  }
+
+  function getRestrictedRoadScopeLabel(road){
+    const site = getSiteById(road?.siteId);
+    if(site) return getSiteDisplayName(site);
+    const client = state.indexes.clientsById.get(String(road?.clientId || ''));
+    if(client) return client.clientName || 'Client scope';
+    return 'All routes';
+  }
+
+  function renderRestrictedRoadList(){
+    const roads = getFilteredRestrictedRoads();
+    els['list-summary'].textContent = `${roads.length} restricted road${roads.length === 1 ? '' : 's'}`;
+    if(!roads.length){
+      els['client-list'].innerHTML = `<div class="empty-state"><strong>No restricted roads</strong>Add private or prohibited road segments, then SureMap will warn before route assignment.<div class="suremap-detail-actions"><button class="add-btn" type="button" data-action="new-restricted-road">+ Restricted Road</button></div></div>`;
+      return;
+    }
+    els['client-list'].innerHTML = roads.map((road) => {
+      const active = state.activeRestrictedRoadId === road.id;
+      return `<div class="suremap-route-card suremap-restricted-road-card ${active ? 'active' : ''}" data-restricted-road-id="${esc(road.id)}">
+        <div class="suremap-route-card-head">
+          <div>
+            <div class="item-title">${esc(road.roadName || 'Unnamed restricted road')}</div>
+            <div class="item-sub">${esc(getRestrictedRoadScopeLabel(road))}</div>
+          </div>
+          <span class="status-badge ${road.isActive !== false ? 'warn' : 'muted'}">${road.isActive !== false ? 'Active' : 'Inactive'}</span>
+        </div>
+        <div class="mini-tags">
+          <span class="tag-chip">${esc(road.polylinePoints.length)} point${road.polylinePoints.length === 1 ? '' : 's'}</span>
+          <span class="tag-chip">${esc(road.bufferMeters)}m buffer</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderRestrictedRoadEditor(){
+    const road = getCurrentRestrictedRoadDraft();
+    if(!road){
+      els['detail-panel'].innerHTML = `<div class="suremap-empty-state empty-state"><strong>No restricted road selected</strong>Create a restricted road segment to start checking routes.<div class="suremap-detail-actions"><button class="add-btn" type="button" data-action="new-restricted-road">+ Restricted Road</button></div></div>`;
+      return;
+    }
+    const clientOptions = [{ value:'', label:'All clients' }, ...state.data.clients.map((client) => ({ value:client.id, label:client.clientName || 'Unnamed client' })).sort((a, b) => a.label.localeCompare(b.label))];
+    const sites = (state.data.sites || []).filter((site) => !road.clientId || site.clientId === road.clientId).sort(sortBySiteName);
+    const siteOptions = [{ value:'', label:road.clientId ? 'All client sites' : 'No site scope' }, ...sites.map((site) => ({ value:site.id, label:getSiteDisplayName(site) }))];
+    els['detail-panel'].innerHTML = `
+      <div class="suremap-detail-card suremap-route-editor">
+        <div class="suremap-detail-title">
+          <input class="form-input route-title-input" data-restriction-field="roadName" value="${esc(road.roadName)}" placeholder="Restricted road name">
+          <div class="tag-row">
+            <span class="status-badge ${road.isActive !== false ? 'warn' : 'muted'}">${road.isActive !== false ? 'Active' : 'Inactive'}</span>
+            ${state.restrictedRoadDirty ? '<span class="tag-chip warn">Unsaved</span>' : ''}
+          </div>
+        </div>
+        <div class="suremap-route-form-grid">
+          <label class="suremap-checkbox-row full"><input type="checkbox" data-restriction-field="isActive" ${road.isActive !== false ? 'checked' : ''}> Active restriction</label>
+          <div class="form-group"><label class="form-label">Client Scope</label><select class="form-input" data-restriction-field="clientId">${clientOptions.map((option) => `<option value="${esc(option.value)}" ${road.clientId === option.value ? 'selected' : ''}>${esc(option.label)}</option>`).join('')}</select></div>
+          <div class="form-group"><label class="form-label">Site Scope</label><select class="form-input" data-restriction-field="siteId">${siteOptions.map((option) => `<option value="${esc(option.value)}" ${road.siteId === option.value ? 'selected' : ''}>${esc(option.label)}</option>`).join('')}</select></div>
+          <div class="form-group"><label class="form-label">Buffer Meters</label><input class="form-input" type="number" min="1" step="1" data-restriction-field="bufferMeters" value="${esc(road.bufferMeters)}"></div>
+        </div>
+        <div class="suremap-restriction-point-tools">
+          <button class="act-btn ${state.restrictionCaptureEnabled ? 'active' : ''}" type="button" data-action="toggle-restriction-capture">${state.restrictionCaptureEnabled ? 'Stop Capture' : 'Capture Map Clicks'}</button>
+          <button class="act-btn" type="button" data-action="undo-restriction-point" ${road.polylinePoints.length ? '' : 'disabled'}>Undo Point</button>
+          <button class="act-btn danger" type="button" data-action="clear-restriction-points" ${road.polylinePoints.length ? '' : 'disabled'}>Clear Points</button>
+        </div>
+        <div class="suremap-restriction-points">${renderRestrictedRoadPointList(road)}</div>
+        <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" data-restriction-field="notes">${esc(road.notes)}</textarea></div>
+        <div class="suremap-detail-actions">
+          <button class="btn-save" type="button" data-action="save-restricted-road">Save Restricted Road</button>
+          <button class="act-btn" type="button" data-action="new-restricted-road">New Road</button>
+          <button class="act-btn danger" type="button" data-action="delete-restricted-road" ${road.id ? '' : 'disabled'}>Delete</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderRestrictedRoadPointList(road){
+    if(!road.polylinePoints.length) return '<div class="empty-state">Enable capture, then click the map to add road-segment points in order.</div>';
+    return road.polylinePoints.map((point, index) => `
+      <div class="suremap-restriction-point-row">
+        <span>${esc(index + 1)}</span>
+        <strong>${esc(formatGps(point.lat, point.lng))}</strong>
+      </div>
+    `).join('');
+  }
+
+  function setRestrictedRoadDraftField(field, value, type = 'text'){
+    const road = getCurrentRestrictedRoadDraft();
+    if(!road) return;
+    state.restrictedRoadDirty = true;
+    if(field === 'isActive') road.isActive = value === true;
+    else if(field === 'bufferMeters') road.bufferMeters = Math.max(1, Math.round(normalizeNumber(value) || 75));
+    else if(field === 'clientId'){
+      road.clientId = String(value || '');
+      if(road.siteId){
+        const site = getSiteById(road.siteId);
+        if(!site || (road.clientId && site.clientId !== road.clientId)) road.siteId = '';
+      }
+      renderRestrictedRoadEditor();
+    } else if(field === 'siteId'){
+      road.siteId = String(value || '');
+      const site = getSiteById(road.siteId);
+      if(site && !road.clientId) road.clientId = site.clientId;
+      renderRestrictedRoadEditor();
+    } else {
+      road[field] = type === 'number' ? normalizeNumber(value) : String(value || '');
+    }
+    syncMarkers();
+  }
+
+  function toggleRestrictionCapture(){
+    if(!getCurrentRestrictedRoadDraft()) openNewRestrictedRoad();
+    else {
+      state.restrictionCaptureEnabled = !state.restrictionCaptureEnabled;
+      renderRestrictedRoadEditor();
+    }
+  }
+
+  function addRestrictedRoadPoint(lat, lng){
+    const road = getCurrentRestrictedRoadDraft();
+    if(!road || !hasUsableCoords(lat, lng)) return;
+    road.polylinePoints.push({ lat:Number(lat), lng:Number(lng) });
+    state.restrictedRoadDirty = true;
+    renderRestrictedRoadEditor();
+    syncMarkers();
+  }
+
+  function undoRestrictionPoint(){
+    const road = getCurrentRestrictedRoadDraft();
+    if(!road?.polylinePoints.length) return;
+    road.polylinePoints.pop();
+    state.restrictedRoadDirty = true;
+    renderRestrictedRoadEditor();
+    syncMarkers();
+  }
+
+  function clearRestrictionPoints(){
+    const road = getCurrentRestrictedRoadDraft();
+    if(!road?.polylinePoints.length) return;
+    if(!confirm('Clear all captured points for this restricted road?')) return;
+    road.polylinePoints = [];
+    state.restrictedRoadDirty = true;
+    renderRestrictedRoadEditor();
+    syncMarkers();
+  }
+
+  function validateRestrictedRoadDraft(road){
+    if(!String(road?.roadName || '').trim()) throw new Error('Enter a restricted road name.');
+    if((road?.polylinePoints || []).length < 2) throw new Error('Capture at least two GPS points for the restricted road segment.');
+    if(!Number.isFinite(Number(road.bufferMeters)) || Number(road.bufferMeters) <= 0) throw new Error('Buffer meters must be greater than zero.');
+  }
+
+  function getRestrictedRoadPayload(road){
+    return {
+      road_name: road.roadName || '',
+      is_active: road.isActive !== false,
+      client_id: road.clientId || null,
+      site_id: road.siteId || null,
+      polyline_points: normalizeRestrictedRoadPoints(road.polylinePoints),
+      buffer_meters: Math.max(1, Math.round(Number(road.bufferMeters || 75))),
+      notes: road.notes || ''
+    };
+  }
+
+  async function saveCurrentRestrictedRoad(){
+    const road = getCurrentRestrictedRoadDraft();
+    if(!road) return;
+    try {
+      validateRestrictedRoadDraft(road);
+      showSaveStatus('saving', 'SAVING RESTRICTION');
+      const roadId = isRemoteMode() ? await saveRemoteRestrictedRoad(road) : saveLocalRestrictedRoad(road);
+      await loadData({ preserveSelection:true, focusSelection:false });
+      selectRestrictedRoad(roadId, { focusMap:true });
+      showSaveStatus('saved', 'RESTRICTION SAVED');
+    } catch (error){
+      console.error('Unable to save restricted road:', error);
+      showSaveStatus('error', 'RESTRICTION SAVE FAILED');
+      alert(error.message || 'Unable to save the restricted road.');
+    }
+  }
+
+  async function saveRemoteRestrictedRoad(road){
+    const url = road.id ? `/rest/v1/field_restricted_roads?id=eq.${encodeURIComponent(road.id)}&select=*` : '/rest/v1/field_restricted_roads?select=*';
+    const payload = await window.appAuth.requestJson(url, {
+      method: road.id ? 'PATCH' : 'POST',
+      headers:{ 'Content-Type':'application/json', Prefer:'return=representation' },
+      body:JSON.stringify(getRestrictedRoadPayload(road))
+    });
+    const saved = normalizeRestrictedRoad(Array.isArray(payload) ? payload[0] : payload, true);
+    if(!saved.id) throw new Error('Supabase did not return the saved restricted road.');
+    return saved.id;
+  }
+
+  function saveLocalRestrictedRoad(road){
+    const raw = readLocalRaw();
+    raw.restrictedRoads = Array.isArray(raw.restrictedRoads) ? raw.restrictedRoads.map(normalizeRestrictedRoad) : [];
+    const record = normalizeRestrictedRoad({ ...road, id:road.id || uid('rroad') });
+    const index = raw.restrictedRoads.findIndex((row) => row.id === record.id);
+    if(index >= 0) raw.restrictedRoads[index] = record;
+    else raw.restrictedRoads.push(record);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(raw));
+    return record.id;
+  }
+
+  async function deleteCurrentRestrictedRoad(){
+    const road = getCurrentRestrictedRoadDraft();
+    if(!road?.id) return;
+    if(!confirm('Delete this restricted road?')) return;
+    showSaveStatus('saving', 'DELETING RESTRICTION');
+    try {
+      if(isRemoteMode()){
+        await window.appAuth.requestJson(`/rest/v1/field_restricted_roads?id=eq.${encodeURIComponent(road.id)}`, { method:'DELETE' });
+      } else {
+        const raw = readLocalRaw();
+        raw.restrictedRoads = (raw.restrictedRoads || []).filter((row) => String(row?.id || '') !== road.id);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(raw));
+      }
+      state.activeRestrictedRoadId = '';
+      state.restrictedRoadDraft = null;
+      state.restrictedRoadDirty = false;
+      state.restrictionCaptureEnabled = false;
+      await loadData({ preserveSelection:false, focusSelection:false });
+      showSaveStatus('saved', 'RESTRICTION DELETED');
+    } catch (error){
+      console.error('Unable to delete restricted road:', error);
+      showSaveStatus('error', 'DELETE FAILED');
+      alert(error.message || 'Unable to delete the restricted road.');
+    }
   }
 
   function getRouteDatePresetOptions(){
@@ -2396,6 +2990,11 @@
     return state.indexes.sitesById.get(String(siteId)) || null;
   }
 
+  function getSiteDisplayName(site){
+    const client = state.indexes.clientsById.get(String(site?.clientId || ''));
+    return [site?.siteName || 'Unnamed site', client?.clientName || ''].filter(Boolean).join(' - ');
+  }
+
   function getViewSite(siteId){
     return state.viewIndexes.sitesById.get(String(siteId)) || null;
   }
@@ -2583,7 +3182,8 @@
     }
     const siteOptions = state.viewClients.flatMap((client) => client.sublocations.map((site) => ({ ...site, clientName:client.name }))).sort((a, b) => a.name.localeCompare(b.name));
     const employeeOptions = getFieldEmployees();
-    const routeRenderContext = { route, linkedElsewhere:getLinkedActiveJobIds(route.id || '') };
+    const compliance = getRouteCompliance(route);
+    const routeRenderContext = { route, linkedElsewhere:getLinkedActiveJobIds(route.id || ''), compliance };
     els['detail-panel'].innerHTML = `
       <div class="suremap-detail-card suremap-route-editor">
         <div class="suremap-detail-title">
@@ -2591,6 +3191,7 @@
           <div class="tag-row">
             <span class="status-badge ${esc(getRouteStatusClass(route.routeStatus))}">${esc(route.routeStatus)}</span>
             ${state.routeDirty ? '<span class="tag-chip warn">Unsaved</span>' : ''}
+            ${compliance.hardIssues.length ? '<span class="tag-chip danger">Compliance Block</span>' : ''}
           </div>
         </div>
         <div class="suremap-route-form-grid">
@@ -2607,9 +3208,10 @@
         </div>
         <div class="suremap-route-stops">${route.stops.length ? route.stops.map((stop, index) => renderRouteStopEditor(stop, index, route, routeRenderContext)).join('') : '<div class="empty-state">No stops yet. Use Add Stop to choose a client site or Other Site.</div>'}</div>
         <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" data-route-field="notes">${esc(route.notes)}</textarea></div>
+        ${renderRouteComplianceSummary(compliance)}
         <div class="suremap-route-summary" id="route-summary">${renderRouteTotals(route)}</div>
         <div class="suremap-detail-actions">
-          <button class="btn-save" type="button" data-action="save-route" ${!route.stops.length ? 'disabled' : ''}>Save and Assign</button>
+          <button class="btn-save" type="button" data-action="save-route" ${!route.stops.length || compliance.hardIssues.length ? 'disabled' : ''}>Save and Assign</button>
           <button class="act-btn" type="button" data-action="save-route-draft">Save as Draft</button>
           <button class="act-btn" type="button" data-action="open-route-directions" ${!canOpenRouteDirections(route) ? 'disabled' : ''}>Directions</button>
           <button class="act-btn" type="button" data-action="optimize-route" ${route.stops.length < 2 ? 'disabled' : ''}>Optimize</button>
@@ -2741,6 +3343,7 @@
         </div>
       </div>
       ${renderRouteStopLegMeta(stop, index, route)}
+      ${renderRouteStopComplianceBadges(stop, index, route, context.compliance)}
       <div class="suremap-route-job-options">
         ${jobs.length ? jobs.map((job) => `<label class="suremap-route-job-option"><input type="checkbox" data-route-job-toggle data-stop-id="${esc(stop.id)}" value="${esc(job.id)}" ${selected.has(job.id) ? 'checked' : ''}><span><strong>${esc(getJobTitle(job))}</strong><small>${esc(getJobDate(job) ? formatDate(getJobDate(job)) : 'Unscheduled')} | ${esc(job.priority)}</small></span></label>`).join('') : '<div class="empty-state">No open matching-site jobs are available for this stop.</div>'}
       </div>
@@ -2766,6 +3369,7 @@
         </div>
       </div>
       ${renderRouteStopLegMeta(stop, index, route)}
+      ${renderRouteStopComplianceBadges(stop, index, route)}
       <div class="suremap-route-place-details">
         ${place?.phone ? `<span class="tag-chip">${esc(place.phone)}</span>` : ''}
         ${place?.websiteUrl ? `<a class="tag-chip" href="${esc(place.websiteUrl)}" target="_blank" rel="noopener">Website</a>` : ''}
@@ -2783,6 +3387,29 @@
     parts.push(`${route.stops.length} stop${route.stops.length === 1 ? '' : 's'}`);
     parts.push(`${linkedJobs} linked job${linkedJobs === 1 ? '' : 's'}`);
     return parts.map((part) => `<span class="tag-chip">${esc(part)}</span>`).join('');
+  }
+
+  function renderRouteComplianceSummary(compliance){
+    const issues = compliance?.hardIssues || [];
+    if(!issues.length) return '';
+    return `<div class="suremap-compliance-summary">
+      <div class="suremap-compliance-title">Route Compliance</div>
+      ${issues.map((issue) => `<div class="suremap-compliance-issue">${esc(issue.message)}</div>`).join('')}
+    </div>`;
+  }
+
+  function renderRouteStopComplianceBadges(stop, index, route, compliance = null){
+    if(normalizeRouteStopType(stop?.stopType) !== 'site') return '';
+    const site = getViewSite(stop.siteId) || getSiteById(stop.siteId);
+    if(!site?.accessRequired) return '';
+    const issues = compliance?.issues || getRouteCompliance(route).issues;
+    const missing = issues.some((issue) => issue.type === 'missingAccess' && issue.stopId === stop.id);
+    const accessPoint = getRouteStopAccessPoint(stop, index);
+    const badges = [];
+    if(missing) badges.push('<span class="tag-chip danger">Missing approved access</span>');
+    else if(accessPoint) badges.push('<span class="tag-chip warn">Access required</span>');
+    if(site.approvedAccessNotes) badges.push(`<span class="tag-chip">${esc(site.approvedAccessNotes)}</span>`);
+    return badges.length ? `<div class="suremap-route-leg-meta">${badges.join('')}</div>` : '';
   }
 
   function renderRouteStopLegMeta(stop, index, route){
@@ -3105,6 +3732,8 @@
       if(options.assign){
         if(!route.assignedTechnicianId) throw new Error('Select a technician before saving and assigning the route.');
         if(!getRouteLinkedJobIds(route).length) throw new Error('Link at least one open job to a route stop before saving and assigning.');
+        const compliance = getRouteCompliance(route);
+        if(compliance.hardIssues.length) throw new Error(`Resolve route compliance issues before assigning:\n${formatRouteComplianceMessage(compliance)}`);
         if(!confirmRouteAssignment(route)) return;
         route.routeStatus = 'Assigned';
       } else if(options.draft){
@@ -3350,6 +3979,196 @@
     }).filter(Boolean);
   }
 
+  function getApprovedAccessPointForSite(site){
+    if(!site?.accessRequired) return null;
+    const lat = normalizeNumber(site.approvedAccessLatitude);
+    const lng = normalizeNumber(site.approvedAccessLongitude);
+    if(!hasUsableCoords(lat, lng)) return null;
+    return {
+      lat,
+      lng,
+      label:site.approvedAccessLabel || `${site.name || site.siteName || 'Site'} approved access`,
+      value:site.approvedAccessNotes || formatGps(lat, lng),
+      stopType:'access',
+      accessForSiteId:site.id
+    };
+  }
+
+  function getRouteStopAccessPoint(stop, index = 0){
+    if(normalizeRouteStopType(stop?.stopType) !== 'site') return null;
+    const site = getViewSite(stop?.siteId) || getSiteById(stop?.siteId);
+    const accessPoint = getApprovedAccessPointForSite(site);
+    return accessPoint ? { ...accessPoint, stop, index } : null;
+  }
+
+  function pointsAreNear(left, right, meters = 3){
+    if(!hasUsableCoords(left?.lat, left?.lng) || !hasUsableCoords(right?.lat, right?.lng)) return false;
+    return distanceMetersBetweenPoints(left, right) <= meters;
+  }
+
+  function getRoutePathPoints(route){
+    const points = [];
+    const origin = getRouteLocationPoint(route, 'origin');
+    const destination = getRouteLocationPoint(route, 'destination');
+    if(origin) points.push({ ...origin, key:'origin', token:'A', role:'origin' });
+    (route?.stops || []).forEach((stop, index) => {
+      const accessPoint = getRouteStopAccessPoint(stop, index);
+      const stopPoint = getRouteStopPoint(stop);
+      if(accessPoint) points.push({ ...accessPoint, key:`access:${stop.id}`, token:`G${index + 1}`, role:'access' });
+      if(stopPoint && (!accessPoint || !pointsAreNear(accessPoint, stopPoint))){
+        points.push({ ...stopPoint, stop, index, key:`stop:${stop.id}`, token:String(index + 1), role:'stop' });
+      }
+    });
+    if(destination) points.push({ ...destination, key:'destination', token:'B', role:'destination' });
+    return points;
+  }
+
+  function getRouteIntermediateDirectionPoints(route, includeAccessWaypoints = true){
+    if(includeAccessWaypoints) return getRoutePathPoints(route).filter((point) => !['origin', 'destination'].includes(point.role));
+    return getRouteStopPoints(route);
+  }
+
+  function distanceMetersBetweenPoints(left, right){
+    const lat1 = Number(left?.lat);
+    const lng1 = Number(left?.lng);
+    const lat2 = Number(right?.lat);
+    const lng2 = Number(right?.lng);
+    if(!hasUsableCoords(lat1, lng1) || !hasUsableCoords(lat2, lng2)) return Number.POSITIVE_INFINITY;
+    const radius = 6371000;
+    const toRad = (value) => Number(value) * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return radius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  function toLocalMeters(point, refLat){
+    const lat = Number(point.lat);
+    const lng = Number(point.lng);
+    const latMeters = 111320;
+    const lngMeters = 111320 * Math.cos(Number(refLat || lat) * Math.PI / 180);
+    return { x:lng * lngMeters, y:lat * latMeters };
+  }
+
+  function pointToSegmentDistanceMeters(point, start, end){
+    const refLat = (Number(point.lat) + Number(start.lat) + Number(end.lat)) / 3;
+    const p = toLocalMeters(point, refLat);
+    const a = toLocalMeters(start, refLat);
+    const b = toLocalMeters(end, refLat);
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    if(dx === 0 && dy === 0) return Math.hypot(p.x - a.x, p.y - a.y);
+    const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy)));
+    return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+  }
+
+  function ccw(a, b, c){
+    return (c.y - a.y) * (b.x - a.x) > (b.y - a.y) * (c.x - a.x);
+  }
+
+  function localSegmentsIntersect(a, b, c, d){
+    return ccw(a, c, d) !== ccw(b, c, d) && ccw(a, b, c) !== ccw(a, b, d);
+  }
+
+  function segmentToSegmentDistanceMeters(aStart, aEnd, bStart, bEnd){
+    const refLat = (Number(aStart.lat) + Number(aEnd.lat) + Number(bStart.lat) + Number(bEnd.lat)) / 4;
+    const a = toLocalMeters(aStart, refLat);
+    const b = toLocalMeters(aEnd, refLat);
+    const c = toLocalMeters(bStart, refLat);
+    const d = toLocalMeters(bEnd, refLat);
+    if(localSegmentsIntersect(a, b, c, d)) return 0;
+    return Math.min(
+      pointToSegmentDistanceMeters(aStart, bStart, bEnd),
+      pointToSegmentDistanceMeters(aEnd, bStart, bEnd),
+      pointToSegmentDistanceMeters(bStart, aStart, aEnd),
+      pointToSegmentDistanceMeters(bEnd, aStart, aEnd)
+    );
+  }
+
+  function getRouteSiteIds(route){
+    const ids = new Set();
+    if(route?.originSiteId) ids.add(route.originSiteId);
+    if(route?.destinationSiteId) ids.add(route.destinationSiteId);
+    (route?.stops || []).forEach((stop) => {
+      if(normalizeRouteStopType(stop.stopType) === 'site' && stop.siteId) ids.add(stop.siteId);
+    });
+    return ids;
+  }
+
+  function getRouteClientIds(route){
+    const ids = new Set();
+    getRouteSiteIds(route).forEach((siteId) => {
+      const site = getSiteById(siteId);
+      if(site?.clientId) ids.add(site.clientId);
+    });
+    return ids;
+  }
+
+  function restrictedRoadAppliesToRoute(road, route){
+    if(!road || road.isActive === false) return false;
+    if(road.siteId) return getRouteSiteIds(route).has(road.siteId);
+    if(road.clientId) return getRouteClientIds(route).has(road.clientId);
+    return true;
+  }
+
+  function getPolylineSegmentPairs(points){
+    const usable = (points || []).filter((point) => hasUsableCoords(point?.lat, point?.lng));
+    const pairs = [];
+    for(let index = 1; index < usable.length; index += 1){
+      pairs.push([usable[index - 1], usable[index]]);
+    }
+    return pairs;
+  }
+
+  function getRouteCompliance(route){
+    const issues = [];
+    (route?.stops || []).forEach((stop, index) => {
+      if(normalizeRouteStopType(stop.stopType) !== 'site') return;
+      const site = getViewSite(stop.siteId) || getSiteById(stop.siteId);
+      if(!site?.accessRequired) return;
+      const accessPoint = getApprovedAccessPointForSite(site);
+      if(!accessPoint){
+        issues.push({
+          type:'missingAccess',
+          stopId:stop.id,
+          siteId:site.id,
+          hard:true,
+          message:`${site.name || site.siteName || `Stop ${index + 1}`} requires an approved access point, but none is mapped.`
+        });
+      }
+    });
+    const routePathPoints = getRoutePathPoints(route).filter((point) => hasUsableCoords(point?.lat, point?.lng));
+    const routeSegments = getPolylineSegmentPairs(routePathPoints);
+    const roads = (state.data.restrictedRoads || []).filter((road) => restrictedRoadAppliesToRoute(road, route) && normalizeRestrictedRoadPoints(road.polylinePoints).length > 1);
+    roads.forEach((road) => {
+      const roadSegments = getPolylineSegmentPairs(normalizeRestrictedRoadPoints(road.polylinePoints));
+      let nearest = Number.POSITIVE_INFINITY;
+      routePathPoints.forEach((point) => {
+        roadSegments.forEach(([roadStart, roadEnd]) => {
+          nearest = Math.min(nearest, pointToSegmentDistanceMeters(point, roadStart, roadEnd));
+        });
+      });
+      routeSegments.forEach(([routeStart, routeEnd]) => {
+        roadSegments.forEach(([roadStart, roadEnd]) => {
+          nearest = Math.min(nearest, segmentToSegmentDistanceMeters(routeStart, routeEnd, roadStart, roadEnd));
+        });
+      });
+      if(nearest <= Number(road.bufferMeters || 75)){
+        issues.push({
+          type:'restrictedRoad',
+          roadId:road.id,
+          hard:true,
+          message:`Route enters ${road.roadName || 'restricted road'} ${Math.round(nearest)}m from a restricted segment (${road.bufferMeters || 75}m buffer).`
+        });
+      }
+    });
+    return { issues, hardIssues:issues.filter((issue) => issue.hard) };
+  }
+
+  function formatRouteComplianceMessage(compliance){
+    return (compliance?.hardIssues || []).map((issue) => `- ${issue.message}`).join('\n');
+  }
+
   function getRouteStopPoint(stop){
     const stopType = normalizeRouteStopType(stop?.stopType);
     if(stopType === 'place'){
@@ -3385,13 +4204,15 @@
   function getRouteDirectionsParts(route){
     const origin = getRouteDirectionsValue(getRouteLocationPoint(route, 'origin'));
     const destination = getRouteDirectionsValue(getRouteLocationPoint(route, 'destination'));
-    const waypoints = (route?.stops || []).map(getRouteStopDirectionsValue).filter(Boolean);
+    const waypointPoints = getRouteIntermediateDirectionPoints(route, true);
+    const waypoints = waypointPoints.map(getRouteDirectionsValue).filter(Boolean);
     return { origin, destination, waypoints };
   }
 
   function canOpenRouteDirections(route){
     const parts = getRouteDirectionsParts(route);
-    return !!(parts.origin && parts.destination && (route?.stops || []).length && parts.waypoints.length === (route?.stops || []).length);
+    const waypointCount = getRouteIntermediateDirectionPoints(route, true).length;
+    return !!(parts.origin && parts.destination && (route?.stops || []).length && parts.waypoints.length === waypointCount);
   }
 
   function openRouteDirections(){
@@ -3430,19 +4251,20 @@
   function syncRouteMarkers(options = {}){
     state.markerCache.forEach((marker) => removeMapMarker(marker));
     state.markerCache.clear();
+    clearRestrictionOverlays();
     clearRouteOverlay();
     const route = getCurrentRouteDraft();
     if(!route || !state.map) return;
     ensureHomeMarker();
     const points = [];
-    const origin = getRouteLocationPoint(route, 'origin');
-    const destination = getRouteLocationPoint(route, 'destination');
-    if(hasUsableCoords(origin?.lat, origin?.lng)) points.push({ ...origin, key:'origin', token:'A' });
-    getRouteStopPoints(route).forEach((point, index) => points.push({ ...point, key:`stop:${point.stop.id}`, token:String(index + 1) }));
-    if(hasUsableCoords(destination?.lat, destination?.lng)) points.push({ ...destination, key:'destination', token:'B' });
+    getRoutePathPoints(route).forEach((point) => {
+      if(hasUsableCoords(point?.lat, point?.lng)) points.push(point);
+    });
     points.forEach((point) => {
       const icon = point.stopType === 'place' ? makeRoutePlaceIcon(point.token, point.list) : makeRouteIcon(point.token);
-      const subtitle = point.stopType === 'place' && point.list?.listName ? `${point.list.listName} | ${point.value || ''}` : point.value || '';
+      const subtitle = point.role === 'access'
+        ? `Approved access | ${point.value || ''}`
+        : (point.stopType === 'place' && point.list?.listName ? `${point.list.listName} | ${point.value || ''}` : point.value || '');
       upsertRouteMarker(point.key, [point.lat, point.lng], icon, buildPopup(point.label, subtitle), () => {});
     });
     if(points.length > 1) fitRoutePoints(points);
@@ -3525,11 +4347,14 @@
     return null;
   }
 
-  function getRouteDirectionsPayload(route, optimizeWaypoints = false){
+  function getRouteDirectionsPayload(route, optimizeWaypoints = false, includeAccessWaypoints = !optimizeWaypoints){
     const origin = getRouteLocationPoint(route, 'origin');
     const destination = getRouteLocationPoint(route, 'destination');
-    const stops = getRouteStopPoints(route);
-    if(!origin || !destination || stops.length !== (route?.stops || []).length) return null;
+    const stops = getRouteIntermediateDirectionPoints(route, includeAccessWaypoints);
+    if(!origin || !destination) return null;
+    if(includeAccessWaypoints){
+      if(stops.length < (route?.stops || []).length) return null;
+    } else if(stops.length !== (route?.stops || []).length) return null;
     if(stops.length > 25) return null;
     const originLocation = makeGoogleRouteLocation(origin);
     const destinationLocation = makeGoogleRouteLocation(destination);
@@ -4604,6 +5429,11 @@
           safety_ppe_notes: record.safetyPpeNotes,
           gate_code_entry_requirements: record.gateCodeEntryRequirements,
           client_site_contact: record.clientSiteContact,
+          access_required: record.accessRequired === true,
+          approved_access_label: record.approvedAccessLabel || '',
+          approved_access_latitude: record.approvedAccessLatitude,
+          approved_access_longitude: record.approvedAccessLongitude,
+          approved_access_notes: record.approvedAccessNotes || '',
           site_status: record.siteStatus,
           standard_job_types: record.standardJobTypes,
           notes: record.notes

@@ -245,6 +245,11 @@
       accessInstructions:String(existing?.accessInstructions || ''),
       safetyPpeNotes:String(existing?.safetyPpeNotes || ''),
       gateCodeEntryRequirements:String(existing?.gateCodeEntryRequirements || ''),
+      accessRequired:existing?.accessRequired === true || String(existing?.accessRequired || '').toLowerCase() === 'true',
+      approvedAccessLabel:String(existing?.approvedAccessLabel || ''),
+      approvedAccessLatitude:normalizeNumber(existing?.approvedAccessLatitude),
+      approvedAccessLongitude:normalizeNumber(existing?.approvedAccessLongitude),
+      approvedAccessNotes:String(existing?.approvedAccessNotes || ''),
       physicalAddress:String(existing?.physicalAddress || ''),
       countyState:String(existing?.countyState || ''),
       gpsCoordinates:String(existing?.gpsCoordinates || '')
@@ -315,6 +320,31 @@
           <label class="form-label">Site Address</label>
           <div class="site-editor-address-summary">${renderAddressSummary()}</div>
           <button class="act-btn" type="button" id="site-editor-edit-address">Edit Address</button>
+        </div>
+        <div class="form-section">
+          <h4>Approved Access</h4>
+        </div>
+        <div class="form-group full">
+          <label class="site-editor-toggle-option" for="site-editor-access-required">
+            <input id="site-editor-access-required" type="checkbox" ${draft.accessRequired ? 'checked' : ''}>
+            <span>Approved access point required for routing</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="site-editor-approved-access-label">Access Point Label</label>
+          <input class="form-input" id="site-editor-approved-access-label" type="text" value="${esc(draft.approvedAccessLabel)}" placeholder="Main gate, south lease road">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="site-editor-approved-access-lat">Access Latitude</label>
+          <input class="form-input" id="site-editor-approved-access-lat" type="number" step="any" value="${esc(draft.approvedAccessLatitude ?? '')}">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="site-editor-approved-access-lng">Access Longitude</label>
+          <input class="form-input" id="site-editor-approved-access-lng" type="number" step="any" value="${esc(draft.approvedAccessLongitude ?? '')}">
+        </div>
+        <div class="form-group full">
+          <label class="form-label" for="site-editor-approved-access-notes">Access Notes</label>
+          <textarea class="form-input" id="site-editor-approved-access-notes">${esc(draft.approvedAccessNotes)}</textarea>
         </div>
         <div class="form-section">
           <h4>Operational Details</h4>
@@ -416,6 +446,11 @@
     draft.siteStatus = normalizeSiteStatus(document.getElementById('site-editor-site-status')?.value || draft.siteStatus);
     draft.notes = document.getElementById('site-editor-notes')?.value.trim() || '';
     draft.clientSiteContact = document.getElementById('site-editor-contact')?.value.trim() || '';
+    draft.accessRequired = document.getElementById('site-editor-access-required')?.checked === true;
+    draft.approvedAccessLabel = document.getElementById('site-editor-approved-access-label')?.value.trim() || '';
+    draft.approvedAccessLatitude = normalizeNumber(document.getElementById('site-editor-approved-access-lat')?.value);
+    draft.approvedAccessLongitude = normalizeNumber(document.getElementById('site-editor-approved-access-lng')?.value);
+    draft.approvedAccessNotes = document.getElementById('site-editor-approved-access-notes')?.value.trim() || '';
     draft.accessInstructions = document.getElementById('site-editor-access')?.value.trim() || '';
     draft.safetyPpeNotes = document.getElementById('site-editor-safety')?.value.trim() || '';
     draft.gateCodeEntryRequirements = document.getElementById('site-editor-gate')?.value.trim() || '';
