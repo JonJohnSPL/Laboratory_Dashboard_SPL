@@ -150,6 +150,8 @@
       .auth-status.error { color:#ff3860; }
       .auth-submit { border:none; border-radius:8px; background:#00d4ff; color:#05080c; padding:12px 14px; cursor:pointer; font-family:'Barlow Condensed',sans-serif; font-size:14px; font-weight:700; letter-spacing:2px; text-transform:uppercase; }
       .auth-submit:hover { filter:brightness(1.05); }
+      .auth-secondary-link { justify-self:center; color:#94a3b8; font-family:'Share Tech Mono',monospace; font-size:11px; text-decoration:none; }
+      .auth-secondary-link:hover { color:#00d4ff; }
       @media (max-width: 700px){
         .session-controls { justify-content:flex-start; }
         .auth-card-head { padding:18px 18px 12px; }
@@ -184,6 +186,7 @@
           </div>
           <div class="auth-status" aria-live="polite"></div>
           <button type="submit" class="auth-submit">Sign In</button>
+          <a class="auth-secondary-link" href="${escapeHtml(getPasswordResetUrl())}">Forgot password?</a>
         </form>
       </div>
     `;
@@ -563,6 +566,11 @@
     if(window.location.hash){
       history.replaceState(null, document.title, `${window.location.pathname}${window.location.search}`);
     }
+  }
+
+  function getPasswordResetUrl(){
+    const base = window.location.pathname.includes('/SureMap/') ? '../password-reset.html' : 'password-reset.html';
+    return `${base}?returnTo=${encodeURIComponent(window.location.pathname)}`;
   }
 
   function resolveEmail(identifier){

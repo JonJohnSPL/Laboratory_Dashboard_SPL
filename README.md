@@ -31,6 +31,27 @@ Do not put private service-role keys or webhook URLs in `app-config.js`; GitHub 
 
 With `authEmailSuffix` set, staff can type `jsmith` plus their password, and the frontend will resolve it to `jsmith@lab.local` during sign-in.
 
+For password recovery, add this redirect URL in Supabase Auth URL Configuration:
+
+```text
+https://jonjohnspl.github.io/Laboratory_Dashboard_SPL/password-reset.html
+```
+
+## Field Ops Teams alerts
+
+The browser calls the `field-ops-teams` Supabase Edge Function instead of calling the Teams webhook directly.
+Store the Teams/Power Automate URL as a Supabase secret:
+
+```text
+FIELD_OPS_TEAMS_WEBHOOK_URL
+```
+
+Then deploy the function:
+
+```text
+supabase functions deploy field-ops-teams
+```
+
 ## GitHub repo and Pages
 
 1. Create a new empty GitHub repository.

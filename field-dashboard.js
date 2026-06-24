@@ -1741,7 +1741,7 @@ function getJobMissingRequirements(job, assignments = getAssignmentsForJob(job.i
   return required.filter((assignmentType) => !availableTypes.has(assignmentType));
 }
 
-function getFieldOpsWebhookUrl(){ return String(window.APP_CONFIG?.fieldOpsTeamsWebhookUrl || '').trim(); }
+function getFieldOpsTeamsFunctionPath(){ return '/functions/v1/field-ops-teams'; }
 
 function buildTeamsWebhookPayload(job){
   if(!job){
@@ -1776,22 +1776,21 @@ function pickTeamsWebhookTestJob(){
 }
 
 async function sendTeamsWebhookTest(){
-  const webhookUrl = getFieldOpsWebhookUrl();
-  if(!webhookUrl){
-    alert('Field Ops Teams webhook URL is not configured. Add fieldOpsTeamsWebhookUrl to app-config.js, then try again.');
+  if(!window.appAuth || window.appAuth.getMode?.() !== 'remote'){
+    alert('Sign in with Remote sync before sending a Teams test.');
     return;
   }
   showSaveStatus('saving', 'SENDING TEAMS TEST');
   try {
     const payload = buildTeamsWebhookPayload(pickTeamsWebhookTestJob());
-    const response = await fetch(webhookUrl, {
+    const response = await window.appAuth.fetch(getFieldOpsTeamsFunctionPath(), {
       method:'POST',
       headers:{ 'Content-Type':'application/json' },
       body:JSON.stringify(payload)
     });
     if(!response.ok){
-      const detail = await response.text().catch(() => '');
-      throw new Error(detail || `Teams webhook failed with HTTP ${response.status}.`);
+      const detail = await response.json().catch(() => null);
+      throw new Error(detail?.error || `Teams webhook failed with HTTP ${response.status}.`);
     }
     showSaveStatus('saved', 'TEAMS TEST SENT');
     hideSaveStatusSoon();
