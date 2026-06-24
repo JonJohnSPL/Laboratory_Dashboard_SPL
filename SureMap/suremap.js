@@ -2001,12 +2001,13 @@
     }
   }
 
-  function drawRestrictedRoadOverlay(road, selected = false){
+  function drawRestrictedRoadOverlay(road, selected = false, options = {}){
     const points = normalizeRestrictedRoadPoints(road?.polylinePoints);
     if(!points.length) return;
-    const color = road?.isActive === false ? '#7b8880' : '#ff4d4f';
-    const opacity = selected ? .95 : .72;
-    const weight = selected ? 5 : 4;
+    const isConflict = options.conflict === true;
+    const color = road?.isActive === false ? '#7b8880' : (isConflict ? '#ff3860' : '#ff4d4f');
+    const opacity = isConflict ? .96 : (selected ? .95 : .72);
+    const weight = isConflict ? 7 : (selected ? 5 : 4);
     const key = road?.id || 'draft';
     if(points.length > 1){
       if(state.mapProvider === 'google'){
@@ -2015,17 +2016,20 @@
           strokeColor: color,
           strokeOpacity: opacity,
           strokeWeight: weight,
+          zIndex: isConflict ? 80 : (selected ? 50 : 30),
           map: state.map
         });
         state.restrictionOverlayCache.set(`road:${key}`, polyline);
       } else {
         const polyline = L.polyline(points.map((point) => [point.lat, point.lng]), { color, opacity, weight }).addTo(state.map);
+        if(isConflict && typeof polyline.bringToFront === 'function') polyline.bringToFront();
         state.restrictionOverlayCache.set(`road:${key}`, polyline);
       }
     }
     points.forEach((point, index) => {
       const markerKey = `road:${key}:point:${index}`;
-      const popup = buildPopup(road?.roadName || 'Restricted road', `${index + 1}. ${formatGps(point.lat, point.lng)} | ${road?.bufferMeters || 75}m buffer`);
+      const popupTitle = isConflict ? `Conflict: ${road?.roadName || 'Restricted road'}` : (road?.roadName || 'Restricted road');
+      const popup = buildPopup(popupTitle, `${index + 1}. ${formatGps(point.lat, point.lng)} | ${road?.bufferMeters || 75}m buffer`);
       if(state.mapProvider === 'google'){
         const marker = new google.maps.Marker({
           map: state.map,
@@ -4165,6 +4169,34 @@
     return { issues, hardIssues:issues.filter((issue) => issue.hard) };
   }
 
+  function getRouteRestrictedRoadConflicts(compliance){
+    const roadIds = new Set((compliance?.issues || [])
+      .filter((issue) => issue.type === 'restrictedRoad' && issue.roadId)
+      .map((issue) => String(issue.roadId)));
+    return [...roadIds]
+      .map((roadId) => state.indexes.restrictedRoadsById.get(roadId))
+      .filter(Boolean);
+  }
+
+  function getRouteConflictSegments(route, roads){
+    const routeSegments = getPolylineSegmentPairs(getRoutePathPoints(route).filter((point) => hasUsableCoords(point?.lat, point?.lng)));
+    const seen = new Set();
+    const out = [];
+    (roads || []).forEach((road) => {
+      const bufferMeters = Number(road?.bufferMeters || 75);
+      const roadSegments = getPolylineSegmentPairs(normalizeRestrictedRoadPoints(road?.polylinePoints));
+      routeSegments.forEach(([routeStart, routeEnd], routeIndex) => {
+        const conflicts = roadSegments.some(([roadStart, roadEnd]) => segmentToSegmentDistanceMeters(routeStart, routeEnd, roadStart, roadEnd) <= bufferMeters);
+        if(!conflicts) return;
+        const key = `${routeIndex}:${routeStart.lat},${routeStart.lng}:${routeEnd.lat},${routeEnd.lng}`;
+        if(seen.has(key)) return;
+        seen.add(key);
+        out.push({ road, routeStart, routeEnd, routeIndex });
+      });
+    });
+    return out;
+  }
+
   function formatRouteComplianceMessage(compliance){
     return (compliance?.hardIssues || []).map((issue) => `- ${issue.message}`).join('\n');
   }
@@ -4268,8 +4300,56 @@
       upsertRouteMarker(point.key, [point.lat, point.lng], icon, buildPopup(point.label, subtitle), () => {});
     });
     if(points.length > 1) fitRoutePoints(points);
-    if(options.renderRoadRoute !== false && tryRenderGoogleRoadRoute(route, points)) return;
+    const compliance = getRouteCompliance(route);
+    if(options.renderRoadRoute !== false && tryRenderGoogleRoadRoute(route, points)){
+      syncRouteRestrictionHighlights(route, compliance);
+      return;
+    }
     if(options.renderManualRouteLine !== false) drawRouteLine(points);
+    syncRouteRestrictionHighlights(route, compliance);
+  }
+
+  function syncRouteRestrictionHighlights(route, compliance = null){
+    clearRestrictionOverlays();
+    const roads = getRouteRestrictedRoadConflicts(compliance || getRouteCompliance(route));
+    if(!roads.length) return;
+    roads.forEach((road) => drawRestrictedRoadOverlay(road, false, { conflict:true }));
+    getRouteConflictSegments(route, roads).forEach((segment, index) => drawRouteConflictSegment(segment, index));
+  }
+
+  function drawRouteConflictSegment(segment, index){
+    if(!segment || !hasUsableCoords(segment.routeStart?.lat, segment.routeStart?.lng) || !hasUsableCoords(segment.routeEnd?.lat, segment.routeEnd?.lng)) return;
+    const key = `route-conflict:${segment.road?.id || 'road'}:${index}`;
+    const title = segment.road?.roadName || 'Restricted road conflict';
+    const popup = buildPopup(title, `Route enters restricted buffer (${segment.road?.bufferMeters || 75}m).`);
+    if(state.mapProvider === 'google'){
+      const polyline = new google.maps.Polyline({
+        path: [
+          { lat:segment.routeStart.lat, lng:segment.routeStart.lng },
+          { lat:segment.routeEnd.lat, lng:segment.routeEnd.lng }
+        ],
+        geodesic: true,
+        strokeColor: '#ff3860',
+        strokeOpacity: .95,
+        strokeWeight: 9,
+        zIndex: 90,
+        map: state.map
+      });
+      polyline.addListener('click', (event) => {
+        if(!state.googleInfoWindow) state.googleInfoWindow = new google.maps.InfoWindow();
+        state.googleInfoWindow.setContent(popup);
+        state.googleInfoWindow.setPosition(event.latLng);
+        state.googleInfoWindow.open({ map:state.map });
+      });
+      state.restrictionOverlayCache.set(key, polyline);
+      return;
+    }
+    const polyline = L.polyline(
+      [[segment.routeStart.lat, segment.routeStart.lng], [segment.routeEnd.lat, segment.routeEnd.lng]],
+      { color:'#ff3860', weight:9, opacity:.92, dashArray:'2 8' }
+    ).bindPopup(popup, { autoPan:false }).addTo(state.map);
+    if(typeof polyline.bringToFront === 'function') polyline.bringToFront();
+    state.restrictionOverlayCache.set(key, polyline);
   }
 
   function upsertRouteMarker(key, latLng, icon, popupHtml, onClick){
