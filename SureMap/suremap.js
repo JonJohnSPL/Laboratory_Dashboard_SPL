@@ -3675,7 +3675,6 @@
     const replacementWarnings = [];
     jobIds.forEach((jobId) => {
       getAssignmentsForJob(jobId).forEach((assignment) => {
-        if(assignment.assignmentType === 'Technician' && assignment.resourceId && assignment.resourceId !== route.assignedTechnicianId) replacementWarnings.push(`${getJobTitle(getJobById(jobId))}: technician ${getResourceName('Technician', assignment.resourceId)}`);
         if(defaultTruck && assignment.assignmentType === 'Truck' && assignment.resourceId && assignment.resourceId !== defaultTruck.id) replacementWarnings.push(`${getJobTitle(getJobById(jobId))}: truck ${getResourceName('Truck', assignment.resourceId)}`);
       });
     });
@@ -3695,10 +3694,11 @@
 
   async function assignRemoteRouteJobs(jobIds, technicianId, truckId){
     for(const jobId of jobIds){
-      await window.appAuth.requestJson(`/rest/v1/field_job_assignments?job_id=eq.${encodeURIComponent(jobId)}&assignment_type=eq.Technician`, { method:'DELETE' });
       if(truckId) await window.appAuth.requestJson(`/rest/v1/field_job_assignments?job_id=eq.${encodeURIComponent(jobId)}&assignment_type=eq.Truck`, { method:'DELETE' });
-      const rows = [{ job_id:jobId, assignment_type:'Technician', resource_id:technicianId, assignment_status:'Assigned', assignment_notes:'Assigned from SureMap route.' }];
+      const hasRouteTechnician = getAssignmentsForJob(jobId).some((assignment) => assignment.assignmentType === 'Technician' && assignment.resourceId === technicianId);
+      const rows = hasRouteTechnician ? [] : [{ job_id:jobId, assignment_type:'Technician', resource_id:technicianId, assignment_status:'Assigned', assignment_notes:'Assigned from SureMap route.' }];
       if(truckId) rows.push({ job_id:jobId, assignment_type:'Truck', resource_id:truckId, assignment_status:'Assigned', assignment_notes:'Default truck assigned from SureMap route.' });
+      if(!rows.length) continue;
       await window.appAuth.requestJson('/rest/v1/field_job_assignments', {
         method:'POST',
         headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
@@ -3713,12 +3713,12 @@
     const jobSet = new Set(jobIds);
     raw.jobAssignments = raw.jobAssignments.filter((assignment) => {
       if(!jobSet.has(assignment.jobId)) return true;
-      if(assignment.assignmentType === 'Technician') return false;
       if(truckId && assignment.assignmentType === 'Truck') return false;
       return true;
     });
     jobIds.forEach((jobId) => {
-      raw.jobAssignments.push(normalizeJobAssignment({ id:uid('asg'), jobId, assignmentType:'Technician', resourceId:technicianId }));
+      const hasRouteTechnician = raw.jobAssignments.some((assignment) => assignment.jobId === jobId && assignment.assignmentType === 'Technician' && assignment.resourceId === technicianId);
+      if(!hasRouteTechnician) raw.jobAssignments.push(normalizeJobAssignment({ id:uid('asg'), jobId, assignmentType:'Technician', resourceId:technicianId }));
       if(truckId) raw.jobAssignments.push(normalizeJobAssignment({ id:uid('asg'), jobId, assignmentType:'Truck', resourceId:truckId }));
     });
     localStorage.setItem(STORAGE_KEY, JSON.stringify(raw));
