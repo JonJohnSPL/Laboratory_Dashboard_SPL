@@ -1908,6 +1908,20 @@ function isLocalSplSite(siteId){
 function isLocalSplEndpoint(travel, side){
   return travel?.[`${side}Type`] === 'spl_site' && isLocalSplSite(travel?.[`${side}SplSiteId`]);
 }
+function inferTravelDirectionFromEndpoints(travel){
+  const originIsLocalSpl = isLocalSplEndpoint(travel, 'origin');
+  const destinationIsLocalSpl = isLocalSplEndpoint(travel, 'destination');
+  if(destinationIsLocalSpl && !originIsLocalSpl) return 'Inbound';
+  if(originIsLocalSpl && !destinationIsLocalSpl) return 'Outbound';
+  return '';
+}
+function getTravelEndpointDirectionIssue(travel){
+  const originIsLocalSpl = isLocalSplEndpoint(travel, 'origin');
+  const destinationIsLocalSpl = isLocalSplEndpoint(travel, 'destination');
+  if(originIsLocalSpl && destinationIsLocalSpl) return 'Travel must start or end at Pittsburgh, not both.';
+  if(!originIsLocalSpl && !destinationIsLocalSpl) return 'Travel must start or end at Pittsburgh.';
+  return '';
+}
 function isPittsburghAvailabilityTravel(travel){
   return travel?.direction === 'Inbound' && isLocalSplEndpoint(travel, 'destination');
 }
@@ -1998,13 +2012,12 @@ function normalizeTravelEndpointForSave(draft, prefix){
 function normalizeTravelDraftForSave(draft){
   let next = {
     ...draft,
-    direction:TRAVEL_DIRECTION_OPTIONS.includes(draft.direction) ? draft.direction : 'Outbound',
-    travelStatus:TRAVEL_STATUS_OPTIONS.includes(draft.travelStatus) ? draft.travelStatus : 'Planned'
+    travelStatus:TRAVEL_STATUS_OPTIONS.includes(draft.travelStatus) ? draft.travelStatus : 'Planned',
+    purpose:String(draft.purpose || '')
   };
-  if(next.direction === 'Inbound') next.destinationType = 'spl_site';
-  if(next.direction === 'Outbound') next.originType = 'spl_site';
   next = normalizeTravelEndpointForSave(next, 'origin');
   next = normalizeTravelEndpointForSave(next, 'destination');
+  next.direction = inferTravelDirectionFromEndpoints(next) || (TRAVEL_DIRECTION_OPTIONS.includes(draft.direction) ? draft.direction : 'Outbound');
   return next;
 }
 function formatTravelDuration(startValue, endValue){
@@ -2285,20 +2298,17 @@ const FORM_DEFINITIONS = {
   technicianTravel:[
     { kind:'section', label:'Technician Travel' },
     { key:'technicianId', label:'Technician', type:'select', options:() => buildTechnicianOptions('', modalState.formData.technicianId), required:true },
-    { key:'direction', label:'Direction', type:'select', options:TRAVEL_DIRECTION_OPTIONS, handler:'changeTravelDirection' },
-    { key:'travelStatus', label:'Status', type:'select', options:TRAVEL_STATUS_OPTIONS },
-    { key:'purpose', label:'Purpose', type:'text', full:true },
     { kind:'section', label:'Travel Window' },
-    { key:'arrivalAt', label:'Arrival', type:'datetime-local' },
-    { key:'departureAt', label:'Departure', type:'datetime-local' },
+    { key:'arrivalAt', label:'Travel Start', type:'datetime-local' },
+    { key:'departureAt', label:'Travel End', type:'datetime-local' },
     { kind:'section', label:'Origin' },
-    { key:'originType', label:'Origin Type', type:'select', options:TRAVEL_LOCATION_TYPE_OPTIONS, handler:'changeTravelOriginType', disabled:() => modalState.formData.direction === 'Outbound' },
+    { key:'originType', label:'Origin Type', type:'select', options:TRAVEL_LOCATION_TYPE_OPTIONS, handler:'changeTravelOriginType' },
     { key:'originSplSiteId', label:'Origin SPL Site', type:'select', options:() => buildSplSiteOptions(modalState.formData.originSplSiteId), travelLocationTypeKey:'originType', travelLocationTypeValue:'spl_site' },
     { key:'originClientSiteId', label:'Origin Client Site', type:'select', options:() => buildTravelClientSiteOptions(modalState.formData.originClientSiteId), travelLocationTypeKey:'originType', travelLocationTypeValue:'client_site' },
     { key:'originLabel', label:'Origin Name', type:'text', travelLocationTypeKey:'originType', travelLocationTypeValue:'other' },
     { key:'originLocation', label:'Origin Location', type:'text', full:true, travelLocationTypeKey:'originType', travelLocationTypeValue:'other' },
     { kind:'section', label:'Destination' },
-    { key:'destinationType', label:'Destination Type', type:'select', options:TRAVEL_LOCATION_TYPE_OPTIONS, handler:'changeTravelDestinationType', disabled:() => modalState.formData.direction === 'Inbound' },
+    { key:'destinationType', label:'Destination Type', type:'select', options:TRAVEL_LOCATION_TYPE_OPTIONS, handler:'changeTravelDestinationType' },
     { key:'destinationSplSiteId', label:'Destination SPL Site', type:'select', options:() => buildSplSiteOptions(modalState.formData.destinationSplSiteId), travelLocationTypeKey:'destinationType', travelLocationTypeValue:'spl_site' },
     { key:'destinationClientSiteId', label:'Destination Client Site', type:'select', options:() => buildTravelClientSiteOptions(modalState.formData.destinationClientSiteId), travelLocationTypeKey:'destinationType', travelLocationTypeValue:'client_site' },
     { key:'destinationLabel', label:'Destination Name', type:'text', travelLocationTypeKey:'destinationType', travelLocationTypeValue:'other' },
@@ -4522,6 +4532,43 @@ function renderJobPartPickerModal(){
   `;
 }
 
+function renderTechnicianTravelEditor(){
+  const technicianField = { key:'technicianId', label:'Technician', type:'select', options:() => buildTechnicianOptions('', modalState.formData.technicianId), required:true };
+  const startFields = [
+    { key:'arrivalAt', label:'Travel Start', type:'datetime-local' },
+    { key:'originType', label:'Origin Type', type:'select', options:TRAVEL_LOCATION_TYPE_OPTIONS, handler:'changeTravelOriginType' },
+    { key:'originSplSiteId', label:'Origin SPL Site', type:'select', options:() => buildSplSiteOptions(modalState.formData.originSplSiteId), travelLocationTypeKey:'originType', travelLocationTypeValue:'spl_site' },
+    { key:'originClientSiteId', label:'Origin Client Site', type:'select', options:() => buildTravelClientSiteOptions(modalState.formData.originClientSiteId), travelLocationTypeKey:'originType', travelLocationTypeValue:'client_site' },
+    { key:'originLabel', label:'Origin Name', type:'text', travelLocationTypeKey:'originType', travelLocationTypeValue:'other' },
+    { key:'originLocation', label:'Origin Location', type:'text', full:true, travelLocationTypeKey:'originType', travelLocationTypeValue:'other' }
+  ];
+  const endFields = [
+    { key:'departureAt', label:'Travel End', type:'datetime-local' },
+    { key:'destinationType', label:'Destination Type', type:'select', options:TRAVEL_LOCATION_TYPE_OPTIONS, handler:'changeTravelDestinationType' },
+    { key:'destinationSplSiteId', label:'Destination SPL Site', type:'select', options:() => buildSplSiteOptions(modalState.formData.destinationSplSiteId), travelLocationTypeKey:'destinationType', travelLocationTypeValue:'spl_site' },
+    { key:'destinationClientSiteId', label:'Destination Client Site', type:'select', options:() => buildTravelClientSiteOptions(modalState.formData.destinationClientSiteId), travelLocationTypeKey:'destinationType', travelLocationTypeValue:'client_site' },
+    { key:'destinationLabel', label:'Destination Name', type:'text', travelLocationTypeKey:'destinationType', travelLocationTypeValue:'other' },
+    { key:'destinationLocation', label:'Destination Location', type:'text', full:true, travelLocationTypeKey:'destinationType', travelLocationTypeValue:'other' }
+  ];
+  return `
+    <div class="form-grid travel-editor-grid">
+      <div class="form-section"><h4>Technician Travel</h4></div>
+      ${renderFormField(technicianField)}
+      <div class="travel-modal-grid">
+        <div class="travel-modal-panel">
+          <div class="travel-modal-panel-title">Travel Start</div>
+          ${startFields.map((field) => renderFormField(field)).join('')}
+        </div>
+        <div class="travel-modal-panel">
+          <div class="travel-modal-panel-title">Travel End</div>
+          ${endFields.map((field) => renderFormField(field)).join('')}
+        </div>
+      </div>
+      ${renderFormField({ key:'notes', label:'Notes', type:'textarea', full:true })}
+    </div>
+  `;
+}
+
 function renderModal(){
   const overlay = document.getElementById('entity-modal-overlay');
   if(!overlay) return;
@@ -4530,7 +4577,10 @@ function renderModal(){
   document.getElementById('entity-modal-title').textContent = `${modalState.id ? 'Edit' : 'Add'} ${ENTITY_CONFIG[modalState.entity].label}`;
   document.getElementById('entity-modal-delete').style.display = modalState.id ? '' : 'none';
   document.getElementById('entity-modal-duplicate').style.display = modalState.entity === 'jobs' && modalState.id ? '' : 'none';
-  document.getElementById('entity-modal-body').innerHTML = `<div class="form-grid">${(FORM_DEFINITIONS[modalState.entity] || []).map((field) => renderFormField(field)).join('')}</div>${modalState.entity === 'jobs' ? `${renderJobSampleLogisticsEditor()}${renderJobPartsEditor()}${renderAssignmentEditor()}${renderSalesforceCaseEditor()}` : ''}`;
+  const bodyMarkup = modalState.entity === 'technicianTravel'
+    ? renderTechnicianTravelEditor()
+    : `<div class="form-grid">${(FORM_DEFINITIONS[modalState.entity] || []).map((field) => renderFormField(field)).join('')}</div>${modalState.entity === 'jobs' ? `${renderJobSampleLogisticsEditor()}${renderJobPartsEditor()}${renderAssignmentEditor()}${renderSalesforceCaseEditor()}` : ''}`;
+  document.getElementById('entity-modal-body').innerHTML = bodyMarkup;
   hydrateAssetPhotoPreviews(document.getElementById('entity-modal-body'));
 }
 
@@ -4646,8 +4696,18 @@ function openEntityModal(entityKey, id = '', options = {}){
       draft.departureAt = draft.departureAt || `${scheduleDate || todayISO()}T17:00`;
       draft.originSplSiteId = draft.originSplSiteId || getDefaultSplSiteId();
       if(options.direction) draft.direction = options.direction;
-      if(draft.direction === 'Inbound') draft.destinationType = 'spl_site';
-      if(draft.direction === 'Outbound') draft.originType = 'spl_site';
+      if(draft.direction === 'Inbound'){
+        draft.originType = draft.originType === 'spl_site' ? 'client_site' : draft.originType;
+        draft.originSplSiteId = '';
+        draft.destinationType = 'spl_site';
+        draft.destinationSplSiteId = draft.destinationSplSiteId || getDefaultSplSiteId();
+      }
+      if(draft.direction === 'Outbound'){
+        draft.originType = 'spl_site';
+        draft.originSplSiteId = draft.originSplSiteId || getDefaultSplSiteId();
+        draft.destinationType = draft.destinationType === 'spl_site' ? 'client_site' : draft.destinationType;
+        draft.destinationSplSiteId = '';
+      }
       draft = normalizeTravelDraftForSave(draft);
     }
   }
@@ -5067,25 +5127,24 @@ function validateModal(){
   }
   if(entityKey === 'technicianTravel'){
     if(!String(formData.technicianId || '').trim()) return 'Technician is required.';
-    if(!TRAVEL_DIRECTION_OPTIONS.includes(formData.direction)) return 'Travel direction is required.';
-    if(!TRAVEL_STATUS_OPTIONS.includes(formData.travelStatus)) return 'Travel status is required.';
     const arrival = parseDateTime(formData.arrivalAt);
     const departure = parseDateTime(formData.departureAt);
-    if(!arrival) return 'Arrival date/time is required.';
-    if(!departure) return 'Departure date/time is required.';
-    if(departure <= arrival) return 'Departure must be after arrival.';
-    if(formData.direction === 'Inbound' && formData.destinationType !== 'spl_site') return 'Inbound travel must arrive at an SPL site.';
-    if(formData.direction === 'Outbound' && formData.originType !== 'spl_site') return 'Outbound travel must start from an SPL site.';
+    if(!arrival) return 'Travel Start date/time is required.';
+    if(!departure) return 'Travel End date/time is required.';
+    if(departure <= arrival) return 'Travel End must be after Travel Start.';
     if(formData.originType === 'spl_site' && !formData.originSplSiteId) return 'Origin SPL site is required.';
     if(formData.originType === 'client_site' && !formData.originClientSiteId) return 'Origin client site is required.';
     if(formData.originType === 'other' && !String(formData.originLabel || '').trim()) return 'Origin name is required for other locations.';
     if(formData.destinationType === 'spl_site' && !formData.destinationSplSiteId) return 'Destination SPL site is required.';
     if(formData.destinationType === 'client_site' && !formData.destinationClientSiteId) return 'Destination client site is required.';
     if(formData.destinationType === 'other' && !String(formData.destinationLabel || '').trim()) return 'Destination name is required for other locations.';
-    const conflict = findTravelScheduleConflict(formData);
-    if(conflict?.type === 'travel') return `This overlaps existing travel for ${getTechnicianLabel(formData.technicianId)} from ${fmtDateTime(conflict.travel.arrivalAt)} to ${fmtDateTime(conflict.travel.departureAt)}.`;
-    if(conflict?.type === 'blockingTravel') return `This would leave ${getTechnicianLabel(formData.technicianId)} blocked by travel during ${getJobDisplayTitle(conflict.job)} at ${getJobScheduleLabel(conflict.job)}.`;
-    if(conflict?.type === 'missingPittsburghTravel') return `This would leave ${getTechnicianLabel(formData.technicianId)} without Pittsburgh travel covering ${getJobDisplayTitle(conflict.job)} at ${getJobScheduleLabel(conflict.job)}.`;
+    const normalizedTravel = normalizeTravelDraftForSave(formData);
+    const endpointIssue = getTravelEndpointDirectionIssue(normalizedTravel);
+    if(endpointIssue) return endpointIssue;
+    const conflict = findTravelScheduleConflict(normalizedTravel);
+    if(conflict?.type === 'travel') return `This overlaps existing travel for ${getTechnicianLabel(normalizedTravel.technicianId)} from ${fmtDateTime(conflict.travel.arrivalAt)} to ${fmtDateTime(conflict.travel.departureAt)}.`;
+    if(conflict?.type === 'blockingTravel') return `This would leave ${getTechnicianLabel(normalizedTravel.technicianId)} blocked by travel during ${getJobDisplayTitle(conflict.job)} at ${getJobScheduleLabel(conflict.job)}.`;
+    if(conflict?.type === 'missingPittsburghTravel') return `This would leave ${getTechnicianLabel(normalizedTravel.technicianId)} without Pittsburgh travel covering ${getJobDisplayTitle(conflict.job)} at ${getJobScheduleLabel(conflict.job)}.`;
   }
   if(entityKey === 'trucks' && !String(formData.unitNumber || '').trim()) return 'Truck unit number is required.';
   if(entityKey === 'trailers' && !String(formData.trailerNumber || '').trim()) return 'Trailer number is required.';
