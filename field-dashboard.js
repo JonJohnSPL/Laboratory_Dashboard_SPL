@@ -1955,6 +1955,7 @@ function findTravelScheduleConflict(travelDraft, currentTravelId = modalState.id
     .filter((assignment) => assignment.assignmentType === 'Technician' && assignment.resourceId === travelDraft.technicianId)
     .map((assignment) => getJob(assignment.jobId))
     .filter(Boolean)
+    .filter((job) => !isJobPast(job))
     .map((job) => {
       const jobWindow = getJobTravelWindow(job);
       if(!jobWindow) return null;

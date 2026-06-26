@@ -2247,6 +2247,7 @@ begin
       where a.assignment_type = 'Technician'
         and a.resource_id = new.technician_id
         and coalesce(j.scheduled_start, j.requested_date::timestamptz) is not null
+        and coalesce(j.scheduled_end, j.scheduled_start, j.requested_date::timestamptz) >= now()
         and not (
           exists (
             select 1
