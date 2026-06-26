@@ -811,6 +811,10 @@
   width:min(860px, 100%);
 }
 
+.route-add-job-modal-card{
+  width:min(760px, 100%);
+}
+
 .suremap-route-place-form{
   display:grid;
   grid-template-columns:repeat(2, minmax(0, 1fr));
@@ -857,6 +861,63 @@
   border:1px solid var(--border);
   border-radius:8px;
   background:rgba(8,12,10,.28);
+}
+
+.suremap-add-job-options{
+  display:grid;
+  gap:8px;
+  max-height:min(58vh, 520px);
+  overflow:auto;
+  padding:6px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:rgba(8,12,10,.28);
+}
+
+.suremap-add-job-option{
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) auto;
+  gap:10px;
+  align-items:center;
+  width:100%;
+  min-width:0;
+  padding:10px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:rgba(18,26,21,.76);
+  color:var(--text);
+  text-align:left;
+  cursor:pointer;
+}
+
+.suremap-add-job-option:hover{
+  border-color:rgba(111,227,255,.36);
+  background:rgba(111,227,255,.08);
+}
+
+.suremap-add-job-option span:first-child{
+  display:grid;
+  gap:3px;
+  min-width:0;
+}
+
+.suremap-add-job-option strong,
+.suremap-add-job-option small{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-family:var(--mono);
+  line-height:1.35;
+}
+
+.suremap-add-job-option strong{
+  font-size:12px;
+  color:var(--text);
+}
+
+.suremap-add-job-option small{
+  font-size:10px;
+  color:var(--muted);
 }
 
 .suremap-add-stop-site-option{

@@ -672,6 +672,7 @@
       if(actionName === 'save-route-draft') saveCurrentRoute({ draft:true });
       if(actionName === 'delete-route') deleteCurrentRoute();
       if(actionName === 'open-add-route-stop') openRouteAddStopModal();
+      if(actionName === 'open-add-route-job') openRouteAddJobModal();
       if(actionName === 'move-route-stop') moveRouteStop(action.dataset.stopId, Number(action.dataset.delta || 0));
       if(actionName === 'remove-route-stop') removeRouteStop(action.dataset.stopId);
       if(actionName === 'optimize-route') optimizeCurrentRoute();
@@ -3132,8 +3133,37 @@
     return truck?.unitNumber || 'Unnamed truck';
   }
 
+  function getJobTypeLabel(job){
+    const raw = String(job?.jobType || '').trim();
+    if(!raw) return 'Job';
+    const normalized = raw.toLowerCase();
+    const record = state.data.jobTypes.find((jobType) => jobType.jobTypeName.toLowerCase() === normalized || jobType.jobTypeKey.toLowerCase() === normalized);
+    return record?.jobTypeName || raw;
+  }
+
+  function getRouteDefaultName(route){
+    const jobs = getRouteLinkedJobIds(route).map(getJobById).filter(Boolean);
+    if(!jobs.length) return '';
+    const clientNames = [...new Set(jobs.map((job) => state.indexes.clientsById.get(job.clientId)?.clientName || '').filter(Boolean))];
+    const jobTypes = [...new Set(jobs.map(getJobTypeLabel).filter(Boolean))];
+    const siteIds = [...new Set(jobs.flatMap(getJobSiteIds))];
+    const siteNames = [...new Set(siteIds.map((siteId) => getViewSite(siteId)?.name || getSiteById(siteId)?.siteName || '').filter(Boolean))];
+    return [
+      clientNames.length === 1 ? clientNames[0] : 'Multiple Clients',
+      jobTypes.length === 1 ? jobTypes[0] : 'Multiple Jobs',
+      siteNames.length === 1 ? siteNames[0] : 'Multiple Sites'
+    ].filter(Boolean).join(' ');
+  }
+
+  function refreshRouteAutoName(route, previousDefaultName = ''){
+    if(!route) return;
+    const currentName = String(route.routeName || '').trim();
+    if(currentName && currentName !== previousDefaultName) return;
+    route.routeName = getRouteDefaultName(route) || currentName;
+  }
+
   function getRouteName(route){
-    return String(route?.routeName || '').trim() || `Route ${formatDate(route?.routeDate || todayISO())}`;
+    return String(route?.routeName || '').trim() || getRouteDefaultName(route) || `Route ${formatDate(route?.routeDate || todayISO())}`;
   }
 
   function getRouteStatusClass(status){
@@ -3479,6 +3509,7 @@
         </div>
         <div class="suremap-route-stop-tools">
           <button class="add-btn suremap-add-stop-btn" type="button" data-action="open-add-route-stop">+ Add Stop</button>
+          <button class="add-btn suremap-add-stop-btn" type="button" data-action="open-add-route-job">+ Add Job</button>
         </div>
         <div class="suremap-route-stops">${route.stops.length ? route.stops.map((stop, index) => renderRouteStopEditor(stop, index, route, routeRenderContext)).join('') : '<div class="empty-state">No stops yet. Use Add Stop to choose a client site or Other Site.</div>'}</div>
         <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" data-route-field="notes">${esc(route.notes)}</textarea></div>
@@ -3507,6 +3538,26 @@
       const leftDate = getJobDate(left) || '';
       const rightDate = getJobDate(right) || '';
       return leftDate.localeCompare(rightDate) || getJobTitle(left).localeCompare(getJobTitle(right));
+    });
+  }
+
+  function getAvailableJobsForRoute(route = getCurrentRouteDraft()){
+    const linkedElsewhere = getLinkedActiveJobIds(route?.id || '');
+    const currentJobIds = new Set(getRouteLinkedJobIds(route));
+    return state.data.jobs.filter((job) => {
+      if(currentJobIds.has(job.id)) return false;
+      const siteIds = getJobSiteIds(job).filter((siteId) => getViewSite(siteId));
+      if(siteIds.length < 1) return false;
+      if(isJobPast(job)) return false;
+      if(linkedElsewhere.has(job.id)) return false;
+      return true;
+    }).sort((left, right) => {
+      const routeDate = route?.routeDate || '';
+      const leftSame = getJobDate(left) === routeDate ? 0 : 1;
+      const rightSame = getJobDate(right) === routeDate ? 0 : 1;
+      const leftDate = getJobDate(left) || '';
+      const rightDate = getJobDate(right) || '';
+      return leftSame - rightSame || leftDate.localeCompare(rightDate) || getJobTitle(left).localeCompare(getJobTitle(right));
     });
   }
 
@@ -3557,7 +3608,7 @@
     }
     const routeDate = getJobDate(job) || getRouteDateRange().start || todayISO();
     const route = createRouteDraft({
-      routeName:`${getJobTitle(job)} Route`,
+      routeName:'',
       routeDate,
       routeStatus:'Draft',
       assignedTechnicianId:getJobTechnicianId(job.id),
@@ -3571,6 +3622,7 @@
       destinationLongitude:HOME_BASE.lng
     });
     route.stops = siteIds.map((siteId, index) => ({ id:uid('rstop'), routeId:'', siteId, stopType:'site', placeId:'', stopOrder:index, stopNotes:'', jobIds:[job.id] }));
+    route.routeName = getRouteDefaultName(route);
     state.activeMode = 'routes';
     state.activeRouteId = 'draft';
     state.routeDraft = route;
@@ -3839,6 +3891,67 @@
     });
   }
 
+  function ensureRouteAddJobModal(){
+    if(document.getElementById('route-add-job-modal-overlay')) return;
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `
+      <div class="modal-overlay site-editor-overlay" id="route-add-job-modal-overlay">
+        <div class="modal suremap-modal-card route-add-job-modal-card">
+          <div class="modal-header">
+            <h3>Add Job</h3>
+            <button class="modal-close" type="button" data-route-add-job-close>X</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-label">Available Jobs</div>
+            <div class="suremap-add-job-options" id="route-add-job-options"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-cancel" type="button" data-route-add-job-close>Close</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.append(...Array.from(wrapper.children));
+    document.querySelectorAll('[data-route-add-job-close]').forEach((button) => button.addEventListener('click', () => closeModal('route-add-job-modal-overlay')));
+    document.getElementById('route-add-job-modal-overlay').addEventListener('click', (event) => {
+      if(event.target.id === 'route-add-job-modal-overlay') closeModal('route-add-job-modal-overlay');
+      const jobOption = event.target.closest('[data-route-add-job-id]');
+      if(jobOption){
+        addRouteJob(jobOption.dataset.routeAddJobId);
+        closeModal('route-add-job-modal-overlay');
+      }
+    });
+  }
+
+  function openRouteAddJobModal(){
+    ensureRouteAddJobModal();
+    renderRouteAddJobModal();
+    openModal('route-add-job-modal-overlay');
+  }
+
+  function renderRouteAddJobModal(){
+    const container = document.getElementById('route-add-job-options');
+    if(!container) return;
+    const jobs = getAvailableJobsForRoute(getCurrentRouteDraft());
+    container.innerHTML = jobs.length
+      ? jobs.map(renderRouteAddJobOption).join('')
+      : '<div class="empty-state">No unrouted open jobs with mapped sites are available.</div>';
+  }
+
+  function renderRouteAddJobOption(job){
+    const client = state.indexes.clientsById.get(job.clientId);
+    const siteNames = getJobSiteIds(job)
+      .map((siteId) => getViewSite(siteId)?.name || getSiteById(siteId)?.siteName || '')
+      .filter(Boolean);
+    const siteLabel = siteNames.length > 1 ? 'Multiple Sites' : (siteNames[0] || 'No mapped site');
+    const meta = [client?.clientName || 'Unknown client', siteLabel, getJobDate(job) ? formatDate(getJobDate(job)) : 'Unscheduled', job.priority].filter(Boolean).join(' | ');
+    const siteCount = getJobSiteIds(job).length;
+    return `<button type="button" class="suremap-add-job-option" data-route-add-job-id="${esc(job.id)}">
+      <span><strong>${esc(getJobTypeLabel(job))}</strong><small>${esc(meta)}</small></span>
+      <span class="tag-chip">${esc(siteCount)} site${siteCount === 1 ? '' : 's'}</span>
+    </button>`;
+  }
+
   function openRouteAddStopModal(){
     ensureRouteAddStopModal();
     const lists = getAvailableRouteStopLists();
@@ -3925,6 +4038,35 @@
     syncMarkers();
   }
 
+  function addRouteJob(jobId){
+    const route = getCurrentRouteDraft();
+    const job = getJobById(jobId);
+    if(!route || !job) return;
+    const previousDefaultName = getRouteDefaultName(route);
+    const siteIds = getJobSiteIds(job).filter((siteId) => getViewSite(siteId));
+    if(!siteIds.length){
+      alert('This job does not have any mapped sites available for routing.');
+      return;
+    }
+    if(!route.stops.length && getJobDate(job)) route.routeDate = getJobDate(job);
+    siteIds.forEach((siteId) => {
+      let stop = route.stops.find((row) => normalizeRouteStopType(row.stopType) === 'site' && row.siteId === siteId);
+      if(!stop){
+        stop = { id:uid('rstop'), routeId:route.id || '', siteId, stopType:'site', placeId:'', stopOrder:route.stops.length, stopNotes:'', jobIds:[] };
+        route.stops.push(stop);
+      }
+      const jobIds = new Set(stop.jobIds || []);
+      jobIds.add(job.id);
+      stop.jobIds = Array.from(jobIds);
+    });
+    refreshRouteAutoName(route, previousDefaultName);
+    route.stops.forEach((row, index) => { row.stopOrder = index; });
+    clearRouteTiming(route);
+    state.routeDirty = true;
+    renderRouteEditor();
+    syncMarkers();
+  }
+
 
   function addRoutePlaceStop(placeId){
     const route = getCurrentRouteDraft();
@@ -3978,11 +4120,15 @@
     const route = getCurrentRouteDraft();
     const stop = route?.stops.find((row) => row.id === stopId);
     if(!stop) return;
+    const previousDefaultName = getRouteDefaultName(route);
     const current = new Set(stop.jobIds || []);
     if(checked) current.add(jobId);
     else current.delete(jobId);
     stop.jobIds = Array.from(current);
+    refreshRouteAutoName(route, previousDefaultName);
     state.routeDirty = true;
+    const nameInput = document.querySelector('[data-route-field="routeName"]');
+    if(nameInput && nameInput.value !== route.routeName) nameInput.value = route.routeName;
     const summary = document.getElementById('route-summary');
     if(summary) summary.innerHTML = renderRouteTotals(route);
   }

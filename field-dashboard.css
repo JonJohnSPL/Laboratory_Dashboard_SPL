@@ -405,6 +405,7 @@ tbody tr.clickable-table-row:focus-visible{
 .status-badge.ok{color:var(--ok);border-color:rgba(78,226,154,.26);background:rgba(78,226,154,.1);}
 .status-badge.info{color:var(--accent);border-color:rgba(89,214,125,.26);background:rgba(89,214,125,.1);}
 .status-badge.warn{color:var(--warn);border-color:rgba(255,209,102,.28);background:rgba(255,209,102,.1);}
+.status-badge.needs-route{color:#6fe3ff;border-color:rgba(111,227,255,.32);background:rgba(111,227,255,.12);}
 .status-badge.danger{color:var(--danger);border-color:rgba(255,93,115,.28);background:rgba(255,93,115,.12);}
 .status-badge.muted{color:var(--muted);background:rgba(100,116,139,.1);}
 .act-btn,.add-btn{
