@@ -3138,7 +3138,13 @@
     if(!raw) return 'Job';
     const normalized = raw.toLowerCase();
     const record = state.data.jobTypes.find((jobType) => jobType.jobTypeName.toLowerCase() === normalized || jobType.jobTypeKey.toLowerCase() === normalized);
-    return record?.jobTypeName || raw;
+    if(record?.jobTypeName) return record.jobTypeName;
+    return raw
+      .toLowerCase()
+      .split(/[_\s-]+/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ') || raw;
   }
 
   function getRouteDefaultName(route){
@@ -3164,6 +3170,14 @@
 
   function getRouteName(route){
     return String(route?.routeName || '').trim() || getRouteDefaultName(route) || `Route ${formatDate(route?.routeDate || todayISO())}`;
+  }
+
+  function getJobRoutePreviewName(job){
+    const siteIds = getJobSiteIds(job).filter((siteId) => getViewSite(siteId));
+    return getRouteDefaultName({
+      routeName:'',
+      stops:siteIds.map((siteId, index) => ({ id:`preview-${index}`, siteId, stopType:'site', jobIds:[job.id] }))
+    }) || getJobTitle(job);
   }
 
   function getRouteStatusClass(status){
@@ -3579,7 +3593,7 @@
               ${jobs.map((job) => {
                 const jobDate = getJobDate(job);
                 const siteCount = getJobSiteIds(job).length;
-                return `<option value="${esc(job.id)}">${esc(getJobTitle(job))} - ${esc(jobDate ? formatDate(jobDate) : 'Unscheduled')} - ${esc(siteCount)} site${siteCount === 1 ? '' : 's'}</option>`;
+                return `<option value="${esc(job.id)}">${esc(getJobRoutePreviewName(job))} - ${esc(jobDate ? formatDate(jobDate) : 'Unscheduled')} - ${esc(siteCount)} site${siteCount === 1 ? '' : 's'}</option>`;
               }).join('')}
             </select>
           </div>
@@ -4890,6 +4904,26 @@
     route.returnDurationSeconds = normalizeNumber(returnLeg?.duration?.value);
   }
 
+  function getRouteTimingSignature(route){
+    return JSON.stringify({
+      distanceMeters:route?.distanceMeters ?? null,
+      durationSeconds:route?.durationSeconds ?? null,
+      returnDistanceMeters:route?.returnDistanceMeters ?? null,
+      returnDurationSeconds:route?.returnDurationSeconds ?? null,
+      stops:(route?.stops || []).map((stop) => ({
+        id:stop.id,
+        legDistanceMeters:stop.legDistanceMeters ?? null,
+        legDurationSeconds:stop.legDurationSeconds ?? null
+      }))
+    });
+  }
+
+  function updateRouteTimingFromDirections(route, result){
+    const before = getRouteTimingSignature(route);
+    summarizeDirectionsResult(route, result);
+    return before !== getRouteTimingSignature(route);
+  }
+
   function clearRouteTiming(route){
     if(!route) return;
     route.distanceMeters = null;
@@ -4916,6 +4950,7 @@
       if(renderToken !== state.routeRenderToken) return;
       if(status === 'OK'){
         state.googleDirectionsRenderer.setDirections(response);
+        if(updateRouteTimingFromDirections(route, response) && state.activeMode === 'routes' && getCurrentRouteDraft() === route) renderRouteEditor();
         const providerLabel = 'SureMap roads';
         const stopCount = route.stops.length;
         els['map-summary'].textContent = `${stopCount} stop${stopCount === 1 ? '' : 's'} | ${providerLabel}`;
