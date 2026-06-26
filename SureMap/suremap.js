@@ -81,6 +81,7 @@
     routePlaceListModalListId: '',
     routeDraft: null,
     routeDirty: false,
+    initialUrlStateHandled: false,
     restrictedRoadDraft: null,
     restrictedRoadDirty: false,
     restrictionCaptureEnabled: false,
@@ -131,7 +132,33 @@
     bindPageRefresh();
     showSaveStatus('loaded', 'READY');
     const ready = window.authReadyPromise instanceof Promise ? window.authReadyPromise : Promise.resolve();
-    ready.then(() => loadData({ preserveSelection:false, focusSelection:false })).catch(handleLoadError);
+    ready
+      .then(() => loadData({ preserveSelection:false, focusSelection:false }))
+      .then(() => applyInitialUrlState())
+      .catch(handleLoadError);
+  }
+
+  function getInitialUrlParams(){
+    try {
+      return new URLSearchParams(window.location.search || '');
+    } catch (_error){
+      return new URLSearchParams();
+    }
+  }
+
+  function applyInitialUrlState(){
+    if(state.initialUrlStateHandled) return;
+    state.initialUrlStateHandled = true;
+    const params = getInitialUrlParams();
+    const requestedMode = String(params.get('mode') || '').trim().toLowerCase();
+    const routeJobId = String(params.get('buildRouteFromJob') || '').trim();
+    if(routeJobId){
+      state.activeMode = 'routes';
+      buildRouteDraftFromJob(routeJobId);
+      return;
+    }
+    if(requestedMode === 'routes') setActiveMode('routes');
+    else if(requestedMode === 'restrictions') setActiveMode('restrictions');
   }
 
   function cacheElements(){
@@ -3614,9 +3641,18 @@
 
   function buildRouteDraftFromJob(jobId){
     const job = getJobById(jobId);
-    if(!job) return;
+    state.activeMode = 'routes';
+    if(!job){
+      state.activeRouteId = '';
+      state.routeDraft = null;
+      state.routeDirty = false;
+      refreshFilteredView({ syncMap:true, preserveSelection:true, focusSelection:false });
+      alert('This job could not be found for route building.');
+      return;
+    }
     const siteIds = getJobSiteIds(job).filter((siteId) => getViewSite(siteId));
     if(!siteIds.length){
+      refreshFilteredView({ syncMap:true, preserveSelection:true, focusSelection:false });
       alert('This job does not have any mapped sites available for routing.');
       return;
     }
@@ -3637,7 +3673,6 @@
     });
     route.stops = siteIds.map((siteId, index) => ({ id:uid('rstop'), routeId:'', siteId, stopType:'site', placeId:'', stopOrder:index, stopNotes:'', jobIds:[job.id] }));
     route.routeName = getRouteDefaultName(route);
-    state.activeMode = 'routes';
     state.activeRouteId = 'draft';
     state.routeDraft = route;
     state.routeDirty = true;

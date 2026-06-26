@@ -152,7 +152,7 @@ const ENTITY_CONFIG = {
   maintenanceRecords:{ table:'field_maintenance_records', label:'Maintenance Record', idPrefix:'maint', defaults:{ assetType:'Equipment', assetId:'', maintenanceType:'Preventive', openDate:'', dueDate:'', completedDate:'', status:'Open', issueDescription:'', resolution:'', vendorInternal:'Internal', cost:null, assignedPerson:'', notes:'' }, fieldMap:{ assetType:'asset_type', assetId:'asset_id', maintenanceType:'maintenance_type', openDate:'open_date', dueDate:'due_date', completedDate:'completed_date', status:'status', issueDescription:'issue_description', resolution:'resolution', vendorInternal:'vendor_internal', cost:'cost', assignedPerson:'assigned_person', notes:'notes' }, idFields:['assetId'], numberFields:['cost'], dateFields:['openDate', 'dueDate', 'completedDate'] }
 };
 
-let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'overview', scheduleAnchorDate:getStartOfWeekISO(new Date()), scheduleView:'work_week', scheduleJobFilter:'all', scheduleAddPromptDate:'', filters:{ dispatchSearch:'', dispatchPriority:'all', dispatchJobType:'all', dispatchJobFilter:'open', dispatchAlertFilter:'all', dispatchAssignmentFilter:'all', dispatchSortKey:'schedule', dispatchSortDirection:'asc', inventorySearch:'', inventoryStatus:'active', partPickerSearch:'', partCatalogType:'category', directoryClient:'all', directorySection:'overview', directoryClientSearch:'', directoryContactSearch:'', directoryContactScope:'all', directoryContactProject:'all', directoryContactSite:'all', directoryContactSortKey:'name', directoryContactSortDirection:'asc' }, data:createEmptyData(), labTestDefinitions:[], sampleLinkModal:createClosedSampleLinkModalState(), partAdjustModal:createClosedPartAdjustModalState(), partPickerOpen:false, sampleTableModalOpen:false, expandedSampleGroups:{}, saveInFlight:false, autoRefreshInFlight:false, autoRefreshTimer:null };
+let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'overview', scheduleAnchorDate:getStartOfWeekISO(new Date()), scheduleView:'work_week', scheduleJobFilter:'all', scheduleAddPromptDate:'', scheduleActionJobId:'', scheduleQuickTechJobId:'', scheduleQuickTechTechnicianId:'', scheduleActionSavingJobId:'', filters:{ dispatchSearch:'', dispatchPriority:'all', dispatchJobType:'all', dispatchJobFilter:'open', dispatchAlertFilter:'all', dispatchAssignmentFilter:'all', dispatchSortKey:'schedule', dispatchSortDirection:'asc', inventorySearch:'', inventoryStatus:'active', partPickerSearch:'', partCatalogType:'category', directoryClient:'all', directorySection:'overview', directoryClientSearch:'', directoryContactSearch:'', directoryContactScope:'all', directoryContactProject:'all', directoryContactSite:'all', directoryContactSortKey:'name', directoryContactSortDirection:'asc' }, data:createEmptyData(), labTestDefinitions:[], sampleLinkModal:createClosedSampleLinkModalState(), partAdjustModal:createClosedPartAdjustModalState(), partPickerOpen:false, sampleTableModalOpen:false, expandedSampleGroups:{}, saveInFlight:false, autoRefreshInFlight:false, autoRefreshTimer:null };
 let modalState = createClosedModalState();
 let lastLoadedSnapshot = '';
 let hideSaveStatusTimer = null;
@@ -1172,6 +1172,12 @@ function getJob(id){ return state.data.jobs.find((row) => row.id === id) || null
 function getEmployee(id){ return state.data.employees.find((row) => row.id === id) || null; }
 function getSplSite(id){ return state.data.splSites.find((row) => row.id === id) || null; }
 function getAssignmentsForJob(jobId){ return state.data.jobAssignments.filter((row) => row.jobId === jobId); }
+function getTechnicianAssignmentsForJob(jobId){
+  return getAssignmentsForJob(jobId)
+    .filter((row) => row.assignmentType === 'Technician' && row.resourceId)
+    .sort((a, b) => compareOptionalDates(parseDateTime(a.createdAt), parseDateTime(b.createdAt)) || compareStrings(a.id, b.id));
+}
+function getPrimaryTechnicianAssignment(jobId){ return getTechnicianAssignmentsForJob(jobId)[0] || null; }
 function getClientLabel(clientId){ return getClient(clientId)?.clientName || 'Unknown client'; }
 function getProjectLabel(projectId){ return getProject(projectId)?.projectName || 'Unknown project'; }
 function getSiteLabel(siteId){ return getSite(siteId)?.siteName || 'Unknown location'; }
@@ -2697,6 +2703,192 @@ function openScheduleJobFromDay(dateIso){
   openEntityModal('jobs', '', { scheduleDate:dateIso });
 }
 
+function closeScheduleActionPopover(renderView = true){
+  const hadOpenPopover = !!state.scheduleActionJobId;
+  state.scheduleActionJobId = '';
+  state.scheduleQuickTechJobId = '';
+  state.scheduleQuickTechTechnicianId = '';
+  if(renderView && hadOpenPopover) renderSchedule(buildDerivedState());
+}
+
+function getScheduleQuickTechDefault(jobId){
+  return getPrimaryTechnicianAssignment(jobId)?.resourceId || '';
+}
+
+function openScheduleJobActions(jobId, event){
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  const job = getJob(jobId);
+  if(!job) return;
+  const isAlreadyOpen = state.scheduleActionJobId === job.id;
+  state.scheduleAddPromptDate = '';
+  state.scheduleActionJobId = isAlreadyOpen ? '' : job.id;
+  state.scheduleQuickTechJobId = '';
+  state.scheduleQuickTechTechnicianId = isAlreadyOpen ? '' : getScheduleQuickTechDefault(job.id);
+  renderSchedule(buildDerivedState());
+}
+
+function handleScheduleJobActionKey(event, jobId){
+  if(!['Enter', ' '].includes(event.key) || event.target !== event.currentTarget) return;
+  openScheduleJobActions(jobId, event);
+}
+
+function openScheduleJobEdit(jobId){
+  closeScheduleActionPopover(false);
+  openEntityModal('jobs', jobId);
+}
+
+function openScheduleJobRoute(jobId){
+  closeScheduleActionPopover(false);
+  window.location.href = `SureMap/SPLClientMap.HTML?mode=routes&buildRouteFromJob=${encodeURIComponent(jobId)}`;
+}
+
+function toggleScheduleQuickTech(jobId){
+  if(state.scheduleQuickTechJobId === jobId){
+    state.scheduleQuickTechJobId = '';
+    state.scheduleQuickTechTechnicianId = '';
+  } else {
+    state.scheduleQuickTechJobId = jobId;
+    state.scheduleQuickTechTechnicianId = getScheduleQuickTechDefault(jobId);
+  }
+  renderSchedule(buildDerivedState());
+}
+
+function setScheduleQuickTechSelection(jobId, technicianId){
+  if(state.scheduleQuickTechJobId !== jobId) return;
+  state.scheduleQuickTechTechnicianId = String(technicianId || '');
+  renderSchedule(buildDerivedState());
+}
+
+function getQuickTechUpdatedAssignments(jobId, technicianId){
+  const assignments = getAssignmentsForJob(jobId).map((row) => clone(row));
+  const primaryTech = getPrimaryTechnicianAssignment(jobId);
+  const duplicateTech = primaryTech
+    ? assignments.find((row) => row.id !== primaryTech.id && row.assignmentType === 'Technician' && row.resourceId === technicianId)
+    : null;
+  if(!primaryTech){
+    assignments.push(normalizeRecord('jobAssignments', { id:uid(ENTITY_CONFIG.jobAssignments.idPrefix), jobId, assignmentType:'Technician', resourceId:technicianId }, { fromRemote:false }));
+    return assignments;
+  }
+  return assignments
+    .filter((row) => !(duplicateTech && row.id === primaryTech.id))
+    .map((row) => row.id === primaryTech.id ? { ...row, resourceId:technicianId } : row);
+}
+
+function formatScheduleIssueMessage(issue){
+  if(issue?.type === 'blockingTravel') return `${getTechnicianLabel(issue.technicianId)} is blocked by travel away from Pittsburgh from ${fmtDateTime(issue.travel.arrivalAt)} to ${fmtDateTime(issue.travel.departureAt)}.`;
+  if(issue?.type === 'missingPittsburghTravel') return `${getTechnicianLabel(issue.technicianId)} must have Pittsburgh travel covering this job before scheduling.`;
+  return '';
+}
+
+function validateScheduleQuickTechChange(job, technicianId, assignments){
+  if(!job) return 'Job was not found.';
+  if(!technicianId) return 'Select a technician.';
+  const employee = getEmployee(technicianId);
+  if(!employee) return 'Selected technician was not found.';
+  const currentTechnicianId = getScheduleQuickTechDefault(job.id);
+  const eligibleOptions = buildTechnicianOptions(job.jobType, currentTechnicianId);
+  if(!eligibleOptions.some((option) => option.value === technicianId)) return `${getEmployeeListName(employee)} is not eligible for this job type.`;
+  const scheduleIssue = findJobScheduleIssue(job, assignments);
+  return formatScheduleIssueMessage(scheduleIssue);
+}
+
+function getQuickTechPersistencePlan(jobId, technicianId){
+  const primaryTech = getPrimaryTechnicianAssignment(jobId);
+  const duplicateTech = primaryTech
+    ? getTechnicianAssignmentsForJob(jobId).find((row) => row.id !== primaryTech.id && row.resourceId === technicianId)
+    : null;
+  if(!primaryTech) return { action:'insert', primaryTech:null, duplicateTech:null };
+  if(duplicateTech) return { action:'delete-primary', primaryTech, duplicateTech };
+  if(primaryTech.resourceId === technicianId) return { action:'none', primaryTech, duplicateTech:null };
+  return { action:'update-primary', primaryTech, duplicateTech:null };
+}
+
+async function saveLocalScheduleQuickTech(jobId, technicianId){
+  const next = clone(state.data);
+  const now = new Date().toISOString();
+  const nextAssignments = getQuickTechUpdatedAssignments(jobId, technicianId).map((assignment) => normalizeRecord('jobAssignments', {
+    ...assignment,
+    id:assignment.id || uid(ENTITY_CONFIG.jobAssignments.idPrefix),
+    jobId,
+    assignmentType:assignment.assignmentType || 'Technician',
+    resourceId:assignment.resourceId,
+    createdAt:assignment.createdAt || now,
+    updatedAt:now
+  }, { fromRemote:false }));
+  next.jobAssignments = next.jobAssignments.filter((row) => row.jobId !== jobId).concat(nextAssignments);
+  await persistLocal(next);
+}
+
+async function saveRemoteScheduleQuickTech(jobId, technicianId){
+  const table = ENTITY_CONFIG.jobAssignments.table;
+  const plan = getQuickTechPersistencePlan(jobId, technicianId);
+  if(plan.action === 'insert'){
+    await remoteRepository.insertRows(table, [{ job_id:jobId, assignment_type:'Technician', resource_id:technicianId, assignment_status:'Assigned', assignment_notes:'Quick changed from schedule.' }]);
+  } else if(plan.action === 'delete-primary'){
+    await remoteRepository.deleteWhere(table, [{ column:'id', value:plan.primaryTech.id }]);
+  } else if(plan.action === 'update-primary'){
+    await remoteRepository.updateWhere(table, [{ column:'id', value:plan.primaryTech.id }], { resource_id:technicianId, assignment_status:'Assigned' });
+  }
+  await loadData({ silent:true, force:true });
+}
+
+async function saveScheduleQuickTech(jobId){
+  const job = getJob(jobId);
+  const technicianId = String(state.scheduleQuickTechTechnicianId || '');
+  const nextAssignments = getQuickTechUpdatedAssignments(jobId, technicianId);
+  const validationMessage = validateScheduleQuickTechChange(job, technicianId, nextAssignments);
+  if(validationMessage){ alert(validationMessage); return; }
+  state.saveInFlight = true;
+  state.scheduleActionSavingJobId = jobId;
+  showSaveStatus('saving', 'SAVING');
+  renderSchedule(buildDerivedState());
+  try {
+    if(isRemoteMode()) await saveRemoteScheduleQuickTech(jobId, technicianId);
+    else await saveLocalScheduleQuickTech(jobId, technicianId);
+    closeScheduleActionPopover(false);
+    showSaveStatus('saved', 'Technician updated');
+    hideSaveStatusSoon();
+    render();
+  } catch (error){
+    console.error('Unable to quick change technician:', error);
+    showSaveStatus('error', 'SAVE FAILED');
+    hideSaveStatusSoon(4200);
+    alert(error.message || 'Unable to update the technician.');
+  } finally {
+    const shouldRerenderSchedule = state.scheduleActionSavingJobId === jobId && !!state.scheduleActionJobId;
+    state.scheduleActionSavingJobId = '';
+    state.saveInFlight = false;
+    if(shouldRerenderSchedule) renderSchedule(buildDerivedState());
+  }
+}
+
+function renderScheduleJobActions(job){
+  if(state.scheduleActionJobId !== job.id) return '';
+  const quickOpen = state.scheduleQuickTechJobId === job.id;
+  const saving = state.scheduleActionSavingJobId === job.id;
+  const selectedTechnicianId = String(state.scheduleQuickTechTechnicianId || getScheduleQuickTechDefault(job.id));
+  const technicianOptions = buildTechnicianOptions(job.jobType, selectedTechnicianId);
+  const quickTechMarkup = quickOpen ? `
+    <div class="schedule-quick-tech-row">
+      <select class="form-input" onchange="setScheduleQuickTechSelection('${esc(job.id)}', this.value)" ${saving ? 'disabled' : ''}>
+        <option value="">Select technician...</option>
+        ${technicianOptions.map((option) => `<option value="${esc(option.value)}" ${selectedTechnicianId === option.value ? 'selected' : ''}>${esc(option.label)}</option>`).join('')}
+      </select>
+      <div class="schedule-quick-tech-actions">
+        <button class="btn-save" type="button" onclick="saveScheduleQuickTech('${esc(job.id)}')" ${saving || !selectedTechnicianId ? 'disabled' : ''}>${saving ? 'Saving' : 'Save'}</button>
+        <button class="btn-cancel" type="button" onclick="toggleScheduleQuickTech('${esc(job.id)}')" ${saving ? 'disabled' : ''}>Cancel</button>
+      </div>
+    </div>` : '';
+  return `
+    <div class="schedule-job-action-popover" role="dialog" aria-label="Job actions for ${esc(getJobDisplayTitle(job))}" onclick="event.stopPropagation()">
+      <button class="schedule-job-action-btn" type="button" onclick="openScheduleJobEdit('${esc(job.id)}')" ${saving ? 'disabled' : ''}>Edit Job</button>
+      <button class="schedule-job-action-btn" type="button" onclick="openScheduleJobRoute('${esc(job.id)}')" ${saving ? 'disabled' : ''}>Edit/Add Route</button>
+      <button class="schedule-job-action-btn ${quickOpen ? 'active' : ''}" type="button" onclick="toggleScheduleQuickTech('${esc(job.id)}')" ${saving ? 'disabled' : ''}>Quick Change Tech</button>
+      ${quickTechMarkup}
+    </div>`;
+}
+
 function getPriorityBadge(priority){
   const value = priority || 'Low';
   if(['low', 'normal'].includes(String(value).toLowerCase())) return '';
@@ -3109,7 +3301,35 @@ function renderSchedule(derived){
   const filterLabel = getScheduleFilterOptions().find((option) => option.value === state.scheduleJobFilter)?.label || 'All';
   document.getElementById('schedule-toolbar').innerHTML = `${renderScheduleSegmentedControl('View', getScheduleViewOptions(), state.scheduleView, 'setScheduleView')}${renderScheduleSegmentedControl('Jobs', getScheduleFilterOptions(), state.scheduleJobFilter, 'setScheduleJobFilter')}<span class="label">Period</span><button class="act-btn" type="button" onclick="changeScheduleWeek(-1)">Prev</button><button class="act-btn" type="button" onclick="resetScheduleWeek()">Current</button><button class="act-btn" type="button" onclick="changeScheduleWeek(1)">Next</button><button class="act-btn" type="button" onclick="sendTeamsWebhookTest()">Send Teams Test</button><div class="toolbar-summary">${esc(getSchedulePeriodLabel(scheduleDates))}</div>`;
   document.getElementById('schedule-summary').textContent = `${scheduleJobs.length} visible / ${totalJobsInRange} jobs ${getScheduleViewSummaryLabel(state.scheduleView)} | ${getScheduleViewLabel(state.scheduleView)} | ${filterLabel}`;
-  document.getElementById('schedule-board').innerHTML = `<div class="schedule-week schedule-${esc(state.scheduleView)}">${scheduleDates.map((dateIso) => { const jobsForDay = scheduleJobs.filter((job) => isSameDay(getJobPrimaryDate(job), dateIso)); const addPrompt = state.scheduleAddPromptDate === dateIso ? `<div class="schedule-add-popover" role="dialog" aria-label="Add job for ${esc(fmtDate(dateIso))}" onclick="event.stopPropagation()"><button class="add-btn schedule-add-job-btn" type="button" onclick="openScheduleJobFromDay('${esc(dateIso)}')">+ Add Job</button></div>` : ''; return `<div class="${getScheduleDayClasses(dateIso)}" role="button" tabindex="0" title="Click to add a job" onclick="openScheduleDayPrompt('${esc(dateIso)}', event)" onkeydown="handleScheduleDayKey(event, '${esc(dateIso)}')"><div class="day-head"><strong>${esc(parseDateOnly(dateIso)?.toLocaleDateString('en-US', { weekday:'long' }) || '')}</strong><span>${esc(fmtDate(dateIso))}</span></div>${addPrompt}<div class="day-list">${jobsForDay.length ? jobsForDay.map((job) => { const warnings = getJobWarnings(job, derived, { omitRoute:true }); const missingEquipment = getJobMissingRequirements(job).includes('Equipment'); const pastJob = isJobPast(job); const cardClasses = ['schedule-card', 'clickable-card', getJobTypeClassName(job.jobType), missingEquipment ? 'missing-equipment' : '', pastJob ? 'past-job' : '', derived.conflictJobIds.has(job.id) ? 'conflict' : '', warnings.length ? 'warning' : ''].filter(Boolean).join(' '); return `<div ${renderSelectableOpenAttrs('jobs', job.id, cardClasses, 'Open Job', getJobTypeScheduleStyle(job.jobType))}><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(fmtTime(job.scheduledStart || job.requestedDate))} | ${esc(getJobSiteSummary(job))}</div><div class="mini-tags">${renderJobSalesforceTag(job)}${renderJobNeedsTicketTag(job)}${renderJobNeedsRouteTag(job, derived)}</div>${renderScheduleTechnicianLine(job.id)}${renderWarnings(warnings)}</div>`; }).join('') : '<div class="empty-state">No scheduled jobs</div>'}</div></div>`; }).join('')}</div>`;
+  document.getElementById('schedule-board').innerHTML = `
+    <div class="schedule-week schedule-${esc(state.scheduleView)}">
+      ${scheduleDates.map((dateIso) => {
+        const jobsForDay = scheduleJobs.filter((job) => isSameDay(getJobPrimaryDate(job), dateIso));
+        const addPrompt = state.scheduleAddPromptDate === dateIso
+          ? `<div class="schedule-add-popover" role="dialog" aria-label="Add job for ${esc(fmtDate(dateIso))}" onclick="event.stopPropagation()"><button class="add-btn schedule-add-job-btn" type="button" onclick="openScheduleJobFromDay('${esc(dateIso)}')">+ Add Job</button></div>`
+          : '';
+        return `<div class="${getScheduleDayClasses(dateIso)}" role="button" tabindex="0" title="Click to add a job" onclick="openScheduleDayPrompt('${esc(dateIso)}', event)" onkeydown="handleScheduleDayKey(event, '${esc(dateIso)}')">
+          <div class="day-head"><strong>${esc(parseDateOnly(dateIso)?.toLocaleDateString('en-US', { weekday:'long' }) || '')}</strong><span>${esc(fmtDate(dateIso))}</span></div>
+          ${addPrompt}
+          <div class="day-list">
+            ${jobsForDay.length ? jobsForDay.map((job) => {
+              const warnings = getJobWarnings(job, derived, { omitRoute:true });
+              const missingEquipment = getJobMissingRequirements(job).includes('Equipment');
+              const pastJob = isJobPast(job);
+              const cardClasses = ['schedule-card', 'clickable-card', getJobTypeClassName(job.jobType), state.scheduleActionJobId === job.id ? 'action-open' : '', missingEquipment ? 'missing-equipment' : '', pastJob ? 'past-job' : '', derived.conflictJobIds.has(job.id) ? 'conflict' : '', warnings.length ? 'warning' : ''].filter(Boolean).join(' ');
+              return `<div class="${esc(cardClasses)}" style="${esc(getJobTypeScheduleStyle(job.jobType))}" role="button" tabindex="0" title="Job Actions" aria-expanded="${state.scheduleActionJobId === job.id ? 'true' : 'false'}" onclick="openScheduleJobActions('${esc(job.id)}', event)" onkeydown="handleScheduleJobActionKey(event, '${esc(job.id)}')">
+                <div class="item-title">${esc(getJobDisplayTitle(job))}</div>
+                <div class="muted">${esc(fmtTime(job.scheduledStart || job.requestedDate))} | ${esc(getJobSiteSummary(job))}</div>
+                <div class="mini-tags">${renderJobSalesforceTag(job)}${renderJobNeedsTicketTag(job)}${renderJobNeedsRouteTag(job, derived)}</div>
+                ${renderScheduleTechnicianLine(job.id)}
+                ${renderWarnings(warnings)}
+                ${renderScheduleJobActions(job)}
+              </div>`;
+            }).join('') : '<div class="empty-state">No scheduled jobs</div>'}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
   renderTravelSchedule(scheduleDates);
 }
 
@@ -5872,7 +6092,7 @@ async function deleteEntityRecord(entityKey, id){
 
 async function deleteCurrentModalEntity(){ if(modalState.id) await deleteEntityRecord(modalState.entity, modalState.id); }
 
-function isInteractionOverlayOpen(){ return !!document.getElementById('entity-modal-overlay')?.classList.contains('open') || !!document.getElementById('job-part-modal-overlay')?.classList.contains('open') || !!document.getElementById('part-adjust-modal-overlay')?.classList.contains('open') || !!document.getElementById('sample-link-modal-overlay')?.classList.contains('open') || !!document.getElementById('sample-table-modal-overlay')?.classList.contains('open') || !!document.getElementById('site-editor-overlay')?.classList.contains('open') || !!document.getElementById('site-editor-address-overlay')?.classList.contains('open'); }
+function isInteractionOverlayOpen(){ return !!state.scheduleActionJobId || !!document.getElementById('entity-modal-overlay')?.classList.contains('open') || !!document.getElementById('job-part-modal-overlay')?.classList.contains('open') || !!document.getElementById('part-adjust-modal-overlay')?.classList.contains('open') || !!document.getElementById('sample-link-modal-overlay')?.classList.contains('open') || !!document.getElementById('sample-table-modal-overlay')?.classList.contains('open') || !!document.getElementById('site-editor-overlay')?.classList.contains('open') || !!document.getElementById('site-editor-address-overlay')?.classList.contains('open'); }
 
 async function loadData(options = {}){
   try {
@@ -5910,10 +6130,12 @@ document.getElementById('job-part-modal-overlay')?.addEventListener('click', (ev
 document.getElementById('part-adjust-modal-overlay')?.addEventListener('click', (event) => { if(event.target === event.currentTarget) event.stopPropagation(); });
 document.getElementById('sample-link-modal-overlay')?.addEventListener('click', (event) => { if(event.target === event.currentTarget) event.stopPropagation(); });
 document.getElementById('sample-table-modal-overlay')?.addEventListener('click', (event) => { if(event.target === event.currentTarget) event.stopPropagation(); });
+document.addEventListener('click', (event) => { if(state.scheduleActionJobId && !event.target.closest?.('.schedule-card')) closeScheduleActionPopover(); });
 document.addEventListener('visibilitychange', () => { if(!document.hidden) refreshFromRemote(); });
 window.addEventListener('keydown', (event) => {
   if(event.key !== 'Escape' || !isInteractionOverlayOpen()) return;
-  if(document.getElementById('job-part-modal-overlay')?.classList.contains('open')) closeJobPartPicker();
+  if(state.scheduleActionJobId) closeScheduleActionPopover();
+  else if(document.getElementById('job-part-modal-overlay')?.classList.contains('open')) closeJobPartPicker();
   else if(document.getElementById('part-adjust-modal-overlay')?.classList.contains('open')) closePartAdjustModal();
   else if(document.getElementById('sample-table-modal-overlay')?.classList.contains('open')) closeSampleTableModal();
   else if(document.getElementById('sample-link-modal-overlay')?.classList.contains('open')) closeSampleLinkModal();
