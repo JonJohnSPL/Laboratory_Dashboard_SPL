@@ -2358,7 +2358,7 @@
   }
 
   function buildPopup(title, copy){
-    return `<div class="suremap-popup-title">${esc(title)}</div><div class="suremap-popup-copy">${esc(copy)}</div>`;
+    return `<div class="suremap-popup-card"><div class="suremap-popup-title">${esc(title)}</div><div class="suremap-popup-copy">${esc(copy)}</div></div>`;
   }
 
   function svgToDataUri(svg){
