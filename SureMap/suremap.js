@@ -339,6 +339,15 @@
     return new Blob([bytes], { type:mime });
   }
 
+  function blobToDataUrl(blob){
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('Unable to read the saved logo.'));
+      reader.readAsDataURL(blob);
+    });
+  }
+
   function readFileAsDataUrl(file){
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -1842,7 +1851,7 @@
         const response = await window.appAuth.fetch(`/storage/v1/object/authenticated/${FIELD_ASSET_BUCKET}/${encodeStoragePath(path)}`, { headers:{ Accept:'*/*' } });
         if(!response.ok) throw new Error(`Logo request failed (${response.status}).`);
         const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
+        const url = await blobToDataUrl(blob);
         state.clientLogoUrlCache.set(path, url);
         state.markerIconCache.clear();
         if(state.booted){
@@ -1860,10 +1869,10 @@
 
   function clearClientLogoCache(path){
     const cached = state.clientLogoUrlCache.get(path);
-    if(cached){
+    if(cached && cached.startsWith('blob:')){
       URL.revokeObjectURL(cached);
-      state.clientLogoUrlCache.delete(path);
     }
+    state.clientLogoUrlCache.delete(path);
     state.clientLogoLoadPromises.delete(path);
     state.markerIconCache.clear();
   }
@@ -2016,7 +2025,7 @@
           <div class="suremap-detail-item"><label>Directions From</label><span>${esc(HOME_BASE.name)}</span></div>
         </div>
         <div class="suremap-marker-style-editor">
-          <div class="suremap-marker-preview" style="--client-marker-color:${esc(markerColor)}">
+          <div class="suremap-marker-preview ${hasLogo ? 'is-logo' : ''}" style="--client-marker-color:${esc(markerColor)}">
             ${hasLogo ? renderClientLogoPreview(client, 'suremap-marker-preview-logo') : `<span>${esc(getClientInitials(client))}</span>`}
           </div>
           <div class="suremap-marker-controls">
@@ -2380,18 +2389,31 @@
 
   function makeMarkerIcon(color, isSite, logoUrl = '', label = ''){
     const safeLabel = String(label || 'CL').slice(0, 2).toUpperCase();
-    const cacheKey = `${state.mapProvider}:${isSite ? 'site' : 'client'}:${color}:${logoUrl || safeLabel}`;
+    const hasLogo = !!logoUrl;
+    const cacheKey = `${state.mapProvider}:${isSite ? 'site' : 'client'}:${hasLogo ? 'logo' : 'pin'}:${hasLogo ? logoUrl : `${color}:${safeLabel}`}`;
     const cached = state.markerIconCache.get(cacheKey);
     if(cached) return cached;
-    const size = isSite ? [22, 30] : [28, 36];
-    const anchor = isSite ? [11, 30] : [14, 36];
+    const size = hasLogo ? (isSite ? [32, 36] : [38, 42]) : (isSite ? [22, 30] : [28, 36]);
+    const anchor = hasLogo ? [size[0] / 2, size[1]] : (isSite ? [11, 30] : [14, 36]);
+    const popupAnchor = hasLogo ? [0, -(size[1] - 6)] : [0, isSite ? -26 : -32];
     const centerY = isSite ? 11 : 14;
     const inner = isSite ? 7 : 9;
     const fontSize = isSite ? 6 : 7;
-    const logoMarkup = logoUrl
-      ? `<clipPath id="clip"><circle cx="${size[0] / 2}" cy="${centerY}" r="${inner}"/></clipPath><circle cx="${size[0] / 2}" cy="${centerY}" r="${inner}" fill="#ffffff"/><image href="${esc(logoUrl)}" x="${size[0] / 2 - inner}" y="${centerY - inner}" width="${inner * 2}" height="${inner * 2}" preserveAspectRatio="xMidYMid slice" clip-path="url(#clip)"/>`
-      : `<circle cx="${size[0] / 2}" cy="${centerY}" r="${inner}" fill="#071009"/><text x="${size[0] / 2}" y="${centerY + Math.ceil(fontSize / 3)}" text-anchor="middle" font-family="Arial, sans-serif" font-size="${fontSize}" font-weight="700" fill="${esc(color)}">${esc(safeLabel)}</text>`;
-    const svg = `<svg width="${size[0]}" height="${size[1]}" viewBox="0 0 ${size[0]} ${size[1]}" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M${size[0] / 2} 0C${isSite ? '4.9 0 0 4.9 0 11c0 8.3 11 19 11 19s11-10.7 11-19C22 4.9 17.1 0 11 0Z' : '6.7 0 0 6.7 0 14.5c0 10.5 14 21.5 14 21.5s14-11 14-21.5C28 6.7 21.3 0 14 0Z'}" fill="${esc(color)}"/>${logoMarkup}</svg>`;
+    let svg = '';
+    if(hasLogo){
+      const bodyWidth = size[0] - 4;
+      const bodyHeight = size[1] - 10;
+      const imagePad = 4;
+      const imageX = 2 + imagePad;
+      const imageY = 2 + imagePad;
+      const imageWidth = bodyWidth - (imagePad * 2);
+      const imageHeight = bodyHeight - (imagePad * 2);
+      const midX = size[0] / 2;
+      svg = `<svg width="${size[0]}" height="${size[1]}" viewBox="0 0 ${size[0]} ${size[1]}" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 2h${size[0] - 16}a6 6 0 0 1 6 6v${bodyHeight - 6}a6 6 0 0 1-6 6h-${Math.max(1, (size[0] / 2) - 9)}l-5 7-5-7H8a6 6 0 0 1-6-6V8a6 6 0 0 1 6-6Z" fill="#f8fff9" stroke="#071009" stroke-width="2"/><clipPath id="logoClip"><rect x="${imageX}" y="${imageY}" width="${imageWidth}" height="${imageHeight}" rx="4"/></clipPath><rect x="${imageX}" y="${imageY}" width="${imageWidth}" height="${imageHeight}" rx="4" fill="#ffffff"/><image href="${esc(logoUrl)}" x="${imageX}" y="${imageY}" width="${imageWidth}" height="${imageHeight}" preserveAspectRatio="xMidYMid meet" clip-path="url(#logoClip)"/><path d="M${midX - 3} ${size[1] - 10}h6l-3 4-3-4Z" fill="#071009"/></svg>`;
+    } else {
+      const logoMarkup = `<circle cx="${size[0] / 2}" cy="${centerY}" r="${inner}" fill="#071009"/><text x="${size[0] / 2}" y="${centerY + Math.ceil(fontSize / 3)}" text-anchor="middle" font-family="Arial, sans-serif" font-size="${fontSize}" font-weight="700" fill="${esc(color)}">${esc(safeLabel)}</text>`;
+      svg = `<svg width="${size[0]}" height="${size[1]}" viewBox="0 0 ${size[0]} ${size[1]}" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M${size[0] / 2} 0C${isSite ? '4.9 0 0 4.9 0 11c0 8.3 11 19 11 19s11-10.7 11-19C22 4.9 17.1 0 11 0Z' : '6.7 0 0 6.7 0 14.5c0 10.5 14 21.5 14 21.5s14-11 14-21.5C28 6.7 21.3 0 14 0Z'}" fill="${esc(color)}"/>${logoMarkup}</svg>`;
+    }
     const icon = state.mapProvider === 'google'
       ? {
         url: svgToDataUri(svg),
@@ -2402,7 +2424,7 @@
         className: '',
         iconSize: size,
         iconAnchor: anchor,
-        popupAnchor: [0, isSite ? -26 : -32],
+        popupAnchor,
         html: svg
       });
     state.markerIconCache.set(cacheKey, icon);
