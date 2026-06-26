@@ -1839,6 +1839,20 @@ function renderJobNeedsTicketTag(job){
   return fieldfxTicketId ? '' : '<span class="status-badge warn">Needs Ticket</span>';
 }
 
+function getRoutedJobIds(){
+  return new Set(state.data.fieldRouteStopJobs.map((row) => String(row.jobId || '').trim()).filter(Boolean));
+}
+
+function jobNeedsRoute(job, derived = null){
+  if(!job || !getJobPrimaryDate(job) || isJobClosed(job)) return false;
+  const routedJobIds = derived?.routedJobIds || getRoutedJobIds();
+  return !routedJobIds.has(String(job.id || '').trim());
+}
+
+function renderJobNeedsRouteTag(job, derived){
+  return jobNeedsRoute(job, derived) ? '<span class="status-badge warn">Needs Route</span>' : '';
+}
+
 function renderSalesforceCaseEditor(){
   if(modalState.entity !== 'jobs') return '';
   const job = modalState.formData || {};
@@ -2105,9 +2119,13 @@ function buildDerivedState(){
   const conflicts = getScheduleConflicts();
   const conflictJobIds = new Set();
   conflicts.forEach((conflict) => { conflictJobIds.add(conflict.jobA.id); conflictJobIds.add(conflict.jobB.id); });
+  const routedJobIds = getRoutedJobIds();
+  const needsRouteJobIds = new Set(state.data.jobs.filter((job) => jobNeedsRoute(job, { routedJobIds })).map((job) => job.id));
   return {
     conflicts,
     conflictJobIds,
+    routedJobIds,
+    needsRouteJobIds,
     missingJobs:state.data.jobs.filter((job) => !isJobClosed(job) && getJobMissingRequirements(job).length > 0),
     overdueMaintenance:state.data.maintenanceRecords.filter((record) => !isMaintenanceClosed(record) && parseDateOnly(record.dueDate) && parseDateOnly(record.dueDate) < parseDateOnly(todayISO())),
     overdueCalibration:state.data.equipment.filter((item) => item.calibrationStatus === 'Overdue'),
@@ -2733,6 +2751,7 @@ function getJobWarnings(job, derived){
   const missing = getJobMissingRequirements(job);
   if(missing.length) warnings.push(`Missing: ${missing.join(', ')}`);
   if(derived.conflictJobIds.has(job.id)) warnings.push('Resource conflict');
+  if(derived.needsRouteJobIds?.has(job.id) || jobNeedsRoute(job, derived)) warnings.push('Needs Route');
   warnings.push(...getAssignedResourceWarnings(job));
   return [...new Set(warnings)];
 }
@@ -3090,7 +3109,7 @@ function renderSchedule(derived){
   const filterLabel = getScheduleFilterOptions().find((option) => option.value === state.scheduleJobFilter)?.label || 'All';
   document.getElementById('schedule-toolbar').innerHTML = `${renderScheduleSegmentedControl('View', getScheduleViewOptions(), state.scheduleView, 'setScheduleView')}${renderScheduleSegmentedControl('Jobs', getScheduleFilterOptions(), state.scheduleJobFilter, 'setScheduleJobFilter')}<span class="label">Period</span><button class="act-btn" type="button" onclick="changeScheduleWeek(-1)">Prev</button><button class="act-btn" type="button" onclick="resetScheduleWeek()">Current</button><button class="act-btn" type="button" onclick="changeScheduleWeek(1)">Next</button><button class="act-btn" type="button" onclick="sendTeamsWebhookTest()">Send Teams Test</button><div class="toolbar-summary">${esc(getSchedulePeriodLabel(scheduleDates))}</div>`;
   document.getElementById('schedule-summary').textContent = `${scheduleJobs.length} visible / ${totalJobsInRange} jobs ${getScheduleViewSummaryLabel(state.scheduleView)} | ${getScheduleViewLabel(state.scheduleView)} | ${filterLabel}`;
-  document.getElementById('schedule-board').innerHTML = `<div class="schedule-week schedule-${esc(state.scheduleView)}">${scheduleDates.map((dateIso) => { const jobsForDay = scheduleJobs.filter((job) => isSameDay(getJobPrimaryDate(job), dateIso)); const addPrompt = state.scheduleAddPromptDate === dateIso ? `<div class="schedule-add-popover" role="dialog" aria-label="Add job for ${esc(fmtDate(dateIso))}" onclick="event.stopPropagation()"><button class="add-btn schedule-add-job-btn" type="button" onclick="openScheduleJobFromDay('${esc(dateIso)}')">+ Add Job</button></div>` : ''; return `<div class="${getScheduleDayClasses(dateIso)}" role="button" tabindex="0" title="Click to add a job" onclick="openScheduleDayPrompt('${esc(dateIso)}', event)" onkeydown="handleScheduleDayKey(event, '${esc(dateIso)}')"><div class="day-head"><strong>${esc(parseDateOnly(dateIso)?.toLocaleDateString('en-US', { weekday:'long' }) || '')}</strong><span>${esc(fmtDate(dateIso))}</span></div>${addPrompt}<div class="day-list">${jobsForDay.length ? jobsForDay.map((job) => { const warnings = getJobWarnings(job, derived); const missingEquipment = getJobMissingRequirements(job).includes('Equipment'); const pastJob = isJobPast(job); const cardClasses = ['schedule-card', 'clickable-card', getJobTypeClassName(job.jobType), missingEquipment ? 'missing-equipment' : '', pastJob ? 'past-job' : '', derived.conflictJobIds.has(job.id) ? 'conflict' : '', warnings.length ? 'warning' : ''].filter(Boolean).join(' '); return `<div ${renderSelectableOpenAttrs('jobs', job.id, cardClasses, 'Open Job', getJobTypeScheduleStyle(job.jobType))}><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(fmtTime(job.scheduledStart || job.requestedDate))} | ${esc(getJobSiteSummary(job))}</div><div class="mini-tags">${renderJobSalesforceTag(job)}${renderJobNeedsTicketTag(job)}</div>${renderScheduleTechnicianLine(job.id)}${renderWarnings(warnings)}</div>`; }).join('') : '<div class="empty-state">No scheduled jobs</div>'}</div></div>`; }).join('')}</div>`;
+  document.getElementById('schedule-board').innerHTML = `<div class="schedule-week schedule-${esc(state.scheduleView)}">${scheduleDates.map((dateIso) => { const jobsForDay = scheduleJobs.filter((job) => isSameDay(getJobPrimaryDate(job), dateIso)); const addPrompt = state.scheduleAddPromptDate === dateIso ? `<div class="schedule-add-popover" role="dialog" aria-label="Add job for ${esc(fmtDate(dateIso))}" onclick="event.stopPropagation()"><button class="add-btn schedule-add-job-btn" type="button" onclick="openScheduleJobFromDay('${esc(dateIso)}')">+ Add Job</button></div>` : ''; return `<div class="${getScheduleDayClasses(dateIso)}" role="button" tabindex="0" title="Click to add a job" onclick="openScheduleDayPrompt('${esc(dateIso)}', event)" onkeydown="handleScheduleDayKey(event, '${esc(dateIso)}')"><div class="day-head"><strong>${esc(parseDateOnly(dateIso)?.toLocaleDateString('en-US', { weekday:'long' }) || '')}</strong><span>${esc(fmtDate(dateIso))}</span></div>${addPrompt}<div class="day-list">${jobsForDay.length ? jobsForDay.map((job) => { const warnings = getJobWarnings(job, derived); const missingEquipment = getJobMissingRequirements(job).includes('Equipment'); const pastJob = isJobPast(job); const cardClasses = ['schedule-card', 'clickable-card', getJobTypeClassName(job.jobType), missingEquipment ? 'missing-equipment' : '', pastJob ? 'past-job' : '', derived.conflictJobIds.has(job.id) ? 'conflict' : '', warnings.length ? 'warning' : ''].filter(Boolean).join(' '); return `<div ${renderSelectableOpenAttrs('jobs', job.id, cardClasses, 'Open Job', getJobTypeScheduleStyle(job.jobType))}><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(fmtTime(job.scheduledStart || job.requestedDate))} | ${esc(getJobSiteSummary(job))}</div><div class="mini-tags">${renderJobSalesforceTag(job)}${renderJobNeedsTicketTag(job)}${renderJobNeedsRouteTag(job, derived)}</div>${renderScheduleTechnicianLine(job.id)}${renderWarnings(warnings)}</div>`; }).join('') : '<div class="empty-state">No scheduled jobs</div>'}</div></div>`; }).join('')}</div>`;
   renderTravelSchedule(scheduleDates);
 }
 
