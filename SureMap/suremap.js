@@ -3,6 +3,7 @@
 
   const STORAGE_KEY = 'field-ops-dashboard-data';
   const LEGACY_STORAGE_KEY = 'spl-client-map-v1';
+  const FIELD_ASSET_BUCKET = 'field-assets';
   const CLIENT_STATUS_OPTIONS = ['Active', 'Pending', 'On Hold', 'Inactive'];
   const CLIENT_SECTOR_OPTIONS = ['Upstream', 'Midstream', 'Downstream', 'Other'];
   const SITE_TYPE_OPTIONS = ['Well Site', 'Meter Station', 'Field Site', 'Well Pad', 'LACT Unit', 'Facility', 'Pipeline Location', 'Office / Yard', 'Other'];
@@ -43,6 +44,7 @@
     'Office / Yard': ['Sample Drop-Off', 'Maintenance']
   };
   const AVATAR_COLORS = ['#59d67d', '#b0f28f', '#ffd166', '#6fe3ff', '#ff8fa3', '#c9b6ff'];
+  const CLIENT_MARKER_COLORS = ['#59d67d', '#b0f28f', '#ffd166', '#6fe3ff', '#ff8fa3', '#c9b6ff', '#8afcc3', '#ffa29f'];
   const HOME_BASE = {
     name: 'SPL Pittsburgh',
     street: '1817 Parkway View Drive',
@@ -107,6 +109,8 @@
     indexes: createEmptyIndexes(),
     viewIndexes: createEmptyViewIndexes(),
     markerIconCache: new Map(),
+    clientLogoUrlCache: new Map(),
+    clientLogoLoadPromises: new Map(),
     routeIconCache: new Map()
   };
 
@@ -316,6 +320,34 @@
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   }
 
+  function normalizeHexColor(value, fallback = ROUTE_PLACE_COLORS[0]){
+    const raw = String(value || '').trim();
+    if(/^#[0-9a-f]{6}$/i.test(raw)) return raw.toLowerCase();
+    return fallback;
+  }
+
+  function encodeStoragePath(path){ return String(path || '').split('/').map((segment) => encodeURIComponent(segment)).join('/'); }
+
+  function dataUrlToBlob(dataUrl){
+    const parts = String(dataUrl || '').split(',');
+    if(parts.length < 2) throw new Error('Invalid image payload.');
+    const match = parts[0].match(/data:([^;]+);base64/i);
+    const mime = match ? match[1] : 'application/octet-stream';
+    const binary = atob(parts[1]);
+    const bytes = new Uint8Array(binary.length);
+    for(let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type:mime });
+  }
+
+  function readFileAsDataUrl(file){
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('Unable to read the selected image.'));
+      reader.readAsDataURL(file);
+    });
+  }
+
   function dateFromISO(value){
     const iso = toInputDate(value);
     if(!iso) return null;
@@ -438,6 +470,10 @@
     if(normalized === 'Field Site' || normalized === 'Pipeline Location') return 'FS';
     if(normalized === 'Office / Yard') return 'YD';
     return 'ST';
+  }
+
+  function getClientMarkerColor(client){
+    return normalizeHexColor(client?.markerColor, getAvatarColor(client?.id));
   }
 
   function getRoutePlaceIconToken(iconKey){
@@ -598,6 +634,8 @@
       if(!action) return;
       const { action: actionName, clientId, siteId } = action.dataset;
       if(actionName === 'copy-address') copyToClipboard(getClientAddress(clientId), 'Address copied.');
+      if(actionName === 'set-client-marker-color') saveClientMarkerColor(clientId, action.dataset.color);
+      if(actionName === 'remove-client-logo') removeClientLogo(clientId);
       if(actionName === 'copy-coords') copyToClipboard(getSiteCoords(siteId), 'Coordinates copied.');
       if(actionName === 'open-directions-client') openDirections(getClientAddress(clientId));
       if(actionName === 'open-directions-site') openDirections(getSiteDirections(siteId));
@@ -651,6 +689,10 @@
       if(restrictionField) setRestrictedRoadDraftField(restrictionField.dataset.restrictionField, restrictionField.type === 'checkbox' ? restrictionField.checked : restrictionField.value, restrictionField.type);
       const jobToggle = event.target.closest('[data-route-job-toggle]');
       if(jobToggle) toggleRouteStopJob(jobToggle.dataset.stopId, jobToggle.value, jobToggle.checked);
+      const markerColorField = event.target.closest('[data-client-marker-color-input]');
+      if(markerColorField) saveClientMarkerColor(markerColorField.dataset.clientId, markerColorField.value);
+      const logoInput = event.target.closest('[data-client-logo-input]');
+      if(logoInput) uploadClientLogo(logoInput.dataset.clientId, logoInput.files?.[0], logoInput);
     });
   }
 
@@ -971,7 +1013,12 @@
       hqState: String((fromRemote ? row?.hq_state : row?.hqState) || '').trim().toUpperCase(),
       hqZip: String((fromRemote ? row?.hq_zip : row?.hqZip) || '').trim(),
       hqLatitude: normalizeNumber(fromRemote ? row?.hq_latitude : row?.hqLatitude),
-      hqLongitude: normalizeNumber(fromRemote ? row?.hq_longitude : row?.hqLongitude)
+      hqLongitude: normalizeNumber(fromRemote ? row?.hq_longitude : row?.hqLongitude),
+      markerColor: normalizeHexColor(fromRemote ? row?.marker_color : row?.markerColor, ''),
+      assetPhotoPath: String((fromRemote ? row?.logo_path : row?.assetPhotoPath) || '').trim(),
+      assetPhotoDataUrl: String((fromRemote ? '' : row?.assetPhotoDataUrl) || '').trim(),
+      assetPhotoName: String((fromRemote ? '' : row?.assetPhotoName) || '').trim(),
+      assetPhotoType: String((fromRemote ? '' : row?.assetPhotoType) || '').trim()
     };
   }
 
@@ -1153,11 +1200,6 @@
   function normalizeRoutePlaceLocationType(value){
     const raw = String(value || '').trim().toLowerCase();
     return ROUTE_PLACE_LOCATION_TYPES.includes(raw) ? raw : 'address';
-  }
-
-  function normalizeHexColor(value, fallback = ROUTE_PLACE_COLORS[0]){
-    const raw = String(value || '').trim();
-    return /^#[0-9a-f]{6}$/i.test(raw) ? raw : fallback;
   }
 
   function normalizeRoutePlaceList(row, fromRemote = false){
@@ -1394,6 +1436,11 @@
       address: formatAddress(client.hqStreet, client.hqCity, client.hqState, client.hqZip),
       lat: client.hqLatitude,
       lng: client.hqLongitude,
+      markerColor: client.markerColor,
+      assetPhotoPath: client.assetPhotoPath,
+      assetPhotoDataUrl: client.assetPhotoDataUrl,
+      assetPhotoName: client.assetPhotoName,
+      assetPhotoType: client.assetPhotoType,
       sublocations: (sitesByClient.get(client.id) || []).sort((a, b) => a.name.localeCompare(b.name))
     }));
   }
@@ -1663,7 +1710,7 @@
       els['client-list'].innerHTML = `<div class="empty-state"><strong>No ${esc(state.filterTag)} sites</strong>Choose another site type or add a matching site from the details card.</div>`;
       return;
     }
-    const color = getAvatarColor(client.id);
+    const color = getClientMarkerColor(client);
     els['client-list'].innerHTML = sites.map((site) => renderSiteCardMarkup(client, site, color)).join('');
   }
 
@@ -1772,8 +1819,185 @@
     els['detail-panel'].innerHTML = renderClientDetail(client);
   }
 
+  function getClientInitials(client){
+    const parts = String(client?.name || client?.clientName || 'Client').split(/\s+/).filter(Boolean);
+    const initials = parts.slice(0, 2).map((part) => part[0]).join('').toUpperCase();
+    return initials || 'CL';
+  }
+
+  function renderClientLogoPreview(client, className){
+    const url = getClientLogoUrl(client);
+    if(url) return `<img class="${esc(className)}" src="${esc(url)}" alt="${esc(client?.name || 'Client')} logo">`;
+    return `<span>${esc(getClientInitials(client))}</span>`;
+  }
+
+  function getClientLogoUrl(client){
+    if(!client) return '';
+    if(client.assetPhotoDataUrl) return client.assetPhotoDataUrl;
+    const path = String(client.assetPhotoPath || '').trim();
+    if(!path || !isRemoteMode()) return '';
+    if(state.clientLogoUrlCache.has(path)) return state.clientLogoUrlCache.get(path);
+    if(!state.clientLogoLoadPromises.has(path)){
+      const promise = (async () => {
+        const response = await window.appAuth.fetch(`/storage/v1/object/authenticated/${FIELD_ASSET_BUCKET}/${encodeStoragePath(path)}`, { headers:{ Accept:'*/*' } });
+        if(!response.ok) throw new Error(`Logo request failed (${response.status}).`);
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        state.clientLogoUrlCache.set(path, url);
+        state.markerIconCache.clear();
+        if(state.booted){
+          renderDetailPanel();
+          syncMarkers();
+        }
+        return url;
+      })();
+      state.clientLogoLoadPromises.set(path, promise);
+      promise.catch((error) => console.warn('Unable to load client marker logo:', error))
+        .finally(() => state.clientLogoLoadPromises.delete(path));
+    }
+    return '';
+  }
+
+  function clearClientLogoCache(path){
+    const cached = state.clientLogoUrlCache.get(path);
+    if(cached){
+      URL.revokeObjectURL(cached);
+      state.clientLogoUrlCache.delete(path);
+    }
+    state.clientLogoLoadPromises.delete(path);
+    state.markerIconCache.clear();
+  }
+
+  function buildClientLogoStoragePath(clientId, fileName){
+    const cleaned = String(fileName || 'client-logo.jpg').toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'client-logo.jpg';
+    return `clients/${clientId}/${Date.now()}-${cleaned}`;
+  }
+
+  async function uploadRemoteClientLogo(path, dataUrl, type){
+    const response = await window.appAuth.fetch(`/storage/v1/object/${FIELD_ASSET_BUCKET}/${encodeStoragePath(path)}`, {
+      method:'POST',
+      headers:{ Accept:'application/json', 'Content-Type':type || 'image/jpeg', 'x-upsert':'true' },
+      body:dataUrlToBlob(dataUrl)
+    });
+    if(!response.ok){
+      const payload = await response.json().catch(() => ({}));
+      const message = String(payload?.message || payload?.error || `Logo upload failed (${response.status}).`);
+      if(message.toLowerCase().includes('bucket not found')) throw new Error(`Supabase storage bucket "${FIELD_ASSET_BUCKET}" was not found. Run the storage bucket section of supabase/schema.sql, then try again.`);
+      throw new Error(message);
+    }
+  }
+
+  async function removeRemoteClientLogo(path){
+    if(!path) return;
+    await window.appAuth.requestJson('/storage/v1/object/remove', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body:JSON.stringify({ prefixes:[path] })
+    });
+  }
+
+  async function patchClientMarker(clientId, patch){
+    const id = String(clientId || '').trim();
+    if(!id) return;
+    if(isRemoteMode()){
+      const remotePatch = {};
+      if(Object.prototype.hasOwnProperty.call(patch, 'marker_color')) remotePatch.marker_color = patch.marker_color;
+      if(Object.prototype.hasOwnProperty.call(patch, 'logo_path')) remotePatch.logo_path = patch.logo_path;
+      await window.appAuth.requestJson(`/rest/v1/field_clients?id=eq.${encodeURIComponent(id)}`, {
+        method:'PATCH',
+        headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
+        body:JSON.stringify(remotePatch)
+      });
+      return;
+    }
+    const raw = readLocalRaw();
+    const clients = Array.isArray(raw.clients) ? raw.clients : [];
+    const index = clients.findIndex((client) => String(client?.id || '') === id);
+    if(index < 0) throw new Error('Client was not found.');
+    clients[index] = {
+      ...clients[index],
+      markerColor: Object.prototype.hasOwnProperty.call(patch, 'marker_color') ? patch.marker_color : clients[index].markerColor,
+      assetPhotoPath: Object.prototype.hasOwnProperty.call(patch, 'logo_path') ? patch.logo_path : clients[index].assetPhotoPath,
+      assetPhotoDataUrl: Object.prototype.hasOwnProperty.call(patch, 'assetPhotoDataUrl') ? patch.assetPhotoDataUrl : clients[index].assetPhotoDataUrl,
+      assetPhotoName: Object.prototype.hasOwnProperty.call(patch, 'assetPhotoName') ? patch.assetPhotoName : clients[index].assetPhotoName,
+      assetPhotoType: Object.prototype.hasOwnProperty.call(patch, 'assetPhotoType') ? patch.assetPhotoType : clients[index].assetPhotoType
+    };
+    raw.clients = clients;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(raw));
+  }
+
+  async function saveClientMarkerColor(clientId, color){
+    const normalizedColor = normalizeHexColor(color, '');
+    if(!normalizedColor) return;
+    showSaveStatus('saving', 'SAVING');
+    try {
+      await patchClientMarker(clientId, { marker_color:normalizedColor });
+      await loadData({ preserveSelection:true, focusSelection:false });
+      showSaveStatus('saved', 'SAVED');
+    } catch (error){
+      console.error('Unable to save client marker color:', error);
+      showSaveStatus('error', 'SAVE FAILED');
+      alert(error.message || 'Unable to save the marker color.');
+    }
+  }
+
+  async function uploadClientLogo(clientId, file, input){
+    if(!file) return;
+    if(!String(file.type || '').startsWith('image/')){
+      alert('Please choose an image file.');
+      if(input) input.value = '';
+      return;
+    }
+    const client = state.data.clients.find((row) => row.id === String(clientId)) || null;
+    if(!client) return;
+    showSaveStatus('saving', 'UPLOADING');
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      if(isRemoteMode()){
+        const uploadPath = buildClientLogoStoragePath(client.id, file.name);
+        await uploadRemoteClientLogo(uploadPath, dataUrl, file.type || 'image/jpeg');
+        await patchClientMarker(client.id, { logo_path:uploadPath });
+        if(client.assetPhotoPath && client.assetPhotoPath !== uploadPath){
+          await removeRemoteClientLogo(client.assetPhotoPath).catch((error) => console.warn('Unable to remove replaced client logo:', error));
+          clearClientLogoCache(client.assetPhotoPath);
+        }
+      } else {
+        await patchClientMarker(client.id, { logo_path:'', assetPhotoDataUrl:dataUrl, assetPhotoName:file.name || '', assetPhotoType:file.type || 'image/jpeg' });
+      }
+      await loadData({ preserveSelection:true, focusSelection:false });
+      showSaveStatus('saved', 'SAVED');
+    } catch (error){
+      console.error('Unable to upload client logo:', error);
+      showSaveStatus('error', 'UPLOAD FAILED');
+      alert(error.message || 'Unable to upload the client logo.');
+    } finally {
+      if(input) input.value = '';
+    }
+  }
+
+  async function removeClientLogo(clientId){
+    const client = state.data.clients.find((row) => row.id === String(clientId)) || null;
+    if(!client) return;
+    showSaveStatus('saving', 'SAVING');
+    try {
+      await patchClientMarker(client.id, { logo_path:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'' });
+      if(isRemoteMode() && client.assetPhotoPath){
+        await removeRemoteClientLogo(client.assetPhotoPath).catch((error) => console.warn('Unable to remove client logo:', error));
+        clearClientLogoCache(client.assetPhotoPath);
+      }
+      await loadData({ preserveSelection:true, focusSelection:false });
+      showSaveStatus('saved', 'SAVED');
+    } catch (error){
+      console.error('Unable to remove client logo:', error);
+      showSaveStatus('error', 'SAVE FAILED');
+      alert(error.message || 'Unable to remove the client logo.');
+    }
+  }
+
   function renderClientDetail(client){
     const address = client.address || 'No HQ address set';
+    const markerColor = getClientMarkerColor(client);
+    const hasLogo = !!(client.assetPhotoDataUrl || client.assetPhotoPath);
     return `
       <div class="suremap-detail-card">
         <div class="suremap-detail-title">
@@ -1790,6 +2014,23 @@
           <div class="suremap-detail-item full"><label>HQ Address</label><span>${esc(address)}</span></div>
           <div class="suremap-detail-item"><label>Mapped Sites</label><span>${esc(client.sublocations.length)}</span></div>
           <div class="suremap-detail-item"><label>Directions From</label><span>${esc(HOME_BASE.name)}</span></div>
+        </div>
+        <div class="suremap-marker-style-editor">
+          <div class="suremap-marker-preview" style="--client-marker-color:${esc(markerColor)}">
+            ${hasLogo ? renderClientLogoPreview(client, 'suremap-marker-preview-logo') : `<span>${esc(getClientInitials(client))}</span>`}
+          </div>
+          <div class="suremap-marker-controls">
+            <label class="form-label" for="client-marker-color-${esc(client.id)}">Site Marker Color</label>
+            <div class="suremap-marker-color-row">
+              ${CLIENT_MARKER_COLORS.map((color) => `<button class="color-swatch ${color === markerColor ? 'is-selected' : ''}" type="button" style="--swatch-color:${esc(color)}" data-action="set-client-marker-color" data-client-id="${esc(client.id)}" data-color="${esc(color)}" aria-label="Use ${esc(color)}"></button>`).join('')}
+              <input class="color-picker" id="client-marker-color-${esc(client.id)}" type="color" value="${esc(markerColor)}" data-client-marker-color-input data-client-id="${esc(client.id)}">
+            </div>
+            <div class="suremap-marker-logo-row">
+              <label class="add-btn suremap-client-logo-upload" for="client-logo-input-${esc(client.id)}">Upload Logo</label>
+              <input id="client-logo-input-${esc(client.id)}" class="suremap-client-logo-input" type="file" accept="image/*" data-client-logo-input data-client-id="${esc(client.id)}">
+              <button class="act-btn danger" type="button" data-action="remove-client-logo" data-client-id="${esc(client.id)}" ${hasLogo ? '' : 'disabled'}>Remove Logo</button>
+            </div>
+          </div>
         </div>
         <div class="suremap-detail-actions">
           <button class="act-btn" type="button" data-action="copy-address" data-client-id="${esc(client.id)}">Copy Address</button>
@@ -1909,17 +2150,18 @@
     const visibleKeys = new Set();
     ensureHomeMarker();
     state.filteredClients.forEach((client) => {
-      const clientColor = getAvatarColor(client.id);
+      const clientColor = getClientMarkerColor(client);
+      const logoUrl = getClientLogoUrl(client);
       if(hasCoords(client.lat, client.lng)){
         const key = `client:${client.id}`;
         visibleKeys.add(key);
-        upsertMarker(key, [client.lat, client.lng], makeMarkerIcon(clientColor, false), buildPopup(client.name, client.address || 'No HQ address'), () => selectClient(client.id, { focusMap:false, fromMap:true }));
+        upsertMarker(key, [client.lat, client.lng], makeMarkerIcon(clientColor, false, logoUrl, getClientInitials(client)), buildPopup(client.name, client.address || 'No HQ address'), () => selectClient(client.id, { focusMap:false, fromMap:true }));
       }
       client.sublocations.forEach((site) => {
         if(!hasCoords(site.lat, site.lng)) return;
         const key = `site:${site.id}`;
         visibleKeys.add(key);
-        upsertMarker(key, [site.lat, site.lng], makeMarkerIcon(clientColor, true), buildPopup(site.name, site.address || site.notes || site.coordsLabel), () => selectSite(client.id, site.id, { focusMap:false, fromMap:true }));
+        upsertMarker(key, [site.lat, site.lng], makeMarkerIcon(clientColor, true, logoUrl, getClientInitials(client)), buildPopup(site.name, site.address || site.notes || site.coordsLabel), () => selectSite(client.id, site.id, { focusMap:false, fromMap:true }));
       });
     });
     getVisibleRoutePlaces().forEach(({ list, place, point }) => {
@@ -2136,14 +2378,20 @@
     return icon;
   }
 
-  function makeMarkerIcon(color, isSite){
-    const cacheKey = `${state.mapProvider}:${isSite ? 'site' : 'client'}:${color}`;
+  function makeMarkerIcon(color, isSite, logoUrl = '', label = ''){
+    const safeLabel = String(label || 'CL').slice(0, 2).toUpperCase();
+    const cacheKey = `${state.mapProvider}:${isSite ? 'site' : 'client'}:${color}:${logoUrl || safeLabel}`;
     const cached = state.markerIconCache.get(cacheKey);
     if(cached) return cached;
     const size = isSite ? [22, 30] : [28, 36];
     const anchor = isSite ? [11, 30] : [14, 36];
-    const inner = isSite ? 4 : 5;
-    const svg = `<svg width="${size[0]}" height="${size[1]}" viewBox="0 0 ${size[0]} ${size[1]}" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M${size[0] / 2} 0C${isSite ? '4.9 0 0 4.9 0 11c0 8.3 11 19 11 19s11-10.7 11-19C22 4.9 17.1 0 11 0Z' : '6.7 0 0 6.7 0 14.5c0 10.5 14 21.5 14 21.5s14-11 14-21.5C28 6.7 21.3 0 14 0Z'}" fill="${color}"/><circle cx="${size[0] / 2}" cy="${isSite ? 11 : 14}" r="${inner}" fill="#071009"/></svg>`;
+    const centerY = isSite ? 11 : 14;
+    const inner = isSite ? 7 : 9;
+    const fontSize = isSite ? 6 : 7;
+    const logoMarkup = logoUrl
+      ? `<clipPath id="clip"><circle cx="${size[0] / 2}" cy="${centerY}" r="${inner}"/></clipPath><circle cx="${size[0] / 2}" cy="${centerY}" r="${inner}" fill="#ffffff"/><image href="${esc(logoUrl)}" x="${size[0] / 2 - inner}" y="${centerY - inner}" width="${inner * 2}" height="${inner * 2}" preserveAspectRatio="xMidYMid slice" clip-path="url(#clip)"/>`
+      : `<circle cx="${size[0] / 2}" cy="${centerY}" r="${inner}" fill="#071009"/><text x="${size[0] / 2}" y="${centerY + Math.ceil(fontSize / 3)}" text-anchor="middle" font-family="Arial, sans-serif" font-size="${fontSize}" font-weight="700" fill="${esc(color)}">${esc(safeLabel)}</text>`;
+    const svg = `<svg width="${size[0]}" height="${size[1]}" viewBox="0 0 ${size[0]} ${size[1]}" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M${size[0] / 2} 0C${isSite ? '4.9 0 0 4.9 0 11c0 8.3 11 19 11 19s11-10.7 11-19C22 4.9 17.1 0 11 0Z' : '6.7 0 0 6.7 0 14.5c0 10.5 14 21.5 14 21.5s14-11 14-21.5C28 6.7 21.3 0 14 0Z'}" fill="${esc(color)}"/>${logoMarkup}</svg>`;
     const icon = state.mapProvider === 'google'
       ? {
         url: svgToDataUri(svg),
@@ -3043,7 +3291,7 @@
       label:client.name || 'Unnamed client',
       meta:`${client.sublocations.length} site${client.sublocations.length === 1 ? '' : 's'} | ${client.accountStatus || 'Active'}`,
       count:client.sublocations.length,
-      color:getAvatarColor(client.id),
+      color:getClientMarkerColor(client),
       client
     })).sort((left, right) => left.label.localeCompare(right.label));
   }

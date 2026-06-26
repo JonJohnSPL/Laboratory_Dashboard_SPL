@@ -167,6 +167,63 @@
   background:rgba(255,93,115,.12);
 }
 
+.suremap-marker-style-editor{
+  display:grid;
+  grid-template-columns:auto minmax(0, 1fr);
+  gap:14px;
+  align-items:center;
+  margin-top:14px;
+  padding:12px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--surface2);
+}
+
+.suremap-marker-preview{
+  --client-marker-color:var(--accent);
+  width:58px;
+  height:58px;
+  display:grid;
+  place-items:center;
+  border:2px solid var(--client-marker-color);
+  border-radius:50%;
+  background:rgba(7,16,9,.78);
+  color:var(--client-marker-color);
+  font-family:var(--mono);
+  font-size:15px;
+  font-weight:700;
+  overflow:hidden;
+}
+
+.suremap-marker-preview-logo{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  background:#fff;
+}
+
+.suremap-marker-controls{
+  display:grid;
+  gap:9px;
+  min-width:0;
+}
+
+.suremap-marker-color-row,
+.suremap-marker-logo-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+}
+
+.suremap-client-logo-input{
+  display:none;
+}
+
+.suremap-client-logo-upload{
+  min-height:32px;
+}
+
 .suremap-route-card-head{
   display:flex;
   justify-content:space-between;

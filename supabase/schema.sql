@@ -272,6 +272,7 @@ create table if not exists public.field_clients (
   salesforce_account_id text not null default '',
   default_service_area text not null default '',
   logo_path text,
+  marker_color text not null default '',
   hq_street text not null default '',
   hq_city text not null default '',
   hq_state text not null default '',
@@ -294,6 +295,7 @@ alter table public.field_clients add column if not exists hq_zip text not null d
 alter table public.field_clients add column if not exists hq_latitude numeric;
 alter table public.field_clients add column if not exists hq_longitude numeric;
 alter table public.field_clients add column if not exists logo_path text;
+alter table public.field_clients add column if not exists marker_color text not null default '';
 update public.field_clients
 set client_code = upper(btrim(client_code))
 where coalesce(client_code, '') <> '';
