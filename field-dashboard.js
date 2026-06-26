@@ -1859,6 +1859,13 @@ function isJobPast(job, now = new Date()){
   return !!(comparisonDate && comparisonDate < now);
 }
 
+function isJobBeforeToday(job, now = new Date()){
+  const comparisonDate = getJobPastComparisonDate(job);
+  if(!comparisonDate) return false;
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return comparisonDate < todayStart;
+}
+
 function isJobClosed(job){ return isJobPast(job); }
 
 function isMaintenanceClosed(record){ return ['Complete', 'Canceled'].includes(record.status); }
@@ -1955,7 +1962,7 @@ function findTravelScheduleConflict(travelDraft, currentTravelId = modalState.id
     .filter((assignment) => assignment.assignmentType === 'Technician' && assignment.resourceId === travelDraft.technicianId)
     .map((assignment) => getJob(assignment.jobId))
     .filter(Boolean)
-    .filter((job) => !isJobPast(job))
+    .filter((job) => !isJobBeforeToday(job))
     .map((job) => {
       const jobWindow = getJobTravelWindow(job);
       if(!jobWindow) return null;
