@@ -110,7 +110,9 @@
   <script>
     window.APP_CONFIG = Object.assign({}, window.APP_CONFIG || {}, {
       authTitle: 'SPL SureMap',
-      authHelpText: 'Sign in to access shared SPL client mapping and Field Ops directory data.'
+      authHelpText: 'Sign in to access shared SPL client mapping and Field Ops directory data.',
+      requiresAppAdmin: true,
+      technicianPortalPath: '../technician.html'
     });
   </script>
   <script src="../cloud-auth.js"></script>

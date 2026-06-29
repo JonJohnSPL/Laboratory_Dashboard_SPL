@@ -6,6 +6,7 @@
     mode: 'local',
     session: null,
     user: null,
+    access: createEmptyAccess(),
     ready: false,
     readyResolve: null,
     overlay: null,
@@ -27,7 +28,12 @@
     getUser: () => state.user,
     signOut: () => signOut(),
     fetch: (path, options) => authorizedFetch(path, options),
-    requestJson: (path, options) => requestJson(path, options)
+    requestJson: (path, options) => requestJson(path, options),
+    getAccess: () => state.access,
+    getProfile: () => state.access.profile,
+    getEmployee: () => state.access.employee,
+    isAdmin: () => isCurrentUserAdmin(),
+    hasFeature: (featureKey) => hasFeature(featureKey)
   };
 
   init();
@@ -55,10 +61,14 @@
         state.session = linkSession;
         state.user = linkSession.user || await fetchCurrentUser(linkSession.access_token);
         persistSession({ ...linkSession, user: state.user });
+        await loadAccessProfile();
         renderSessionControls();
         cleanAuthUrl();
         if(isRecovery){
           showPasswordResetOverlay();
+          return;
+        }
+        if(enforceAccessGate()){
           return;
         }
         hideOverlay();
@@ -71,6 +81,10 @@
         await ensureSession();
       }
       if(state.session){
+        await loadAccessProfile();
+        if(enforceAccessGate()){
+          return;
+        }
         hideOverlay();
         renderSessionControls();
         markReady();
@@ -90,12 +104,130 @@
       supabaseAnonKey: String(config.supabaseAnonKey || ''),
       authEmailSuffix: String(config.authEmailSuffix || '').trim(),
       authTitle: String(config.authTitle || 'Lab WIP Dashboard'),
-      authHelpText: String(config.authHelpText || 'Sign in to access the shared dashboard data.')
+      authHelpText: String(config.authHelpText || 'Sign in to access the shared dashboard data.'),
+      requiresAppAdmin: config.requiresAppAdmin === true,
+      technicianPortalPath: String(config.technicianPortalPath || '')
     };
   }
 
   function isRemoteConfigured(){
     return !!(state.config.supabaseUrl && state.config.supabaseAnonKey);
+  }
+
+  function createEmptyAccess(){
+    return {
+      profile: null,
+      employee: null,
+      features: [],
+      grants: [],
+      featureKeys: [],
+      loadError: ''
+    };
+  }
+
+  async function loadAccessProfile(){
+    state.access = createEmptyAccess();
+    if(state.mode !== 'remote' || !state.user?.id){
+      return state.access;
+    }
+
+    const userId = encodeURIComponent(state.user.id);
+    try {
+      const profileRows = await requestJson(`/rest/v1/app_user_profiles?select=user_id,access_role,employee_id,is_active,portal_enabled,notes,employee:employees(id,employee_first_name,employee_last_name,employee_name,home_spl_site,work_scope,lab_role,field_role,can_sample_transport,is_active,phone,email,notes)&user_id=eq.${userId}&limit=1`);
+      const profile = Array.isArray(profileRows) && profileRows.length ? normalizeProfile(profileRows[0]) : null;
+      const features = await requestJson('/rest/v1/app_features?select=feature_key,feature_scope,feature_name,feature_description,sort_order,is_active&is_active=eq.true&order=sort_order.asc');
+      const grants = profile?.employeeId
+        ? await requestJson(`/rest/v1/employee_feature_grants?select=feature_key,is_enabled&employee_id=eq.${encodeURIComponent(profile.employeeId)}&is_enabled=eq.true`)
+        : [];
+      const featureKeys = new Set((Array.isArray(grants) ? grants : []).filter((grant) => grant?.is_enabled !== false).map((grant) => String(grant.feature_key || '')));
+      state.access = {
+        profile,
+        employee: profile?.employee || null,
+        features: Array.isArray(features) ? features.map(normalizeFeature) : [],
+        grants: Array.isArray(grants) ? grants : [],
+        featureKeys: [...featureKeys].filter(Boolean),
+        loadError: ''
+      };
+    } catch (error){
+      console.error('Unable to load app access profile:', error);
+      state.access = { ...createEmptyAccess(), loadError:error.message || 'Unable to load access profile.' };
+      if(state.config.requiresAppAdmin){
+        throw error;
+      }
+    }
+    return state.access;
+  }
+
+  function normalizeProfile(row){
+    if(!row) return null;
+    return {
+      userId: String(row.user_id || ''),
+      accessRole: String(row.access_role || 'employee'),
+      employeeId: String(row.employee_id || ''),
+      isActive: row.is_active !== false,
+      portalEnabled: row.portal_enabled === true,
+      notes: String(row.notes || ''),
+      employee: normalizeEmployee(row.employee)
+    };
+  }
+
+  function normalizeEmployee(row){
+    if(!row) return null;
+    const first = String(row.employee_first_name || '');
+    const last = String(row.employee_last_name || '');
+    const fallback = String(row.employee_name || '');
+    return {
+      id: String(row.id || ''),
+      employeeFirstName: first,
+      employeeLastName: last,
+      employeeName: [first, last].filter(Boolean).join(' ') || fallback,
+      homeSplSite: String(row.home_spl_site || ''),
+      workScope: String(row.work_scope || ''),
+      labRole: String(row.lab_role || ''),
+      fieldRole: String(row.field_role || ''),
+      canSampleTransport: row.can_sample_transport === true,
+      isActive: row.is_active !== false,
+      phone: String(row.phone || ''),
+      email: String(row.email || ''),
+      notes: String(row.notes || '')
+    };
+  }
+
+  function normalizeFeature(row){
+    return {
+      featureKey: String(row?.feature_key || ''),
+      featureScope: String(row?.feature_scope || ''),
+      featureName: String(row?.feature_name || ''),
+      featureDescription: String(row?.feature_description || ''),
+      sortOrder: Number(row?.sort_order || 0),
+      isActive: row?.is_active !== false
+    };
+  }
+
+  function isCurrentUserAdmin(){
+    const profile = state.access?.profile;
+    return !!(profile && profile.isActive !== false && profile.accessRole === 'admin');
+  }
+
+  function hasFeature(featureKey){
+    if(isCurrentUserAdmin()) return true;
+    return (state.access?.featureKeys || []).includes(String(featureKey || ''));
+  }
+
+  function enforceAccessGate(){
+    if(state.mode !== 'remote' || !state.config.requiresAppAdmin || isCurrentUserAdmin()){
+      return false;
+    }
+    redirectToTechnicianPortal();
+    return true;
+  }
+
+  function redirectToTechnicianPortal(){
+    const target = state.config.technicianPortalPath || getTechnicianPortalUrl();
+    if(!target || window.location.pathname.toLowerCase().endsWith('/technician.html')){
+      return;
+    }
+    window.location.href = target;
   }
 
   function markReady(){
@@ -106,7 +238,7 @@
     document.body.classList.remove('app-auth-pending');
     state.readyResolve();
     window.dispatchEvent(new CustomEvent('app-auth-ready', {
-      detail: { mode: state.mode, user: state.user }
+      detail: { mode: state.mode, user: state.user, access: state.access }
     }));
   }
 
@@ -246,8 +378,11 @@
     const label = state.config.authEmailSuffix
       ? userAlias(state.user.email, state.config.authEmailSuffix)
       : (state.user.email || 'Authenticated user');
+    const roleLabel = isCurrentUserAdmin()
+      ? 'Admin'
+      : (state.access?.employee?.employeeName || (state.access?.profile?.portalEnabled ? 'Technician' : 'User'));
     slot.innerHTML = `
-      <div class="session-pill remote">${escapeHtml(label)}</div>
+      <div class="session-pill remote">${escapeHtml(roleLabel)} | ${escapeHtml(label)}</div>
       <button type="button" class="session-signout">Sign Out</button>
     `;
     const signOutBtn = slot.querySelector('.session-signout');
@@ -295,6 +430,10 @@
       state.session = session;
       state.user = session.user || await fetchCurrentUser(session.access_token);
       persistSession(session);
+      await loadAccessProfile();
+      if(enforceAccessGate()){
+        return;
+      }
       renderSessionControls();
       hideOverlay();
       markReady();
@@ -327,6 +466,10 @@
 
     try {
       await updatePassword(password);
+      await loadAccessProfile();
+      if(enforceAccessGate()){
+        return;
+      }
       hideOverlay();
       renderSessionControls();
       markReady();
@@ -359,6 +502,7 @@
       clearStoredSession();
       state.session = null;
       state.user = null;
+      state.access = createEmptyAccess();
       renderSessionControls();
       showOverlay('Signed out. Enter credentials to continue.');
     }
@@ -571,6 +715,10 @@
   function getPasswordResetUrl(){
     const base = window.location.pathname.includes('/SureMap/') ? '../password-reset.html' : 'password-reset.html';
     return `${base}?returnTo=${encodeURIComponent(window.location.pathname)}`;
+  }
+
+  function getTechnicianPortalUrl(){
+    return window.location.pathname.includes('/SureMap/') ? '../technician.html' : 'technician.html';
   }
 
   function resolveEmail(identifier){

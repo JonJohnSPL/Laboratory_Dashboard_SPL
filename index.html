@@ -151,6 +151,7 @@
     .launch-card.map:hover{border-color:rgba(91,140,245,.36);}
     .launch-card.people:hover{border-color:rgba(116,213,255,.34);}
     .launch-card.clients:hover{border-color:rgba(255,188,109,.34);}
+    .launch-card.portal:hover{border-color:rgba(244,114,182,.34);}
     .launch-card h3{
       font-size:26px;
       letter-spacing:2px;
@@ -168,6 +169,7 @@
     .launch-card.map h3{color:#8db3ff;}
     .launch-card.people h3{color:#74d5ff;}
     .launch-card.clients h3{color:#ffbc6d;}
+    .launch-card.portal h3{color:#f472b6;}
     .launch-sublinks{
       display:grid;
       grid-template-columns:repeat(2, minmax(0, 1fr));
@@ -233,6 +235,7 @@
           <button class="nav-btn" onclick="window.location.href='SureMap/SPLClientMap.HTML'">SureMap</button>
           <button class="nav-btn" onclick="window.location.href='employees.html'">Employees</button>
           <button class="nav-btn" onclick="window.location.href='clients.html'">Clients</button>
+          <button class="nav-btn" onclick="window.location.href='technician.html'">Technician Portal</button>
         </div>
       </div>
     </header>
@@ -253,6 +256,9 @@
       <a class="launch-card people" href="employees.html">
         <h3>Employees</h3>
       </a>
+      <a class="launch-card portal" href="technician.html">
+        <h3>Technician Portal</h3>
+      </a>
       <a class="launch-card clients" href="clients.html">
         <h3>Clients</h3>
       </a>
@@ -266,7 +272,8 @@
   <script>
     window.APP_CONFIG = Object.assign({}, window.APP_CONFIG || {}, {
       authTitle: 'SPL Dashboard Launchpad',
-      authHelpText: 'Sign in to access the shared SPL dashboard workspaces.'
+      authHelpText: 'Sign in to access the shared SPL dashboard workspaces.',
+      requiresAppAdmin: true
     });
   </script>
   <script src="cloud-auth.js"></script>

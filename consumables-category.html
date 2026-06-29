@@ -320,7 +320,8 @@
   };
   window.APP_CONFIG = Object.assign({}, window.APP_CONFIG || {}, {
     authTitle: `SPL ${activeCategory}`,
-    authHelpText: 'Sign in to manage lab consumable inventory and order status.'
+    authHelpText: 'Sign in to manage lab consumable inventory and order status.',
+    requiresAppAdmin: true
   });
   document.title = `${activeCategory} Consumables`;
   document.getElementById('category-title').textContent = activeCategory;

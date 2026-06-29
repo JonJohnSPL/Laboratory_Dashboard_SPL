@@ -31,22 +31,22 @@ create policy "Authenticated users can read app_state"
 on public.app_state
 for select
 to authenticated
-using (true);
+using (false);
 
 drop policy if exists "Authenticated users can insert app_state" on public.app_state;
 create policy "Authenticated users can insert app_state"
 on public.app_state
 for insert
 to authenticated
-with check (true);
+with check (false);
 
 drop policy if exists "Authenticated users can update app_state" on public.app_state;
 create policy "Authenticated users can update app_state"
 on public.app_state
 for update
 to authenticated
-using (true)
-with check (true);
+using (false)
+with check (false);
 
 create table if not exists public.standards (
   id uuid primary key default gen_random_uuid(),
@@ -119,58 +119,58 @@ create policy "Authenticated users can read standards"
 on public.standards
 for select
 to authenticated
-using (true);
+using (false);
 
 drop policy if exists "Authenticated users can insert standards" on public.standards;
 create policy "Authenticated users can insert standards"
 on public.standards
 for insert
 to authenticated
-with check (true);
+with check (false);
 
 drop policy if exists "Authenticated users can update standards" on public.standards;
 create policy "Authenticated users can update standards"
 on public.standards
 for update
 to authenticated
-using (true)
-with check (true);
+using (false)
+with check (false);
 
 drop policy if exists "Authenticated users can delete standards" on public.standards;
 create policy "Authenticated users can delete standards"
 on public.standards
 for delete
 to authenticated
-using (true);
+using (false);
 
 drop policy if exists "Authenticated users can read standard components" on public.standard_components;
 create policy "Authenticated users can read standard components"
 on public.standard_components
 for select
 to authenticated
-using (true);
+using (false);
 
 drop policy if exists "Authenticated users can insert standard components" on public.standard_components;
 create policy "Authenticated users can insert standard components"
 on public.standard_components
 for insert
 to authenticated
-with check (true);
+with check (false);
 
 drop policy if exists "Authenticated users can update standard components" on public.standard_components;
 create policy "Authenticated users can update standard components"
 on public.standard_components
 for update
 to authenticated
-using (true)
-with check (true);
+using (false)
+with check (false);
 
 drop policy if exists "Authenticated users can delete standard components" on public.standard_components;
 create policy "Authenticated users can delete standard components"
 on public.standard_components
 for delete
 to authenticated
-using (true);
+using (false);
 
 insert into storage.buckets (id, name, public)
 values ('standard-tags', 'standard-tags', false)
@@ -874,6 +874,253 @@ update public.employees
 set employee_name = btrim(coalesce(nullif(employee_first_name, ''), '') || ' ' || coalesce(nullif(employee_last_name, ''), ''))
 where btrim(coalesce(employee_first_name, '') || ' ' || coalesce(employee_last_name, '')) <> ''
   and employee_name <> btrim(coalesce(nullif(employee_first_name, ''), '') || ' ' || coalesce(nullif(employee_last_name, ''), ''));
+
+create table if not exists public.app_user_profiles (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  access_role text not null default 'employee' check (access_role in ('admin', 'employee')),
+  employee_id uuid references public.employees(id) on delete set null,
+  is_active boolean not null default true,
+  portal_enabled boolean not null default false,
+  notes text not null default '',
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+alter table public.app_user_profiles add column if not exists access_role text not null default 'employee';
+alter table public.app_user_profiles add column if not exists employee_id uuid;
+alter table public.app_user_profiles add column if not exists is_active boolean not null default true;
+alter table public.app_user_profiles add column if not exists portal_enabled boolean not null default false;
+alter table public.app_user_profiles add column if not exists notes text not null default '';
+alter table public.app_user_profiles drop constraint if exists app_user_profiles_access_role_check;
+alter table public.app_user_profiles add constraint app_user_profiles_access_role_check check (access_role in ('admin', 'employee'));
+alter table public.app_user_profiles drop constraint if exists app_user_profiles_employee_id_fkey;
+alter table public.app_user_profiles add constraint app_user_profiles_employee_id_fkey foreign key (employee_id) references public.employees(id) on delete set null;
+create unique index if not exists app_user_profiles_employee_id_unique_idx on public.app_user_profiles(employee_id) where employee_id is not null;
+create index if not exists app_user_profiles_access_role_idx on public.app_user_profiles(access_role);
+create index if not exists app_user_profiles_employee_id_idx on public.app_user_profiles(employee_id);
+
+create table if not exists public.app_features (
+  feature_key text primary key,
+  feature_scope text not null default 'field' check (feature_scope in ('lab', 'field')),
+  feature_name text not null default '',
+  feature_description text not null default '',
+  sort_order integer not null default 0,
+  is_active boolean not null default true,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+alter table public.app_features add column if not exists feature_scope text not null default 'field';
+alter table public.app_features add column if not exists feature_name text not null default '';
+alter table public.app_features add column if not exists feature_description text not null default '';
+alter table public.app_features add column if not exists sort_order integer not null default 0;
+alter table public.app_features add column if not exists is_active boolean not null default true;
+alter table public.app_features drop constraint if exists app_features_feature_scope_check;
+alter table public.app_features add constraint app_features_feature_scope_check check (feature_scope in ('lab', 'field'));
+create index if not exists app_features_scope_active_sort_idx on public.app_features(feature_scope, is_active, sort_order, feature_key);
+
+create table if not exists public.employee_feature_grants (
+  id uuid primary key default gen_random_uuid(),
+  employee_id uuid not null references public.employees(id) on delete cascade,
+  feature_key text not null references public.app_features(feature_key) on update cascade on delete cascade,
+  is_enabled boolean not null default true,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid,
+  unique (employee_id, feature_key)
+);
+alter table public.employee_feature_grants add column if not exists employee_id uuid;
+alter table public.employee_feature_grants add column if not exists feature_key text not null default '';
+alter table public.employee_feature_grants add column if not exists is_enabled boolean not null default true;
+alter table public.employee_feature_grants drop constraint if exists employee_feature_grants_employee_id_fkey;
+alter table public.employee_feature_grants add constraint employee_feature_grants_employee_id_fkey foreign key (employee_id) references public.employees(id) on delete cascade;
+alter table public.employee_feature_grants drop constraint if exists employee_feature_grants_feature_key_fkey;
+alter table public.employee_feature_grants add constraint employee_feature_grants_feature_key_fkey foreign key (feature_key) references public.app_features(feature_key) on update cascade on delete cascade;
+create unique index if not exists employee_feature_grants_employee_feature_unique_idx on public.employee_feature_grants(employee_id, feature_key);
+create index if not exists employee_feature_grants_employee_id_idx on public.employee_feature_grants(employee_id);
+create index if not exists employee_feature_grants_feature_key_idx on public.employee_feature_grants(feature_key);
+
+insert into public.app_features (feature_key, feature_scope, feature_name, feature_description, sort_order, is_active)
+values
+  ('lab.tests.view', 'lab', 'Lab Test Visibility', 'View lab WIP work orders, test visibility, and daily scheduling context.', 10, true),
+  ('lab.consumables.view', 'lab', 'Consumables Visibility', 'View lab consumable inventories, counts, orders, and activity.', 20, true),
+  ('lab.consumables.change_counts', 'lab', 'Consumable Count Changes', 'Receive, start, empty, return, and adjust consumable counts.', 30, true),
+  ('lab.consumables.manage_orders', 'lab', 'Consumable Order Management', 'Create, update, order, and receive consumable orders.', 40, true),
+  ('field.jobs.view', 'field', 'Field Job Visibility', 'View field jobs and related client, site, resource, and dispatch details.', 110, true),
+  ('field.jobs.update_status', 'field', 'Field Job Status Updates', 'Update field job assignment statuses from the technician portal.', 120, true),
+  ('field.routes.view', 'field', 'Route Visibility', 'View field routes, route stops, and route-linked jobs.', 130, true),
+  ('field.routes.edit', 'field', 'Route Changes', 'Update route status, route notes, and stop details from the technician portal.', 140, true),
+  ('field.samples.view', 'field', 'Sample Logistics Visibility', 'View field sample logistics and lab handoff status.', 150, true),
+  ('field.samples.update_status', 'field', 'Sample Status Updates', 'Update sample workflow status from the technician portal.', 160, true)
+on conflict (feature_key) do update
+set feature_scope = excluded.feature_scope,
+    feature_name = excluded.feature_name,
+    feature_description = excluded.feature_description,
+    sort_order = excluded.sort_order,
+    is_active = excluded.is_active;
+
+insert into public.app_user_profiles (user_id, access_role, is_active, portal_enabled, notes)
+select u.id, 'admin', true, false, 'Auto-seeded existing authenticated user as admin during technician portal migration.'
+from auth.users u
+where not exists (select 1 from public.app_user_profiles)
+on conflict (user_id) do nothing;
+
+create or replace function public.is_app_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(
+    (
+      select p.is_active and p.access_role = 'admin'
+      from public.app_user_profiles p
+      where p.user_id = auth.uid()
+    ),
+    false
+  );
+$$;
+
+create or replace function public.current_employee_id()
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select (
+    select p.employee_id
+    from public.app_user_profiles p
+    join public.employees e on e.id = p.employee_id
+    where p.user_id = auth.uid()
+      and p.is_active
+      and p.portal_enabled
+      and p.access_role = 'employee'
+      and p.employee_id is not null
+      and e.is_active
+    limit 1
+  );
+$$;
+
+create or replace function public.current_employee_work_scope()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(
+    (
+      select e.work_scope
+      from public.app_user_profiles p
+      join public.employees e on e.id = p.employee_id
+      where p.user_id = auth.uid()
+        and p.is_active
+        and p.portal_enabled
+        and p.access_role = 'employee'
+        and e.is_active
+      limit 1
+    ),
+    ''
+  );
+$$;
+
+create or replace function public.current_employee_has_scope(scope_value text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case
+    when public.is_app_admin() then true
+    when lower(coalesce(scope_value, '')) = 'lab' then public.current_employee_work_scope() in ('Lab', 'Both')
+    when lower(coalesce(scope_value, '')) = 'field' then public.current_employee_work_scope() in ('Field', 'Both')
+    else false
+  end;
+$$;
+
+create or replace function public.has_employee_feature(feature_key_value text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_app_admin()
+    or exists (
+      select 1
+      from public.app_user_profiles p
+      join public.employees e on e.id = p.employee_id
+      join public.employee_feature_grants g on g.employee_id = p.employee_id
+      join public.app_features f on f.feature_key = g.feature_key
+      where p.user_id = auth.uid()
+        and p.is_active
+        and p.portal_enabled
+        and p.access_role = 'employee'
+        and e.is_active
+        and g.is_enabled
+        and f.is_active
+        and f.feature_key = feature_key_value
+        and (
+          (f.feature_scope = 'lab' and e.work_scope in ('Lab', 'Both'))
+          or (f.feature_scope = 'field' and e.work_scope in ('Field', 'Both'))
+        )
+    );
+$$;
+
+create or replace function public.has_any_employee_feature(feature_keys text[])
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_app_admin()
+    or exists (
+      select 1
+      from unnest(coalesce(feature_keys, '{}'::text[])) as key(feature_key)
+      where public.has_employee_feature(key.feature_key)
+    );
+$$;
+
+create or replace function public.can_read_app_state_key(storage_key_value text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_app_admin()
+    or (
+      public.has_employee_feature('lab.tests.view')
+      and storage_key_value in (
+        'lab-wip-workorders',
+        'lab-wip-daily-schedule',
+        'lab-wip-test-definitions',
+        'lab-wip-subcontract-labs'
+      )
+    );
+$$;
+
+revoke all on function public.is_app_admin() from public;
+revoke all on function public.current_employee_id() from public;
+revoke all on function public.current_employee_work_scope() from public;
+revoke all on function public.current_employee_has_scope(text) from public;
+revoke all on function public.has_employee_feature(text) from public;
+revoke all on function public.has_any_employee_feature(text[]) from public;
+revoke all on function public.can_read_app_state_key(text) from public;
+grant execute on function public.is_app_admin() to authenticated;
+grant execute on function public.current_employee_id() to authenticated;
+grant execute on function public.current_employee_work_scope() to authenticated;
+grant execute on function public.current_employee_has_scope(text) to authenticated;
+grant execute on function public.has_employee_feature(text) to authenticated;
+grant execute on function public.has_any_employee_feature(text[]) to authenticated;
+grant execute on function public.can_read_app_state_key(text) to authenticated;
 
 create table if not exists public.field_spl_sites (
   id uuid primary key default gen_random_uuid(),
@@ -2476,6 +2723,424 @@ on conflict do nothing;
 
 grant select, insert, update, delete on public.field_part_catalogs to authenticated;
 
+create or replace function public.portal_update_field_job_assignment_status(
+  target_assignment_id uuid,
+  next_status text,
+  next_notes text default null
+)
+returns public.field_job_assignments
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  updated_row public.field_job_assignments%rowtype;
+begin
+  if not public.has_employee_feature('field.jobs.update_status') then
+    raise exception 'Field job status update access is required.';
+  end if;
+
+  if next_status not in ('Assigned', 'Confirmed', 'In Progress', 'Complete') then
+    raise exception 'Invalid assignment status.';
+  end if;
+
+  update public.field_job_assignments
+  set assignment_status = next_status,
+      assignment_notes = coalesce(next_notes, assignment_notes)
+  where id = target_assignment_id
+  returning * into updated_row;
+
+  if updated_row.id is null then
+    raise exception 'Field job assignment was not found.';
+  end if;
+
+  return updated_row;
+end;
+$$;
+
+create or replace function public.portal_update_field_route(
+  target_route_id uuid,
+  next_status text,
+  next_notes text default null
+)
+returns public.field_routes
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  updated_row public.field_routes%rowtype;
+begin
+  if not public.has_employee_feature('field.routes.edit') then
+    raise exception 'Field route edit access is required.';
+  end if;
+
+  if next_status not in ('Draft', 'Planned', 'Assigned', 'Complete', 'Archived') then
+    raise exception 'Invalid route status.';
+  end if;
+
+  update public.field_routes
+  set route_status = next_status,
+      notes = coalesce(next_notes, notes)
+  where id = target_route_id
+  returning * into updated_row;
+
+  if updated_row.id is null then
+    raise exception 'Field route was not found.';
+  end if;
+
+  return updated_row;
+end;
+$$;
+
+create or replace function public.portal_update_field_route_stop(
+  target_route_stop_id uuid,
+  next_stop_order integer,
+  next_stop_notes text default null
+)
+returns public.field_route_stops
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  updated_row public.field_route_stops%rowtype;
+begin
+  if not public.has_employee_feature('field.routes.edit') then
+    raise exception 'Field route stop edit access is required.';
+  end if;
+
+  if target_route_stop_id is null then
+    raise exception 'Route stop is required.';
+  end if;
+
+  if coalesce(next_stop_order, 0) < 0 then
+    raise exception 'Route stop order cannot be negative.';
+  end if;
+
+  update public.field_route_stops
+  set stop_order = coalesce(next_stop_order, stop_order),
+      stop_notes = coalesce(next_stop_notes, stop_notes)
+  where id = target_route_stop_id
+  returning * into updated_row;
+
+  if updated_row.id is null then
+    raise exception 'Route stop was not found.';
+  end if;
+
+  return updated_row;
+end;
+$$;
+
+create or replace function public.portal_update_field_sample_status(
+  target_sample_id uuid,
+  next_status text,
+  linked_work_order_id_value text default null,
+  linked_work_order_number_value text default null
+)
+returns public.field_samples
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  updated_row public.field_samples%rowtype;
+begin
+  if not public.has_employee_feature('field.samples.update_status') then
+    raise exception 'Field sample status update access is required.';
+  end if;
+
+  if next_status not in ('Needs Pulled', 'Received by Lab') then
+    raise exception 'Invalid sample status.';
+  end if;
+
+  update public.field_samples
+  set sample_status = next_status,
+      lab_receipt_status = case when next_status = 'Received by Lab' then 'Delivered' else 'Requested' end,
+      chain_of_custody_status = case when next_status = 'Received by Lab' then 'Delivered' else 'Requested' end,
+      linked_work_order_id = case when next_status = 'Received by Lab' then coalesce(linked_work_order_id_value, linked_work_order_id, '') else '' end,
+      linked_work_order_number = case when next_status = 'Received by Lab' then coalesce(linked_work_order_number_value, linked_work_order_number, '') else '' end,
+      lab_received_at = case when next_status = 'Received by Lab' then coalesce(lab_received_at, timezone('utc', now())) else null end
+  where id = target_sample_id
+  returning * into updated_row;
+
+  if updated_row.id is null then
+    raise exception 'Field sample was not found.';
+  end if;
+
+  return updated_row;
+end;
+$$;
+
+create or replace function public.portal_adjust_consumable_counts(
+  target_item_id uuid,
+  next_new_count integer,
+  next_in_use_count integer,
+  next_empty_count integer,
+  activity_type_value text,
+  quantity_delta_value integer,
+  notes_value text default ''
+)
+returns public.consumable_stock_counts
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_counts public.consumable_stock_counts%rowtype;
+  updated_counts public.consumable_stock_counts%rowtype;
+begin
+  if not public.has_employee_feature('lab.consumables.change_counts') then
+    raise exception 'Consumable count change access is required.';
+  end if;
+
+  if target_item_id is null then
+    raise exception 'Consumable item is required.';
+  end if;
+
+  if not exists (select 1 from public.consumable_items where id = target_item_id and is_active) then
+    raise exception 'Consumable item was not found.';
+  end if;
+
+  if coalesce(next_new_count, -1) < 0 or coalesce(next_in_use_count, -1) < 0 or coalesce(next_empty_count, -1) < 0 then
+    raise exception 'Consumable counts cannot be negative.';
+  end if;
+
+  select * into current_counts
+  from public.consumable_stock_counts
+  where item_id = target_item_id
+  for update;
+
+  if current_counts.id is null then
+    insert into public.consumable_stock_counts (item_id, new_count, in_use_count, empty_count)
+    values (target_item_id, next_new_count, next_in_use_count, next_empty_count)
+    returning * into updated_counts;
+
+    insert into public.consumable_activity (
+      item_id,
+      activity_type,
+      quantity_delta,
+      new_before,
+      new_after,
+      in_use_before,
+      in_use_after,
+      empty_before,
+      empty_after,
+      notes
+    )
+    values (
+      target_item_id,
+      coalesce(nullif(activity_type_value, ''), 'adjust_counts'),
+      coalesce(quantity_delta_value, next_new_count + next_in_use_count + next_empty_count),
+      0,
+      updated_counts.new_count,
+      0,
+      updated_counts.in_use_count,
+      0,
+      updated_counts.empty_count,
+      coalesce(notes_value, '')
+    );
+
+    return updated_counts;
+  end if;
+
+  update public.consumable_stock_counts
+  set new_count = next_new_count,
+      in_use_count = next_in_use_count,
+      empty_count = next_empty_count
+  where id = current_counts.id
+  returning * into updated_counts;
+
+  insert into public.consumable_activity (
+    item_id,
+    activity_type,
+    quantity_delta,
+    new_before,
+    new_after,
+    in_use_before,
+    in_use_after,
+    empty_before,
+    empty_after,
+    notes
+  )
+  values (
+    target_item_id,
+    coalesce(nullif(activity_type_value, ''), 'adjust_counts'),
+    coalesce(quantity_delta_value, (next_new_count - current_counts.new_count) + (next_in_use_count - current_counts.in_use_count) + (next_empty_count - current_counts.empty_count)),
+    current_counts.new_count,
+    updated_counts.new_count,
+    current_counts.in_use_count,
+    updated_counts.in_use_count,
+    current_counts.empty_count,
+    updated_counts.empty_count,
+    coalesce(notes_value, '')
+  );
+
+  return updated_counts;
+end;
+$$;
+
+create or replace function public.portal_save_consumable_order(
+  target_order_id uuid,
+  target_item_id uuid,
+  quantity_value integer,
+  order_status_value text,
+  ordered_on_value date default null,
+  received_on_value date default null,
+  notes_value text default ''
+)
+returns public.consumable_orders
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  existing_order public.consumable_orders%rowtype;
+  saved_order public.consumable_orders%rowtype;
+  current_counts public.consumable_stock_counts%rowtype;
+  updated_counts public.consumable_stock_counts%rowtype;
+begin
+  if not public.has_employee_feature('lab.consumables.manage_orders') then
+    raise exception 'Consumable order management access is required.';
+  end if;
+
+  if target_item_id is null then
+    raise exception 'Consumable item is required.';
+  end if;
+
+  if coalesce(quantity_value, 0) <= 0 then
+    raise exception 'Order quantity must be greater than zero.';
+  end if;
+
+  if order_status_value not in ('Needed', 'Ordered', 'Received', 'Canceled') then
+    raise exception 'Invalid order status.';
+  end if;
+
+  if not exists (select 1 from public.consumable_items where id = target_item_id) then
+    raise exception 'Consumable item was not found.';
+  end if;
+
+  if target_order_id is not null then
+    select * into existing_order
+    from public.consumable_orders
+    where id = target_order_id
+    for update;
+
+    if existing_order.id is null then
+      raise exception 'Consumable order was not found.';
+    end if;
+
+    update public.consumable_orders
+    set quantity = quantity_value,
+        order_status = order_status_value,
+        ordered_on = ordered_on_value,
+        received_on = received_on_value,
+        notes = coalesce(notes_value, '')
+    where id = target_order_id
+    returning * into saved_order;
+  else
+    insert into public.consumable_orders (item_id, quantity, order_status, ordered_on, received_on, notes)
+    values (target_item_id, quantity_value, order_status_value, ordered_on_value, received_on_value, coalesce(notes_value, ''))
+    returning * into saved_order;
+  end if;
+
+  insert into public.consumable_activity (
+    item_id,
+    order_id,
+    activity_type,
+    quantity_delta,
+    notes
+  )
+  values (
+    saved_order.item_id,
+    saved_order.id,
+    case when target_order_id is null then 'order_created' else 'order_updated' end,
+    saved_order.quantity,
+    concat(saved_order.order_status, ' order for ', saved_order.quantity, ' item(s). ', coalesce(saved_order.notes, ''))
+  );
+
+  if saved_order.order_status = 'Received'
+    and coalesce(existing_order.order_status, '') <> 'Received' then
+    select * into current_counts
+    from public.consumable_stock_counts
+    where item_id = saved_order.item_id
+    for update;
+
+    if current_counts.id is null then
+      insert into public.consumable_stock_counts (item_id, new_count, in_use_count, empty_count)
+      values (saved_order.item_id, saved_order.quantity, 0, 0)
+      returning * into updated_counts;
+
+      insert into public.consumable_activity (
+        item_id,
+        order_id,
+        activity_type,
+        quantity_delta,
+        new_before,
+        new_after,
+        notes
+      )
+      values (
+        saved_order.item_id,
+        saved_order.id,
+        'order_received',
+        saved_order.quantity,
+        0,
+        updated_counts.new_count,
+        concat('Received order for ', saved_order.quantity, ' item(s).')
+      );
+    else
+      update public.consumable_stock_counts
+      set new_count = current_counts.new_count + saved_order.quantity
+      where id = current_counts.id
+      returning * into updated_counts;
+
+      insert into public.consumable_activity (
+        item_id,
+        order_id,
+        activity_type,
+        quantity_delta,
+        new_before,
+        new_after,
+        in_use_before,
+        in_use_after,
+        empty_before,
+        empty_after,
+        notes
+      )
+      values (
+        saved_order.item_id,
+        saved_order.id,
+        'order_received',
+        saved_order.quantity,
+        current_counts.new_count,
+        updated_counts.new_count,
+        current_counts.in_use_count,
+        updated_counts.in_use_count,
+        current_counts.empty_count,
+        updated_counts.empty_count,
+        concat('Received order for ', saved_order.quantity, ' item(s).')
+      );
+    end if;
+  end if;
+
+  return saved_order;
+end;
+$$;
+
+revoke all on function public.portal_update_field_job_assignment_status(uuid, text, text) from public;
+revoke all on function public.portal_update_field_route(uuid, text, text) from public;
+revoke all on function public.portal_update_field_route_stop(uuid, integer, text) from public;
+revoke all on function public.portal_update_field_sample_status(uuid, text, text, text) from public;
+revoke all on function public.portal_adjust_consumable_counts(uuid, integer, integer, integer, text, integer, text) from public;
+revoke all on function public.portal_save_consumable_order(uuid, uuid, integer, text, date, date, text) from public;
+grant execute on function public.portal_update_field_job_assignment_status(uuid, text, text) to authenticated;
+grant execute on function public.portal_update_field_route(uuid, text, text) to authenticated;
+grant execute on function public.portal_update_field_route_stop(uuid, integer, text) to authenticated;
+grant execute on function public.portal_update_field_sample_status(uuid, text, text, text) to authenticated;
+grant execute on function public.portal_adjust_consumable_counts(uuid, integer, integer, integer, text, integer, text) to authenticated;
+grant execute on function public.portal_save_consumable_order(uuid, uuid, integer, text, date, date, text) to authenticated;
+
 do $$
 declare
   tbl text;
@@ -2525,19 +3190,300 @@ begin
     execute format('alter table public.%I enable row level security', tbl);
 
     execute format('drop policy if exists %I on public.%I', 'Authenticated users can read ' || tbl, tbl);
-    execute format('create policy %I on public.%I for select to authenticated using (true)', 'Authenticated users can read ' || tbl, tbl);
+    execute format('create policy %I on public.%I for select to authenticated using (public.is_app_admin())', 'Authenticated users can read ' || tbl, tbl);
 
     execute format('drop policy if exists %I on public.%I', 'Authenticated users can insert ' || tbl, tbl);
-    execute format('create policy %I on public.%I for insert to authenticated with check (true)', 'Authenticated users can insert ' || tbl, tbl);
+    execute format('create policy %I on public.%I for insert to authenticated with check (public.is_app_admin())', 'Authenticated users can insert ' || tbl, tbl);
 
     execute format('drop policy if exists %I on public.%I', 'Authenticated users can update ' || tbl, tbl);
-    execute format('create policy %I on public.%I for update to authenticated using (true) with check (true)', 'Authenticated users can update ' || tbl, tbl);
+    execute format('create policy %I on public.%I for update to authenticated using (public.is_app_admin()) with check (public.is_app_admin())', 'Authenticated users can update ' || tbl, tbl);
 
     execute format('drop policy if exists %I on public.%I', 'Authenticated users can delete ' || tbl, tbl);
-    execute format('create policy %I on public.%I for delete to authenticated using (true)', 'Authenticated users can delete ' || tbl, tbl);
+    execute format('create policy %I on public.%I for delete to authenticated using (public.is_app_admin())', 'Authenticated users can delete ' || tbl, tbl);
+
+    execute format('grant select, insert, update, delete on public.%I to authenticated', tbl);
   end loop;
 end
 $$;
+
+alter table public.app_user_profiles enable row level security;
+alter table public.app_features enable row level security;
+alter table public.employee_feature_grants enable row level security;
+drop trigger if exists app_user_profiles_touch on public.app_user_profiles;
+create trigger app_user_profiles_touch
+before insert or update on public.app_user_profiles
+for each row
+execute function public.touch_field_ops_row();
+drop trigger if exists app_features_touch on public.app_features;
+create trigger app_features_touch
+before insert or update on public.app_features
+for each row
+execute function public.touch_field_ops_row();
+drop trigger if exists employee_feature_grants_touch on public.employee_feature_grants;
+create trigger employee_feature_grants_touch
+before insert or update on public.employee_feature_grants
+for each row
+execute function public.touch_field_ops_row();
+grant select, insert, update, delete on public.app_user_profiles to authenticated;
+grant select, insert, update, delete on public.app_features to authenticated;
+grant select, insert, update, delete on public.employee_feature_grants to authenticated;
+grant select, insert, update, delete on public.app_state to authenticated;
+grant select, insert, update, delete on public.standards to authenticated;
+grant select, insert, update, delete on public.standard_components to authenticated;
+
+drop policy if exists "Admin users can manage app_user_profiles" on public.app_user_profiles;
+create policy "Admin users can manage app_user_profiles"
+on public.app_user_profiles
+for all
+to authenticated
+using (public.is_app_admin())
+with check (public.is_app_admin());
+
+drop policy if exists "Users can read their own app profile" on public.app_user_profiles;
+create policy "Users can read their own app profile"
+on public.app_user_profiles
+for select
+to authenticated
+using (user_id = auth.uid());
+
+drop policy if exists "Admin users can manage app_features" on public.app_features;
+create policy "Admin users can manage app_features"
+on public.app_features
+for all
+to authenticated
+using (public.is_app_admin())
+with check (public.is_app_admin());
+
+drop policy if exists "Authenticated users can read app_features" on public.app_features;
+create policy "Authenticated users can read app_features"
+on public.app_features
+for select
+to authenticated
+using (auth.uid() is not null);
+
+drop policy if exists "Admin users can manage employee_feature_grants" on public.employee_feature_grants;
+create policy "Admin users can manage employee_feature_grants"
+on public.employee_feature_grants
+for all
+to authenticated
+using (public.is_app_admin())
+with check (public.is_app_admin());
+
+drop policy if exists "Employees can read their own feature grants" on public.employee_feature_grants;
+create policy "Employees can read their own feature grants"
+on public.employee_feature_grants
+for select
+to authenticated
+using (employee_id = public.current_employee_id());
+
+drop policy if exists "Authenticated users can read app_state" on public.app_state;
+create policy "Authenticated users can read app_state"
+on public.app_state
+for select
+to authenticated
+using (public.can_read_app_state_key(storage_key));
+
+drop policy if exists "Authenticated users can insert app_state" on public.app_state;
+create policy "Authenticated users can insert app_state"
+on public.app_state
+for insert
+to authenticated
+with check (public.is_app_admin());
+
+drop policy if exists "Authenticated users can update app_state" on public.app_state;
+create policy "Authenticated users can update app_state"
+on public.app_state
+for update
+to authenticated
+using (public.is_app_admin())
+with check (public.is_app_admin());
+
+drop policy if exists "Authenticated users can read standards" on public.standards;
+create policy "Authenticated users can read standards"
+on public.standards
+for select
+to authenticated
+using (public.is_app_admin());
+
+drop policy if exists "Authenticated users can insert standards" on public.standards;
+create policy "Authenticated users can insert standards"
+on public.standards
+for insert
+to authenticated
+with check (public.is_app_admin());
+
+drop policy if exists "Authenticated users can update standards" on public.standards;
+create policy "Authenticated users can update standards"
+on public.standards
+for update
+to authenticated
+using (public.is_app_admin())
+with check (public.is_app_admin());
+
+drop policy if exists "Authenticated users can delete standards" on public.standards;
+create policy "Authenticated users can delete standards"
+on public.standards
+for delete
+to authenticated
+using (public.is_app_admin());
+
+drop policy if exists "Authenticated users can read standard components" on public.standard_components;
+create policy "Authenticated users can read standard components"
+on public.standard_components
+for select
+to authenticated
+using (public.is_app_admin());
+
+drop policy if exists "Authenticated users can insert standard components" on public.standard_components;
+create policy "Authenticated users can insert standard components"
+on public.standard_components
+for insert
+to authenticated
+with check (public.is_app_admin());
+
+drop policy if exists "Authenticated users can update standard components" on public.standard_components;
+create policy "Authenticated users can update standard components"
+on public.standard_components
+for update
+to authenticated
+using (public.is_app_admin())
+with check (public.is_app_admin());
+
+drop policy if exists "Authenticated users can delete standard components" on public.standard_components;
+create policy "Authenticated users can delete standard components"
+on public.standard_components
+for delete
+to authenticated
+using (public.is_app_admin());
+
+do $$
+declare
+  tbl text;
+  field_read_tables text[] := array[
+    'field_clients',
+    'field_projects',
+    'field_contacts',
+    'field_contact_projects',
+    'field_contact_sites',
+    'field_site_types',
+    'field_sites',
+    'field_site_projects',
+    'field_jobs',
+    'field_job_sites',
+    'field_job_assignments',
+    'field_job_types',
+    'field_site_type_job_types',
+    'field_routes',
+    'field_route_place_lists',
+    'field_route_places',
+    'field_restricted_roads',
+    'field_route_stops',
+    'field_route_stop_jobs',
+    'employees',
+    'field_spl_sites',
+    'field_technician_travel',
+    'field_trucks',
+    'field_trailers',
+    'field_equipment',
+    'field_samples'
+  ];
+  lab_consumable_tables text[] := array[
+    'consumable_items',
+    'consumable_stock_counts',
+    'consumable_orders',
+    'consumable_activity'
+  ];
+begin
+  foreach tbl in array field_read_tables loop
+    execute format('drop policy if exists %I on public.%I', 'Technician portal can read ' || tbl, tbl);
+    execute format(
+      'create policy %I on public.%I for select to authenticated using (public.has_any_employee_feature(array[''field.jobs.view'', ''field.routes.view'', ''field.samples.view'', ''field.jobs.update_status'', ''field.routes.edit'', ''field.samples.update_status'']))',
+      'Technician portal can read ' || tbl,
+      tbl
+    );
+  end loop;
+
+  foreach tbl in array lab_consumable_tables loop
+    execute format('drop policy if exists %I on public.%I', 'Technician portal can read ' || tbl, tbl);
+    execute format(
+      'create policy %I on public.%I for select to authenticated using (public.has_any_employee_feature(array[''lab.consumables.view'', ''lab.consumables.change_counts'', ''lab.consumables.manage_orders'']))',
+      'Technician portal can read ' || tbl,
+      tbl
+    );
+  end loop;
+end
+$$;
+
+drop policy if exists "Technician portal can read own employee profile" on public.employees;
+create policy "Technician portal can read own employee profile"
+on public.employees
+for select
+to authenticated
+using (id = public.current_employee_id());
+
+drop policy if exists "Authenticated users can read standard tag images" on storage.objects;
+create policy "Authenticated users can read standard tag images"
+on storage.objects
+for select
+to authenticated
+using (bucket_id = 'standard-tags' and public.is_app_admin());
+
+drop policy if exists "Authenticated users can upload standard tag images" on storage.objects;
+create policy "Authenticated users can upload standard tag images"
+on storage.objects
+for insert
+to authenticated
+with check (bucket_id = 'standard-tags' and public.is_app_admin());
+
+drop policy if exists "Authenticated users can update standard tag images" on storage.objects;
+create policy "Authenticated users can update standard tag images"
+on storage.objects
+for update
+to authenticated
+using (bucket_id = 'standard-tags' and public.is_app_admin())
+with check (bucket_id = 'standard-tags' and public.is_app_admin());
+
+drop policy if exists "Authenticated users can delete standard tag images" on storage.objects;
+create policy "Authenticated users can delete standard tag images"
+on storage.objects
+for delete
+to authenticated
+using (bucket_id = 'standard-tags' and public.is_app_admin());
+
+drop policy if exists "Authenticated users can read field asset images" on storage.objects;
+create policy "Authenticated users can read field asset images"
+on storage.objects
+for select
+to authenticated
+using (
+  bucket_id = 'field-assets'
+  and (
+    public.is_app_admin()
+    or public.has_any_employee_feature(array['field.jobs.view', 'field.routes.view', 'field.samples.view'])
+  )
+);
+
+drop policy if exists "Authenticated users can upload field asset images" on storage.objects;
+create policy "Authenticated users can upload field asset images"
+on storage.objects
+for insert
+to authenticated
+with check (bucket_id = 'field-assets' and public.is_app_admin());
+
+drop policy if exists "Authenticated users can update field asset images" on storage.objects;
+create policy "Authenticated users can update field asset images"
+on storage.objects
+for update
+to authenticated
+using (bucket_id = 'field-assets' and public.is_app_admin())
+with check (bucket_id = 'field-assets' and public.is_app_admin());
+
+drop policy if exists "Authenticated users can delete field asset images" on storage.objects;
+create policy "Authenticated users can delete field asset images"
+on storage.objects
+for delete
+to authenticated
+using (bucket_id = 'field-assets' and public.is_app_admin());
 
 insert into public.field_projects (client_id, project_name, service_scope, project_status, notes)
 select c.id, 'General / Legacy', c.service_scope, 'Active', 'Auto-created legacy project for existing client records.'

@@ -3,10 +3,23 @@ const LAB_ROLE_OPTIONS = ['Lab Tech', 'Senior Lab Tech', 'Lab Lead', 'Lab Superv
 const FIELD_ROLE_OPTIONS = ['Field Tech', 'Senior Field Tech', 'Supervisor', 'Manager'];
 const WORK_SCOPE_OPTIONS = ['Lab', 'Field', 'Both'];
 const LOCAL_SPL_SITE = 'Pittsburgh';
+const PORTAL_FEATURE_FALLBACKS = [
+  { featureKey:'lab.tests.view', featureScope:'lab', featureName:'Lab Test Visibility', featureDescription:'View lab WIP work orders and test visibility.', sortOrder:10 },
+  { featureKey:'lab.consumables.view', featureScope:'lab', featureName:'Consumables Visibility', featureDescription:'View consumable inventory.', sortOrder:20 },
+  { featureKey:'lab.consumables.change_counts', featureScope:'lab', featureName:'Consumable Count Changes', featureDescription:'Receive, start, empty, return, and adjust consumable counts.', sortOrder:30 },
+  { featureKey:'lab.consumables.manage_orders', featureScope:'lab', featureName:'Consumable Order Management', featureDescription:'Create, update, order, and receive consumable orders.', sortOrder:40 },
+  { featureKey:'field.jobs.view', featureScope:'field', featureName:'Field Job Visibility', featureDescription:'View field jobs and dispatch details.', sortOrder:110 },
+  { featureKey:'field.jobs.update_status', featureScope:'field', featureName:'Field Job Status Updates', featureDescription:'Update field job assignment statuses.', sortOrder:120 },
+  { featureKey:'field.routes.view', featureScope:'field', featureName:'Route Visibility', featureDescription:'View field routes and route stops.', sortOrder:130 },
+  { featureKey:'field.routes.edit', featureScope:'field', featureName:'Route Changes', featureDescription:'Update route status, route notes, and stop details.', sortOrder:140 },
+  { featureKey:'field.samples.view', featureScope:'field', featureName:'Sample Logistics Visibility', featureDescription:'View field sample logistics.', sortOrder:150 },
+  { featureKey:'field.samples.update_status', featureScope:'field', featureName:'Sample Status Updates', featureDescription:'Update sample workflow status.', sortOrder:160 }
+];
 
 let state = {
   employees: [],
   trucks: [],
+  portalFeatures: [],
   saveInFlight: false
 };
 
@@ -91,7 +104,10 @@ function createEmployeeDraft(){
     phone: '',
     email: '',
     notes: '',
-    defaultTruckId: ''
+    defaultTruckId: '',
+    portalUserId: '',
+    portalEnabled: false,
+    portalFeatureKeys: []
   };
 }
 
@@ -116,7 +132,33 @@ function normalizeEmployeeRecord(source, fromRemote = false){
   record.email = String((fromRemote ? source?.email : source?.email) || '');
   record.notes = String((fromRemote ? source?.notes : source?.notes) || '');
   record.defaultTruckId = String(source?.defaultTruckId || '');
+  record.portalUserId = String(source?.portalUserId || source?.portal_user_id || '');
+  record.portalEnabled = normalizeBoolean(source?.portalEnabled ?? source?.portal_enabled);
+  record.portalFeatureKeys = Array.isArray(source?.portalFeatureKeys)
+    ? source.portalFeatureKeys.map((key) => String(key || '')).filter(Boolean)
+    : [];
   return record;
+}
+
+function normalizePortalFeature(row){
+  return {
+    featureKey: String(row?.featureKey || row?.feature_key || ''),
+    featureScope: String(row?.featureScope || row?.feature_scope || ''),
+    featureName: String(row?.featureName || row?.feature_name || row?.feature_key || ''),
+    featureDescription: String(row?.featureDescription || row?.feature_description || ''),
+    sortOrder: Number(row?.sortOrder ?? row?.sort_order ?? 0),
+    isActive: row?.isActive === undefined && row?.is_active === undefined ? true : normalizeBoolean(row?.isActive ?? row?.is_active)
+  };
+}
+
+function normalizePortalProfile(row){
+  return {
+    userId: String(row?.user_id || ''),
+    accessRole: String(row?.access_role || 'employee'),
+    employeeId: String(row?.employee_id || ''),
+    isActive: row?.is_active !== false,
+    portalEnabled: row?.portal_enabled === true
+  };
 }
 
 function normalizeTruckRecord(source, fromRemote = false){
@@ -215,13 +257,41 @@ function buildLocalWritePayload(rawData, employees, trucks){
 
 const remoteRepository = {
   async list(){
-    const [employees, trucks] = await Promise.all([
+    const [employees, trucks, features, profiles, grants] = await Promise.all([
       window.appAuth.requestJson('/rest/v1/employees?select=*'),
-      window.appAuth.requestJson('/rest/v1/field_trucks?select=id,unit_number,service_status,assigned_technician_id,current_driver')
+      window.appAuth.requestJson('/rest/v1/field_trucks?select=id,unit_number,service_status,assigned_technician_id,current_driver'),
+      window.appAuth.requestJson('/rest/v1/app_features?select=*&is_active=eq.true&order=sort_order.asc'),
+      window.appAuth.requestJson('/rest/v1/app_user_profiles?select=*'),
+      window.appAuth.requestJson('/rest/v1/employee_feature_grants?select=*')
     ]);
+    const featureRows = (Array.isArray(features) && features.length ? features : PORTAL_FEATURE_FALLBACKS).map(normalizePortalFeature).filter((feature) => feature.featureKey);
+    const employeeProfiles = (Array.isArray(profiles) ? profiles : [])
+      .map(normalizePortalProfile)
+      .filter((profile) => profile.accessRole === 'employee' && profile.employeeId);
+    const profileByEmployeeId = new Map(employeeProfiles.map((profile) => [profile.employeeId, profile]));
+    const grantKeysByEmployeeId = new Map();
+    (Array.isArray(grants) ? grants : []).forEach((grant) => {
+      if(grant?.is_enabled === false) return;
+      const employeeId = String(grant?.employee_id || '');
+      const featureKey = String(grant?.feature_key || '');
+      if(!employeeId || !featureKey) return;
+      if(!grantKeysByEmployeeId.has(employeeId)) grantKeysByEmployeeId.set(employeeId, []);
+      grantKeysByEmployeeId.get(employeeId).push(featureKey);
+    });
+    const employeeRows = sortEmployees((Array.isArray(employees) ? employees : []).map((row) => {
+      const employee = normalizeEmployeeRecord(row, true);
+      const profile = profileByEmployeeId.get(employee.id) || null;
+      return {
+        ...employee,
+        portalUserId: profile?.userId || '',
+        portalEnabled: !!(profile && profile.isActive !== false && profile.portalEnabled),
+        portalFeatureKeys: grantKeysByEmployeeId.get(employee.id) || []
+      };
+    }));
     return {
-      employees: sortEmployees((Array.isArray(employees) ? employees : []).map((row) => normalizeEmployeeRecord(row, true))),
-      trucks: sortTrucks((Array.isArray(trucks) ? trucks : []).map((row) => normalizeTruckRecord(row, true)))
+      employees: employeeRows,
+      trucks: sortTrucks((Array.isArray(trucks) ? trucks : []).map((row) => normalizeTruckRecord(row, true))),
+      features: featureRows
     };
   },
   async saveEmployee(formData){
@@ -278,6 +348,50 @@ const remoteRepository = {
       headers:{ 'Content-Type':'application/json', 'Prefer':'return=minimal' },
       body: JSON.stringify({ is_active:!!isActive })
     });
+  },
+  async savePortalAccess(employeeId, formData){
+    const portalUserId = String(formData.portalUserId || '').trim();
+    const enabledFeatureKeys = Array.isArray(formData.portalFeatureKeys) ? [...new Set(formData.portalFeatureKeys.map((key) => String(key || '')).filter(Boolean))] : [];
+
+    await window.appAuth.requestJson(`/rest/v1/employee_feature_grants?employee_id=eq.${encodeURIComponent(employeeId)}`, {
+      method:'DELETE'
+    });
+    if(enabledFeatureKeys.length){
+      await window.appAuth.requestJson('/rest/v1/employee_feature_grants', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'Prefer':'return=minimal' },
+        body: JSON.stringify(enabledFeatureKeys.map((featureKey) => ({
+          employee_id: employeeId,
+          feature_key: featureKey,
+          is_enabled: true
+        })))
+      });
+    }
+
+    if(!portalUserId){
+      await window.appAuth.requestJson(`/rest/v1/app_user_profiles?employee_id=eq.${encodeURIComponent(employeeId)}&access_role=eq.employee`, {
+        method:'DELETE'
+      });
+      return;
+    }
+
+    await window.appAuth.requestJson(`/rest/v1/app_user_profiles?employee_id=eq.${encodeURIComponent(employeeId)}&access_role=eq.employee&user_id=neq.${encodeURIComponent(portalUserId)}`, {
+      method:'DELETE'
+    });
+    await window.appAuth.requestJson('/rest/v1/app_user_profiles?on_conflict=user_id', {
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Prefer':'resolution=merge-duplicates,return=minimal'
+      },
+      body: JSON.stringify([{
+        user_id: portalUserId,
+        access_role: 'employee',
+        employee_id: employeeId,
+        is_active: true,
+        portal_enabled: !!formData.portalEnabled
+      }])
+    });
   }
 };
 
@@ -303,10 +417,12 @@ async function loadData(){
       const next = await remoteRepository.list();
       state.employees = next.employees;
       state.trucks = next.trucks;
+      state.portalFeatures = next.features || [];
     } else {
       const next = await readLocalDirectory();
       state.employees = next.employees;
       state.trucks = next.trucks;
+      state.portalFeatures = PORTAL_FEATURE_FALLBACKS;
     }
     render();
   } catch (error){
@@ -359,13 +475,13 @@ function renderStats(filteredEmployees){
   const labCount = activeEmployees.filter((employee) => ['Lab', 'Both'].includes(employee.workScope)).length;
   const fieldCount = activeEmployees.filter((employee) => ['Field', 'Both'].includes(employee.workScope)).length;
   const transportCount = activeEmployees.filter((employee) => employee.workScope === 'Lab' && employee.canSampleTransport).length;
-  const inactiveCount = state.employees.filter((employee) => employee.isActive === false).length;
+  const portalCount = activeEmployees.filter((employee) => employee.portalEnabled && employee.portalUserId).length;
   document.getElementById('employee-stats').innerHTML = `
     <div class="stat-card"><div class="stat-label">Filtered Employees</div><div class="stat-value">${filteredEmployees.length}</div></div>
     <div class="stat-card warn"><div class="stat-label">Lab Eligible</div><div class="stat-value warn">${labCount}</div></div>
     <div class="stat-card ok"><div class="stat-label">Field Eligible</div><div class="stat-value ok">${fieldCount}</div></div>
     <div class="stat-card priority"><div class="stat-label">Sample Transport</div><div class="stat-value priority">${transportCount}</div></div>
-    <div class="stat-card"><div class="stat-label">Inactive</div><div class="stat-value">${inactiveCount}</div></div>
+    <div class="stat-card"><div class="stat-label">Portal Users</div><div class="stat-value">${portalCount}</div></div>
   `;
 }
 
@@ -373,6 +489,7 @@ function renderEmployeeCard(employee){
   const defaultTruck = getDefaultTruckForEmployee(employee.id);
   const transportBadge = employee.workScope === 'Lab' && employee.canSampleTransport ? '<span class="warning-chip">Sample Pickup / Drop-Off</span>' : '';
   const visitingBadge = isVisitingEmployee(employee) ? '<span class="warning-chip">Visiting</span>' : '';
+  const portalBadge = employee.portalEnabled && employee.portalUserId ? '<span class="status-badge info">Portal</span>' : '';
   return `
     <div class="employee-card clickable-card" role="button" tabindex="0" onclick="openEmployeeModal('${esc(employee.id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEmployeeModal('${esc(employee.id)}'); }">
       <div class="employee-card-head">
@@ -380,7 +497,7 @@ function renderEmployeeCard(employee){
           <div class="item-title">${esc(getEmployeeFullName(employee))}</div>
           <div class="muted">${esc(getRoleSummary(employee))}</div>
         </div>
-        <div class="mini-tags">${getEmployeeStatusBadge(employee)}${getScopeBadge(employee.workScope)}${visitingBadge}${transportBadge}</div>
+        <div class="mini-tags">${getEmployeeStatusBadge(employee)}${getScopeBadge(employee.workScope)}${portalBadge}${visitingBadge}${transportBadge}</div>
       </div>
       <div class="employee-meta-grid">
         <div class="employee-meta">
@@ -397,6 +514,7 @@ function renderEmployeeCard(employee){
         </div>
       </div>
       <div class="muted">${esc(employee.notes || 'No profile notes added yet.')}</div>
+      ${employee.portalEnabled && employee.portalUserId ? `<div class="muted">Portal features: ${esc((employee.portalFeatureKeys || []).length || 0)} enabled</div>` : ''}
     </div>
   `;
 }
@@ -425,6 +543,74 @@ function isLabEligible(scope){
 
 function isFieldEligible(scope){
   return scope === 'Field' || scope === 'Both';
+}
+
+function getPortalFeaturesForScope(scope){
+  const features = (state.portalFeatures && state.portalFeatures.length ? state.portalFeatures : PORTAL_FEATURE_FALLBACKS)
+    .map(normalizePortalFeature)
+    .filter((feature) => feature.featureKey && feature.isActive !== false);
+  return features.filter((feature) => {
+    if(feature.featureScope === 'lab') return isLabEligible(scope);
+    if(feature.featureScope === 'field') return isFieldEligible(scope);
+    return true;
+  }).sort((left, right) => left.sortOrder - right.sortOrder || left.featureName.localeCompare(right.featureName));
+}
+
+function getPortalFeatureGroups(scope){
+  const groups = { lab:[], field:[] };
+  getPortalFeaturesForScope(scope).forEach((feature) => {
+    const key = feature.featureScope === 'lab' ? 'lab' : 'field';
+    groups[key].push(feature);
+  });
+  return groups;
+}
+
+function renderPortalAccessSection(scope){
+  if(!isRemoteMode()){
+    return `
+      <div class="form-group full portal-access-panel">
+        <div class="section-title">Portal Access</div>
+        <div class="muted">Portal access is available in Supabase remote mode.</div>
+      </div>
+    `;
+  }
+
+  const selectedKeys = new Set(modalState.formData.portalFeatureKeys || []);
+  const groups = getPortalFeatureGroups(scope);
+  const groupMarkup = Object.entries(groups)
+    .filter(([, features]) => features.length)
+    .map(([groupKey, features]) => `
+      <div class="portal-feature-group">
+        <div class="portal-feature-heading">${groupKey === 'lab' ? 'Lab Features' : 'Field Features'}</div>
+        ${features.map((feature) => `
+          <label class="portal-feature-row">
+            <input type="checkbox" ${selectedKeys.has(feature.featureKey) ? 'checked' : ''} onchange="togglePortalFeature('${esc(feature.featureKey)}', this.checked)">
+            <span>
+              <strong>${esc(feature.featureName || feature.featureKey)}</strong>
+              <small>${esc(feature.featureDescription || feature.featureKey)}</small>
+            </span>
+          </label>
+        `).join('')}
+      </div>
+    `).join('') || '<div class="muted">No features are available for this employee scope.</div>';
+
+  return `
+    <div class="form-group full portal-access-panel">
+      <div class="section-title">Portal Access</div>
+      <div class="portal-access-grid">
+        <label class="toggle-card">
+          <input type="checkbox" ${modalState.formData.portalEnabled ? 'checked' : ''} onchange="toggleModalField('portalEnabled', this.checked)">
+          <span>Enable technician portal for this employee</span>
+        </label>
+        <div>
+          <label class="form-label">Supabase Auth User UUID</label>
+          <input class="form-input" type="text" value="${esc(modalState.formData.portalUserId || '')}" placeholder="Paste the Auth user ID after creating the login" oninput="setModalField('portalUserId', this.value)">
+          <div class="form-hint">Create the technician login in Supabase Auth first, then paste that user's UUID here.</div>
+        </div>
+      </div>
+      <div class="portal-feature-list">${groupMarkup}</div>
+    </div>
+  `;
 }
 
 function renderModalBody(){
@@ -481,6 +667,7 @@ function renderModalBody(){
         <label class="form-label">Notes</label>
         <textarea class="form-input" oninput="setModalField('notes', this.value)">${esc(modalState.formData.notes || '')}</textarea>
       </div>
+      ${renderPortalAccessSection(scope)}
     </div>
   `;
   document.getElementById('employee-modal-body').innerHTML = body;
@@ -512,6 +699,15 @@ function toggleModalField(key, checked){
   modalState.formData[key] = !!checked;
 }
 
+function togglePortalFeature(featureKey, checked){
+  const key = String(featureKey || '');
+  if(!key) return;
+  const current = new Set(modalState.formData.portalFeatureKeys || []);
+  if(checked) current.add(key);
+  else current.delete(key);
+  modalState.formData.portalFeatureKeys = [...current];
+}
+
 function setModalActiveStatus(value){
   modalState.formData.isActive = value !== 'inactive';
 }
@@ -524,6 +720,8 @@ function changeWorkScope(value){
     modalState.formData.defaultTruckId = '';
   }
   if(value !== 'Lab') modalState.formData.canSampleTransport = false;
+  const allowed = new Set(getPortalFeaturesForScope(value).map((feature) => feature.featureKey));
+  modalState.formData.portalFeatureKeys = (modalState.formData.portalFeatureKeys || []).filter((featureKey) => allowed.has(featureKey));
   renderModalBody();
 }
 
@@ -534,6 +732,9 @@ function validateModal(){
   if(!WORK_SCOPE_OPTIONS.includes(formData.workScope)) return 'Choose a valid work scope.';
   if(isLabEligible(formData.workScope) && !String(formData.labRole || '').trim()) return 'Lab role is required for Lab or Both employees.';
   if(isFieldEligible(formData.workScope) && !String(formData.fieldRole || '').trim()) return 'Field role is required for Field or Both employees.';
+  const portalUserId = String(formData.portalUserId || '').trim();
+  if(formData.portalEnabled && !portalUserId) return 'Paste the Supabase Auth user UUID before enabling portal access.';
+  if(portalUserId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(portalUserId)) return 'Supabase Auth user ID must be a valid UUID.';
   return '';
 }
 
@@ -569,6 +770,7 @@ async function saveEmployee(){
     if(isRemoteMode()){
       const employeeId = await remoteRepository.saveEmployee({ ...formData, id:modalState.id });
       await remoteRepository.assignDefaultTruck(employeeId, formData.employeeName, isFieldEligible(formData.workScope) ? String(formData.defaultTruckId || '') : '');
+      await remoteRepository.savePortalAccess(employeeId, formData);
     } else {
       const current = await readLocalDirectory();
       const employees = sortEmployees(current.employees);

@@ -173,6 +173,13 @@
 </div>
 
 <script src="app-config.js"></script>
+<script>
+window.APP_CONFIG = Object.assign({}, window.APP_CONFIG || {}, {
+  authTitle: 'SPL Test Types',
+  authHelpText: 'Sign in to manage lab test type definitions.',
+  requiresAppAdmin: true
+});
+</script>
 <script src="cloud-auth.js"></script>
 <script src="test-types.js"></script>
 </body>

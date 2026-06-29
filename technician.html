@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SPL Technician Portal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="technician.css">
+</head>
+<body>
+  <header class="portal-header">
+    <div class="header-left">
+      <img class="spl-logo" src="assets/spl-logo.svg" alt="SPL">
+      <div>
+        <div class="kicker">Technician Workspace</div>
+        <h1>SPL Technician Portal</h1>
+        <p id="portal-subtitle">Loading portal access...</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="live-clock">
+        <span>Current Time</span>
+        <div id="clock">--:--:--</div>
+        <div id="datedisp"></div>
+      </div>
+      <div data-session-slot></div>
+    </div>
+  </header>
+
+  <main class="portal-shell">
+    <section class="status-panel" id="portal-status">
+      Loading technician portal...
+    </section>
+
+    <section class="stats-bar" id="portal-stats"></section>
+
+    <section class="portal-controls" id="portal-controls"></section>
+
+    <section class="portal-grid" id="portal-sections"></section>
+  </main>
+
+  <script src="app-config.js"></script>
+  <script>
+    window.APP_CONFIG = Object.assign({}, window.APP_CONFIG || {}, {
+      authTitle: 'SPL Technician Portal',
+      authHelpText: 'Sign in with your technician credentials to view assigned work and enabled tools.'
+    });
+  </script>
+  <script src="cloud-auth.js"></script>
+  <script src="technician.js"></script>
+</body>
+</html>

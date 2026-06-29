@@ -89,6 +89,13 @@ h1{font-size:28px;letter-spacing:3px;text-transform:uppercase;color:var(--accent
 </div>
 
 <script src="app-config.js"></script>
+<script>
+window.APP_CONFIG = Object.assign({}, window.APP_CONFIG || {}, {
+  authTitle: 'Import SureChem Data',
+  authHelpText: 'Sign in to import shared lab WIP data.',
+  requiresAppAdmin: true
+});
+</script>
 <script src="cloud-auth.js"></script>
 <script>
 const STORAGE_KEY = 'lab-wip-workorders';
