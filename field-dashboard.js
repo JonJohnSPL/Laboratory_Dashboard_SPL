@@ -152,7 +152,7 @@ const ENTITY_CONFIG = {
   maintenanceRecords:{ table:'field_maintenance_records', label:'Maintenance Record', idPrefix:'maint', defaults:{ assetType:'Equipment', assetId:'', maintenanceType:'Preventive', openDate:'', dueDate:'', completedDate:'', status:'Open', issueDescription:'', resolution:'', vendorInternal:'Internal', cost:null, assignedPerson:'', notes:'' }, fieldMap:{ assetType:'asset_type', assetId:'asset_id', maintenanceType:'maintenance_type', openDate:'open_date', dueDate:'due_date', completedDate:'completed_date', status:'status', issueDescription:'issue_description', resolution:'resolution', vendorInternal:'vendor_internal', cost:'cost', assignedPerson:'assigned_person', notes:'notes' }, idFields:['assetId'], numberFields:['cost'], dateFields:['openDate', 'dueDate', 'completedDate'] }
 };
 
-let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'overview', scheduleAnchorDate:getStartOfWeekISO(new Date()), scheduleView:'work_week', scheduleJobFilter:'all', scheduleAddPromptDate:'', scheduleActionJobId:'', scheduleQuickTechJobId:'', scheduleQuickTechTechnicianId:'', scheduleActionSavingJobId:'', filters:{ dispatchSearch:'', dispatchPriority:'all', dispatchJobType:'all', dispatchJobFilter:'open', dispatchAlertFilter:'all', dispatchAssignmentFilter:'all', dispatchSortKey:'schedule', dispatchSortDirection:'asc', inventorySearch:'', inventoryStatus:'active', partPickerSearch:'', partCatalogType:'category', directoryClient:'all', directorySection:'overview', directoryClientSearch:'', directoryContactSearch:'', directoryContactScope:'all', directoryContactProject:'all', directoryContactSite:'all', directoryContactSortKey:'name', directoryContactSortDirection:'asc' }, data:createEmptyData(), labTestDefinitions:[], sampleLinkModal:createClosedSampleLinkModalState(), partAdjustModal:createClosedPartAdjustModalState(), partPickerOpen:false, sampleTableModalOpen:false, expandedSampleGroups:{}, saveInFlight:false, autoRefreshInFlight:false, autoRefreshTimer:null };
+let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'overview', scheduleAnchorDate:getStartOfWeekISO(new Date()), scheduleView:'work_week', scheduleJobFilter:'all', scheduleAddPromptDate:'', scheduleActionJobId:'', scheduleQuickTechJobId:'', scheduleQuickTechTechnicianId:'', scheduleQuickTicketJobId:'', scheduleQuickTicketNumber:'', scheduleQuickTicketUrl:'', scheduleActionSavingJobId:'', filters:{ dispatchSearch:'', dispatchPriority:'all', dispatchJobType:'all', dispatchJobFilter:'open', dispatchAlertFilter:'all', dispatchAssignmentFilter:'all', dispatchSortKey:'schedule', dispatchSortDirection:'asc', inventorySearch:'', inventoryStatus:'active', partPickerSearch:'', partCatalogType:'category', directoryClient:'all', directorySection:'overview', directoryClientSearch:'', directoryContactSearch:'', directoryContactScope:'all', directoryContactProject:'all', directoryContactSite:'all', directoryContactSortKey:'name', directoryContactSortDirection:'asc' }, data:createEmptyData(), labTestDefinitions:[], sampleLinkModal:createClosedSampleLinkModalState(), partAdjustModal:createClosedPartAdjustModalState(), partPickerOpen:false, sampleTableModalOpen:false, expandedSampleGroups:{}, saveInFlight:false, autoRefreshInFlight:false, autoRefreshTimer:null };
 let modalState = createClosedModalState();
 let lastLoadedSnapshot = '';
 let hideSaveStatusTimer = null;
@@ -2708,6 +2708,9 @@ function closeScheduleActionPopover(renderView = true){
   state.scheduleActionJobId = '';
   state.scheduleQuickTechJobId = '';
   state.scheduleQuickTechTechnicianId = '';
+  state.scheduleQuickTicketJobId = '';
+  state.scheduleQuickTicketNumber = '';
+  state.scheduleQuickTicketUrl = '';
   if(renderView && hadOpenPopover) renderSchedule(buildDerivedState());
 }
 
@@ -2725,6 +2728,9 @@ function openScheduleJobActions(jobId, event){
   state.scheduleActionJobId = isAlreadyOpen ? '' : job.id;
   state.scheduleQuickTechJobId = '';
   state.scheduleQuickTechTechnicianId = isAlreadyOpen ? '' : getScheduleQuickTechDefault(job.id);
+  state.scheduleQuickTicketJobId = '';
+  state.scheduleQuickTicketNumber = '';
+  state.scheduleQuickTicketUrl = '';
   renderSchedule(buildDerivedState());
 }
 
@@ -2743,23 +2749,6 @@ function openScheduleJobRoute(jobId){
   window.location.href = `SureMap/SPLClientMap.HTML?mode=routes&buildRouteFromJob=${encodeURIComponent(jobId)}`;
 }
 
-function focusSalesforceTicketEditor(){
-  const editor = document.getElementById('salesforce-ticket-link-section');
-  if(!editor) return;
-  editor.scrollIntoView({ behavior:'smooth', block:'start' });
-  const ticketInput = editor.querySelector('[data-salesforce-ticket-input="number"]') || editor.querySelector('input');
-  window.setTimeout(() => {
-    if(ticketInput) ticketInput.focus({ preventScroll:true });
-    else editor.focus({ preventScroll:true });
-  }, 160);
-}
-
-function openScheduleJobSalesforceTicket(jobId){
-  closeScheduleActionPopover(false);
-  openEntityModal('jobs', jobId);
-  window.setTimeout(focusSalesforceTicketEditor, 0);
-}
-
 function toggleScheduleQuickTech(jobId){
   if(state.scheduleQuickTechJobId === jobId){
     state.scheduleQuickTechJobId = '';
@@ -2767,6 +2756,9 @@ function toggleScheduleQuickTech(jobId){
   } else {
     state.scheduleQuickTechJobId = jobId;
     state.scheduleQuickTechTechnicianId = getScheduleQuickTechDefault(jobId);
+    state.scheduleQuickTicketJobId = '';
+    state.scheduleQuickTicketNumber = '';
+    state.scheduleQuickTicketUrl = '';
   }
   renderSchedule(buildDerivedState());
 }
@@ -2775,6 +2767,98 @@ function setScheduleQuickTechSelection(jobId, technicianId){
   if(state.scheduleQuickTechJobId !== jobId) return;
   state.scheduleQuickTechTechnicianId = String(technicianId || '');
   renderSchedule(buildDerivedState());
+}
+
+function getScheduleQuickTicketDefaults(jobId){
+  const job = getJob(jobId);
+  return {
+    ticketNumber:String(getSalesforceCaseLabel(job) || '').trim(),
+    ticketUrl:String(getSalesforceCaseUrl(job) || '').trim()
+  };
+}
+
+function toggleScheduleQuickTicket(jobId){
+  if(state.scheduleQuickTicketJobId === jobId){
+    state.scheduleQuickTicketJobId = '';
+    state.scheduleQuickTicketNumber = '';
+    state.scheduleQuickTicketUrl = '';
+  } else {
+    const defaults = getScheduleQuickTicketDefaults(jobId);
+    state.scheduleQuickTicketJobId = jobId;
+    state.scheduleQuickTicketNumber = defaults.ticketNumber;
+    state.scheduleQuickTicketUrl = defaults.ticketUrl;
+    state.scheduleQuickTechJobId = '';
+    state.scheduleQuickTechTechnicianId = '';
+  }
+  renderSchedule(buildDerivedState());
+}
+
+function setScheduleQuickTicketField(jobId, key, value){
+  if(state.scheduleQuickTicketJobId !== jobId) return;
+  if(key === 'number') state.scheduleQuickTicketNumber = String(value || '');
+  if(key === 'url') state.scheduleQuickTicketUrl = String(value || '');
+}
+
+function getScheduleTicketPayload(ticketNumber, ticketUrl){
+  const manualTicketNumber = String(ticketNumber || '').trim();
+  const manualTicketUrl = String(ticketUrl || '').trim();
+  return {
+    fieldfxTicketId:manualTicketNumber,
+    salesforceCaseNumber:manualTicketNumber,
+    salesforceCaseUrl:manualTicketUrl,
+    salesforceSyncStatus:manualTicketNumber || manualTicketUrl ? 'Manual Link' : '',
+    salesforceSyncError:''
+  };
+}
+
+async function saveLocalScheduleTicket(jobId, ticketNumber, ticketUrl){
+  const next = clone(state.data);
+  const jobIndex = next.jobs.findIndex((row) => row.id === jobId);
+  if(jobIndex < 0) throw new Error('Job was not found.');
+  const now = new Date().toISOString();
+  const existing = next.jobs[jobIndex];
+  next.jobs[jobIndex] = normalizeRecord('jobs', { ...existing, ...getScheduleTicketPayload(ticketNumber, ticketUrl), updatedAt:now }, { fromRemote:false });
+  await persistLocal(next);
+}
+
+async function saveRemoteScheduleTicket(jobId, ticketNumber, ticketUrl){
+  const payload = getScheduleTicketPayload(ticketNumber, ticketUrl);
+  await remoteRepository.updateWhere(ENTITY_CONFIG.jobs.table, [{ column:'id', value:jobId }], {
+    fieldfx_ticket_id:payload.fieldfxTicketId,
+    salesforce_case_number:payload.salesforceCaseNumber,
+    salesforce_case_url:payload.salesforceCaseUrl,
+    salesforce_sync_status:payload.salesforceSyncStatus,
+    salesforce_sync_error:payload.salesforceSyncError
+  });
+  await loadData({ silent:true, force:true });
+}
+
+async function saveScheduleQuickTicket(jobId){
+  if(!getJob(jobId)){ alert('Job was not found.'); return; }
+  const ticketNumber = String(state.scheduleQuickTicketNumber || '');
+  const ticketUrl = String(state.scheduleQuickTicketUrl || '');
+  state.saveInFlight = true;
+  state.scheduleActionSavingJobId = jobId;
+  showSaveStatus('saving', 'SAVING');
+  renderSchedule(buildDerivedState());
+  try {
+    if(isRemoteMode()) await saveRemoteScheduleTicket(jobId, ticketNumber, ticketUrl);
+    else await saveLocalScheduleTicket(jobId, ticketNumber, ticketUrl);
+    closeScheduleActionPopover(false);
+    showSaveStatus('saved', 'Ticket updated');
+    hideSaveStatusSoon();
+    render();
+  } catch (error){
+    console.error('Unable to quick save Salesforce ticket:', error);
+    showSaveStatus('error', 'SAVE FAILED');
+    hideSaveStatusSoon(4200);
+    alert(error.message || 'Unable to update the Salesforce ticket.');
+  } finally {
+    const shouldRerenderSchedule = state.scheduleActionSavingJobId === jobId && !!state.scheduleActionJobId;
+    state.scheduleActionSavingJobId = '';
+    state.saveInFlight = false;
+    if(shouldRerenderSchedule) renderSchedule(buildDerivedState());
+  }
 }
 
 function getQuickTechUpdatedAssignments(jobId, technicianId){
@@ -2883,10 +2967,24 @@ async function saveScheduleQuickTech(jobId){
 function renderScheduleJobActions(job){
   if(state.scheduleActionJobId !== job.id) return '';
   const quickOpen = state.scheduleQuickTechJobId === job.id;
+  const quickTicketOpen = state.scheduleQuickTicketJobId === job.id;
   const saving = state.scheduleActionSavingJobId === job.id;
   const ticketActionLabel = getSalesforceCaseLabel(job) || getSalesforceCaseUrl(job) ? 'Edit Salesforce Ticket' : 'Add Salesforce Ticket';
   const selectedTechnicianId = String(state.scheduleQuickTechTechnicianId || getScheduleQuickTechDefault(job.id));
   const technicianOptions = buildTechnicianOptions(job.jobType, selectedTechnicianId);
+  const ticketNumber = quickTicketOpen ? state.scheduleQuickTicketNumber : getSalesforceCaseLabel(job);
+  const ticketUrl = quickTicketOpen ? state.scheduleQuickTicketUrl : getSalesforceCaseUrl(job);
+  const quickTicketMarkup = quickTicketOpen ? `
+    <div class="schedule-quick-ticket-row">
+      <div class="schedule-quick-ticket-fields">
+        <input class="form-input" type="text" value="${esc(ticketNumber)}" placeholder="Ticket / case number" oninput="setScheduleQuickTicketField('${esc(job.id)}', 'number', this.value)" ${saving ? 'disabled' : ''}>
+        <input class="form-input" type="url" value="${esc(ticketUrl)}" placeholder="Salesforce ticket URL" oninput="setScheduleQuickTicketField('${esc(job.id)}', 'url', this.value)" ${saving ? 'disabled' : ''}>
+      </div>
+      <div class="schedule-quick-ticket-actions">
+        <button class="btn-save" type="button" onclick="saveScheduleQuickTicket('${esc(job.id)}')" ${saving ? 'disabled' : ''}>${saving ? 'Saving' : 'Save'}</button>
+        <button class="btn-cancel" type="button" onclick="toggleScheduleQuickTicket('${esc(job.id)}')" ${saving ? 'disabled' : ''}>Cancel</button>
+      </div>
+    </div>` : '';
   const quickTechMarkup = quickOpen ? `
     <div class="schedule-quick-tech-row">
       <select class="form-input" onchange="setScheduleQuickTechSelection('${esc(job.id)}', this.value)" ${saving ? 'disabled' : ''}>
@@ -2902,7 +3000,8 @@ function renderScheduleJobActions(job){
     <div class="schedule-job-action-popover" role="dialog" aria-label="Job actions for ${esc(getJobDisplayTitle(job))}" onclick="event.stopPropagation()">
       <button class="schedule-job-action-btn" type="button" onclick="openScheduleJobEdit('${esc(job.id)}')" ${saving ? 'disabled' : ''}>Edit Job</button>
       <button class="schedule-job-action-btn" type="button" onclick="openScheduleJobRoute('${esc(job.id)}')" ${saving ? 'disabled' : ''}>Edit/Add Route</button>
-      <button class="schedule-job-action-btn" type="button" onclick="openScheduleJobSalesforceTicket('${esc(job.id)}')" ${saving ? 'disabled' : ''}>${esc(ticketActionLabel)}</button>
+      <button class="schedule-job-action-btn ${quickTicketOpen ? 'active' : ''}" type="button" onclick="toggleScheduleQuickTicket('${esc(job.id)}')" ${saving ? 'disabled' : ''}>${esc(ticketActionLabel)}</button>
+      ${quickTicketMarkup}
       <button class="schedule-job-action-btn ${quickOpen ? 'active' : ''}" type="button" onclick="toggleScheduleQuickTech('${esc(job.id)}')" ${saving ? 'disabled' : ''}>Quick Change Tech</button>
       ${quickTechMarkup}
     </div>`;

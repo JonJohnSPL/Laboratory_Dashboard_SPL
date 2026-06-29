@@ -618,16 +618,29 @@ tbody tr.clickable-table-row:focus-visible{
   gap:8px;
   padding-top:2px;
 }
-.schedule-quick-tech-row .form-input{
+.schedule-quick-ticket-row{
+  display:grid;
+  gap:8px;
+  padding-top:2px;
+}
+.schedule-quick-ticket-fields{
+  display:grid;
+  gap:7px;
+}
+.schedule-quick-tech-row .form-input,
+.schedule-quick-ticket-row .form-input{
   min-width:0;
 }
-.schedule-quick-tech-actions{
+.schedule-quick-tech-actions,
+.schedule-quick-ticket-actions{
   display:grid;
   grid-template-columns:1fr 1fr;
   gap:8px;
 }
 .schedule-quick-tech-actions .btn-save,
-.schedule-quick-tech-actions .btn-cancel{
+.schedule-quick-tech-actions .btn-cancel,
+.schedule-quick-ticket-actions .btn-save,
+.schedule-quick-ticket-actions .btn-cancel{
   min-height:34px;
   justify-content:center;
   padding:8px 10px;
