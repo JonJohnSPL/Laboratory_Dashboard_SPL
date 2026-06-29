@@ -1867,7 +1867,7 @@ function renderSalesforceCaseEditor(){
   const openButton = caseUrl
     ? `<a class="act-btn salesforce-open-link" href="${esc(caseUrl)}" target="_blank" rel="noopener">Open Salesforce Ticket</a>`
     : '';
-  return `<div class="salesforce-editor"><div class="assignment-head"><div><h4>Salesforce Ticket Link</h4><div class="section-copy">Paste the Salesforce ticket URL here after the ticket exists in Salesforce. No API authorization is required for this manual link.</div></div><div class="table-actions">${openButton}</div></div><div class="salesforce-sync-card"><div class="form-group"><label class="form-label">Ticket / Case Number</label><input class="form-input" type="text" value="${esc(caseLabel)}" placeholder="Case number or ticket number" oninput="setModalField('salesforceCaseNumber', this.value)"></div><div class="form-group"><label class="form-label">Ticket URL</label><input class="form-input" type="url" value="${esc(caseUrl)}" placeholder="https://..." oninput="setModalField('salesforceCaseUrl', this.value)"></div></div><div class="form-hint">The ticket number is shown as the SF badge on job cards. The URL powers the Open Salesforce Ticket link after save/reopen.</div></div>`;
+  return `<div id="salesforce-ticket-link-section" class="salesforce-editor" tabindex="-1"><div class="assignment-head"><div><h4>Salesforce Ticket Link</h4><div class="section-copy">Paste the Salesforce ticket URL here after the ticket exists in Salesforce. No API authorization is required for this manual link.</div></div><div class="table-actions">${openButton}</div></div><div class="salesforce-sync-card"><div class="form-group"><label class="form-label">Ticket / Case Number</label><input class="form-input" type="text" value="${esc(caseLabel)}" placeholder="Case number or ticket number" data-salesforce-ticket-input="number" oninput="setModalField('salesforceCaseNumber', this.value)"></div><div class="form-group"><label class="form-label">Ticket URL</label><input class="form-input" type="url" value="${esc(caseUrl)}" placeholder="https://..." data-salesforce-ticket-input="url" oninput="setModalField('salesforceCaseUrl', this.value)"></div></div><div class="form-hint">The ticket number is shown as the SF badge on job cards. The URL powers the Open Salesforce Ticket link after save/reopen.</div></div>`;
 }
 
 function getJobPastComparisonDate(job){
@@ -2743,6 +2743,23 @@ function openScheduleJobRoute(jobId){
   window.location.href = `SureMap/SPLClientMap.HTML?mode=routes&buildRouteFromJob=${encodeURIComponent(jobId)}`;
 }
 
+function focusSalesforceTicketEditor(){
+  const editor = document.getElementById('salesforce-ticket-link-section');
+  if(!editor) return;
+  editor.scrollIntoView({ behavior:'smooth', block:'start' });
+  const ticketInput = editor.querySelector('[data-salesforce-ticket-input="number"]') || editor.querySelector('input');
+  window.setTimeout(() => {
+    if(ticketInput) ticketInput.focus({ preventScroll:true });
+    else editor.focus({ preventScroll:true });
+  }, 160);
+}
+
+function openScheduleJobSalesforceTicket(jobId){
+  closeScheduleActionPopover(false);
+  openEntityModal('jobs', jobId);
+  window.setTimeout(focusSalesforceTicketEditor, 0);
+}
+
 function toggleScheduleQuickTech(jobId){
   if(state.scheduleQuickTechJobId === jobId){
     state.scheduleQuickTechJobId = '';
@@ -2867,6 +2884,7 @@ function renderScheduleJobActions(job){
   if(state.scheduleActionJobId !== job.id) return '';
   const quickOpen = state.scheduleQuickTechJobId === job.id;
   const saving = state.scheduleActionSavingJobId === job.id;
+  const ticketActionLabel = getSalesforceCaseLabel(job) || getSalesforceCaseUrl(job) ? 'Edit Salesforce Ticket' : 'Add Salesforce Ticket';
   const selectedTechnicianId = String(state.scheduleQuickTechTechnicianId || getScheduleQuickTechDefault(job.id));
   const technicianOptions = buildTechnicianOptions(job.jobType, selectedTechnicianId);
   const quickTechMarkup = quickOpen ? `
@@ -2884,6 +2902,7 @@ function renderScheduleJobActions(job){
     <div class="schedule-job-action-popover" role="dialog" aria-label="Job actions for ${esc(getJobDisplayTitle(job))}" onclick="event.stopPropagation()">
       <button class="schedule-job-action-btn" type="button" onclick="openScheduleJobEdit('${esc(job.id)}')" ${saving ? 'disabled' : ''}>Edit Job</button>
       <button class="schedule-job-action-btn" type="button" onclick="openScheduleJobRoute('${esc(job.id)}')" ${saving ? 'disabled' : ''}>Edit/Add Route</button>
+      <button class="schedule-job-action-btn" type="button" onclick="openScheduleJobSalesforceTicket('${esc(job.id)}')" ${saving ? 'disabled' : ''}>${esc(ticketActionLabel)}</button>
       <button class="schedule-job-action-btn ${quickOpen ? 'active' : ''}" type="button" onclick="toggleScheduleQuickTech('${esc(job.id)}')" ${saving ? 'disabled' : ''}>Quick Change Tech</button>
       ${quickTechMarkup}
     </div>`;
