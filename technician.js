@@ -147,7 +147,31 @@ function isAssignedToMe(job){
   return getTechnicianAssignmentsForJob(job.id).some((assignment) => String(assignment.resource_id || '') === employeeId);
 }
 
+function getLabScheduleEntries(){
+  return Array.isArray(portalState.data.labSchedule?.entries) ? portalState.data.labSchedule.entries : [];
+}
+
+function getLabScheduleEntryForWorkOrder(workOrder){
+  const workOrderId = String(workOrder?.id || '').trim();
+  if(!workOrderId) return null;
+  return getLabScheduleEntries().find((entry) => String(entry?.woId || '').trim() === workOrderId) || null;
+}
+
+function getLabScheduleAssignmentEmployeeIds(workOrder){
+  const entry = getLabScheduleEntryForWorkOrder(workOrder);
+  const assignments = entry?.assignments && typeof entry.assignments === 'object' ? entry.assignments : {};
+  return [...new Set(Object.values(assignments).map((value) => String(value || '').trim()).filter(Boolean))];
+}
+
+function getLabScheduleAssignmentLabel(workOrder){
+  const ids = getLabScheduleAssignmentEmployeeIds(workOrder);
+  if(ids.includes(portalState.employee?.id || '')) return portalState.employee?.employeeName || 'Assigned to me';
+  return String(workOrder?.assignedTo || '').trim() || (ids.length ? `${ids.length} scheduled assignment(s)` : 'Unassigned');
+}
+
 function labWoAssignedToMe(workOrder){
+  const employeeId = portalState.employee?.id || '';
+  if(employeeId && getLabScheduleAssignmentEmployeeIds(workOrder).includes(employeeId)) return true;
   const employeeNameValue = portalState.employee?.employeeName || '';
   if(!employeeNameValue) return false;
   return String(workOrder?.assignedTo || '').toLowerCase().includes(employeeNameValue.toLowerCase());
@@ -329,7 +353,7 @@ function renderLabWorkOrderCard(workOrder){
           <span class="badge">${esc(workOrder.stage || (workOrder.complete ? 'Done' : 'Open'))}</span>
         </div>
       </div>
-      <div class="card-sub">Due ${esc(fmtDate(workOrder.dueDate))} | Assigned ${esc(workOrder.assignedTo || 'Unassigned')} | ${tests} test rows</div>
+      <div class="card-sub">Due ${esc(fmtDate(workOrder.dueDate))} | Assigned ${esc(getLabScheduleAssignmentLabel(workOrder))} | ${tests} test rows</div>
       ${workOrder.notes ? `<div class="muted">${esc(workOrder.notes)}</div>` : ''}
     </article>
   `;
