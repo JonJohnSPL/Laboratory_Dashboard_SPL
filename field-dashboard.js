@@ -1,6 +1,6 @@
 const STORAGE_KEY = 'field-ops-dashboard-data';
 const AUTO_REFRESH_MS = 15000;
-const ENTITY_ORDER = ['clients', 'projects', 'contacts', 'contactProjects', 'contactSites', 'billingProfiles', 'siteTypes', 'sites', 'siteProjects', 'jobTypes', 'siteTypeJobTypes', 'jobs', 'jobSites', 'jobAssignments', 'partCatalogs', 'parts', 'jobParts', 'partActivity', 'fieldRoutes', 'routePlaceLists', 'routePlaces', 'restrictedRoads', 'fieldRouteStops', 'fieldRouteStopJobs', 'employees', 'splSites', 'technicianTravel', 'trucks', 'trailers', 'equipment', 'samples', 'maintenanceRecords'];
+const ENTITY_ORDER = ['clients', 'projects', 'contacts', 'contactProjects', 'contactSites', 'billingProfiles', 'priceItems', 'billingProfilePrices', 'siteTypes', 'sites', 'siteProjects', 'jobTypes', 'siteTypeJobTypes', 'jobs', 'jobSites', 'jobAssignments', 'partCatalogs', 'parts', 'jobParts', 'partActivity', 'fieldRoutes', 'routePlaceLists', 'routePlaces', 'restrictedRoads', 'fieldRouteStops', 'fieldRouteStopJobs', 'employees', 'splSites', 'technicianTravel', 'trucks', 'trailers', 'equipment', 'samples', 'maintenanceRecords'];
 const FIELD_ASSET_BUCKET = 'field-assets';
 const ASSET_PHOTO_ENTITY_KEYS = ['clients', 'trucks', 'trailers', 'equipment'];
 const DEFAULT_ASSET_ICON_PATHS = {
@@ -113,6 +113,31 @@ const DEFAULT_LAB_TEST_DEFS = [
   { key:'C6LIQ', label:'C6LIQ', shortLabel:'C6LIQ', matrixType:'Liquid' },
   { key:'C10LIQ', label:'C10LIQ', shortLabel:'C10LIQ', matrixType:'Liquid' }
 ];
+const BILLING_RATE_EFFECTIVE_YEAR = 2026;
+const DEFAULT_BILLING_PRICE_ITEMS = [
+  { itemKey:'LIQUID_ASTMD156_SAYBOLT_COLOR', priceSection:'Liquid Samples', category:'Liquid', method:'ASTM D156', description:'Saybolt Color', unitName:'Per Sample', sortOrder:10 },
+  { itemKey:'LIQUID_ASTMD1838_COPPER_STRIP_CORROSION', priceSection:'Liquid Samples', category:'Liquid', method:'ASTM D1838', description:'Copper Strip Corrosion (LPG, 1 hr @ 100F)', unitName:'Per Sample', sortOrder:20 },
+  { itemKey:'LIQUID_ASTMD5453_SULPHUR_LIGHT_HYDROCARBON_LIQUIDS', priceSection:'Liquid Samples', category:'Liquid', method:'ASTM D5453', description:'Sulphur - Light Hydrocarbon Liquids (UVF)', unitName:'Per Sample', sortOrder:30 },
+  { itemKey:'LIQUID_ASTMD6378_VAPOR_PRESSURE', priceSection:'Liquid Samples', category:'Liquid', method:'ASTM D6378', description:'Vapor Pressure (VP4, V/L @ 37.8C)', unitName:'Per Sample', sortOrder:40 },
+  { itemKey:'LIQUID_ASTMD86_DISTILLATION', priceSection:'Liquid Samples', category:'Liquid', method:'ASTM D86', description:'Distillation of Petroleum Products', unitName:'Per Sample', sortOrder:50 },
+  { itemKey:'LIQUID_ASTMD6667_SULFUR_LPG', priceSection:'Liquid Samples', category:'Liquid', method:'ASTM D6667', description:'Sulfur in LPG (UVF)', unitName:'Per Sample', sortOrder:60 },
+  { itemKey:'LIQUID_GPA2186_C10_PLUS', priceSection:'Liquid Samples', category:'Liquid', method:'GPA 2186', description:'C10+', unitName:'Per Sample', sortOrder:70 },
+  { itemKey:'LIQUID_GPA2177_C6_PLUS', priceSection:'Liquid Samples', category:'Liquid', method:'GPA 2177', description:'C6+ Liquid', unitName:'Per Sample', sortOrder:80 },
+  { itemKey:'LIQUID_ASTMD2163_C1_C5_LPG', priceSection:'Liquid Samples', category:'Liquid', method:'ASTM D2163', description:'C1-C5 LPG (Propane/Propene)', unitName:'Per Sample', sortOrder:90 },
+  { itemKey:'LIQUID_ASTMD6377_CRUDE_OIL_VAPOR_PRESSURE', priceSection:'Liquid Samples', category:'Liquid', method:'ASTM D6377', description:'Crude Oil Vapor Pressure', unitName:'Per Sample', sortOrder:100 },
+  { itemKey:'LIQUID_ASTMD6377_CRUDE_OIL_VAPOR_PRESSURE_PRESSURIZED', priceSection:'Liquid Samples', category:'Liquid', method:'ASTM D6377', description:'Crude Oil Vapor Pressure (Pressurized)', unitName:'Per Sample', sortOrder:110 },
+  { itemKey:'LIQUID_ASTMD7423_ORGANIC_OXYGENATES', priceSection:'Liquid Samples', category:'Liquid', method:'ASTM D7423', description:'Organic Oxygenates (C2-C5)', unitName:'Per Sample', sortOrder:120 },
+  { itemKey:'LIQUID_ASTMD7423_METHANOL_ONLY', priceSection:'Liquid Samples', category:'Liquid', method:'ASTM D7423', description:'Methanol Only', unitName:'Per Sample', sortOrder:130 },
+  { itemKey:'LIQUID_SPL_SAMPLE_DISPOSAL_RECYCLING', priceSection:'Liquid Samples', category:'Liquid', method:'SPL', description:'Sample Disposal & Recycling', unitName:'Per Sample', sortOrder:140 },
+  { itemKey:'GAS_ASTMD5504_H2S_CHEMILUMINESCENCE', priceSection:'Natural Gas Samples', category:'Gas', method:'ASTM D5504', description:'H2S by Chemiluminescence', unitName:'Per Sample', sortOrder:150 },
+  { itemKey:'GAS_ASTMD6667_SULFUR_LPG_NATURAL_GAS', priceSection:'Natural Gas Samples', category:'Gas', method:'ASTM D6667', description:'Sulfur in LPG & Natural Gas (UVF)', unitName:'Per Sample', sortOrder:160 },
+  { itemKey:'GAS_GPA2286M_EXTENDED_ANALYSIS', priceSection:'Natural Gas Samples', category:'Gas', method:'GPA 2286M', description:'Extended Analysis (C1-C14+, BTU, RD, O2)', unitName:'Per Sample', sortOrder:170 },
+  { itemKey:'GAS_GPA2261_ANALYSIS', priceSection:'Natural Gas Samples', category:'Gas', method:'GPA 2261', description:'Gas Analysis (C1-C6+, BTU, RD)', unitName:'Per Sample', sortOrder:180 },
+  { itemKey:'GAS_GPA2261_ANALYSIS_O2', priceSection:'Natural Gas Samples', category:'Gas', method:'GPA 2261', description:'Gas Analysis (C1-C6+, BTU, RD, O2)', unitName:'Per Sample', sortOrder:190 },
+  { itemKey:'GAS_ASTMD4810_H2S_STAINED_TUBE_FIELD', priceSection:'Natural Gas Samples', category:'Gas', method:'ASTM D4810', description:'H2S - Stained Tube (Field)', unitName:'Per Sample', sortOrder:200 },
+  { itemKey:'GAS_GPA2199_CAPILLARY_GC_SULFUR_CLD', priceSection:'Natural Gas Samples', category:'Gas', method:'GPA 2199', description:'Capillary GC + Sulfur CLD', unitName:'Per Sample', sortOrder:210 },
+  { itemKey:'GAS_ASTMD1946_REFORMED_GAS_COMPOSITION', priceSection:'Natural Gas Samples', category:'Gas', method:'ASTM D1946', description:'Reformed Gas Composition', unitName:'Per Sample', sortOrder:220 }
+];
 
 const PRIORITY_RANK = { Urgent:0, High:1, Normal:2, Low:3 };
 const RESOURCE_ENTITY_BY_TYPE = { Technician:'employees', Truck:'trucks', Trailer:'trailers', Equipment:'equipment' };
@@ -124,6 +149,8 @@ const ENTITY_CONFIG = {
   contactProjects:{ table:'field_contact_projects', label:'Contact Project Link', idPrefix:'contactproj', defaults:{ contactId:'', projectId:'' }, fieldMap:{ contactId:'contact_id', projectId:'project_id' }, idFields:['contactId', 'projectId'] },
   contactSites:{ table:'field_contact_sites', label:'Contact Site Link', idPrefix:'contactsite', defaults:{ contactId:'', siteId:'' }, fieldMap:{ contactId:'contact_id', siteId:'site_id' }, idFields:['contactId', 'siteId'] },
   billingProfiles:{ table:'field_billing_profiles', label:'Billing Profile', idPrefix:'bill', defaults:{ clientId:'', projectId:'', billingName:'', billingAddress:'', billingEmail:'', billingPhone:'', poNumber:'', referenceNumber:'', invoiceNotes:'', fieldBillingNotes:'', labBillingNotes:'', isDefault:false }, fieldMap:{ clientId:'client_id', projectId:'project_id', billingName:'billing_name', billingAddress:'billing_address', billingEmail:'billing_email', billingPhone:'billing_phone', poNumber:'po_number', referenceNumber:'reference_number', invoiceNotes:'invoice_notes', fieldBillingNotes:'field_billing_notes', labBillingNotes:'lab_billing_notes', isDefault:'is_default' }, idFields:['clientId', 'projectId'], booleanFields:['isDefault'] },
+  priceItems:{ table:'billing_price_items', label:'Price Item', idPrefix:'priceitem', defaults:{ itemKey:'', priceSection:'', category:'', method:'', description:'', unitName:'Per Sample', sortOrder:0, isActive:true, notes:'' }, fieldMap:{ itemKey:'item_key', priceSection:'price_section', category:'category', method:'method', description:'description', unitName:'unit_name', sortOrder:'sort_order', isActive:'is_active', notes:'notes' }, numberFields:['sortOrder'], booleanFields:['isActive'] },
+  billingProfilePrices:{ table:'field_billing_profile_prices', label:'Billing Profile Price', idPrefix:'billprice', defaults:{ billingProfileId:'', priceItemId:'', rateAmount:null, currencyCode:'USD', effectiveYear:BILLING_RATE_EFFECTIVE_YEAR, isActive:true, notes:'' }, fieldMap:{ billingProfileId:'billing_profile_id', priceItemId:'price_item_id', rateAmount:'rate_amount', currencyCode:'currency_code', effectiveYear:'effective_year', isActive:'is_active', notes:'notes' }, idFields:['billingProfileId', 'priceItemId'], numberFields:['rateAmount', 'effectiveYear'], booleanFields:['isActive'] },
   siteTypes:{ table:'field_site_types', label:'Site Type', idPrefix:'sitetype', defaults:{ siteTypeKey:'', siteTypeName:'', isActive:true, siteTypeStatus:'active', defaultJobTypes:[], notes:'' }, fieldMap:{ siteTypeKey:'site_type_key', siteTypeName:'site_type_name', isActive:'is_active', notes:'notes' }, booleanFields:['isActive'], arrayFields:['defaultJobTypes'], localOnlyFields:['siteTypeStatus', 'defaultJobTypes'] },
   sites:{ table:'field_sites', label:'Site/Location', idPrefix:'site', defaults:{ clientId:'', projectId:'', projectIds:[], siteName:'', siteType:'OTHER', physicalAddress:'', countyState:'', gpsCoordinates:'', accessInstructions:'', safetyPpeNotes:'', gateCodeEntryRequirements:'', clientSiteContact:'', accessRequired:false, approvedAccessLabel:'', approvedAccessLatitude:null, approvedAccessLongitude:null, approvedAccessNotes:'', siteStatus:'Active', standardJobTypes:'', notes:'' }, fieldMap:{ clientId:'client_id', projectId:'project_id', siteName:'site_name', siteType:'site_type', physicalAddress:'physical_address', countyState:'county_state', gpsCoordinates:'gps_coordinates', accessInstructions:'access_instructions', safetyPpeNotes:'safety_ppe_notes', gateCodeEntryRequirements:'gate_code_entry_requirements', clientSiteContact:'client_site_contact', accessRequired:'access_required', approvedAccessLabel:'approved_access_label', approvedAccessLatitude:'approved_access_latitude', approvedAccessLongitude:'approved_access_longitude', approvedAccessNotes:'approved_access_notes', siteStatus:'site_status', standardJobTypes:'standard_job_types', notes:'notes' }, idFields:['clientId', 'projectId'], arrayFields:['projectIds'], localOnlyFields:['projectIds'], numberFields:['approvedAccessLatitude', 'approvedAccessLongitude'], booleanFields:['accessRequired'] },
   siteProjects:{ table:'field_site_projects', label:'Site Project Link', idPrefix:'siteproj', defaults:{ siteId:'', projectId:'' }, fieldMap:{ siteId:'site_id', projectId:'project_id' }, idFields:['siteId', 'projectId'] },
@@ -159,7 +186,7 @@ let hideSaveStatusTimer = null;
 const remoteAssetPhotoUrlCache = new Map();
 const remoteAssetPhotoLoadPromises = new Map();
 
-function createEmptyData(){ return { clients:[], projects:[], contacts:[], contactProjects:[], contactSites:[], billingProfiles:[], siteTypes:[], sites:[], siteProjects:[], jobTypes:[], siteTypeJobTypes:[], jobs:[], jobSites:[], jobAssignments:[], partCatalogs:[], parts:[], jobParts:[], partActivity:[], fieldRoutes:[], routePlaceLists:[], routePlaces:[], restrictedRoads:[], fieldRouteStops:[], fieldRouteStopJobs:[], employees:[], splSites:[], technicianTravel:[], trucks:[], trailers:[], equipment:[], samples:[], maintenanceRecords:[], technicians:[] }; }
+function createEmptyData(){ return { clients:[], projects:[], contacts:[], contactProjects:[], contactSites:[], billingProfiles:[], priceItems:[], billingProfilePrices:[], siteTypes:[], sites:[], siteProjects:[], jobTypes:[], siteTypeJobTypes:[], jobs:[], jobSites:[], jobAssignments:[], partCatalogs:[], parts:[], jobParts:[], partActivity:[], fieldRoutes:[], routePlaceLists:[], routePlaces:[], restrictedRoads:[], fieldRouteStops:[], fieldRouteStopJobs:[], employees:[], splSites:[], technicianTravel:[], trucks:[], trailers:[], equipment:[], samples:[], maintenanceRecords:[], technicians:[] }; }
 function createClosedModalState(){ return { open:false, entity:'', id:'', formData:{}, assignments:[], baselineSnapshot:'', openMultiSelectKey:'', openSampleTestDraftId:'', sampleDraftExpanded:{} }; }
 function createClosedSampleLinkModalState(){ return { open:false, mode:'single', sampleId:'', sampleIds:[], selectedWorkOrderId:'', search:'', workOrders:[] }; }
 function createClosedPartAdjustModalState(){ return { open:false, partId:'', mode:'receive' }; }
@@ -501,6 +528,8 @@ function getEntitySorter(entityKey){
     case 'contactProjects': return (a, b) => compareStrings(a.contactId, b.contactId) || compareStrings(a.projectId, b.projectId);
     case 'contactSites': return (a, b) => compareStrings(a.contactId, b.contactId) || compareStrings(a.siteId, b.siteId);
     case 'billingProfiles': return (a, b) => Number(b.isDefault) - Number(a.isDefault) || compareStrings(a.billingName, b.billingName);
+    case 'priceItems': return (a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0) || compareStrings(a.method, b.method) || compareStrings(a.description, b.description);
+    case 'billingProfilePrices': return (a, b) => compareStrings(a.billingProfileId, b.billingProfileId) || Number(a.effectiveYear || 0) - Number(b.effectiveYear || 0) || compareStrings(a.priceItemId, b.priceItemId);
     case 'siteTypes': return (a, b) => compareStrings(a.siteTypeName, b.siteTypeName) || compareStrings(a.siteTypeKey, b.siteTypeKey);
     case 'sites': return (a, b) => compareStrings(a.siteName, b.siteName);
     case 'siteProjects': return (a, b) => compareStrings(a.siteId, b.siteId) || compareStrings(a.projectId, b.projectId);
@@ -607,6 +636,21 @@ function getDefaultPartCatalogRecords(){
     isActive:true,
     notes:''
   }, { fromRemote:false }))).sort(getEntitySorter('partCatalogs'));
+}
+
+function getDefaultBillingPriceItemRecords(){
+  return DEFAULT_BILLING_PRICE_ITEMS.map((row) => normalizeRecord('priceItems', {
+    id:row.itemKey,
+    itemKey:row.itemKey,
+    priceSection:row.priceSection,
+    category:row.category,
+    method:row.method,
+    description:row.description,
+    unitName:row.unitName,
+    sortOrder:row.sortOrder,
+    isActive:true,
+    notes:''
+  }, { fromRemote:false })).sort(getEntitySorter('priceItems'));
 }
 
 function getDefaultSplSiteRecords(){
@@ -869,6 +913,26 @@ function repairDataRelationships(data){
     sortOrder:Number.isFinite(Number(catalog.sortOrder)) ? Number(catalog.sortOrder) : (index + 1) * 10,
     isActive:catalog.isActive
   }, { fromRemote:false })).filter((catalog) => catalog.catalogValue).sort(getEntitySorter('partCatalogs'));
+  if(!Array.isArray(data.priceItems) || !data.priceItems.length) data.priceItems = isRemoteMode() ? [] : getDefaultBillingPriceItemRecords();
+  data.priceItems = data.priceItems.map((item, index) => normalizeRecord('priceItems', {
+    ...item,
+    id:item.id || item.itemKey || normalizeCatalogKey(`${item.method}_${item.description}`) || `PRICE_ITEM_${index + 1}`,
+    itemKey:item.itemKey || normalizeCatalogKey(`${item.method}_${item.description}`) || `PRICE_ITEM_${index + 1}`,
+    priceSection:item.priceSection || (String(item.category || '').toLowerCase() === 'gas' ? 'Natural Gas Samples' : 'Liquid Samples'),
+    unitName:item.unitName || 'Per Sample',
+    sortOrder:Number.isFinite(Number(item.sortOrder)) ? Number(item.sortOrder) : (index + 1) * 10,
+    isActive:item.isActive
+  }, { fromRemote:false })).filter((item) => item.itemKey && item.method && item.description).sort(getEntitySorter('priceItems'));
+  data.billingProfilePrices = data.billingProfilePrices
+    .filter((price) => data.billingProfiles.some((profile) => profile.id === price.billingProfileId))
+    .filter((price) => data.priceItems.some((item) => item.id === price.priceItemId))
+    .map((price) => normalizeRecord('billingProfilePrices', {
+      ...price,
+      effectiveYear:price.effectiveYear || BILLING_RATE_EFFECTIVE_YEAR,
+      currencyCode:price.currencyCode || 'USD',
+      isActive:price.isActive
+    }, { fromRemote:false }))
+    .sort(getEntitySorter('billingProfilePrices'));
   data.employees.forEach((employee) => {
     const parsedName = splitEmployeeName(employee.employeeName);
     if(!employee.employeeFirstName) employee.employeeFirstName = parsedName.first;
@@ -1167,6 +1231,7 @@ function getClient(id){ return state.data.clients.find((row) => row.id === id) |
 function getProject(id){ return state.data.projects.find((row) => row.id === id) || null; }
 function getContact(id){ return state.data.contacts.find((row) => row.id === id) || null; }
 function getBillingProfile(id){ return state.data.billingProfiles.find((row) => row.id === id) || null; }
+function getPriceItem(id){ return state.data.priceItems.find((row) => row.id === id) || null; }
 function getSite(id){ return state.data.sites.find((row) => row.id === id) || null; }
 function getJob(id){ return state.data.jobs.find((row) => row.id === id) || null; }
 function getEmployee(id){ return state.data.employees.find((row) => row.id === id) || null; }
@@ -1212,6 +1277,50 @@ function getLinkedSitesForContact(contactId){ return getSiteIdsForContact(contac
 function getContactLabel(contactId){
   const contact = getContact(contactId);
   return contact ? getContactDisplayName(contact) : 'No manager';
+}
+function getPriceItemLabel(priceItemId){
+  const item = getPriceItem(priceItemId);
+  return item ? `${item.method || 'No method'} - ${item.description || 'No description'}` : 'Unknown price item';
+}
+function getActivePriceItems(){
+  return state.data.priceItems.filter((item) => item.isActive !== false).sort(getEntitySorter('priceItems'));
+}
+function getBillingPricesForProfile(profileId, effectiveYear = BILLING_RATE_EFFECTIVE_YEAR){
+  return state.data.billingProfilePrices
+    .filter((row) => row.billingProfileId === profileId && Number(row.effectiveYear || BILLING_RATE_EFFECTIVE_YEAR) === Number(effectiveYear))
+    .sort(getEntitySorter('billingProfilePrices'));
+}
+function getBillingPriceCount(profileId){
+  return getBillingPricesForProfile(profileId).filter((row) => row.isActive !== false && normalizeNumber(row.rateAmount) !== null).length;
+}
+function buildBillingPriceDrafts(profileId = ''){
+  const existingPrices = new Map(getBillingPricesForProfile(profileId).map((row) => [row.priceItemId, row]));
+  return getActivePriceItems().map((item) => {
+    const existing = existingPrices.get(item.id) || null;
+    return {
+      draftId:existing?.id || `${profileId || 'draft'}::${item.id}`,
+      id:existing?.id || '',
+      billingProfileId:profileId || '',
+      priceItemId:item.id,
+      rateAmount:normalizeNumber(existing?.rateAmount),
+      currencyCode:existing?.currencyCode || 'USD',
+      effectiveYear:Number(existing?.effectiveYear || BILLING_RATE_EFFECTIVE_YEAR),
+      isActive:existing ? existing.isActive !== false : true,
+      notes:existing?.notes || ''
+    };
+  });
+}
+function getModalBillingPriceDrafts(){
+  if(!Array.isArray(modalState.formData.priceDrafts)) modalState.formData.priceDrafts = buildBillingPriceDrafts(modalState.id || modalState.formData.id || '');
+  return modalState.formData.priceDrafts;
+}
+function updateBillingPriceDraft(priceItemId, key, value, mode = 'text'){
+  if(!modalState.open || modalState.entity !== 'billingProfiles') return;
+  const row = getModalBillingPriceDrafts().find((item) => item.priceItemId === priceItemId);
+  if(!row) return;
+  if(key === 'rateAmount') row.rateAmount = mode === 'number' ? normalizeNumber(value) : value;
+  else if(key === 'isActive') row.isActive = !!value;
+  else if(key === 'notes') row.notes = String(value || '');
 }
 function getContactsForSite(siteId){
   const site = getSite(siteId);
@@ -3631,11 +3740,12 @@ function renderDirectoryContactsSection(clientId, activeProjectId){
 }
 function renderDirectoryBillingSection(clientId, activeProjectId){
   const billingProfiles = getDirectoryBillingProfiles(clientId, activeProjectId);
-  return renderTable(['Billing Profile', 'Project', 'Billing Contact', 'PO / Reference', 'Default', 'Notes'], billingProfiles.map((profile) => buildTableRow('billingProfiles', profile.id, [
+  return renderTable(['Billing Profile', 'Project', 'Billing Contact', 'PO / Reference', 'Rates', 'Default', 'Notes'], billingProfiles.map((profile) => buildTableRow('billingProfiles', profile.id, [
     `<div class="inline-stack"><div class="item-title">${esc(profile.billingName || 'Unnamed billing profile')}</div><div class="muted">${esc(profile.billingAddress || 'No billing address')}</div></div>`,
     esc(profile.projectId ? getProjectLabel(profile.projectId) : 'Client-wide'),
     `<div class="inline-stack"><div>${esc(profile.billingEmail || 'No email')}</div><div class="muted">${esc(profile.billingPhone || 'No phone')}</div></div>`,
     `<div class="inline-stack"><div>${esc(profile.poNumber || 'No PO')}</div><div class="muted">${esc(profile.referenceNumber || 'No reference')}</div></div>`,
+    `<span class="tag-chip">${esc(getBillingPriceCount(profile.id))} priced</span>`,
     profile.isDefault ? '<span class="tag-chip">Default</span>' : '<span class="muted">No</span>',
     `<div class="muted">${esc(profile.invoiceNotes || profile.fieldBillingNotes || profile.labBillingNotes || 'No notes')}</div>`
   ])), '<strong>No billing profiles yet</strong>Capture field and lab invoicing details here so the client record stays usable across both teams.');
@@ -4673,6 +4783,50 @@ function renderFormField(field){
   return `<div class="form-group${fullClass}"><label class="form-label">${esc(field.label)}</label>${control}</div>`;
 }
 
+function renderBillingPriceScheduleEditor(){
+  if(modalState.entity !== 'billingProfiles') return '';
+  const drafts = getModalBillingPriceDrafts();
+  const draftByItemId = new Map(drafts.map((row) => [row.priceItemId, row]));
+  const activeItems = getActivePriceItems();
+  if(!activeItems.length){
+    return `<div class="billing-price-editor"><div class="assignment-head"><div><h4>Rate Schedule</h4><div class="section-copy">Run supabase/seed_billing_profile_prices.sql to load price items for Supabase mode.</div></div></div><div class="empty-state">No price items are available yet.</div></div>`;
+  }
+  const groups = ['Liquid Samples', 'Natural Gas Samples'];
+  const renderRow = (item) => {
+    const draft = draftByItemId.get(item.id) || {};
+    return `<div class="billing-price-row">
+      <div class="billing-price-item">
+        <div class="item-title">${esc(item.method || 'No method')}</div>
+        <div class="muted">${esc(item.description || 'No description')}</div>
+        <div class="mini-tags"><span class="tag-chip">${esc(item.category || 'Uncategorized')}</span><span class="tag-chip">${esc(item.unitName || 'Per Sample')}</span></div>
+      </div>
+      <div class="billing-price-rate">
+        <label class="form-label">Rate</label>
+        <div class="currency-input-wrap"><span>$</span><input class="form-input" type="number" step="0.01" min="0" value="${esc(draft.rateAmount ?? '')}" oninput="updateBillingPriceDraft('${esc(item.id)}', 'rateAmount', this.value, 'number')"></div>
+      </div>
+      <div class="billing-price-active">
+        <label class="form-label">Active</label>
+        <label class="toggle-card"><input type="checkbox" ${draft.isActive !== false ? 'checked' : ''} onchange="updateBillingPriceDraft('${esc(item.id)}', 'isActive', this.checked)"><span>Active</span></label>
+      </div>
+      <div class="billing-price-notes">
+        <label class="form-label">Notes</label>
+        <input class="form-input" type="text" value="${esc(draft.notes || '')}" oninput="updateBillingPriceDraft('${esc(item.id)}', 'notes', this.value)">
+      </div>
+    </div>`;
+  };
+  const groupMarkup = groups.map((group) => {
+    const items = activeItems.filter((item) => (item.priceSection || (item.category === 'Gas' ? 'Natural Gas Samples' : 'Liquid Samples')) === group);
+    return `<div class="billing-price-group">
+      <div class="billing-price-group-head"><h5>${esc(group)}</h5><span>${esc(items.length)} line items</span></div>
+      <div class="billing-price-list">${items.map(renderRow).join('')}</div>
+    </div>`;
+  }).join('');
+  return `<div class="billing-price-editor">
+    <div class="assignment-head"><div><h4>Rate Schedule</h4><div class="section-copy">${esc(BILLING_RATE_EFFECTIVE_YEAR)} profile-specific pricing. Changes here only affect this billing profile.</div></div></div>
+    ${groupMarkup || '<div class="empty-state">No price items are available yet.</div>'}
+  </div>`;
+}
+
 function renderAssignmentRow(assignment){
   const needsTruckAssignment = assignment.assignmentType === 'Truck' && !assignment.resourceId && getRequiredAssignmentTypes(modalState.formData.jobType).includes('Truck');
   const resourceWarning = needsTruckAssignment ? '<div class="assignment-warning">Truck needs assigned for this job type.</div>' : '';
@@ -4936,7 +5090,7 @@ function renderModal(){
   document.getElementById('entity-modal-duplicate').style.display = modalState.entity === 'jobs' && modalState.id ? '' : 'none';
   const bodyMarkup = modalState.entity === 'technicianTravel'
     ? renderTechnicianTravelEditor()
-    : `<div class="form-grid">${(FORM_DEFINITIONS[modalState.entity] || []).map((field) => renderFormField(field)).join('')}</div>${modalState.entity === 'jobs' ? `${renderJobSampleLogisticsEditor()}${renderJobPartsEditor()}${renderAssignmentEditor()}${renderSalesforceCaseEditor()}` : ''}`;
+    : `<div class="form-grid">${(FORM_DEFINITIONS[modalState.entity] || []).map((field) => renderFormField(field)).join('')}</div>${modalState.entity === 'billingProfiles' ? renderBillingPriceScheduleEditor() : ''}${modalState.entity === 'jobs' ? `${renderJobSampleLogisticsEditor()}${renderJobPartsEditor()}${renderAssignmentEditor()}${renderSalesforceCaseEditor()}` : ''}`;
   document.getElementById('entity-modal-body').innerHTML = bodyMarkup;
   hydrateAssetPhotoPreviews(document.getElementById('entity-modal-body'));
 }
@@ -5016,6 +5170,9 @@ function openEntityModal(entityKey, id = '', options = {}){
     draft.siteIds = normalizeStringArray(draft.siteIds).length ? normalizeStringArray(draft.siteIds) : getSiteIdsForContact(draft.id);
     draft.projectId = draft.projectIds[0] || '';
     draft.siteId = draft.siteIds[0] || '';
+  }
+  if(entityKey === 'billingProfiles'){
+    draft.priceDrafts = buildBillingPriceDrafts(existing?.id || draft.id || '');
   }
   if(entityKey === 'siteTypes'){
     draft.siteTypeKey = normalizeSiteTypeKey(draft.siteTypeKey || draft.siteTypeName);
@@ -5396,6 +5553,8 @@ function validateModal(){
   if(entityKey === 'billingProfiles'){
     if(!String(formData.clientId || '').trim()) return 'Client is required.';
     if(!String(formData.billingName || '').trim()) return 'Billing name is required.';
+    const invalidRate = (Array.isArray(formData.priceDrafts) ? formData.priceDrafts : []).find((row) => normalizeNumber(row.rateAmount) !== null && Number(row.rateAmount) < 0);
+    if(invalidRate) return 'Billing profile rates cannot be negative.';
   }
   if(entityKey === 'sites'){
     if(!String(formData.clientId || '').trim()) return 'Client is required.';
@@ -5635,6 +5794,36 @@ async function saveLocalContactRecord(draft){
   record.siteId = siteIds[0] || '';
   if(existingIndex >= 0) next.contacts[existingIndex] = record; else next.contacts.unshift(record);
   syncLocalContactLinks(next, record.id, projectIds, siteIds);
+  repairDataRelationships(next);
+  await persistLocal(next);
+  return record.id;
+}
+
+async function saveLocalBillingProfileRecord(draft){
+  const next = clone(state.data);
+  const cfg = ENTITY_CONFIG.billingProfiles;
+  const existingIndex = next.billingProfiles.findIndex((row) => row.id === draft.id);
+  const existing = existingIndex >= 0 ? next.billingProfiles[existingIndex] : null;
+  const now = new Date().toISOString();
+  const record = normalizeRecord('billingProfiles', { ...existing, ...draft, id:draft.id || existing?.id || uid(cfg.idPrefix), createdAt:existing?.createdAt || now, updatedAt:now }, { fromRemote:false });
+  if(existingIndex >= 0) next.billingProfiles[existingIndex] = record; else next.billingProfiles.unshift(record);
+  const keepYear = BILLING_RATE_EFFECTIVE_YEAR;
+  next.billingProfilePrices = next.billingProfilePrices.filter((row) => !(row.billingProfileId === record.id && Number(row.effectiveYear || keepYear) === keepYear));
+  (Array.isArray(draft.priceDrafts) ? draft.priceDrafts : []).forEach((row) => {
+    if(!row.priceItemId || !next.priceItems.some((item) => item.id === row.priceItemId)) return;
+    next.billingProfilePrices.push(normalizeRecord('billingProfilePrices', {
+      id:row.id || `${record.id}::${row.priceItemId}::${keepYear}`,
+      billingProfileId:record.id,
+      priceItemId:row.priceItemId,
+      rateAmount:normalizeNumber(row.rateAmount),
+      currencyCode:row.currencyCode || 'USD',
+      effectiveYear:keepYear,
+      isActive:row.isActive !== false,
+      notes:row.notes || '',
+      createdAt:now,
+      updatedAt:now
+    }, { fromRemote:false }));
+  });
   repairDataRelationships(next);
   await persistLocal(next);
   return record.id;
@@ -5914,6 +6103,35 @@ async function saveRemoteContactRecord(draft){
   return contactId;
 }
 
+function buildBillingPriceRowsForSave(profileId, priceDrafts){
+  return (Array.isArray(priceDrafts) ? priceDrafts : [])
+    .filter((row) => row.priceItemId && getPriceItem(row.priceItemId))
+    .map((row) => ({
+      billing_profile_id:profileId,
+      price_item_id:row.priceItemId,
+      rate_amount:normalizeNumber(row.rateAmount),
+      currency_code:row.currencyCode || 'USD',
+      effective_year:Number(row.effectiveYear || BILLING_RATE_EFFECTIVE_YEAR),
+      is_active:row.isActive !== false,
+      notes:String(row.notes || '')
+    }));
+}
+
+async function syncRemoteBillingProfilePrices(profileId, draft){
+  const effectiveYear = BILLING_RATE_EFFECTIVE_YEAR;
+  await remoteRepository.deleteWhere(ENTITY_CONFIG.billingProfilePrices.table, [
+    { column:'billing_profile_id', value:profileId },
+    { column:'effective_year', value:effectiveYear }
+  ]);
+  await remoteRepository.insertRows(ENTITY_CONFIG.billingProfilePrices.table, buildBillingPriceRowsForSave(profileId, draft.priceDrafts));
+}
+
+async function saveRemoteBillingProfileRecord(draft){
+  const profileId = await remoteRepository.saveRecord('billingProfiles', draft);
+  await syncRemoteBillingProfilePrices(profileId, draft);
+  return profileId;
+}
+
 async function saveRemoteSiteRecord(draft){
   const projectIds = normalizeStringArray(draft.projectIds);
   const siteId = await remoteRepository.saveRecord('sites', { ...draft, siteType:resolveSiteTypeValue(state.data.siteTypes, draft.siteType), projectId:projectIds[0] || '' });
@@ -6058,6 +6276,9 @@ async function saveEntityFromModal(){
     } else if(modalState.entity === 'contacts'){
       if(isRemoteMode()){ await saveRemoteContactRecord(modalState.formData); await loadData({ silent:true, force:true }); }
       else await saveLocalContactRecord(modalState.formData);
+    } else if(modalState.entity === 'billingProfiles'){
+      if(isRemoteMode()){ await saveRemoteBillingProfileRecord(modalState.formData); await loadData({ silent:true, force:true }); }
+      else await saveLocalBillingProfileRecord(modalState.formData);
     } else if(modalState.entity === 'sites'){
       if(isRemoteMode()){ await saveRemoteSiteRecord(modalState.formData); await loadData({ silent:true, force:true }); }
       else await saveLocalSiteRecord(modalState.formData);
@@ -6089,20 +6310,24 @@ function buildLocalDeleteResult(entityKey, id){
   const next = clone(state.data);
   if(entityKey === 'clients'){
     const clientSiteIds = new Set(next.sites.filter((row) => row.clientId === id).map((row) => row.id));
+    const clientBillingProfileIds = new Set(next.billingProfiles.filter((row) => row.clientId === id).map((row) => row.id));
     next.clients = next.clients.filter((row) => row.id !== id);
     next.projects = next.projects.filter((row) => row.clientId !== id);
     next.contacts = next.contacts.filter((row) => row.clientId !== id);
     next.contactProjects = next.contactProjects.filter((row) => next.contacts.some((contact) => contact.id === row.contactId));
     next.contactSites = next.contactSites.filter((row) => next.contacts.some((contact) => contact.id === row.contactId));
     next.billingProfiles = next.billingProfiles.filter((row) => row.clientId !== id);
+    next.billingProfilePrices = next.billingProfilePrices.filter((row) => !clientBillingProfileIds.has(row.billingProfileId));
     next.sites = next.sites.filter((row) => row.clientId !== id);
     next.siteProjects = next.siteProjects.filter((row) => !clientSiteIds.has(row.siteId));
   }
   else if(entityKey === 'projects'){
+    const projectBillingProfileIds = new Set(next.billingProfiles.filter((row) => row.projectId === id).map((row) => row.id));
     next.projects = next.projects.filter((row) => row.id !== id);
     next.contacts = next.contacts.map((row) => row.projectId === id ? { ...row, projectId:'' } : row);
     next.contactProjects = next.contactProjects.filter((row) => row.projectId !== id);
     next.billingProfiles = next.billingProfiles.filter((row) => row.projectId !== id);
+    next.billingProfilePrices = next.billingProfilePrices.filter((row) => !projectBillingProfileIds.has(row.billingProfileId));
     next.siteProjects = next.siteProjects.filter((row) => row.projectId !== id);
   }
   else if(entityKey === 'sites'){
@@ -6115,6 +6340,10 @@ function buildLocalDeleteResult(entityKey, id){
     next.contacts = next.contacts.filter((row) => row.id !== id).map((row) => row.managerContactId === id ? { ...row, managerContactId:'' } : row);
     next.contactProjects = next.contactProjects.filter((row) => row.contactId !== id);
     next.contactSites = next.contactSites.filter((row) => row.contactId !== id);
+  }
+  else if(entityKey === 'billingProfiles'){
+    next.billingProfiles = next.billingProfiles.filter((row) => row.id !== id);
+    next.billingProfilePrices = next.billingProfilePrices.filter((row) => row.billingProfileId !== id);
   }
   else if(entityKey === 'siteTypes'){
     const siteType = next.siteTypes.find((row) => row.id === id) || null;

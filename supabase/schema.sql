@@ -525,6 +525,74 @@ alter table public.field_billing_profiles add constraint field_billing_profiles_
 alter table public.field_billing_profiles drop constraint if exists field_billing_profiles_project_id_fkey;
 alter table public.field_billing_profiles add constraint field_billing_profiles_project_id_fkey foreign key (project_id) references public.field_projects(id) on delete cascade;
 
+create table if not exists public.billing_price_items (
+  id uuid primary key default gen_random_uuid(),
+  item_key text not null default '',
+  price_section text not null default '',
+  category text not null default '',
+  method text not null default '',
+  description text not null default '',
+  unit_name text not null default 'Per Sample',
+  sort_order integer not null default 0,
+  is_active boolean not null default true,
+  notes text not null default '',
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+alter table public.billing_price_items add column if not exists item_key text not null default '';
+alter table public.billing_price_items add column if not exists price_section text not null default '';
+alter table public.billing_price_items add column if not exists category text not null default '';
+alter table public.billing_price_items add column if not exists method text not null default '';
+alter table public.billing_price_items add column if not exists description text not null default '';
+alter table public.billing_price_items add column if not exists unit_name text not null default 'Per Sample';
+alter table public.billing_price_items add column if not exists sort_order integer not null default 0;
+alter table public.billing_price_items add column if not exists is_active boolean not null default true;
+alter table public.billing_price_items add column if not exists notes text not null default '';
+update public.billing_price_items
+set item_key = trim(both '_' from regexp_replace(upper(coalesce(nullif(item_key, ''), method || ' ' || description)), '[^A-Z0-9]+', '_', 'g'))
+where coalesce(item_key, '') = ''
+  or item_key <> trim(both '_' from regexp_replace(upper(item_key), '[^A-Z0-9]+', '_', 'g'));
+create unique index if not exists billing_price_items_item_key_unique_idx on public.billing_price_items(item_key);
+create unique index if not exists billing_price_items_item_key_lower_unique_idx on public.billing_price_items(lower(item_key));
+create index if not exists billing_price_items_active_sort_idx on public.billing_price_items(is_active, sort_order, item_key);
+
+create table if not exists public.field_billing_profile_prices (
+  id uuid primary key default gen_random_uuid(),
+  billing_profile_id uuid not null references public.field_billing_profiles(id) on delete cascade,
+  price_item_id uuid not null references public.billing_price_items(id) on delete restrict,
+  rate_amount numeric(12,2),
+  currency_code text not null default 'USD',
+  effective_year integer not null default 2026,
+  is_active boolean not null default true,
+  notes text not null default '',
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid,
+  unique (billing_profile_id, price_item_id, effective_year)
+);
+alter table public.field_billing_profile_prices add column if not exists billing_profile_id uuid;
+alter table public.field_billing_profile_prices add column if not exists price_item_id uuid;
+alter table public.field_billing_profile_prices add column if not exists rate_amount numeric(12,2);
+alter table public.field_billing_profile_prices add column if not exists currency_code text not null default 'USD';
+alter table public.field_billing_profile_prices add column if not exists effective_year integer not null default 2026;
+alter table public.field_billing_profile_prices add column if not exists is_active boolean not null default true;
+alter table public.field_billing_profile_prices add column if not exists notes text not null default '';
+alter table public.field_billing_profile_prices drop constraint if exists field_billing_profile_prices_billing_profile_id_fkey;
+alter table public.field_billing_profile_prices add constraint field_billing_profile_prices_billing_profile_id_fkey foreign key (billing_profile_id) references public.field_billing_profiles(id) on delete cascade;
+alter table public.field_billing_profile_prices drop constraint if exists field_billing_profile_prices_price_item_id_fkey;
+alter table public.field_billing_profile_prices add constraint field_billing_profile_prices_price_item_id_fkey foreign key (price_item_id) references public.billing_price_items(id) on delete restrict;
+alter table public.field_billing_profile_prices drop constraint if exists field_billing_profile_prices_effective_year_check;
+alter table public.field_billing_profile_prices add constraint field_billing_profile_prices_effective_year_check check (effective_year between 2000 and 2100);
+alter table public.field_billing_profile_prices drop constraint if exists field_billing_profile_prices_rate_amount_check;
+alter table public.field_billing_profile_prices add constraint field_billing_profile_prices_rate_amount_check check (rate_amount is null or rate_amount >= 0);
+create unique index if not exists field_billing_profile_prices_profile_item_year_unique_idx on public.field_billing_profile_prices(billing_profile_id, price_item_id, effective_year);
+create index if not exists field_billing_profile_prices_billing_profile_id_idx on public.field_billing_profile_prices(billing_profile_id);
+create index if not exists field_billing_profile_prices_price_item_id_idx on public.field_billing_profile_prices(price_item_id);
+create index if not exists field_billing_profile_prices_effective_year_idx on public.field_billing_profile_prices(effective_year);
+
 create or replace function public.field_ops_catalog_key(raw_value text)
 returns text
 language sql
@@ -3153,6 +3221,8 @@ declare
     'field_contact_projects',
     'field_contact_sites',
     'field_billing_profiles',
+    'billing_price_items',
+    'field_billing_profile_prices',
     'field_site_types',
     'field_sites',
     'field_site_projects',
