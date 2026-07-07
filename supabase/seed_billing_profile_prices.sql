@@ -33,7 +33,10 @@ values
   ('GAS_GPA2261_ANALYSIS_O2', 'Natural Gas Samples', 'Gas', 'GPA 2261', 'Gas Analysis (C1-C6+, BTU, RD, O2)', 'Per Sample', 190, true),
   ('GAS_ASTMD4810_H2S_STAINED_TUBE_FIELD', 'Natural Gas Samples', 'Gas', 'ASTM D4810', 'H2S - Stained Tube (Field)', 'Per Sample', 200, true),
   ('GAS_GPA2199_CAPILLARY_GC_SULFUR_CLD', 'Natural Gas Samples', 'Gas', 'GPA 2199', 'Capillary GC + Sulfur CLD', 'Per Sample', 210, true),
-  ('GAS_ASTMD1946_REFORMED_GAS_COMPOSITION', 'Natural Gas Samples', 'Gas', 'ASTM D1946', 'Reformed Gas Composition', 'Per Sample', 220, true)
+  ('GAS_ASTMD1946_REFORMED_GAS_COMPOSITION', 'Natural Gas Samples', 'Gas', 'ASTM D1946', 'Reformed Gas Composition', 'Per Sample', 220, true),
+  ('FIELD_VEHICLE_MILEAGE', 'Field & Labor', 'Field', '', 'Vehicle Mileage', 'Per Mile', 230, true),
+  ('FIELD_SAMPLING_TECHNICIAN', 'Field & Labor', 'Field', '', 'Sampling Technician', 'Per Hour', 240, true),
+  ('FIELD_SAMPLING_TECHNICIAN_OVERTIME', 'Field & Labor', 'Field', '', 'Sampling Technician - Overtime', 'Per Hour', 250, true)
 on conflict (item_key) do update
 set price_section = excluded.price_section,
     category = excluded.category,
@@ -85,8 +88,6 @@ where not exists (
   select 1
   from public.field_billing_profiles existing
   where existing.client_id = mc.client_id
-    and existing.project_id is null
-    and existing.billing_name = '2026 Rate Schedule'
 );
 
 with client_aliases(workbook_client_name, alias_name) as (
@@ -121,9 +122,7 @@ profile_choice as (
   from matched_clients mc
   join public.field_billing_profiles p
     on p.client_id = mc.client_id
-   and p.project_id is null
-   and p.billing_name = '2026 Rate Schedule'
-  order by mc.client_id, p.is_default desc, p.created_at asc, p.id asc
+  order by mc.client_id, p.is_default desc, (p.project_id is null) desc, p.created_at asc, p.id asc
 ),
 price_seed(item_key, rate_amount) as (
   values
@@ -148,7 +147,10 @@ price_seed(item_key, rate_amount) as (
     ('GAS_GPA2261_ANALYSIS_O2', 29),
     ('GAS_ASTMD4810_H2S_STAINED_TUBE_FIELD', 44),
     ('GAS_GPA2199_CAPILLARY_GC_SULFUR_CLD', 239),
-    ('GAS_ASTMD1946_REFORMED_GAS_COMPOSITION', 498)
+    ('GAS_ASTMD1946_REFORMED_GAS_COMPOSITION', 498),
+    ('FIELD_VEHICLE_MILEAGE', 1.75),
+    ('FIELD_SAMPLING_TECHNICIAN', 87),
+    ('FIELD_SAMPLING_TECHNICIAN_OVERTIME', 130)
 )
 insert into public.field_billing_profile_prices (
   billing_profile_id,

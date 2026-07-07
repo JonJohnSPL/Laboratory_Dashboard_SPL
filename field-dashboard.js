@@ -136,7 +136,10 @@ const DEFAULT_BILLING_PRICE_ITEMS = [
   { itemKey:'GAS_GPA2261_ANALYSIS_O2', priceSection:'Natural Gas Samples', category:'Gas', method:'GPA 2261', description:'Gas Analysis (C1-C6+, BTU, RD, O2)', unitName:'Per Sample', sortOrder:190 },
   { itemKey:'GAS_ASTMD4810_H2S_STAINED_TUBE_FIELD', priceSection:'Natural Gas Samples', category:'Gas', method:'ASTM D4810', description:'H2S - Stained Tube (Field)', unitName:'Per Sample', sortOrder:200 },
   { itemKey:'GAS_GPA2199_CAPILLARY_GC_SULFUR_CLD', priceSection:'Natural Gas Samples', category:'Gas', method:'GPA 2199', description:'Capillary GC + Sulfur CLD', unitName:'Per Sample', sortOrder:210 },
-  { itemKey:'GAS_ASTMD1946_REFORMED_GAS_COMPOSITION', priceSection:'Natural Gas Samples', category:'Gas', method:'ASTM D1946', description:'Reformed Gas Composition', unitName:'Per Sample', sortOrder:220 }
+  { itemKey:'GAS_ASTMD1946_REFORMED_GAS_COMPOSITION', priceSection:'Natural Gas Samples', category:'Gas', method:'ASTM D1946', description:'Reformed Gas Composition', unitName:'Per Sample', sortOrder:220 },
+  { itemKey:'FIELD_VEHICLE_MILEAGE', priceSection:'Field & Labor', category:'Field', method:'', description:'Vehicle Mileage', unitName:'Per Mile', sortOrder:230 },
+  { itemKey:'FIELD_SAMPLING_TECHNICIAN', priceSection:'Field & Labor', category:'Field', method:'', description:'Sampling Technician', unitName:'Per Hour', sortOrder:240 },
+  { itemKey:'FIELD_SAMPLING_TECHNICIAN_OVERTIME', priceSection:'Field & Labor', category:'Field', method:'', description:'Sampling Technician - Overtime', unitName:'Per Hour', sortOrder:250 }
 ];
 
 const PRIORITY_RANK = { Urgent:0, High:1, Normal:2, Low:3 };
@@ -148,7 +151,7 @@ const ENTITY_CONFIG = {
   contacts:{ table:'field_contacts', label:'Contact', idPrefix:'contact', defaults:{ clientId:'', projectId:'', siteId:'', projectIds:[], siteIds:[], managerContactId:'', contactFirstName:'', contactLastName:'', contactName:'', contactRole:'', phone:'', email:'', contactScope:'Operations', isPrimary:false, notes:'' }, fieldMap:{ clientId:'client_id', projectId:'project_id', siteId:'site_id', managerContactId:'manager_contact_id', contactFirstName:'contact_first_name', contactLastName:'contact_last_name', contactName:'contact_name', contactRole:'contact_role', phone:'phone', email:'email', contactScope:'contact_scope', isPrimary:'is_primary', notes:'notes' }, idFields:['clientId', 'projectId', 'siteId', 'managerContactId'], booleanFields:['isPrimary'], arrayFields:['projectIds', 'siteIds'], localOnlyFields:['projectIds', 'siteIds'] },
   contactProjects:{ table:'field_contact_projects', label:'Contact Project Link', idPrefix:'contactproj', defaults:{ contactId:'', projectId:'' }, fieldMap:{ contactId:'contact_id', projectId:'project_id' }, idFields:['contactId', 'projectId'] },
   contactSites:{ table:'field_contact_sites', label:'Contact Site Link', idPrefix:'contactsite', defaults:{ contactId:'', siteId:'' }, fieldMap:{ contactId:'contact_id', siteId:'site_id' }, idFields:['contactId', 'siteId'] },
-  billingProfiles:{ table:'field_billing_profiles', label:'Billing Profile', idPrefix:'bill', defaults:{ clientId:'', projectId:'', billingName:'', billingAddress:'', billingEmail:'', billingPhone:'', poNumber:'', referenceNumber:'', invoiceNotes:'', fieldBillingNotes:'', labBillingNotes:'', isDefault:false }, fieldMap:{ clientId:'client_id', projectId:'project_id', billingName:'billing_name', billingAddress:'billing_address', billingEmail:'billing_email', billingPhone:'billing_phone', poNumber:'po_number', referenceNumber:'reference_number', invoiceNotes:'invoice_notes', fieldBillingNotes:'field_billing_notes', labBillingNotes:'lab_billing_notes', isDefault:'is_default' }, idFields:['clientId', 'projectId'], booleanFields:['isDefault'] },
+  billingProfiles:{ table:'field_billing_profiles', label:'Billing Profile', idPrefix:'bill', defaults:{ clientId:'', projectId:'', billingContactId:'', billingName:'', billingAddress:'', billingEmail:'', billingPhone:'', poNumber:'', referenceNumber:'', invoiceNotes:'', fieldBillingNotes:'', labBillingNotes:'', isDefault:false }, fieldMap:{ clientId:'client_id', projectId:'project_id', billingContactId:'billing_contact_id', billingName:'billing_name', billingAddress:'billing_address', billingEmail:'billing_email', billingPhone:'billing_phone', poNumber:'po_number', referenceNumber:'reference_number', invoiceNotes:'invoice_notes', fieldBillingNotes:'field_billing_notes', labBillingNotes:'lab_billing_notes', isDefault:'is_default' }, idFields:['clientId', 'projectId', 'billingContactId'], booleanFields:['isDefault'] },
   priceItems:{ table:'billing_price_items', label:'Price Item', idPrefix:'priceitem', defaults:{ itemKey:'', priceSection:'', category:'', method:'', description:'', unitName:'Per Sample', sortOrder:0, isActive:true, notes:'' }, fieldMap:{ itemKey:'item_key', priceSection:'price_section', category:'category', method:'method', description:'description', unitName:'unit_name', sortOrder:'sort_order', isActive:'is_active', notes:'notes' }, numberFields:['sortOrder'], booleanFields:['isActive'] },
   billingProfilePrices:{ table:'field_billing_profile_prices', label:'Billing Profile Price', idPrefix:'billprice', defaults:{ billingProfileId:'', priceItemId:'', rateAmount:null, currencyCode:'USD', effectiveYear:BILLING_RATE_EFFECTIVE_YEAR, isActive:true, notes:'' }, fieldMap:{ billingProfileId:'billing_profile_id', priceItemId:'price_item_id', rateAmount:'rate_amount', currencyCode:'currency_code', effectiveYear:'effective_year', isActive:'is_active', notes:'notes' }, idFields:['billingProfileId', 'priceItemId'], numberFields:['rateAmount', 'effectiveYear'], booleanFields:['isActive'] },
   siteTypes:{ table:'field_site_types', label:'Site Type', idPrefix:'sitetype', defaults:{ siteTypeKey:'', siteTypeName:'', isActive:true, siteTypeStatus:'active', defaultJobTypes:[], notes:'' }, fieldMap:{ siteTypeKey:'site_type_key', siteTypeName:'site_type_name', isActive:'is_active', notes:'notes' }, booleanFields:['isActive'], arrayFields:['defaultJobTypes'], localOnlyFields:['siteTypeStatus', 'defaultJobTypes'] },
@@ -652,6 +655,53 @@ function getDefaultBillingPriceItemRecords(){
     notes:''
   }, { fromRemote:false })).sort(getEntitySorter('priceItems'));
 }
+function getBillingProfileSortScore(profile){
+  return [Number(profile?.isDefault !== true), Number(!!profile?.projectId), String(profile?.createdAt || ''), String(profile?.id || '')];
+}
+
+function compareBillingProfileKeepPriority(a, b){
+  const left = getBillingProfileSortScore(a);
+  const right = getBillingProfileSortScore(b);
+  for(let index = 0; index < left.length; index += 1){
+    const value = compareStrings(left[index], right[index]);
+    if(value) return value;
+  }
+  return 0;
+}
+
+function consolidateBillingProfiles(data){
+  const redirectProfileIds = new Map();
+  const grouped = new Map();
+  data.billingProfiles.forEach((profile) => {
+    if(!profile.clientId) return;
+    if(!grouped.has(profile.clientId)) grouped.set(profile.clientId, []);
+    grouped.get(profile.clientId).push(profile);
+  });
+  grouped.forEach((profiles) => {
+    const sortedProfiles = [...profiles].sort(compareBillingProfileKeepPriority);
+    const keeper = sortedProfiles[0];
+    keeper.projectId = '';
+    keeper.isDefault = true;
+    sortedProfiles.slice(1).forEach((profile) => {
+      ['billingContactId', 'billingName', 'billingAddress', 'billingEmail', 'billingPhone', 'invoiceNotes', 'fieldBillingNotes', 'labBillingNotes'].forEach((key) => {
+        if(!keeper[key] && profile[key]) keeper[key] = profile[key];
+      });
+      redirectProfileIds.set(profile.id, keeper.id);
+    });
+  });
+  if(redirectProfileIds.size){
+    const removedIds = new Set(redirectProfileIds.keys());
+    data.billingProfiles = data.billingProfiles.filter((profile) => !removedIds.has(profile.id));
+    data.billingProfilePrices = data.billingProfilePrices.map((price) => redirectProfileIds.has(price.billingProfileId) ? { ...price, billingProfileId:redirectProfileIds.get(price.billingProfileId) } : price);
+  }
+  const seenPrices = new Set();
+  data.billingProfilePrices = data.billingProfilePrices.filter((price) => {
+    const key = `${price.billingProfileId}::${price.priceItemId}::${Number(price.effectiveYear || BILLING_RATE_EFFECTIVE_YEAR)}`;
+    if(seenPrices.has(key)) return false;
+    seenPrices.add(key);
+    return true;
+  });
+}
 
 function getDefaultSplSiteRecords(){
   return [normalizeRecord('splSites', {
@@ -922,7 +972,7 @@ function repairDataRelationships(data){
     unitName:item.unitName || 'Per Sample',
     sortOrder:Number.isFinite(Number(item.sortOrder)) ? Number(item.sortOrder) : (index + 1) * 10,
     isActive:item.isActive
-  }, { fromRemote:false })).filter((item) => item.itemKey && item.method && item.description).sort(getEntitySorter('priceItems'));
+  }, { fromRemote:false })).filter((item) => item.itemKey && item.description).sort(getEntitySorter('priceItems'));
   data.billingProfilePrices = data.billingProfilePrices
     .filter((price) => data.billingProfiles.some((profile) => profile.id === price.billingProfileId))
     .filter((price) => data.priceItems.some((item) => item.id === price.priceItemId))
@@ -1012,7 +1062,10 @@ function repairDataRelationships(data){
       const project = data.projects.find((row) => row.id === profile.projectId) || null;
       if(project) profile.clientId = project.clientId;
     }
+    const billingContact = data.contacts.find((row) => row.id === profile.billingContactId) || null;
+    if(billingContact && billingContact.clientId !== profile.clientId) profile.billingContactId = '';
   });
+  consolidateBillingProfiles(data);
   return data;
 }
 
@@ -1315,7 +1368,7 @@ function getModalBillingPriceDrafts(){
   return modalState.formData.priceDrafts;
 }
 function updateBillingPriceDraft(priceItemId, key, value, mode = 'text'){
-  if(!modalState.open || modalState.entity !== 'billingProfiles') return;
+  if(!modalState.open || modalState.entity !== 'billingRates') return;
   const row = getModalBillingPriceDrafts().find((item) => item.priceItemId === priceItemId);
   if(!row) return;
   if(key === 'rateAmount') row.rateAmount = mode === 'number' ? normalizeNumber(value) : value;
@@ -1429,6 +1482,12 @@ function getSitesForProject(projectId){ return state.data.sites.filter((row) => 
 function getJobsForProject(projectId){ return state.data.jobs.filter((row) => row.projectId === projectId); }
 function getContactsForClient(clientId){ return state.data.contacts.filter((row) => row.clientId === clientId); }
 function getBillingProfilesForClient(clientId){ return state.data.billingProfiles.filter((row) => row.clientId === clientId); }
+function getBillingProfileForClient(clientId){ return getBillingProfilesForClient(clientId).sort(compareBillingProfileKeepPriority)[0] || null; }
+function getBillingContactLabel(profile){
+  const contact = getContact(profile?.billingContactId || '');
+  if(!contact) return 'No billing contact';
+  return [getContactDisplayName(contact), contact.contactRole].filter(Boolean).join(' | ');
+}
 function getJobSiteIds(jobOrId){
   const job = typeof jobOrId === 'object' && jobOrId !== null ? jobOrId : getJob(jobOrId);
   if(!job) return [];
@@ -2308,14 +2367,11 @@ const FORM_DEFINITIONS = {
   billingProfiles:[
     { kind:'section', label:'Billing Profile' },
     { key:'clientId', label:'Client', type:'select', options:() => buildClientOptions(), handler:'changeBillingClient' },
-    { key:'projectId', label:'Project', type:'select', options:() => buildProjectOptions(modalState.formData.clientId), handler:'changeBillingProject' },
+    { key:'billingContactId', label:'Billing Contact', type:'select', options:() => buildBillingContactOptions(modalState.formData.clientId) },
     { key:'billingName', label:'Billing Name', type:'text', required:true },
     { key:'billingAddress', label:'Billing Address', type:'textarea', full:true },
     { key:'billingEmail', label:'Billing Email', type:'email' },
     { key:'billingPhone', label:'Billing Phone', type:'text' },
-    { key:'poNumber', label:'PO Number', type:'text' },
-    { key:'referenceNumber', label:'Reference Number', type:'text' },
-    { key:'isDefault', label:'Default Billing Profile', type:'checkbox' },
     { key:'invoiceNotes', label:'Invoice Notes', type:'textarea', full:true },
     { key:'fieldBillingNotes', label:'Field Billing Notes', type:'textarea', full:true },
     { key:'labBillingNotes', label:'Lab Billing Notes', type:'textarea', full:true }
@@ -2662,6 +2718,11 @@ function buildContactOptions(clientId = '', projectId = ''){
   return state.data.contacts
     .filter((row) => (!clientId || row.clientId === clientId) && contactMatchesProjectScope(row, projectId))
     .map((row) => ({ value:row.id, label:`${getContactDisplayName(row)} | ${row.contactRole || row.contactScope || 'Contact'}` }));
+}
+function buildBillingContactOptions(clientId = ''){
+  return state.data.contacts
+    .filter((row) => !clientId || row.clientId === clientId)
+    .map((row) => ({ value:row.id, label:`${getContactDisplayName(row)} | ${row.contactRole || row.contactScope || 'Billing contact'}` }));
 }
 function buildJobContactOptions(clientId = '', projectId = '', siteId = ''){
   return state.data.contacts
@@ -3571,9 +3632,8 @@ function getDirectoryContacts(clientId, projectId = 'all'){
     .sort(getEntitySorter('contacts'));
 }
 function getDirectoryBillingProfiles(clientId, projectId = 'all'){
-  return state.data.billingProfiles
-    .filter((row) => row.clientId === clientId && (projectId === 'all' || !row.projectId || row.projectId === projectId))
-    .sort(getEntitySorter('billingProfiles'));
+  const profile = getBillingProfileForClient(clientId);
+  return profile ? [profile] : [];
 }
 function getDirectorySites(clientId, projectId = 'all'){
   return state.data.sites
@@ -3651,7 +3711,7 @@ function renderDirectoryOverviewSection(client, activeProjectId){
   const primaryContacts = contacts.filter((row) => row.isPrimary);
   const upcomingJobs = jobs.filter((row) => !isJobClosed(row)).slice(0, 4);
   const address = [client.hqStreet, [client.hqCity, client.hqState].filter(Boolean).join(', '), client.hqZip].filter(Boolean).join(' ');
-  return `<div class="summary-grid directory-summary-grid"><div class="summary-card"><div class="label">Service Scope</div><div class="value">${esc(client.serviceScope || 'Field')}</div><div class="muted">${esc(client.sector || 'No sector')}</div></div><div class="summary-card"><div class="label">Client Code</div><div class="value">${esc(normalizeClientCode(client.clientCode) || 'Missing')}</div><div class="muted">Lab samples tie back to this client through the shared code.</div></div><div class="summary-card"><div class="label">Projects</div><div class="value">${projects.length}</div><div class="muted">Manage project scope from the Projects tab.</div></div><div class="summary-card"><div class="label">Contacts</div><div class="value">${contacts.length}</div><div class="muted">${esc(primaryContacts.length ? `${primaryContacts.length} primary contact${primaryContacts.length === 1 ? '' : 's'}` : 'No primary contacts flagged')}</div></div><div class="summary-card"><div class="label">Site/Locations</div><div class="value">${sites.length}</div><div class="muted">${esc(jobs.length)} active workflow record(s) for this client</div></div></div><div class="directory-section-grid"><div class="summary-card"><div class="label">Company Snapshot</div><div class="value">${esc(client.clientName || 'Unnamed client')}</div><div class="muted">${esc(normalizeClientCode(client.clientCode) || 'No client code')}</div><div class="muted">${esc(address || 'No HQ address on file')}</div><div class="muted">${esc(client.defaultServiceArea || 'No default service area')}</div><div class="mini-tags">${getStatusBadge(client.accountStatus)}${getStatusBadge(client.serviceScope || 'Field')}</div></div><div class="summary-card"><div class="label">Billing Snapshot</div><div class="value">${esc(billingProfiles[0]?.billingName || 'No billing profile')}</div><div class="muted">${esc(billingProfiles[0]?.billingEmail || billingProfiles[0]?.billingPhone || client.contactEmail || 'No billing contact on file')}</div><div class="muted">${esc(billingProfiles[0]?.poNumber || billingProfiles[0]?.referenceNumber || 'No PO / reference')}</div></div><div class="summary-card"><div class="label">Field Snapshot</div><div class="value">${esc(client.primaryContact || 'No primary contact')}</div><div class="muted">${esc(client.contactPhone || client.contactEmail || 'No client phone or email')}</div><div class="muted">${esc(client.operationalNotes || 'No field notes added yet')}</div></div></div><div class="directory-subsection"><div class="panel-header directory-subsection-head"><h2>Upcoming Jobs</h2><button class="act-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button></div><div class="panel-body">${upcomingJobs.length ? `<div class="mini-list">${upcomingJobs.map((job) => `<div class="mini-card clickable-card" role="button" tabindex="0" onclick="openEntityModal('jobs','${esc(job.id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEntityModal('jobs','${esc(job.id)}'); }"><div class="mini-head"><div><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(getProjectLabel(job.projectId))} | ${esc(getJobSiteSummary(job))}</div></div>${getPriorityBadge(job.priority)}</div><div class="mini-tags"><span class="mini-tag">${esc(getJobScheduleLabel(job))}</span>${renderJobSalesforceTag(job)}</div></div>`).join('')}</div>` : '<div class="empty-state">No jobs are queued for this client yet.</div>'}</div></div>`;
+  return `<div class="summary-grid directory-summary-grid"><div class="summary-card"><div class="label">Service Scope</div><div class="value">${esc(client.serviceScope || 'Field')}</div><div class="muted">${esc(client.sector || 'No sector')}</div></div><div class="summary-card"><div class="label">Client Code</div><div class="value">${esc(normalizeClientCode(client.clientCode) || 'Missing')}</div><div class="muted">Lab samples tie back to this client through the shared code.</div></div><div class="summary-card"><div class="label">Projects</div><div class="value">${projects.length}</div><div class="muted">Manage project scope from the Projects tab.</div></div><div class="summary-card"><div class="label">Contacts</div><div class="value">${contacts.length}</div><div class="muted">${esc(primaryContacts.length ? `${primaryContacts.length} primary contact${primaryContacts.length === 1 ? '' : 's'}` : 'No primary contacts flagged')}</div></div><div class="summary-card"><div class="label">Site/Locations</div><div class="value">${sites.length}</div><div class="muted">${esc(jobs.length)} active workflow record(s) for this client</div></div></div><div class="directory-section-grid"><div class="summary-card"><div class="label">Company Snapshot</div><div class="value">${esc(client.clientName || 'Unnamed client')}</div><div class="muted">${esc(normalizeClientCode(client.clientCode) || 'No client code')}</div><div class="muted">${esc(address || 'No HQ address on file')}</div><div class="muted">${esc(client.defaultServiceArea || 'No default service area')}</div><div class="mini-tags">${getStatusBadge(client.accountStatus)}${getStatusBadge(client.serviceScope || 'Field')}</div></div><div class="summary-card"><div class="label">Billing Snapshot</div><div class="value">${esc(billingProfiles[0]?.billingName || 'No billing profile')}</div><div class="muted">${esc(billingProfiles[0]?.billingEmail || billingProfiles[0]?.billingPhone || client.contactEmail || 'No billing contact on file')}</div><div class="muted">${esc(billingProfiles[0] ? getBillingContactLabel(billingProfiles[0]) : 'No billing contact on file')}</div></div><div class="summary-card"><div class="label">Field Snapshot</div><div class="value">${esc(client.primaryContact || 'No primary contact')}</div><div class="muted">${esc(client.contactPhone || client.contactEmail || 'No client phone or email')}</div><div class="muted">${esc(client.operationalNotes || 'No field notes added yet')}</div></div></div><div class="directory-subsection"><div class="panel-header directory-subsection-head"><h2>Upcoming Jobs</h2><button class="act-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button></div><div class="panel-body">${upcomingJobs.length ? `<div class="mini-list">${upcomingJobs.map((job) => `<div class="mini-card clickable-card" role="button" tabindex="0" onclick="openEntityModal('jobs','${esc(job.id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEntityModal('jobs','${esc(job.id)}'); }"><div class="mini-head"><div><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(getProjectLabel(job.projectId))} | ${esc(getJobSiteSummary(job))}</div></div>${getPriorityBadge(job.priority)}</div><div class="mini-tags"><span class="mini-tag">${esc(getJobScheduleLabel(job))}</span>${renderJobSalesforceTag(job)}</div></div>`).join('')}</div>` : '<div class="empty-state">No jobs are queued for this client yet.</div>'}</div></div>`;
 }
 function renderDirectoryProjectsSection(clientId, activeProjectId){
   const projects = getDirectoryProjects(clientId);
@@ -3739,17 +3799,29 @@ function renderDirectoryContactsSection(clientId, activeProjectId){
   ])), '<strong>No contacts match</strong>Adjust the contact filters or add a linked contact for this client.')}`;
 }
 function renderDirectoryBillingSection(clientId, activeProjectId){
-  const billingProfiles = getDirectoryBillingProfiles(clientId, activeProjectId);
-  return renderTable(['Billing Profile', 'Project', 'Billing Contact', 'PO / Reference', 'Rates', 'Default', 'Notes'], billingProfiles.map((profile) => buildTableRow('billingProfiles', profile.id, [
-    `<div class="inline-stack"><div class="item-title">${esc(profile.billingName || 'Unnamed billing profile')}</div><div class="muted">${esc(profile.billingAddress || 'No billing address')}</div></div>`,
-    esc(profile.projectId ? getProjectLabel(profile.projectId) : 'Client-wide'),
-    `<div class="inline-stack"><div>${esc(profile.billingEmail || 'No email')}</div><div class="muted">${esc(profile.billingPhone || 'No phone')}</div></div>`,
-    `<div class="inline-stack"><div>${esc(profile.poNumber || 'No PO')}</div><div class="muted">${esc(profile.referenceNumber || 'No reference')}</div></div>`,
-    `<span class="tag-chip">${esc(getBillingPriceCount(profile.id))} priced</span>`,
-    profile.isDefault ? '<span class="tag-chip">Default</span>' : '<span class="muted">No</span>',
-    `<div class="muted">${esc(profile.invoiceNotes || profile.fieldBillingNotes || profile.labBillingNotes || 'No notes')}</div>`
-  ])), '<strong>No billing profiles yet</strong>Capture field and lab invoicing details here so the client record stays usable across both teams.');
+  const profile = getBillingProfileForClient(clientId);
+  if(!profile){
+    return `<div class="directory-subsection"><div class="panel-header directory-subsection-head"><h2>Billing</h2><button class="act-btn" type="button" onclick="openClientBillingProfile('${esc(clientId)}')">+ Create Billing</button></div><div class="panel-body"><div class="empty-state"><strong>No billing profile yet</strong>Create one billing profile for this client, then add the 2026 rate schedule.</div></div></div>`;
+  }
+  const billingContact = getContact(profile.billingContactId);
+  const contactMeta = billingContact ? [billingContact.phone, billingContact.email].filter(Boolean).join(' | ') : '';
+  const detailMarkup = `<div class="billing-profile-summary">
+    <div class="billing-detail-card"><span>Billing Name</span><strong>${esc(profile.billingName || 'Unnamed billing profile')}</strong></div>
+    <div class="billing-detail-card"><span>Billing Contact</span><strong>${esc(getBillingContactLabel(profile))}</strong>${contactMeta ? `<small>${esc(contactMeta)}</small>` : ''}</div>
+    <div class="billing-detail-card"><span>Email</span><strong>${esc(profile.billingEmail || 'No billing email')}</strong></div>
+    <div class="billing-detail-card"><span>Phone</span><strong>${esc(profile.billingPhone || 'No billing phone')}</strong></div>
+    <div class="billing-detail-card wide"><span>Billing Address</span><strong>${esc(profile.billingAddress || 'No billing address')}</strong></div>
+    <div class="billing-detail-card wide"><span>Invoice Notes</span><strong>${esc(profile.invoiceNotes || 'No invoice notes')}</strong></div>
+    <div class="billing-detail-card wide"><span>Field Billing Notes</span><strong>${esc(profile.fieldBillingNotes || 'No field billing notes')}</strong></div>
+    <div class="billing-detail-card wide"><span>Lab Billing Notes</span><strong>${esc(profile.labBillingNotes || 'No lab billing notes')}</strong></div>
+  </div>`;
+  const priceCount = getBillingPriceCount(profile.id);
+  return `<div class="directory-subsection billing-directory-section">
+    <div class="panel-header directory-subsection-head"><h2>Billing</h2><div class="table-actions"><button class="act-btn" type="button" onclick="openClientBillingProfile('${esc(clientId)}')">Edit Billing</button><button class="act-btn" type="button" onclick="openBillingRatesModal('${esc(profile.id)}')">Edit Rates</button></div></div>
+    <div class="panel-body">${detailMarkup}<div class="rate-schedule-head"><div><h3>${esc(BILLING_RATE_EFFECTIVE_YEAR)} Rate Schedule</h3><div class="muted">${esc(priceCount)} priced line item${priceCount === 1 ? '' : 's'}</div></div></div>${renderBillingRateScheduleTable(profile)}</div>
+  </div>`;
 }
+
 function renderDirectorySitesSection(clientId, activeProjectId){
   const sites = getDirectorySites(clientId, activeProjectId);
   return renderTable(['Site/Location', 'Linked Projects', 'Type / Status', 'Location', 'Default Job Types', 'Jobs'], sites.map((site) => buildTableRow('sites', site.id, [
@@ -3787,8 +3859,8 @@ function renderDirectory(){
   const billingProfiles = getDirectoryBillingProfiles(activeClient.id, activeProjectId);
   const sites = getDirectorySites(activeClient.id, activeProjectId);
   document.getElementById('directory-detail-title').textContent = activeClient.clientName || 'Client Workspace';
-  document.getElementById('directory-detail-meta').textContent = `${normalizeClientCode(activeClient.clientCode) || 'No client code'} | ${getDirectoryProjects(activeClient.id).length} projects | ${contacts.length} contacts | ${billingProfiles.length} billing profile(s) | ${sites.length} site(s)`;
-  document.getElementById('directory-detail-actions').innerHTML = `<button class="act-btn" type="button" onclick="openEntityModal('clients','${esc(activeClient.id)}')">Edit Client</button><button class="act-btn" type="button" onclick="openEntityModal('projects')">+ Project</button><button class="act-btn" type="button" onclick="openEntityModal('contacts')">+ Contact</button><button class="act-btn" type="button" onclick="openEntityModal('billingProfiles')">+ Billing</button><button class="act-btn" type="button" onclick="openEntityModal('sites')">+ Site/Location</button><button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Job</button>`;
+  document.getElementById('directory-detail-meta').textContent = `${normalizeClientCode(activeClient.clientCode) || 'No client code'} | ${getDirectoryProjects(activeClient.id).length} projects | ${contacts.length} contacts | ${billingProfiles.length ? 'Billing profile' : 'No billing profile'} | ${sites.length} site(s)`;
+  document.getElementById('directory-detail-actions').innerHTML = `<button class="act-btn" type="button" onclick="openEntityModal('clients','${esc(activeClient.id)}')">Edit Client</button><button class="act-btn" type="button" onclick="openEntityModal('projects')">+ Project</button><button class="act-btn" type="button" onclick="openEntityModal('contacts')">+ Contact</button><button class="act-btn" type="button" onclick="openClientBillingProfile('${esc(activeClient.id)}')">Billing</button><button class="act-btn" type="button" onclick="openEntityModal('sites')">+ Site/Location</button><button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Job</button>`;
   document.getElementById('directory-workspace').innerHTML = `${renderDirectorySectionNav()}<div class="directory-hero"><div class="client-row-ident client-hero-ident">${renderAssetPhoto(activeClient, { className:'client-logo-thumb client-logo-hero', emptyLabel:'No logo', alt:getAssetPhotoAlt('clients', activeClient) })}<div class="client-hero-title">${esc(activeClient.clientName || 'Unnamed client')}</div></div></div>${renderDirectoryWorkspace(activeClient, activeProjectId)}`;
   hydrateAssetPhotoPreviews(directoryScreen);
 }
@@ -4783,48 +4855,76 @@ function renderFormField(field){
   return `<div class="form-group${fullClass}"><label class="form-label">${esc(field.label)}</label>${control}</div>`;
 }
 
-function renderBillingPriceScheduleEditor(){
-  if(modalState.entity !== 'billingProfiles') return '';
+function getBillingRateSectionClass(section){
+  if(section === 'Natural Gas Samples') return 'gas';
+  if(section === 'Field & Labor') return 'field-labor';
+  return 'liquid';
+}
+function getBillingRateSections(){ return ['Liquid Samples', 'Natural Gas Samples', 'Field & Labor']; }
+function getBillingRateItemsBySection(){
+  return getBillingRateSections().map((section) => ({
+    section,
+    items:getActivePriceItems().filter((item) => (item.priceSection || (item.category === 'Gas' ? 'Natural Gas Samples' : 'Liquid Samples')) === section)
+  })).filter((group) => group.items.length);
+}
+function getBillingPriceMap(profileId){
+  return new Map(getBillingPricesForProfile(profileId).map((row) => [row.priceItemId, row]));
+}
+function renderBillingRateScheduleTable(profile){
+  const groups = getBillingRateItemsBySection();
+  if(!groups.length) return '<div class="empty-state">No price items are available yet.</div>';
+  const priceByItemId = getBillingPriceMap(profile?.id || '');
+  const body = groups.map((group) => {
+    const sectionClass = getBillingRateSectionClass(group.section);
+    const rows = group.items.map((item) => {
+      const price = priceByItemId.get(item.id) || null;
+      const rate = normalizeNumber(price?.rateAmount);
+      const inactive = price && price.isActive === false;
+      return `<tr class="${inactive ? 'is-inactive' : ''}">
+        <td>${esc(item.category || '')}</td>
+        <td>${esc(item.method || '')}</td>
+        <td>${esc(item.description || '')}</td>
+        <td>${esc(item.unitName || '')}</td>
+        <td class="rate-cell">${esc(rate === null ? '' : fmtCurrency(rate))}</td>
+      </tr>`;
+    }).join('');
+    return `<tbody class="billing-rate-section billing-rate-section-${sectionClass}">
+      <tr class="section-row"><th colspan="5">${esc(group.section)}</th></tr>
+      <tr class="column-row"><th>Category</th><th>Method</th><th>Description</th><th>Units</th><th>${esc(BILLING_RATE_EFFECTIVE_YEAR)} Rate</th></tr>
+      ${rows}
+    </tbody>`;
+  }).join('');
+  return `<div class="billing-rate-table-wrap"><table class="billing-rate-table">${body}</table></div>`;
+}
+function renderBillingRateScheduleEditor(){
+  if(modalState.entity !== 'billingRates') return '';
   const drafts = getModalBillingPriceDrafts();
   const draftByItemId = new Map(drafts.map((row) => [row.priceItemId, row]));
-  const activeItems = getActivePriceItems();
-  if(!activeItems.length){
-    return `<div class="billing-price-editor"><div class="assignment-head"><div><h4>Rate Schedule</h4><div class="section-copy">Run supabase/seed_billing_profile_prices.sql to load price items for Supabase mode.</div></div></div><div class="empty-state">No price items are available yet.</div></div>`;
+  const groups = getBillingRateItemsBySection();
+  if(!groups.length){
+    return `<div class="billing-price-editor"><div class="empty-state">No price items are available yet.</div></div>`;
   }
-  const groups = ['Liquid Samples', 'Natural Gas Samples'];
-  const renderRow = (item) => {
-    const draft = draftByItemId.get(item.id) || {};
-    return `<div class="billing-price-row">
-      <div class="billing-price-item">
-        <div class="item-title">${esc(item.method || 'No method')}</div>
-        <div class="muted">${esc(item.description || 'No description')}</div>
-        <div class="mini-tags"><span class="tag-chip">${esc(item.category || 'Uncategorized')}</span><span class="tag-chip">${esc(item.unitName || 'Per Sample')}</span></div>
-      </div>
-      <div class="billing-price-rate">
-        <label class="form-label">Rate</label>
-        <div class="currency-input-wrap"><span>$</span><input class="form-input" type="number" step="0.01" min="0" value="${esc(draft.rateAmount ?? '')}" oninput="updateBillingPriceDraft('${esc(item.id)}', 'rateAmount', this.value, 'number')"></div>
-      </div>
-      <div class="billing-price-active">
-        <label class="form-label">Active</label>
-        <label class="toggle-card"><input type="checkbox" ${draft.isActive !== false ? 'checked' : ''} onchange="updateBillingPriceDraft('${esc(item.id)}', 'isActive', this.checked)"><span>Active</span></label>
-      </div>
-      <div class="billing-price-notes">
-        <label class="form-label">Notes</label>
-        <input class="form-input" type="text" value="${esc(draft.notes || '')}" oninput="updateBillingPriceDraft('${esc(item.id)}', 'notes', this.value)">
-      </div>
-    </div>`;
-  };
   const groupMarkup = groups.map((group) => {
-    const items = activeItems.filter((item) => (item.priceSection || (item.category === 'Gas' ? 'Natural Gas Samples' : 'Liquid Samples')) === group);
-    return `<div class="billing-price-group">
-      <div class="billing-price-group-head"><h5>${esc(group)}</h5><span>${esc(items.length)} line items</span></div>
-      <div class="billing-price-list">${items.map(renderRow).join('')}</div>
-    </div>`;
+    const sectionClass = getBillingRateSectionClass(group.section);
+    const rows = group.items.map((item) => {
+      const draft = draftByItemId.get(item.id) || {};
+      return `<tr>
+        <td>${esc(item.category || '')}</td>
+        <td>${esc(item.method || '')}</td>
+        <td>${esc(item.description || '')}</td>
+        <td>${esc(item.unitName || '')}</td>
+        <td><div class="currency-input-wrap compact-currency"><span>$</span><input class="form-input" type="number" step="0.01" min="0" value="${esc(draft.rateAmount ?? '')}" oninput="updateBillingPriceDraft('${esc(item.id)}', 'rateAmount', this.value, 'number')"></div></td>
+        <td><label class="rate-active-toggle"><input type="checkbox" ${draft.isActive !== false ? 'checked' : ''} onchange="updateBillingPriceDraft('${esc(item.id)}', 'isActive', this.checked)"><span>Active</span></label></td>
+        <td><input class="form-input compact-notes-input" type="text" value="${esc(draft.notes || '')}" oninput="updateBillingPriceDraft('${esc(item.id)}', 'notes', this.value)"></td>
+      </tr>`;
+    }).join('');
+    return `<tbody class="billing-rate-section billing-rate-section-${sectionClass}">
+      <tr class="section-row"><th colspan="7">${esc(group.section)}</th></tr>
+      <tr class="column-row"><th>Category</th><th>Method</th><th>Description</th><th>Units</th><th>${esc(BILLING_RATE_EFFECTIVE_YEAR)} Rate</th><th>Active</th><th>Notes</th></tr>
+      ${rows}
+    </tbody>`;
   }).join('');
-  return `<div class="billing-price-editor">
-    <div class="assignment-head"><div><h4>Rate Schedule</h4><div class="section-copy">${esc(BILLING_RATE_EFFECTIVE_YEAR)} profile-specific pricing. Changes here only affect this billing profile.</div></div></div>
-    ${groupMarkup || '<div class="empty-state">No price items are available yet.</div>'}
-  </div>`;
+  return `<div class="billing-price-editor"><div class="section-copy">Edit all ${esc(BILLING_RATE_EFFECTIVE_YEAR)} rates for this billing profile. Save applies the full rate schedule together.</div><div class="billing-rate-table-wrap billing-rate-edit-wrap"><table class="billing-rate-table billing-rate-edit-table">${groupMarkup}</table></div></div>`;
 }
 
 function renderAssignmentRow(assignment){
@@ -5085,12 +5185,15 @@ function renderModal(){
   if(!overlay) return;
   if(!modalState.open){ overlay.classList.remove('open'); return; }
   overlay.classList.add('open');
-  document.getElementById('entity-modal-title').textContent = `${modalState.id ? 'Edit' : 'Add'} ${ENTITY_CONFIG[modalState.entity].label}`;
-  document.getElementById('entity-modal-delete').style.display = modalState.id ? '' : 'none';
+  const modalTitle = modalState.entity === 'billingRates' ? 'Edit Rate Schedule' : `${modalState.id ? 'Edit' : 'Add'} ${ENTITY_CONFIG[modalState.entity].label}`;
+  document.getElementById('entity-modal-title').textContent = modalTitle;
+  document.getElementById('entity-modal-delete').style.display = modalState.id && modalState.entity !== 'billingRates' ? '' : 'none';
   document.getElementById('entity-modal-duplicate').style.display = modalState.entity === 'jobs' && modalState.id ? '' : 'none';
-  const bodyMarkup = modalState.entity === 'technicianTravel'
-    ? renderTechnicianTravelEditor()
-    : `<div class="form-grid">${(FORM_DEFINITIONS[modalState.entity] || []).map((field) => renderFormField(field)).join('')}</div>${modalState.entity === 'billingProfiles' ? renderBillingPriceScheduleEditor() : ''}${modalState.entity === 'jobs' ? `${renderJobSampleLogisticsEditor()}${renderJobPartsEditor()}${renderAssignmentEditor()}${renderSalesforceCaseEditor()}` : ''}`;
+  const bodyMarkup = modalState.entity === 'billingRates'
+    ? renderBillingRateScheduleEditor()
+    : modalState.entity === 'technicianTravel'
+      ? renderTechnicianTravelEditor()
+      : `<div class="form-grid">${(FORM_DEFINITIONS[modalState.entity] || []).map((field) => renderFormField(field)).join('')}</div>${modalState.entity === 'jobs' ? `${renderJobSampleLogisticsEditor()}${renderJobPartsEditor()}${renderAssignmentEditor()}${renderSalesforceCaseEditor()}` : ''}`;
   document.getElementById('entity-modal-body').innerHTML = bodyMarkup;
   hydrateAssetPhotoPreviews(document.getElementById('entity-modal-body'));
 }
@@ -5147,11 +5250,16 @@ function openEntityModal(entityKey, id = '', options = {}){
     openSharedSiteEditor(id);
     return;
   }
+  const directoryClientId = state.activeView === 'directory' ? getActiveDirectoryClientId() : (state.filters.directoryClient !== 'all' ? state.filters.directoryClient : '');
+  if(entityKey === 'billingProfiles' && !id && directoryClientId){
+    const existingBillingProfile = getBillingProfileForClient(directoryClientId);
+    if(existingBillingProfile) id = existingBillingProfile.id;
+  }
   const existing = id ? state.data[entityKey].find((row) => row.id === id) : null;
   let draft = existing ? clone(existing) : getNewRecordDraft(entityKey);
-  const directoryClientId = state.activeView === 'directory' ? getActiveDirectoryClientId() : (state.filters.directoryClient !== 'all' ? state.filters.directoryClient : '');
   if(!existing){
-    if(['projects', 'contacts', 'billingProfiles', 'sites', 'jobs'].includes(entityKey) && directoryClientId) draft.clientId = directoryClientId;
+    const defaultClientId = options.clientId || directoryClientId;
+    if(['projects', 'contacts', 'billingProfiles', 'sites', 'jobs'].includes(entityKey) && defaultClientId) draft.clientId = defaultClientId;
   }
   if(entityKey === 'sites' && draft.projectId && !draft.clientId){
     const project = getProject(draft.projectId);
@@ -5170,9 +5278,6 @@ function openEntityModal(entityKey, id = '', options = {}){
     draft.siteIds = normalizeStringArray(draft.siteIds).length ? normalizeStringArray(draft.siteIds) : getSiteIdsForContact(draft.id);
     draft.projectId = draft.projectIds[0] || '';
     draft.siteId = draft.siteIds[0] || '';
-  }
-  if(entityKey === 'billingProfiles'){
-    draft.priceDrafts = buildBillingPriceDrafts(existing?.id || draft.id || '');
   }
   if(entityKey === 'siteTypes'){
     draft.siteTypeKey = normalizeSiteTypeKey(draft.siteTypeKey || draft.siteTypeName);
@@ -5235,6 +5340,19 @@ function openEntityModal(entityKey, id = '', options = {}){
   renderModal();
 }
 
+function openClientBillingProfile(clientId){
+  const existing = getBillingProfileForClient(clientId);
+  if(existing) openEntityModal('billingProfiles', existing.id);
+  else openEntityModal('billingProfiles', '', { clientId });
+}
+
+function openBillingRatesModal(profileId){
+  const profile = getBillingProfile(profileId);
+  if(!profile){ alert('Create a billing profile before editing rates.'); return; }
+  modalState = { ...createClosedModalState(), open:true, entity:'billingRates', id:profile.id, formData:{ billingProfileId:profile.id, clientId:profile.clientId, priceDrafts:buildBillingPriceDrafts(profile.id) }, openMultiSelectKey:'' };
+  setEntityModalBaseline();
+  renderModal();
+}
 function openPartCatalogModal(catalogType){
   openEntityModal('partCatalogs');
   modalState.formData.catalogType = FIELD_PART_CATALOG_TYPES.some((type) => type.value === catalogType) ? catalogType : 'category';
@@ -5386,14 +5504,13 @@ function changeContactProject(value){
 }
 function changeBillingClient(value){
   modalState.formData.clientId = value;
-  const project = getProject(modalState.formData.projectId);
-  if(project && project.clientId !== value) modalState.formData.projectId = '';
+  modalState.formData.projectId = '';
+  const billingContact = getContact(modalState.formData.billingContactId);
+  if(billingContact && billingContact.clientId !== value) modalState.formData.billingContactId = '';
   renderModal();
 }
 function changeBillingProject(value){
-  modalState.formData.projectId = value;
-  const project = getProject(value);
-  if(project) modalState.formData.clientId = project.clientId;
+  modalState.formData.projectId = '';
   renderModal();
 }
 function normalizeModalJobSiteIds(){
@@ -5553,6 +5670,12 @@ function validateModal(){
   if(entityKey === 'billingProfiles'){
     if(!String(formData.clientId || '').trim()) return 'Client is required.';
     if(!String(formData.billingName || '').trim()) return 'Billing name is required.';
+    const duplicateProfile = state.data.billingProfiles.find((row) => row.id !== modalState.id && row.clientId === formData.clientId);
+    if(duplicateProfile) return 'Each client can only have one billing profile.';
+    const billingContact = getContact(formData.billingContactId);
+    if(billingContact && billingContact.clientId !== formData.clientId) return 'Billing contact must belong to the selected client.';
+  }
+  if(entityKey === 'billingRates'){
     const invalidRate = (Array.isArray(formData.priceDrafts) ? formData.priceDrafts : []).find((row) => normalizeNumber(row.rateAmount) !== null && Number(row.rateAmount) < 0);
     if(invalidRate) return 'Billing profile rates cannot be negative.';
   }
@@ -5805,15 +5928,25 @@ async function saveLocalBillingProfileRecord(draft){
   const existingIndex = next.billingProfiles.findIndex((row) => row.id === draft.id);
   const existing = existingIndex >= 0 ? next.billingProfiles[existingIndex] : null;
   const now = new Date().toISOString();
-  const record = normalizeRecord('billingProfiles', { ...existing, ...draft, id:draft.id || existing?.id || uid(cfg.idPrefix), createdAt:existing?.createdAt || now, updatedAt:now }, { fromRemote:false });
+  const record = normalizeRecord('billingProfiles', { ...existing, ...draft, projectId:'', isDefault:true, id:draft.id || existing?.id || uid(cfg.idPrefix), createdAt:existing?.createdAt || now, updatedAt:now }, { fromRemote:false });
   if(existingIndex >= 0) next.billingProfiles[existingIndex] = record; else next.billingProfiles.unshift(record);
+  repairDataRelationships(next);
+  await persistLocal(next);
+  return record.id;
+}
+
+async function saveLocalBillingRateRows(profileId, priceDrafts){
+  const next = clone(state.data);
+  const profile = next.billingProfiles.find((row) => row.id === profileId) || null;
+  if(!profile) throw new Error('Billing profile was not found.');
   const keepYear = BILLING_RATE_EFFECTIVE_YEAR;
-  next.billingProfilePrices = next.billingProfilePrices.filter((row) => !(row.billingProfileId === record.id && Number(row.effectiveYear || keepYear) === keepYear));
-  (Array.isArray(draft.priceDrafts) ? draft.priceDrafts : []).forEach((row) => {
+  const now = new Date().toISOString();
+  next.billingProfilePrices = next.billingProfilePrices.filter((row) => !(row.billingProfileId === profileId && Number(row.effectiveYear || keepYear) === keepYear));
+  (Array.isArray(priceDrafts) ? priceDrafts : []).forEach((row) => {
     if(!row.priceItemId || !next.priceItems.some((item) => item.id === row.priceItemId)) return;
     next.billingProfilePrices.push(normalizeRecord('billingProfilePrices', {
-      id:row.id || `${record.id}::${row.priceItemId}::${keepYear}`,
-      billingProfileId:record.id,
+      id:row.id || `${profileId}::${row.priceItemId}::${keepYear}`,
+      billingProfileId:profileId,
       priceItemId:row.priceItemId,
       rateAmount:normalizeNumber(row.rateAmount),
       currencyCode:row.currencyCode || 'USD',
@@ -5826,7 +5959,7 @@ async function saveLocalBillingProfileRecord(draft){
   });
   repairDataRelationships(next);
   await persistLocal(next);
-  return record.id;
+  return profileId;
 }
 
 function syncLocalSiteProjectLinks(next, siteId, projectIds){
@@ -6127,8 +6260,11 @@ async function syncRemoteBillingProfilePrices(profileId, draft){
 }
 
 async function saveRemoteBillingProfileRecord(draft){
-  const profileId = await remoteRepository.saveRecord('billingProfiles', draft);
-  await syncRemoteBillingProfilePrices(profileId, draft);
+  return remoteRepository.saveRecord('billingProfiles', { ...draft, projectId:'', isDefault:true });
+}
+
+async function saveRemoteBillingRateRows(profileId, priceDrafts){
+  await syncRemoteBillingProfilePrices(profileId, { priceDrafts });
   return profileId;
 }
 
@@ -6279,6 +6415,10 @@ async function saveEntityFromModal(){
     } else if(modalState.entity === 'billingProfiles'){
       if(isRemoteMode()){ await saveRemoteBillingProfileRecord(modalState.formData); await loadData({ silent:true, force:true }); }
       else await saveLocalBillingProfileRecord(modalState.formData);
+    } else if(modalState.entity === 'billingRates'){
+      const profileId = modalState.formData.billingProfileId || modalState.id;
+      if(isRemoteMode()){ await saveRemoteBillingRateRows(profileId, modalState.formData.priceDrafts); await loadData({ silent:true, force:true }); }
+      else await saveLocalBillingRateRows(profileId, modalState.formData.priceDrafts);
     } else if(modalState.entity === 'sites'){
       if(isRemoteMode()){ await saveRemoteSiteRecord(modalState.formData); await loadData({ silent:true, force:true }); }
       else await saveLocalSiteRecord(modalState.formData);
@@ -6292,7 +6432,7 @@ async function saveEntityFromModal(){
       await loadData({ silent:true, force:true });
     }
     else await saveLocalRecord(modalState.entity, modalState.formData);
-    const savedMessage = modalState.entity === 'jobs' ? 'Job saved' : 'SAVED';
+    const savedMessage = modalState.entity === 'jobs' ? 'Job saved' : (modalState.entity === 'billingRates' ? 'Rates saved' : 'SAVED');
     closeEntityModal({ force:true });
     showSaveStatus('saved', savedMessage);
     hideSaveStatusSoon();

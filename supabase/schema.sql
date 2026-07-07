@@ -492,6 +492,7 @@ create table if not exists public.field_billing_profiles (
   id uuid primary key default gen_random_uuid(),
   client_id uuid not null references public.field_clients(id) on delete cascade,
   project_id uuid references public.field_projects(id) on delete cascade,
+  billing_contact_id uuid references public.field_contacts(id) on delete set null,
   billing_name text not null default '',
   billing_address text not null default '',
   billing_email text not null default '',
@@ -510,6 +511,7 @@ create table if not exists public.field_billing_profiles (
 
 alter table public.field_billing_profiles add column if not exists client_id uuid;
 alter table public.field_billing_profiles add column if not exists project_id uuid;
+alter table public.field_billing_profiles add column if not exists billing_contact_id uuid;
 alter table public.field_billing_profiles add column if not exists billing_name text not null default '';
 alter table public.field_billing_profiles add column if not exists billing_address text not null default '';
 alter table public.field_billing_profiles add column if not exists billing_email text not null default '';
@@ -524,6 +526,44 @@ alter table public.field_billing_profiles drop constraint if exists field_billin
 alter table public.field_billing_profiles add constraint field_billing_profiles_client_id_fkey foreign key (client_id) references public.field_clients(id) on delete cascade;
 alter table public.field_billing_profiles drop constraint if exists field_billing_profiles_project_id_fkey;
 alter table public.field_billing_profiles add constraint field_billing_profiles_project_id_fkey foreign key (project_id) references public.field_projects(id) on delete cascade;
+alter table public.field_billing_profiles drop constraint if exists field_billing_profiles_billing_contact_id_fkey;
+alter table public.field_billing_profiles add constraint field_billing_profiles_billing_contact_id_fkey foreign key (billing_contact_id) references public.field_contacts(id) on delete set null;
+
+create or replace function public.validate_field_billing_profile_contact()
+returns trigger
+language plpgsql
+as $$
+declare
+  contact_client_id uuid;
+begin
+  new.project_id = null;
+  new.is_default = true;
+
+  if new.billing_contact_id is null then
+    return new;
+  end if;
+
+  select client_id into contact_client_id
+  from public.field_contacts
+  where id = new.billing_contact_id;
+
+  if contact_client_id is null then
+    raise exception 'Billing contact was not found.';
+  end if;
+
+  if contact_client_id <> new.client_id then
+    raise exception 'Billing contact must belong to the same client.';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists field_billing_profiles_validate_contact on public.field_billing_profiles;
+create trigger field_billing_profiles_validate_contact
+before insert or update on public.field_billing_profiles
+for each row
+execute function public.validate_field_billing_profile_contact();
 
 create table if not exists public.billing_price_items (
   id uuid primary key default gen_random_uuid(),
@@ -592,6 +632,40 @@ create unique index if not exists field_billing_profile_prices_profile_item_year
 create index if not exists field_billing_profile_prices_billing_profile_id_idx on public.field_billing_profile_prices(billing_profile_id);
 create index if not exists field_billing_profile_prices_price_item_id_idx on public.field_billing_profile_prices(price_item_id);
 create index if not exists field_billing_profile_prices_effective_year_idx on public.field_billing_profile_prices(effective_year);
+
+with ranked_profiles as (
+  select
+    p.id,
+    first_value(p.id) over (
+      partition by p.client_id
+      order by p.is_default desc, (p.project_id is null) desc, p.created_at asc, p.id asc
+    ) as keep_id
+  from public.field_billing_profiles p
+), moved_prices as (
+  update public.field_billing_profile_prices price
+  set billing_profile_id = ranked.keep_id
+  from ranked_profiles ranked
+  where price.billing_profile_id = ranked.id
+    and ranked.id <> ranked.keep_id
+    and not exists (
+      select 1
+      from public.field_billing_profile_prices existing
+      where existing.billing_profile_id = ranked.keep_id
+        and existing.price_item_id = price.price_item_id
+        and existing.effective_year = price.effective_year
+    )
+  returning price.id
+)
+delete from public.field_billing_profiles profile
+using ranked_profiles ranked
+where profile.id = ranked.id
+  and ranked.id <> ranked.keep_id;
+
+update public.field_billing_profiles
+set project_id = null,
+    is_default = true;
+
+create unique index if not exists field_billing_profiles_client_unique_idx on public.field_billing_profiles(client_id);
 
 create or replace function public.field_ops_catalog_key(raw_value text)
 returns text

@@ -1929,6 +1929,139 @@ textarea.form-input{min-height:86px;resize:vertical;}
 .billing-price-notes{
   min-width:0;
 }
+.billing-profile-summary{
+  display:grid;
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+  gap:8px;
+  margin-bottom:14px;
+}
+.billing-detail-card{
+  min-width:0;
+  padding:8px 10px;
+  border:1px solid rgba(100,116,139,.22);
+  border-radius:6px;
+  background:rgba(255,255,255,.025);
+}
+.billing-detail-card.wide{
+  grid-column:span 2;
+}
+.billing-detail-card span{
+  display:block;
+  margin-bottom:4px;
+  color:var(--muted);
+  font-family:var(--mono);
+  font-size:10px;
+  letter-spacing:.6px;
+  text-transform:uppercase;
+}
+.billing-detail-card strong,
+.billing-detail-card small{
+  display:block;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.billing-detail-card strong{
+  color:var(--text);
+  font-size:13px;
+}
+.billing-detail-card small{
+  margin-top:3px;
+  color:var(--muted);
+  font-size:11px;
+}
+.rate-schedule-head{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:12px;
+  margin:4px 0 8px;
+}
+.rate-schedule-head h3{
+  margin:0;
+  font-size:15px;
+  letter-spacing:.7px;
+  text-transform:uppercase;
+}
+.billing-rate-table-wrap{
+  width:100%;
+  overflow:auto;
+  border:1px solid #0f172a;
+  background:#fff;
+}
+.billing-rate-table{
+  width:100%;
+  min-width:760px;
+  border-collapse:collapse;
+  color:#050505;
+  background:#fff;
+  font-size:12px;
+  line-height:1.15;
+}
+.billing-rate-table th,
+.billing-rate-table td{
+  padding:2px 5px;
+  border:1px solid #d5d5d5;
+  vertical-align:middle;
+}
+.billing-rate-table .section-row th{
+  padding:4px 6px;
+  border-color:#1e293b;
+  color:#fff;
+  font-size:14px;
+  line-height:1.1;
+  text-align:center;
+}
+.billing-rate-table .column-row th{
+  color:#000;
+  background:#e8eef8;
+  font-weight:800;
+  text-align:center;
+}
+.billing-rate-section-liquid .section-row th{background:#2f7db8;}
+.billing-rate-section-gas .section-row th{background:#4f8237;}
+.billing-rate-section-field-labor .section-row th{background:#c89400;}
+.billing-rate-section-field-labor .column-row th{background:#fff2cc;}
+.billing-rate-table .rate-cell{
+  text-align:right;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+.billing-rate-table tr.is-inactive td{
+  color:#777;
+  background:#f5f5f5;
+  text-decoration:line-through;
+}
+.billing-rate-edit-wrap{
+  max-height:62vh;
+}
+.billing-rate-edit-table{
+  min-width:1040px;
+}
+.billing-rate-edit-table .compact-currency{
+  min-width:100px;
+  background:#fff;
+}
+.billing-rate-edit-table .compact-currency span{
+  padding:0 6px;
+  color:#334155;
+}
+.billing-rate-edit-table .compact-currency .form-input,
+.billing-rate-edit-table .compact-notes-input{
+  min-height:26px;
+  padding:3px 6px;
+  color:#050505;
+  background:#fff;
+}
+.rate-active-toggle{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  color:#050505;
+  font-size:11px;
+  white-space:nowrap;
+}
 .part-catalog-panel{
   grid-column:1 / -1;
 }
@@ -2212,6 +2345,8 @@ textarea.form-input{min-height:86px;resize:vertical;}
   .assignment-row{grid-template-columns:1fr;}
   .job-part-row{grid-template-columns:1fr;}
   .billing-price-row{grid-template-columns:1fr;}
+  .billing-profile-summary{grid-template-columns:1fr;}
+  .billing-detail-card.wide{grid-column:auto;}
   .part-picker-row{grid-template-columns:1fr;}
   .part-catalog-toolbar{align-items:stretch;flex-direction:column;}
   .part-catalog-toolbar .form-group{width:100%;}
