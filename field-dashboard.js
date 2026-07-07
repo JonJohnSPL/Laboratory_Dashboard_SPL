@@ -4881,7 +4881,6 @@ function renderBillingRateScheduleTable(profile){
       const rate = normalizeNumber(price?.rateAmount);
       const inactive = price && price.isActive === false;
       return `<tr class="${inactive ? 'is-inactive' : ''}">
-        <td>${esc(item.category || '')}</td>
         <td>${esc(item.method || '')}</td>
         <td>${esc(item.description || '')}</td>
         <td>${esc(item.unitName || '')}</td>
@@ -4889,8 +4888,8 @@ function renderBillingRateScheduleTable(profile){
       </tr>`;
     }).join('');
     return `<tbody class="billing-rate-section billing-rate-section-${sectionClass}">
-      <tr class="section-row"><th colspan="5">${esc(group.section)}</th></tr>
-      <tr class="column-row"><th>Category</th><th>Method</th><th>Description</th><th>Units</th><th>${esc(BILLING_RATE_EFFECTIVE_YEAR)} Rate</th></tr>
+      <tr class="section-row"><th colspan="4">${esc(group.section)}</th></tr>
+      <tr class="column-row"><th>Method</th><th>Description</th><th>Units</th><th>${esc(BILLING_RATE_EFFECTIVE_YEAR)} Rate</th></tr>
       ${rows}
     </tbody>`;
   }).join('');
@@ -4909,7 +4908,6 @@ function renderBillingRateScheduleEditor(){
     const rows = group.items.map((item) => {
       const draft = draftByItemId.get(item.id) || {};
       return `<tr>
-        <td>${esc(item.category || '')}</td>
         <td>${esc(item.method || '')}</td>
         <td>${esc(item.description || '')}</td>
         <td>${esc(item.unitName || '')}</td>
@@ -4919,8 +4917,8 @@ function renderBillingRateScheduleEditor(){
       </tr>`;
     }).join('');
     return `<tbody class="billing-rate-section billing-rate-section-${sectionClass}">
-      <tr class="section-row"><th colspan="7">${esc(group.section)}</th></tr>
-      <tr class="column-row"><th>Category</th><th>Method</th><th>Description</th><th>Units</th><th>${esc(BILLING_RATE_EFFECTIVE_YEAR)} Rate</th><th>Active</th><th>Notes</th></tr>
+      <tr class="section-row"><th colspan="6">${esc(group.section)}</th></tr>
+      <tr class="column-row"><th>Method</th><th>Description</th><th>Units</th><th>${esc(BILLING_RATE_EFFECTIVE_YEAR)} Rate</th><th>Active</th><th>Notes</th></tr>
       ${rows}
     </tbody>`;
   }).join('');
