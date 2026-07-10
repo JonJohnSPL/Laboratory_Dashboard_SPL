@@ -143,6 +143,7 @@
     }
     .launch-card-main:focus-visible{outline:2px solid currentColor;outline-offset:5px;border-radius:4px;}
     .launch-card.lab:hover{border-color:rgba(0,212,255,.36);}
+    .launch-card.live:hover{border-color:rgba(82,214,157,.42);}
     .launch-card.field:hover{border-color:rgba(89,214,125,.42);}
     .launch-card.tests:hover{border-color:rgba(255,140,66,.38);}
     .launch-card.standards:hover{border-color:rgba(255,209,102,.36);}
@@ -161,6 +162,7 @@
       z-index:1;
     }
     .launch-card.lab h3{color:var(--accent);}
+    .launch-card.live h3{color:#52d69d;}
     .launch-card.field h3{color:var(--field);}
     .launch-card.tests h3{color:var(--tests);}
     .launch-card.standards h3{color:var(--warn);}
@@ -230,6 +232,7 @@
         <div data-session-slot></div>
         <div class="nav-row">
           <button class="nav-btn current" type="button">Home</button>
+          <button class="nav-btn" onclick="window.location.href='operations-live.html'">Live Dashboard</button>
           <button class="nav-btn" onclick="window.location.href='field-dashboard.html'">Field Ops</button>
           <button class="nav-btn" onclick="window.location.href='lab-dashboard.html'">Lab WIP</button>
           <button class="nav-btn" onclick="window.location.href='SureMap/SPLClientMap.HTML'">SureMap</button>
@@ -241,6 +244,9 @@
     </header>
 
     <section class="launch-grid" id="launchpad-workspaces">
+      <a class="launch-card live" href="operations-live.html">
+        <h3>Live Dashboard</h3>
+      </a>
       <a class="launch-card field" href="field-dashboard.html">
         <h3>Field Ops</h3>
       </a>
