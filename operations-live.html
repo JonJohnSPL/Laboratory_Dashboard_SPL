@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>SPL Pittsburgh | Operations Live</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  >
+
+  <link rel="stylesheet" href="operations-live.css">
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="assets/spl-logo.svg" alt="SPL">
+
+      <div>
+        <h1>Operations Live</h1>
+        <p>Pittsburgh Laboratory</p>
+      </div>
+    </div>
+
+    <div class="live-label">
+      <span class="live-dot"></span>
+      <span>Live Operations</span>
+      <span class="divider"></span>
+      <span id="week-label">This week</span>
+    </div>
+
+    <div class="clock">
+      <strong id="clock">--:--</strong>
+      <span id="date-label">Loading…</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="metrics" aria-label="Operations summary">
+      <article>
+        <span>Open WIP</span>
+        <strong id="metric-open">—</strong>
+        <small>active work orders</small>
+      </article>
+
+      <article class="metric-danger">
+        <span>Overdue</span>
+        <strong id="metric-overdue">—</strong>
+        <small>requires attention</small>
+      </article>
+
+      <article class="metric-warning">
+        <span>Due Today</span>
+        <strong id="metric-due">—</strong>
+        <small>work orders</small>
+      </article>
+
+      <article class="metric-blue">
+        <span>Field Jobs</span>
+        <strong id="metric-field">—</strong>
+        <small>scheduled this week</small>
+      </article>
+
+      <article class="metric-green">
+        <span>Today</span>
+        <strong id="metric-today">—</strong>
+        <small>field visits</small>
+      </article>
+    </section>
+
+    <div class="dashboard-grid">
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <span class="eyebrow">Laboratory</span>
+            <h2>Current Lab WIP</h2>
+          </div>
+
+          <span class="panel-note">Sorted by due date</span>
+        </div>
+
+        <div class="wip-columns">
+          <span>Work order / client</span>
+          <span>Due</span>
+          <span>Tests</span>
+          <span>Status</span>
+        </div>
+
+        <div id="wip-list" class="wip-list">
+          <div class="empty-state">Loading work orders…</div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <span class="eyebrow">Field Operations</span>
+            <h2>Weekly Field Schedule</h2>
+          </div>
+
+          <span class="panel-note">Monday–Sunday</span>
+        </div>
+
+        <div id="schedule-grid" class="schedule-grid">
+          <div class="empty-state">Loading field schedule…</div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <span class="connection-state">
+      <i id="sync-dot"></i>
+      <strong id="sync-status">Connecting…</strong>
+    </span>
+
+    <span id="last-sync">Waiting for data</span>
+    <span>Auto-refresh · 15 seconds</span>
+  </footer>
+
+  <script src="app-config.js"></script>
+  <script src="cloud-auth.js"></script>
+  <script src="operations-live.js"></script>
+</body>
+</html>
