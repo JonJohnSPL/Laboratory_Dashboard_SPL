@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SPL Toolbox</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="toolbox.css">
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="header-left">
+        <img class="spl-logo" src="assets/spl-logo.svg" alt="SPL">
+        <div>
+          <div class="kicker">Employee Utilities</div>
+          <h1>SPL Toolbox</h1>
+          <p>Calculators, apps, and useful daily tools.</p>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="clock">
+          <span>Current Time</span>
+          <strong id="clock">--:--:--</strong>
+          <em id="datedisp"></em>
+        </div>
+        <div data-session-slot></div>
+        <nav class="nav-row" aria-label="Toolbox navigation">
+          <button class="nav-btn" type="button" onclick="window.location.href='index.html'">Home</button>
+          <button class="nav-btn" type="button" onclick="window.location.href='technician.html'">Technician Portal</button>
+          <button class="nav-btn current" type="button">Toolbox</button>
+        </nav>
+      </div>
+    </header>
+
+    <section id="access-message" class="access-message" aria-live="polite">Verifying SPL employee access...</section>
+
+    <main id="toolbox-content" hidden>
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">Available to you</span>
+          <h2>Tools</h2>
+        </div>
+        <span class="open-note">Tools open in a new tab</span>
+      </div>
+      <section id="tool-grid" class="tool-grid" aria-label="Available tools"></section>
+    </main>
+  </div>
+
+  <script src="app-config.js"></script>
+  <script>
+    window.APP_CONFIG = Object.assign({}, window.APP_CONFIG || {}, {
+      authTitle: 'SPL Toolbox',
+      authHelpText: 'Sign in with your SPL employee credentials to use the Toolbox.'
+    });
+  </script>
+  <script src="cloud-auth.js"></script>
+  <script src="toolbox.js"></script>
+</body>
+</html>

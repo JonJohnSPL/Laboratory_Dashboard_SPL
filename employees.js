@@ -8,6 +8,7 @@ const PORTAL_FEATURE_FALLBACKS = [
   { featureKey:'lab.consumables.view', featureScope:'lab', featureName:'Consumables Visibility', featureDescription:'View consumable inventory.', sortOrder:20 },
   { featureKey:'lab.consumables.change_counts', featureScope:'lab', featureName:'Consumable Count Changes', featureDescription:'Receive, start, empty, return, and adjust consumable counts.', sortOrder:30 },
   { featureKey:'lab.consumables.manage_orders', featureScope:'lab', featureName:'Consumable Order Management', featureDescription:'Create, update, order, and receive consumable orders.', sortOrder:40 },
+  { featureKey:'lab.toolbox.sample_scheduler', featureScope:'lab', featureName:'Sample Scheduler', featureDescription:'Use the personal browser-based Sample Scheduler in the SPL Toolbox.', sortOrder:50 },
   { featureKey:'field.jobs.view', featureScope:'field', featureName:'Field Job Visibility', featureDescription:'View field jobs and dispatch details.', sortOrder:110 },
   { featureKey:'field.jobs.update_status', featureScope:'field', featureName:'Field Job Status Updates', featureDescription:'Update field job assignment statuses.', sortOrder:120 },
   { featureKey:'field.routes.view', featureScope:'field', featureName:'Route Visibility', featureDescription:'View field routes and route stops.', sortOrder:130 },

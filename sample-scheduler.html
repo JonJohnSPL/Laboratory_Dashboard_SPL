@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SPL Sample Scheduler</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="sample-scheduler.css">
+</head>
+<body>
+  <section id="access-message" class="access-message" aria-live="polite">Verifying Sample Scheduler access...</section>
+
+  <div id="scheduler-app" class="app-shell" hidden>
+    <header class="app-header">
+      <div class="brand">
+        <img src="assets/spl-logo.svg" alt="SPL">
+        <div>
+          <span class="kicker">Toolbox / Personal Utility</span>
+          <h1>Sample Scheduler</h1>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div data-session-slot></div>
+        <button type="button" class="secondary-btn" onclick="window.location.href='toolbox.html'">Toolbox</button>
+        <button type="button" class="secondary-btn" onclick="window.location.href='technician.html'">Technician Portal</button>
+      </div>
+    </header>
+
+    <div id="error-toast" class="error-toast" role="alert" hidden></div>
+    <div id="selection-hint" class="selection-hint" hidden>
+      Select a schedule slot to assign the highlighted sample.
+      <button type="button" id="cancel-selection" aria-label="Cancel sample selection">&times;</button>
+    </div>
+
+    <main class="workspace">
+      <aside class="sidebar">
+        <div class="sidebar-heading">
+          <div>
+            <span class="kicker">Daily Planning</span>
+            <h2>Sample Queue</h2>
+          </div>
+          <div class="manage-actions">
+            <button type="button" id="manage-equipment" class="icon-btn" title="Manage equipment" aria-label="Manage equipment">EQ</button>
+            <button type="button" id="manage-categories" class="icon-btn" title="Manage categories" aria-label="Manage categories">CAT</button>
+          </div>
+        </div>
+
+        <section id="equipment-panel" class="manage-panel" hidden>
+          <div class="panel-title"><span>Equipment</span><button type="button" id="add-equipment">+ Add</button></div>
+          <div id="equipment-list" class="manage-list"></div>
+        </section>
+
+        <section id="categories-panel" class="manage-panel" hidden>
+          <div class="panel-title"><span>Categories</span><button type="button" id="add-category">+ Add</button></div>
+          <div id="category-list" class="manage-list"></div>
+        </section>
+
+        <form id="sample-form" class="sample-form">
+          <label for="sample-name">New Sample Name</label>
+          <input id="sample-name" type="text" maxlength="100" placeholder="e.g. Acid Test B" required>
+          <div class="form-row">
+            <div>
+              <label for="sample-category">Category</label>
+              <select id="sample-category"></select>
+            </div>
+            <div class="duration-field">
+              <label for="sample-duration">Time</label>
+              <select id="sample-duration">
+                <option value="15">15m</option>
+                <option value="30">30m</option>
+                <option value="45">45m</option>
+                <option value="60">1hr</option>
+                <option value="90">1.5h</option>
+              </select>
+            </div>
+          </div>
+          <button type="submit" class="primary-btn">Add to Queue</button>
+        </form>
+
+        <section class="queue-section">
+          <div class="panel-title"><span>Queue</span><strong id="queue-count">0</strong></div>
+          <div id="queue-list" class="queue-list"></div>
+        </section>
+      </aside>
+
+      <section class="schedule-panel" aria-label="Equipment schedule">
+        <div id="schedule-scroll" class="schedule-scroll">
+          <div id="schedule-grid" class="schedule-grid"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app-config.js"></script>
+  <script>
+    window.APP_CONFIG = Object.assign({}, window.APP_CONFIG || {}, {
+      authTitle: 'SPL Sample Scheduler',
+      authHelpText: 'Sign in with an enabled SPL employee account to use Sample Scheduler.'
+    });
+  </script>
+  <script src="cloud-auth.js"></script>
+  <script src="sample-scheduler.js"></script>
+</body>
+</html>

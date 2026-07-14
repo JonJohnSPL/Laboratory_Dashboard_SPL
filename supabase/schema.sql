@@ -1093,6 +1093,7 @@ values
   ('lab.consumables.view', 'lab', 'Consumables Visibility', 'View lab consumable inventories, counts, orders, and activity.', 20, true),
   ('lab.consumables.change_counts', 'lab', 'Consumable Count Changes', 'Receive, start, empty, return, and adjust consumable counts.', 30, true),
   ('lab.consumables.manage_orders', 'lab', 'Consumable Order Management', 'Create, update, order, and receive consumable orders.', 40, true),
+  ('lab.toolbox.sample_scheduler', 'lab', 'Sample Scheduler', 'Use the personal browser-based Sample Scheduler in the SPL Toolbox.', 50, true),
   ('field.jobs.view', 'field', 'Field Job Visibility', 'View field jobs and related client, site, resource, and dispatch details.', 110, true),
   ('field.jobs.update_status', 'field', 'Field Job Status Updates', 'Update field job assignment statuses from the technician portal.', 120, true),
   ('field.routes.view', 'field', 'Route Visibility', 'View field routes, route stops, and route-linked jobs.', 130, true),
