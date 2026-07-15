@@ -3,8 +3,9 @@
 
   const FEATURE_KEY = 'lab.toolbox.sample_scheduler';
   const STORAGE_PREFIX = 'spl.toolbox.sample-scheduler.v1:';
-  const START_MINS = 8 * 60;
-  const END_MINS = 18 * 60;
+  const START_MINS = 0;
+  const END_MINS = 24 * 60;
+  const DEFAULT_VIEW_MINS = 8 * 60;
   const INTERVAL = 15;
   const SLOT_HEIGHT = 64;
   const DEFAULT_COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#f43f5e', '#06b6d4'];
@@ -471,6 +472,8 @@
     loadState();
     bindEvents();
     render();
+    document.getElementById('schedule-scroll').scrollTop =
+      ((DEFAULT_VIEW_MINS - START_MINS) / INTERVAL) * SLOT_HEIGHT;
     document.getElementById('access-message').hidden = true;
     document.getElementById('scheduler-app').hidden = false;
   }
