@@ -6,7 +6,8 @@
   const START_MINS = 0;
   const END_MINS = 24 * 60;
   const DEFAULT_VIEW_MINS = 8 * 60;
-  const INTERVAL = 15;
+  const INTERVAL = 10;
+  const DURATION_INTERVAL = 5;
   const SLOT_HEIGHT = 64;
   const DEFAULT_COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#f43f5e', '#06b6d4'];
 
@@ -298,8 +299,8 @@
 
   function onResizeMove(event) {
     if (!resizeState) return;
-    const intervals = Math.round((event.clientY - resizeState.startY) / SLOT_HEIGHT);
-    const duration = Math.max(INTERVAL, Math.min(resizeState.maxDuration, resizeState.startDuration + intervals * INTERVAL));
+    const intervals = Math.round((event.clientY - resizeState.startY) / (SLOT_HEIGHT * DURATION_INTERVAL / INTERVAL));
+    const duration = Math.max(DURATION_INTERVAL, Math.min(resizeState.maxDuration, resizeState.startDuration + intervals * DURATION_INTERVAL));
     const sample = state.scheduled.find(function (item) { return item.id === resizeState.id; });
     if (!sample || sample.duration === duration) return;
     sample.duration = duration;
