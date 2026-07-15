@@ -7,7 +7,7 @@
   const END_MINS = 18 * 60;
   const INTERVAL = 15;
   const SLOT_HEIGHT = 64;
-  const COLOR_COUNT = 6;
+  const DEFAULT_COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#f43f5e', '#06b6d4'];
 
   let storageKey = '';
   let errorTimer = 0;
@@ -18,9 +18,9 @@
   function createDefaultState() {
     return {
       categories: [
-        { id:'cat_1', name:'Microbiology', colorIdx:0 },
-        { id:'cat_2', name:'Chemistry', colorIdx:1 },
-        { id:'cat_3', name:'Urgent Processing', colorIdx:4 }
+        { id:'cat_1', name:'Microbiology', color:DEFAULT_COLORS[0] },
+        { id:'cat_2', name:'Chemistry', color:DEFAULT_COLORS[1] },
+        { id:'cat_3', name:'Urgent Processing', color:DEFAULT_COLORS[4] }
       ],
       resources: [
         { id:'res_1', name:'Centrifuge A' },
@@ -55,9 +55,10 @@
     return displayHour + ':' + String(minute).padStart(2, '0') + ' ' + (hour >= 12 ? 'PM' : 'AM');
   }
 
-  function colorClass(categoryId) {
+  function categoryStyle(categoryId) {
     const category = state.categories.find(function (item) { return item.id === categoryId; });
-    return 'color-' + (category ? category.colorIdx % COLOR_COUNT : 0);
+    const color = category && category.color ? category.color : DEFAULT_COLORS[0];
+    return '--sample-border:' + color + ';--sample-bg:color-mix(in srgb,' + color + ' 24%,#13161e);--sample-text:#f8fafc;';
   }
 
   function categoryName(categoryId) {
@@ -71,7 +72,9 @@
       return null;
     }
     return {
-      categories: value.categories.length ? value.categories : createDefaultState().categories,
+      categories: (value.categories.length ? value.categories : createDefaultState().categories).map(function (category, index) {
+        return Object.assign({}, category, { color:category.color || DEFAULT_COLORS[Number(category.colorIdx) % DEFAULT_COLORS.length] || DEFAULT_COLORS[index % DEFAULT_COLORS.length] });
+      }),
       resources: value.resources,
       queue: value.queue,
       scheduled: value.scheduled,
@@ -132,8 +135,6 @@
     renderCategoryOptions();
     renderQueue();
     renderSchedule();
-    const hint = document.getElementById('selection-hint');
-    hint.hidden = !state.selectedId;
   }
 
   function renderManagement() {
@@ -151,8 +152,8 @@
     }).join('');
 
     document.getElementById('category-list').innerHTML = state.categories.map(function (category) {
-      return '<div class="manage-row"><button type="button" class="color-cycle color-' + category.colorIdx +
-        '" data-cycle-category="' + escapeHtml(category.id) + '" title="Change category color"></button>' +
+      return '<div class="manage-row"><input type="color" class="category-color" data-category-color="' + escapeHtml(category.id) +
+        '" value="' + escapeHtml(category.color || DEFAULT_COLORS[0]) + '" title="Choose category color" aria-label="Choose color for ' + escapeHtml(category.name) + '">' +
         '<input type="text" maxlength="60" data-category-name="' + escapeHtml(category.id) + '" value="' +
         escapeHtml(category.name) + '" aria-label="Category name"></div>';
     }).join('');
@@ -176,7 +177,7 @@
     }
     list.innerHTML = state.queue.map(function (sample) {
       const selected = state.selectedId === sample.id ? ' selected' : '';
-      return '<article class="sample-card ' + colorClass(sample.categoryId) + selected + '" draggable="true" tabindex="0" data-queue-id="' +
+      return '<article class="sample-card' + selected + '" style="' + categoryStyle(sample.categoryId) + '" draggable="true" tabindex="0" data-queue-id="' +
         escapeHtml(sample.id) + '"><div class="sample-head"><div class="sample-name">' + escapeHtml(sample.name) +
         '</div><button type="button" class="sample-delete" data-delete-sample="' + escapeHtml(sample.id) +
         '" title="Delete sample" aria-label="Delete ' + escapeHtml(sample.name) + '">&times;</button></div>' +
@@ -206,8 +207,8 @@
       }).map(function (sample) {
         const top = ((sample.startMins - START_MINS) / INTERVAL) * SLOT_HEIGHT;
         const height = (sample.duration / INTERVAL) * SLOT_HEIGHT;
-        return '<article class="scheduled-event ' + colorClass(sample.categoryId) + '" draggable="true" data-scheduled-id="' +
-          escapeHtml(sample.id) + '" style="top:' + top + 'px;height:' + height + 'px">' +
+        return '<article class="scheduled-event" style="' + categoryStyle(sample.categoryId) + 'top:' + top + 'px;height:' + height + 'px" draggable="true" data-scheduled-id="' +
+          escapeHtml(sample.id) + '">' +
           '<div class="sample-name">' + escapeHtml(sample.name) + '</div>' +
           '<button type="button" class="event-remove" data-unschedule="' + escapeHtml(sample.id) +
           '" title="Return to queue" aria-label="Return ' + escapeHtml(sample.name) + ' to queue">&times;</button>' +
@@ -343,15 +344,10 @@
       render();
     });
     document.getElementById('add-category').addEventListener('click', function () {
-      state.categories.push({ id:makeId('cat'), name:'New Category', colorIdx:state.categories.length % COLOR_COUNT });
+      state.categories.push({ id:makeId('cat'), name:'New Category', color:DEFAULT_COLORS[state.categories.length % DEFAULT_COLORS.length] });
       saveState();
       render();
     });
-    document.getElementById('cancel-selection').addEventListener('click', function () {
-      state.selectedId = '';
-      render();
-    });
-
     document.getElementById('equipment-list').addEventListener('input', function (event) {
       const id = event.target.getAttribute('data-resource-name');
       if (!id) return;
@@ -368,11 +364,11 @@
       const category = state.categories.find(function (item) { return item.id === id; });
       if (category) { category.name = event.target.value; saveState(); renderCategoryOptions(); renderQueue(); renderSchedule(); }
     });
-    document.getElementById('category-list').addEventListener('click', function (event) {
-      const id = event.target.getAttribute('data-cycle-category');
+    document.getElementById('category-list').addEventListener('input', function (event) {
+      const id = event.target.getAttribute('data-category-color');
       if (!id) return;
       const category = state.categories.find(function (item) { return item.id === id; });
-      if (category) { category.colorIdx = (category.colorIdx + 1) % COLOR_COUNT; saveState(); render(); }
+      if (category) { category.color = event.target.value; saveState(); renderQueue(); renderSchedule(); }
     });
 
     document.getElementById('queue-list').addEventListener('click', function (event) {

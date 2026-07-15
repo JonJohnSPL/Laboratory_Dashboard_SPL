@@ -34,7 +34,7 @@ h1{margin-top:4px;color:var(--purple);font-size:29px;letter-spacing:3px;text-tra
 .manage-row input,.sample-form input,.sample-form select{width:100%;border:1px solid var(--border);border-radius:6px;background:#0d0f14;color:var(--text);outline:none;font-family:var(--mono);font-size:12px;padding:8px 9px;}
 .manage-row input{padding:6px 8px;}
 .manage-row input:focus,.sample-form input:focus,.sample-form select:focus{border-color:var(--purple);}
-.color-cycle{width:25px;height:25px;padding:0!important;border-radius:50%!important;}
+.category-color{width:28px;height:28px;padding:2px;border:1px solid var(--border);border-radius:50%;background:transparent;cursor:pointer;}
 .delete-btn{color:var(--danger)!important;border-color:rgba(255,56,96,.25)!important;}
 .sample-form{display:grid;gap:9px;padding:14px;border-bottom:1px solid var(--border);}
 .sample-form label{display:block;margin-bottom:5px;}
@@ -72,8 +72,6 @@ h1{margin-top:4px;color:var(--purple);font-size:29px;letter-spacing:3px;text-tra
 .resize-handle{position:absolute;right:0;bottom:0;left:0;height:14px;cursor:ns-resize;}
 .resize-handle::after{content:'';position:absolute;bottom:4px;left:50%;width:30px;height:3px;border-radius:3px;background:currentColor;opacity:.25;transform:translateX(-50%);}
 .error-toast{position:fixed;top:16px;left:50%;z-index:1000;max-width:90vw;padding:11px 18px;border:1px solid rgba(255,56,96,.5);border-radius:7px;background:#3a111d;color:#ffb2c1;font-family:var(--mono);font-size:12px;box-shadow:0 18px 45px rgba(0,0,0,.45);transform:translateX(-50%);}
-.selection-hint{position:fixed;bottom:20px;left:50%;z-index:1000;display:flex;align-items:center;gap:12px;padding:11px 17px;border:1px solid rgba(0,212,255,.35);border-radius:999px;background:#121b24;color:var(--text);font-family:var(--mono);font-size:11px;box-shadow:0 18px 45px rgba(0,0,0,.45);transform:translateX(-50%);}
-.selection-hint button{border:0;background:transparent;color:var(--muted);font-size:20px;line-height:1;}
 .color-0{--sample-bg:#17304a;--sample-border:#2d79b7;--sample-text:#bfe3ff;}
 .color-1{--sample-bg:#123b32;--sample-border:#269b7a;--sample-text:#b8f5df;}
 .color-2{--sample-bg:#302153;--sample-border:#7958b9;--sample-text:#e2d5ff;}

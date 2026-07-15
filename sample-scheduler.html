@@ -27,11 +27,6 @@
     </header>
 
     <div id="error-toast" class="error-toast" role="alert" hidden></div>
-    <div id="selection-hint" class="selection-hint" hidden>
-      Select a schedule slot to assign the highlighted sample.
-      <button type="button" id="cancel-selection" aria-label="Cancel sample selection">&times;</button>
-    </div>
-
     <main class="workspace">
       <aside class="sidebar">
         <div class="sidebar-heading">
@@ -65,13 +60,7 @@
             </div>
             <div class="duration-field">
               <label for="sample-duration">Time</label>
-              <select id="sample-duration">
-                <option value="15">15m</option>
-                <option value="30">30m</option>
-                <option value="45">45m</option>
-                <option value="60">1hr</option>
-                <option value="90">1.5h</option>
-              </select>
+              <input id="sample-duration" type="number" min="15" step="15" value="15" inputmode="numeric">
             </div>
           </div>
           <button type="submit" class="primary-btn">Add to Queue</button>
