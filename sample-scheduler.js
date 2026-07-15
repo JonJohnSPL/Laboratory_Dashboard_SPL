@@ -370,7 +370,14 @@
       const id = event.target.getAttribute('data-category-color');
       if (!id) return;
       const category = state.categories.find(function (item) { return item.id === id; });
-      if (category) { category.color = event.target.value; saveState(); renderManagement(); renderQueue(); renderSchedule(); }
+      if (category) {
+        category.color = event.target.value;
+        event.target.style.background = category.color;
+        event.target.style.borderColor = category.color;
+        saveState();
+        renderQueue();
+        renderSchedule();
+      }
     });
 
     document.getElementById('queue-list').addEventListener('click', function (event) {
