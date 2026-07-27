@@ -870,7 +870,7 @@ alter table public.field_jobs drop constraint if exists field_jobs_job_type_chec
 create table if not exists public.field_job_assignments (
   id uuid primary key default gen_random_uuid(),
   job_id uuid not null references public.field_jobs(id) on delete cascade,
-  assignment_type text not null check (assignment_type in ('Technician', 'Truck', 'Trailer', 'Equipment')),
+  assignment_type text not null check (assignment_type in ('Technician', 'Truck', 'Prover', 'Trailer', 'Equipment')),
   resource_id uuid not null,
   assigned_start timestamptz,
   assigned_end timestamptz,
@@ -881,6 +881,8 @@ create table if not exists public.field_job_assignments (
   created_by uuid,
   updated_by uuid
 );
+alter table public.field_job_assignments drop constraint if exists field_job_assignments_assignment_type_check;
+alter table public.field_job_assignments add constraint field_job_assignments_assignment_type_check check (assignment_type in ('Technician', 'Truck', 'Prover', 'Trailer', 'Equipment'));
 
 create table if not exists public.field_job_sites (
   id uuid primary key default gen_random_uuid(),
@@ -1452,6 +1454,7 @@ create table if not exists public.field_trucks (
   vehicle_type text not null default 'Pickup' check (vehicle_type in ('Pickup', 'Service Truck', 'Other')),
   fuel_type text not null default '',
   service_status text not null default 'Available' check (service_status in ('Available', 'In Use', 'Maintenance', 'Out of Service')),
+  is_prover boolean not null default false,
   current_driver text not null default '',
   assigned_technician_id uuid,
   model text not null default '',
@@ -1471,6 +1474,7 @@ create table if not exists public.field_trucks (
 );
 alter table public.field_trucks add column if not exists photo_path text;
 alter table public.field_trucks add column if not exists fuel_type text not null default '';
+alter table public.field_trucks add column if not exists is_prover boolean not null default false;
 alter table public.field_trucks add column if not exists current_driver text not null default '';
 alter table public.field_trucks add column if not exists assigned_technician_id uuid;
 alter table public.field_trucks add column if not exists model text not null default '';
