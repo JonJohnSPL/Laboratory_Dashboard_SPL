@@ -4963,6 +4963,10 @@ function renderAssignmentRow(assignment){
 }
 
 function getModalTruckAssignment(){ return modalState.assignments.find((item) => item.assignmentType === 'Truck' && item.resourceId) || null; }
+function jobUsesProverInsteadOfTruck(jobType = modalState.formData.jobType){
+  const requirements = getRequiredAssignmentTypes(jobType);
+  return requirements.includes('Prover') && !requirements.includes('Truck');
+}
 function getOrCreateModalTruckAssignment(){
   let row = modalState.assignments.find((item) => item.assignmentType === 'Truck' && item.resourceId) || modalState.assignments.find((item) => item.assignmentType === 'Truck');
   if(row) return row;
@@ -4978,7 +4982,15 @@ function getOrCreateEmptyModalTruckAssignment(){
   modalState.assignments.push(row);
   return row;
 }
+function getOrCreateModalProverAssignment(){
+  let row = modalState.assignments.find((item) => item.assignmentType === 'Prover' && item.resourceId) || modalState.assignments.find((item) => item.assignmentType === 'Prover');
+  if(row) return row;
+  row = normalizeRecord('jobAssignments', { id:uid(ENTITY_CONFIG.jobAssignments.idPrefix), assignmentType:'Prover', resourceId:'' });
+  modalState.assignments.push(row);
+  return row;
+}
 function getModalDefaultTruckSuggestions(){
+  if(jobUsesProverInsteadOfTruck()) return [];
   const seen = new Set();
   return modalState.assignments
     .filter((item) => item.assignmentType === 'Technician' && item.resourceId)
@@ -5008,8 +5020,21 @@ function syncModalLinkedTrailerAssignments(nextTruckId, previousTruckId = ''){
     else modalState.assignments.push(normalizeRecord('jobAssignments', { id:uid(ENTITY_CONFIG.jobAssignments.idPrefix), assignmentType:'Trailer', resourceId:trailer.id }));
   });
 }
+function applyModalProverOverride(){
+  const truckIds = modalState.assignments
+    .filter((assignment) => assignment.assignmentType === 'Truck' && assignment.resourceId)
+    .map((assignment) => assignment.resourceId);
+  modalState.assignments = modalState.assignments.filter((assignment) => assignment.assignmentType !== 'Truck');
+  truckIds.forEach((truckId) => syncModalLinkedTrailerAssignments('', truckId));
+  getOrCreateModalProverAssignment();
+}
 function applyTechnicianDefaultTruck(technicianId, replace = false){
   if(!modalState.open) return;
+  if(jobUsesProverInsteadOfTruck()){
+    applyModalProverOverride();
+    renderModal();
+    return;
+  }
   const defaultTruck = getDefaultTruckForTechnician(technicianId);
   if(!defaultTruck){
     const target = getOrCreateEmptyModalTruckAssignment();
@@ -5047,10 +5072,14 @@ function clearModalTruckAssignment(){
 }
 function renderAssignmentEditor(){
   const requirements = getRequiredAssignmentTypes(modalState.formData.jobType);
+  const proverOverride = jobUsesProverInsteadOfTruck();
   const suggestions = getModalDefaultTruckSuggestions();
   const currentTruck = getModalTruckAssignment();
   const suggestionMarkup = suggestions.length ? `<div class="assignment-defaults">${suggestions.map(({ employee, defaultTruck }) => `<div class="assignment-default-row"><div><div class="item-title">${esc(getEmployeeOptionLabel(employee))}</div><div class="muted">Default truck ${esc(defaultTruck.unitNumber || 'Unnamed truck')}</div></div><div class="table-actions"><button class="act-btn" type="button" onclick="applyTechnicianDefaultTruck('${esc(employee.id)}', true)" ${currentTruck?.resourceId === defaultTruck.id ? 'disabled' : ''}>Use Default Truck</button>${currentTruck ? `<button class="act-btn danger" type="button" onclick="clearModalTruckAssignment()">Clear Truck</button>` : ''}</div></div>`).join('')}</div>` : '';
-  return `<div class="assignment-editor"><div class="assignment-head"><div><h4>Job Assignments</h4><div class="section-copy">${requirements.length ? `Required for ${getJobTypeDisplayName(modalState.formData.jobType)}: ${requirements.join(', ')}.` : 'Choose a job type, then add employees, trucks, provers, trailers, and equipment as needed.'}</div></div><button class="add-btn" type="button" onclick="addAssignmentRow()">+ Add Assignment</button></div>${suggestionMarkup}<div class="assignment-list">${modalState.assignments.length ? modalState.assignments.map((assignment) => renderAssignmentRow(assignment)).join('') : '<div class="empty-state">No assignments added yet.</div>'}</div><div class="form-hint">Selecting an employee auto-fills their default truck, and selecting a truck auto-fills every trailer linked to it. You can adjust any assignment afterward.</div></div>`;
+  const automaticAssignmentHint = proverOverride
+    ? 'This job requires a prover without a truck, so selecting an employee defaults to a Prover selector.'
+    : 'Selecting an employee auto-fills their default truck, and selecting a truck auto-fills every trailer linked to it.';
+  return `<div class="assignment-editor"><div class="assignment-head"><div><h4>Job Assignments</h4><div class="section-copy">${requirements.length ? `Required for ${getJobTypeDisplayName(modalState.formData.jobType)}: ${requirements.join(', ')}.` : 'Choose a job type, then add employees, trucks, provers, trailers, and equipment as needed.'}</div></div><button class="add-btn" type="button" onclick="addAssignmentRow()">+ Add Assignment</button></div>${suggestionMarkup}<div class="assignment-list">${modalState.assignments.length ? modalState.assignments.map((assignment) => renderAssignmentRow(assignment)).join('') : '<div class="empty-state">No assignments added yet.</div>'}</div><div class="form-hint">${automaticAssignmentHint} You can adjust any assignment afterward.</div></div>`;
 }
 
 function renderJobSampleLogisticsEditor(){
@@ -5637,6 +5666,14 @@ function changeJobType(value){
   modalState.formData.samplesRequired = jobTypeHasDetailGroup(value, 'sample_logistics');
   if(!modalState.formData.samplesRequired && !Number(modalState.formData.sampleCount || 0)) modalState.formData.sampleDrafts = [];
   normalizeModalSampleSiteIds();
+  if(jobUsesProverInsteadOfTruck(value)) applyModalProverOverride();
+  else if(getRequiredAssignmentTypes(value).includes('Truck')){
+    const technicianId = modalState.assignments.find((assignment) => assignment.assignmentType === 'Technician' && assignment.resourceId)?.resourceId || '';
+    if(technicianId && !getModalTruckAssignment()){
+      applyTechnicianDefaultTruck(technicianId, false);
+      return;
+    }
+  }
   renderModal();
 }
 function changeSampleJob(value){ modalState.formData.jobId = value; const job = getJob(value); if(job){ modalState.formData.clientId = job.clientId; modalState.formData.siteId = job.siteId; } renderModal(); }
@@ -5687,6 +5724,11 @@ function updateModalAssignmentField(id, key, value){
     return;
   }
   if(key === 'resourceId' && row.assignmentType === 'Technician' && value){
+    if(jobUsesProverInsteadOfTruck()){
+      applyModalProverOverride();
+      renderModal();
+      return;
+    }
     const currentTruck = getModalTruckAssignment();
     if(!currentTruck) applyTechnicianDefaultTruck(value, false);
     else renderModal();

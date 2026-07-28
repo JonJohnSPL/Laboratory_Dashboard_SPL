@@ -38,8 +38,11 @@ function createAssignmentContext(){
 
   vm.createContext(context);
   vm.runInContext([
+    readFunction(source, 'jobUsesProverInsteadOfTruck'),
+    readFunction(source, 'getOrCreateModalProverAssignment'),
     readFunction(source, 'getTrailersLinkedToTruck'),
     readFunction(source, 'syncModalLinkedTrailerAssignments'),
+    readFunction(source, 'applyModalProverOverride'),
     readFunction(source, 'removeAssignmentRow')
   ].join('\n'), context);
   return context;
@@ -65,5 +68,27 @@ test('selecting a truck adds only trailers linked to that truck', () => {
   assert.deepEqual(
     context.modalState.assignments.map((assignment) => assignment.resourceId),
     ['linked-trailer']
+  );
+});
+
+test('a Prover-only job replaces its truck default with a Prover selector', () => {
+  const context = createAssignmentContext();
+  context.getRequiredAssignmentTypes = () => ['Technician', 'Prover'];
+  context.modalState.formData = { jobType:'prover-only' };
+  context.modalState.assignments = [
+    { id:'technician-assignment', assignmentType:'Technician', resourceId:'technician-1' },
+    { id:'truck-assignment', assignmentType:'Truck', resourceId:'truck-1' },
+    { id:'trailer-assignment', assignmentType:'Trailer', resourceId:'linked-trailer' }
+  ];
+
+  assert.equal(context.jobUsesProverInsteadOfTruck(), true);
+  context.applyModalProverOverride();
+
+  assert.deepEqual(
+    context.modalState.assignments.map(({ assignmentType, resourceId }) => ({ assignmentType, resourceId })),
+    [
+      { assignmentType:'Technician', resourceId:'technician-1' },
+      { assignmentType:'Prover', resourceId:'' }
+    ]
   );
 });
