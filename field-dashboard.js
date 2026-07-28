@@ -4992,7 +4992,9 @@ function getModalDefaultTruckSuggestions(){
     .filter(Boolean);
 }
 function getTrailersLinkedToTruck(truckId){
-  return state.data.trailers.filter((trailer) => trailer.assignedTruckId === String(truckId || ''));
+  const normalizedTruckId = String(truckId || '');
+  if(!normalizedTruckId) return [];
+  return state.data.trailers.filter((trailer) => trailer.assignedTruckId === normalizedTruckId);
 }
 function syncModalLinkedTrailerAssignments(nextTruckId, previousTruckId = ''){
   if(previousTruckId && previousTruckId !== nextTruckId){
