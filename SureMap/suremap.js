@@ -26,12 +26,12 @@
     { key:'warehouse', label:'Warehouse' }
   ];
   const DEFAULT_JOB_TYPE_DEFS = [
-    { jobTypeKey:'ALLOCATION_PROVING', jobTypeName:'Allocation Proving', isActive:true, allowMultipleSites:false, sortOrder:10 },
-    { jobTypeKey:'LACT_PROVING', jobTypeName:'LACT Proving', isActive:true, allowMultipleSites:true, sortOrder:20 },
-    { jobTypeKey:'SAMPLE_PICKUP', jobTypeName:'Sample Pickup', isActive:true, allowMultipleSites:false, sortOrder:30 },
-    { jobTypeKey:'SAMPLE_DROP_OFF', jobTypeName:'Sample Drop-Off', isActive:true, allowMultipleSites:false, sortOrder:40 },
-    { jobTypeKey:'MAINTENANCE', jobTypeName:'Maintenance', isActive:true, allowMultipleSites:false, sortOrder:50 },
-    { jobTypeKey:'MULTI_SERVICE', jobTypeName:'Multi-Service', isActive:true, allowMultipleSites:false, sortOrder:60 }
+    { jobTypeKey:'ALLOCATION_PROVING', jobTypeName:'Allocation Proving', isActive:true, allowMultipleSites:false, requiredAssignmentTypes:['Technician', 'Truck', 'Equipment'], sortOrder:10 },
+    { jobTypeKey:'LACT_PROVING', jobTypeName:'LACT Proving', isActive:true, allowMultipleSites:true, requiredAssignmentTypes:['Technician', 'Truck', 'Equipment'], sortOrder:20 },
+    { jobTypeKey:'SAMPLE_PICKUP', jobTypeName:'Sample Pickup', isActive:true, allowMultipleSites:false, requiredAssignmentTypes:['Technician', 'Truck'], sortOrder:30 },
+    { jobTypeKey:'SAMPLE_DROP_OFF', jobTypeName:'Sample Drop-Off', isActive:true, allowMultipleSites:false, requiredAssignmentTypes:['Technician', 'Truck'], sortOrder:40 },
+    { jobTypeKey:'MAINTENANCE', jobTypeName:'Maintenance', isActive:true, allowMultipleSites:false, requiredAssignmentTypes:[], sortOrder:50 },
+    { jobTypeKey:'MULTI_SERVICE', jobTypeName:'Multi-Service', isActive:true, allowMultipleSites:false, requiredAssignmentTypes:[], sortOrder:60 }
   ];
   const SITE_TYPE_JOB_TYPE_NAMES = {
     'Well Site': ['Allocation Proving', 'Sample Pickup', 'Maintenance', 'Multi-Service'],
@@ -171,7 +171,7 @@
   }
 
   function createEmptyData(){
-    return { clients: [], projects: [], sites: [], siteProjects: [], jobTypes: getDefaultJobTypeRecords(), jobs: [], jobSites: [], jobAssignments: [], employees: [], trucks: [], samples: [], fieldRoutes: [], routePlaceLists: [], routePlaces: [], restrictedRoads: [], fieldRouteStops: [], fieldRouteStopJobs: [] };
+    return { clients: [], projects: [], sites: [], siteProjects: [], jobTypes: getDefaultJobTypeRecords(), jobs: [], jobSites: [], jobAssignments: [], employees: [], trucks: [], trailers: [], samples: [], fieldRoutes: [], routePlaceLists: [], routePlaces: [], restrictedRoads: [], fieldRouteStops: [], fieldRouteStopJobs: [] };
   }
 
   function createEmptyIndexes(){
@@ -193,6 +193,7 @@
       routeStopJobsByStopId:new Map(),
       employeesById:new Map(),
       trucksById:new Map(),
+      trailersById:new Map(),
       defaultTruckByTechnicianId:new Map()
     };
   }
@@ -255,6 +256,7 @@
       indexes.trucksById.set(truck.id, truck);
       if(truck.assignedTechnicianId && !indexes.defaultTruckByTechnicianId.has(truck.assignedTechnicianId)) indexes.defaultTruckByTechnicianId.set(truck.assignedTechnicianId, truck);
     });
+    (data.trailers || []).forEach((trailer) => indexes.trailersById.set(trailer.id, trailer));
     indexes.projectsByClientId.forEach((list) => list.sort(sortByProjectName));
     indexes.routePlacesByListId.forEach((list) => list.sort(sortByRoutePlace));
     return indexes;
@@ -965,6 +967,7 @@
       jobAssignments: Array.isArray(raw.jobAssignments) ? raw.jobAssignments.map(normalizeJobAssignment) : [],
       employees: Array.isArray(raw.employees) ? raw.employees.map(normalizeEmployee).sort(sortByEmployee) : [],
       trucks: Array.isArray(raw.trucks) ? raw.trucks.map(normalizeTruck).sort(sortByTruck) : [],
+      trailers: Array.isArray(raw.trailers) ? raw.trailers.map(normalizeTrailer).sort(sortByTrailer) : [],
       samples: Array.isArray(raw.samples) ? raw.samples.map((row) => ({ id:String(row?.id || ''), jobId:String(row?.jobId || ''), clientId:String(row?.clientId || ''), siteId:String(row?.siteId || '') })) : [],
       fieldRoutes: Array.isArray(raw.fieldRoutes) ? raw.fieldRoutes.map(normalizeRoute).sort(sortByRoute) : [],
       routePlaceLists: Array.isArray(raw.routePlaceLists) ? raw.routePlaceLists.map(normalizeRoutePlaceList).sort(sortByRoutePlaceList) : [],
@@ -981,7 +984,7 @@
   }
 
   async function readRemoteData(){
-    const [clients, projects, sites, siteProjects, jobTypes, jobs, jobSites, jobAssignments, employees, trucks, samples, fieldRoutes, routePlaceLists, routePlaces, restrictedRoads, fieldRouteStops, fieldRouteStopJobs] = await Promise.all([
+    const [clients, projects, sites, siteProjects, jobTypes, jobs, jobSites, jobAssignments, employees, trucks, trailers, samples, fieldRoutes, routePlaceLists, routePlaces, restrictedRoads, fieldRouteStops, fieldRouteStopJobs] = await Promise.all([
       window.appAuth.requestJson('/rest/v1/field_clients?select=*'),
       window.appAuth.requestJson('/rest/v1/field_projects?select=*'),
       window.appAuth.requestJson('/rest/v1/field_sites?select=*'),
@@ -995,6 +998,7 @@
       window.appAuth.requestJson('/rest/v1/field_job_assignments?select=id,job_id,assignment_type,resource_id'),
       window.appAuth.requestJson('/rest/v1/employees?select=id,employee_first_name,employee_last_name,employee_name,work_scope,field_role,phone,email'),
       window.appAuth.requestJson('/rest/v1/field_trucks?select=id,unit_number,service_status,is_prover,assigned_technician_id,current_driver'),
+      window.appAuth.requestJson('/rest/v1/field_trailers?select=id,trailer_number,service_status,is_prover,assigned_truck_id'),
       window.appAuth.requestJson('/rest/v1/field_samples?select=id,job_id,client_id,site_id'),
       window.appAuth.requestJson('/rest/v1/field_routes?select=*'),
       window.appAuth.requestJson('/rest/v1/field_route_place_lists?select=*'),
@@ -1017,6 +1021,7 @@
       jobAssignments: (jobAssignments || []).map((row) => normalizeJobAssignment(row, true)),
       employees: (employees || []).map((row) => normalizeEmployee(row, true)).sort(sortByEmployee),
       trucks: (trucks || []).map((row) => normalizeTruck(row, true)).sort(sortByTruck),
+      trailers: (trailers || []).map((row) => normalizeTrailer(row, true)).sort(sortByTrailer),
       samples: (samples || []).map((row) => ({ id:String(row?.id || ''), jobId:String(row?.job_id || ''), clientId:String(row?.client_id || ''), siteId:String(row?.site_id || '') })),
       fieldRoutes: (fieldRoutes || []).map((row) => normalizeRoute(row, true)).sort(sortByRoute),
       routePlaceLists: (routePlaceLists || []).map((row) => normalizeRoutePlaceList(row, true)).sort(sortByRoutePlaceList),
@@ -1195,6 +1200,16 @@
       isProver: (fromRemote ? row?.is_prover : row?.isProver) === true,
       assignedTechnicianId: String((fromRemote ? row?.assigned_technician_id : row?.assignedTechnicianId) || ''),
       currentDriver: String((fromRemote ? row?.current_driver : row?.currentDriver) || '').trim()
+    };
+  }
+
+  function normalizeTrailer(row, fromRemote = false){
+    return {
+      id: String(row?.id || ''),
+      trailerNumber: String((fromRemote ? row?.trailer_number : row?.trailerNumber) || '').trim(),
+      serviceStatus: String((fromRemote ? row?.service_status : row?.serviceStatus) || 'Available').trim() || 'Available',
+      isProver: (fromRemote ? row?.is_prover : row?.isProver) === true,
+      assignedTruckId: String((fromRemote ? row?.assigned_truck_id : row?.assignedTruckId) || '')
     };
   }
 
@@ -1427,6 +1442,7 @@
   function sortByJobSite(left, right){ return left.jobId.localeCompare(right.jobId) || Number(left.sortOrder || 0) - Number(right.sortOrder || 0) || left.siteId.localeCompare(right.siteId); }
   function sortByEmployee(left, right){ return getEmployeeName(left).localeCompare(getEmployeeName(right)); }
   function sortByTruck(left, right){ return left.unitNumber.localeCompare(right.unitNumber); }
+  function sortByTrailer(left, right){ return left.trailerNumber.localeCompare(right.trailerNumber); }
   function sortByRoute(left, right){ return left.routeDate.localeCompare(right.routeDate) || getRouteName(left).localeCompare(getRouteName(right)); }
   function sortByRoutePlaceList(left, right){ return left.listName.localeCompare(right.listName); }
   function sortByRoutePlace(left, right){ return left.listId.localeCompare(right.listId) || left.placeName.localeCompare(right.placeName); }
@@ -5058,21 +5074,29 @@
     return state.indexes.defaultTruckByTechnicianId.get(String(technicianId)) || null;
   }
 
+  function getTrailersLinkedToTruck(truckId){
+    return state.data.trailers.filter((trailer) => trailer.assignedTruckId === String(truckId || ''));
+  }
+
   function getAssignmentsForJob(jobId){
     return [...(state.indexes.jobAssignmentsByJobId.get(String(jobId)) || [])];
   }
 
-  function jobRequiresProver(job){
+  function jobRequiresAssignmentType(job, assignmentType){
     const rawType = String(job?.jobType || '').trim().toLowerCase();
     const jobType = state.data.jobTypes.find((row) => row.jobTypeKey.toLowerCase() === rawType || row.jobTypeName.toLowerCase() === rawType);
-    return normalizeStringArray(jobType?.requiredAssignmentTypes).includes('Prover');
+    return normalizeStringArray(jobType?.requiredAssignmentTypes).includes(assignmentType);
   }
 
-  function getProverTruckIdsToPreserve(jobId){
+  function getProverAssetIdsToPreserve(jobId){
     const job = getJobById(jobId);
-    if(!jobRequiresProver(job)) return [];
+    if(!jobRequiresAssignmentType(job, 'Prover')) return [];
     return [...new Set(getAssignmentsForJob(jobId)
-      .filter((assignment) => assignment.assignmentType === 'Truck' && state.indexes.trucksById.get(assignment.resourceId)?.isProver)
+      .filter((assignment) => {
+        if(assignment.assignmentType === 'Truck') return state.indexes.trucksById.get(assignment.resourceId)?.isProver;
+        if(assignment.assignmentType === 'Trailer') return state.indexes.trailersById.get(assignment.resourceId)?.isProver;
+        return false;
+      })
       .map((assignment) => assignment.resourceId))];
   }
 
@@ -5081,7 +5105,8 @@
     const defaultTruck = getTechnicianDefaultTruck(route.assignedTechnicianId);
     const replacementWarnings = [];
     jobIds.forEach((jobId) => {
-      const preservedProverIds = new Set(getProverTruckIdsToPreserve(jobId));
+      if(!jobRequiresAssignmentType(getJobById(jobId), 'Truck')) return;
+      const preservedProverIds = new Set(getProverAssetIdsToPreserve(jobId));
       getAssignmentsForJob(jobId).forEach((assignment) => {
         if(defaultTruck && assignment.assignmentType === 'Truck' && assignment.resourceId && assignment.resourceId !== defaultTruck.id && !preservedProverIds.has(assignment.resourceId)) replacementWarnings.push(`${getJobTitle(getJobById(jobId))}: truck ${getResourceName('Truck', assignment.resourceId)}`);
       });
@@ -5096,20 +5121,37 @@
 
   function getResourceName(type, resourceId){
     if(type === 'Technician') return getEmployeeName(state.indexes.employeesById.get(String(resourceId)));
-    if(type === 'Truck' || type === 'Prover') return getTruckLabel(state.indexes.trucksById.get(String(resourceId)));
+    if(type === 'Truck') return getTruckLabel(state.indexes.trucksById.get(String(resourceId)));
+    if(type === 'Prover'){
+      return state.indexes.trucksById.get(String(resourceId))?.unitNumber
+        || state.indexes.trailersById.get(String(resourceId))?.trailerNumber
+        || 'Unnamed prover';
+    }
     return 'resource';
   }
 
   async function assignRemoteRouteJobs(jobIds, technicianId, truckId){
     for(const jobId of jobIds){
-      const proverTruckIds = truckId ? getProverTruckIdsToPreserve(jobId) : [];
-      if(truckId) await window.appAuth.requestJson(`/rest/v1/field_job_assignments?job_id=eq.${encodeURIComponent(jobId)}&assignment_type=eq.Truck`, { method:'DELETE' });
+      const shouldAssignTruck = !!truckId && jobRequiresAssignmentType(getJobById(jobId), 'Truck');
+      const proverAssetIds = truckId ? getProverAssetIdsToPreserve(jobId) : [];
+      const linkedTrailers = shouldAssignTruck ? getTrailersLinkedToTruck(truckId) : [];
+      if(shouldAssignTruck) await window.appAuth.requestJson(`/rest/v1/field_job_assignments?job_id=eq.${encodeURIComponent(jobId)}&assignment_type=eq.Truck`, { method:'DELETE' });
+      else {
+        for(const proverAssetId of proverAssetIds){
+          if(!state.indexes.trucksById.has(proverAssetId)) continue;
+          await window.appAuth.requestJson(`/rest/v1/field_job_assignments?job_id=eq.${encodeURIComponent(jobId)}&assignment_type=eq.Truck&resource_id=eq.${encodeURIComponent(proverAssetId)}`, { method:'DELETE' });
+        }
+      }
       const hasRouteTechnician = getAssignmentsForJob(jobId).some((assignment) => assignment.assignmentType === 'Technician' && assignment.resourceId === technicianId);
       const rows = hasRouteTechnician ? [] : [{ job_id:jobId, assignment_type:'Technician', resource_id:technicianId, assignment_status:'Assigned', assignment_notes:'Assigned from SureMap route.' }];
-      if(truckId) rows.push({ job_id:jobId, assignment_type:'Truck', resource_id:truckId, assignment_status:'Assigned', assignment_notes:'Default truck assigned from SureMap route.' });
-      proverTruckIds.forEach((proverTruckId) => {
-        const alreadyAssigned = getAssignmentsForJob(jobId).some((assignment) => assignment.assignmentType === 'Prover' && assignment.resourceId === proverTruckId);
-        if(!alreadyAssigned) rows.push({ job_id:jobId, assignment_type:'Prover', resource_id:proverTruckId, assignment_status:'Assigned', assignment_notes:'Prover assignment preserved from SureMap route.' });
+      if(shouldAssignTruck) rows.push({ job_id:jobId, assignment_type:'Truck', resource_id:truckId, assignment_status:'Assigned', assignment_notes:'Default truck assigned from SureMap route.' });
+      linkedTrailers.forEach((trailer) => {
+        const alreadyAssigned = getAssignmentsForJob(jobId).some((assignment) => assignment.assignmentType === 'Trailer' && assignment.resourceId === trailer.id);
+        if(!alreadyAssigned) rows.push({ job_id:jobId, assignment_type:'Trailer', resource_id:trailer.id, assignment_status:'Assigned', assignment_notes:'Linked trailer assigned from SureMap route.' });
+      });
+      proverAssetIds.forEach((proverAssetId) => {
+        const alreadyAssigned = getAssignmentsForJob(jobId).some((assignment) => assignment.assignmentType === 'Prover' && assignment.resourceId === proverAssetId);
+        if(!alreadyAssigned) rows.push({ job_id:jobId, assignment_type:'Prover', resource_id:proverAssetId, assignment_status:'Assigned', assignment_notes:'Prover assignment preserved from SureMap route.' });
       });
       if(!rows.length) continue;
       await window.appAuth.requestJson('/rest/v1/field_job_assignments', {
@@ -5124,19 +5166,26 @@
     const raw = readLocalRaw();
     raw.jobAssignments = Array.isArray(raw.jobAssignments) ? raw.jobAssignments.map(normalizeJobAssignment) : [];
     const jobSet = new Set(jobIds);
-    const proverTruckIdsByJobId = new Map(jobIds.map((jobId) => [jobId, truckId ? getProverTruckIdsToPreserve(jobId) : []]));
+    const proverAssetIdsByJobId = new Map(jobIds.map((jobId) => [jobId, truckId ? getProverAssetIdsToPreserve(jobId) : []]));
+    const truckJobIds = new Set(jobIds.filter((jobId) => truckId && jobRequiresAssignmentType(getJobById(jobId), 'Truck')));
+    const linkedTrailers = truckId ? getTrailersLinkedToTruck(truckId) : [];
     raw.jobAssignments = raw.jobAssignments.filter((assignment) => {
       if(!jobSet.has(assignment.jobId)) return true;
-      if(truckId && assignment.assignmentType === 'Truck') return false;
+      if(truckJobIds.has(assignment.jobId) && assignment.assignmentType === 'Truck') return false;
+      if(assignment.assignmentType === 'Truck' && (proverAssetIdsByJobId.get(assignment.jobId) || []).includes(assignment.resourceId)) return false;
       return true;
     });
     jobIds.forEach((jobId) => {
       const hasRouteTechnician = raw.jobAssignments.some((assignment) => assignment.jobId === jobId && assignment.assignmentType === 'Technician' && assignment.resourceId === technicianId);
       if(!hasRouteTechnician) raw.jobAssignments.push(normalizeJobAssignment({ id:uid('asg'), jobId, assignmentType:'Technician', resourceId:technicianId }));
-      if(truckId) raw.jobAssignments.push(normalizeJobAssignment({ id:uid('asg'), jobId, assignmentType:'Truck', resourceId:truckId }));
-      (proverTruckIdsByJobId.get(jobId) || []).forEach((proverTruckId) => {
-        const alreadyAssigned = raw.jobAssignments.some((assignment) => assignment.jobId === jobId && assignment.assignmentType === 'Prover' && assignment.resourceId === proverTruckId);
-        if(!alreadyAssigned) raw.jobAssignments.push(normalizeJobAssignment({ id:uid('asg'), jobId, assignmentType:'Prover', resourceId:proverTruckId }));
+      if(truckJobIds.has(jobId)) raw.jobAssignments.push(normalizeJobAssignment({ id:uid('asg'), jobId, assignmentType:'Truck', resourceId:truckId }));
+      (truckJobIds.has(jobId) ? linkedTrailers : []).forEach((trailer) => {
+        const alreadyAssigned = raw.jobAssignments.some((assignment) => assignment.jobId === jobId && assignment.assignmentType === 'Trailer' && assignment.resourceId === trailer.id);
+        if(!alreadyAssigned) raw.jobAssignments.push(normalizeJobAssignment({ id:uid('asg'), jobId, assignmentType:'Trailer', resourceId:trailer.id }));
+      });
+      (proverAssetIdsByJobId.get(jobId) || []).forEach((proverAssetId) => {
+        const alreadyAssigned = raw.jobAssignments.some((assignment) => assignment.jobId === jobId && assignment.assignmentType === 'Prover' && assignment.resourceId === proverAssetId);
+        if(!alreadyAssigned) raw.jobAssignments.push(normalizeJobAssignment({ id:uid('asg'), jobId, assignmentType:'Prover', resourceId:proverAssetId }));
       });
     });
     localStorage.setItem(STORAGE_KEY, JSON.stringify(raw));

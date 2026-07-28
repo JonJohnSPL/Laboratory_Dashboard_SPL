@@ -1515,6 +1515,7 @@ create table if not exists public.field_trailers (
   trailer_type text not null default '',
   capacity_configuration text not null default '',
   service_status text not null default 'Available' check (service_status in ('Available', 'Assigned', 'In Use', 'Maintenance', 'Out of Service')),
+  is_prover boolean not null default false,
   assigned_truck_id uuid,
   notes text not null default '',
   created_at timestamptz not null default timezone('utc', now()),
@@ -1523,6 +1524,7 @@ create table if not exists public.field_trailers (
   updated_by uuid
 );
 alter table public.field_trailers add column if not exists photo_path text;
+alter table public.field_trailers add column if not exists is_prover boolean not null default false;
 alter table public.field_trailers add column if not exists assigned_truck_id uuid;
 alter table public.field_trailers drop column if exists last_inspection_date;
 alter table public.field_trailers drop column if exists next_inspection_due;

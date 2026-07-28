@@ -143,7 +143,7 @@ const DEFAULT_BILLING_PRICE_ITEMS = [
 ];
 
 const PRIORITY_RANK = { Urgent:0, High:1, Normal:2, Low:3 };
-const RESOURCE_ENTITY_BY_TYPE = { Technician:'employees', Truck:'trucks', Prover:'trucks', Trailer:'trailers', Equipment:'equipment' };
+const RESOURCE_ENTITY_BY_TYPE = { Technician:'employees', Truck:'trucks', Trailer:'trailers', Equipment:'equipment' };
 
 const ENTITY_CONFIG = {
   clients:{ table:'field_clients', label:'Client', idPrefix:'client', defaults:{ clientName:'', clientCode:'', accountStatus:'Active', sector:'Upstream', serviceScope:'Field', primaryContact:'', contactPhone:'', contactEmail:'', billingNotes:'', operationalNotes:'', salesforceAccountId:'', defaultServiceArea:'', hqStreet:'', hqCity:'', hqState:'', hqZip:'', hqLatitude:null, hqLongitude:null, markerColor:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'' }, fieldMap:{ clientName:'client_name', clientCode:'client_code', accountStatus:'account_status', sector:'sector', serviceScope:'service_scope', primaryContact:'primary_contact', contactPhone:'contact_phone', contactEmail:'contact_email', billingNotes:'billing_notes', operationalNotes:'operational_notes', salesforceAccountId:'salesforce_account_id', defaultServiceArea:'default_service_area', hqStreet:'hq_street', hqCity:'hq_city', hqState:'hq_state', hqZip:'hq_zip', hqLatitude:'hq_latitude', hqLongitude:'hq_longitude', markerColor:'marker_color', assetPhotoPath:'logo_path' }, numberFields:['hqLatitude', 'hqLongitude'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
@@ -176,7 +176,7 @@ const ENTITY_CONFIG = {
   splSites:{ table:'field_spl_sites', label:'SPL Site', idPrefix:'splsite', defaults:{ siteName:'', siteCode:'', locationLabel:'', streetAddress:'', city:'', state:'', zipCode:'', isActive:true, notes:'' }, fieldMap:{ siteName:'site_name', siteCode:'site_code', locationLabel:'location_label', streetAddress:'street_address', city:'city', state:'state', zipCode:'zip_code', isActive:'is_active', notes:'notes' }, booleanFields:['isActive'] },
   technicianTravel:{ table:'field_technician_travel', label:'Technician Travel', idPrefix:'travel', defaults:{ technicianId:'', direction:'Outbound', travelStatus:'Planned', originType:'spl_site', originSplSiteId:'', originClientSiteId:'', originLabel:'', originLocation:'', destinationType:'client_site', destinationSplSiteId:'', destinationClientSiteId:'', destinationLabel:'', destinationLocation:'', arrivalAt:'', departureAt:'', purpose:'', notes:'' }, fieldMap:{ technicianId:'technician_id', direction:'direction', travelStatus:'travel_status', originType:'origin_type', originSplSiteId:'origin_spl_site_id', originClientSiteId:'origin_client_site_id', originLabel:'origin_label', originLocation:'origin_location', destinationType:'destination_type', destinationSplSiteId:'destination_spl_site_id', destinationClientSiteId:'destination_client_site_id', destinationLabel:'destination_label', destinationLocation:'destination_location', arrivalAt:'arrival_at', departureAt:'departure_at', purpose:'purpose', notes:'notes' }, idFields:['technicianId', 'originSplSiteId', 'originClientSiteId', 'destinationSplSiteId', 'destinationClientSiteId'], dateTimeFields:['arrivalAt', 'departureAt'] },
   trucks:{ table:'field_trucks', label:'Truck', idPrefix:'truck', defaults:{ unitNumber:'', vehicleType:'Pickup', fuelType:'', serviceStatus:'Available', isProver:false, currentDriver:'', assignedTechnicianId:'', model:'', licensePlateNumber:'', make:'', color:'', registeredState:'', vin:'', vehicleId:'', vehicleYear:null, nextInspectionDue:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ unitNumber:'unit_number', vehicleType:'vehicle_type', fuelType:'fuel_type', serviceStatus:'service_status', isProver:'is_prover', currentDriver:'current_driver', assignedTechnicianId:'assigned_technician_id', model:'model', licensePlateNumber:'license_plate_number', make:'make', color:'color', registeredState:'registered_state', vin:'vin', vehicleId:'vehicle_id', vehicleYear:'vehicle_year', nextInspectionDue:'next_inspection_due', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTechnicianId'], numberFields:['vehicleYear'], booleanFields:['isProver'], dateFields:['nextInspectionDue'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
-  trailers:{ table:'field_trailers', label:'Trailer', idPrefix:'trailer', defaults:{ trailerNumber:'', trailerType:'', capacityConfiguration:'', serviceStatus:'Available', assignedTruckId:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ trailerNumber:'trailer_number', trailerType:'trailer_type', capacityConfiguration:'capacity_configuration', serviceStatus:'service_status', assignedTruckId:'assigned_truck_id', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTruckId'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
+  trailers:{ table:'field_trailers', label:'Trailer', idPrefix:'trailer', defaults:{ trailerNumber:'', trailerType:'', capacityConfiguration:'', serviceStatus:'Available', isProver:false, assignedTruckId:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ trailerNumber:'trailer_number', trailerType:'trailer_type', capacityConfiguration:'capacity_configuration', serviceStatus:'service_status', isProver:'is_prover', assignedTruckId:'assigned_truck_id', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTruckId'], booleanFields:['isProver'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
   equipment:{ table:'field_equipment', label:'Equipment', idPrefix:'equip', defaults:{ equipmentName:'', equipmentType:'Small Volume Prover', model:'', manufacturer:'', splInventoryBarcode:'', serialNumber:'', calibrationStatus:'Current', lastCalibrationDate:'', nextCalibrationDue:'', maintenanceStatus:'Available', storageLocation:'', assignedTrailerTruck:'', assignedTruckId:'', assignedTrailerId:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ equipmentName:'equipment_name', equipmentType:'equipment_type', model:'model', manufacturer:'manufacturer', splInventoryBarcode:'spl_inventory_barcode', serialNumber:'serial_number', calibrationStatus:'calibration_status', lastCalibrationDate:'last_calibration_date', nextCalibrationDue:'next_calibration_due', maintenanceStatus:'maintenance_status', storageLocation:'storage_location', assignedTrailerTruck:'assigned_trailer_truck', assignedTruckId:'assigned_truck_id', assignedTrailerId:'assigned_trailer_id', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTruckId', 'assignedTrailerId'], dateFields:['lastCalibrationDate', 'nextCalibrationDue'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
   samples:{ table:'field_samples', label:'Sample', idPrefix:'sample', defaults:{ jobId:'', clientId:'', siteId:'', sampleType:'Gas', containerType:'Cylinder', collectionDateTime:'', sampleDate:'', sampleTime:'', pickedUpBy:'', dropOffLocation:'', chainOfCustodyStatus:'Requested', labReceiptStatus:'Requested', sampleStatus:'Needs Pulled', sampleName:'', samplePoint:'', isDuplicate:false, sampleCollectionMode:'', cylinderNumber:'', testCodes:[], sampleTempF:null, samplePressurePsig:null, linkedWorkOrderId:'', linkedWorkOrderNumber:'', labReceivedAt:'', sampleSequence:null, priorityTat:'', notes:'' }, fieldMap:{ jobId:'job_id', clientId:'client_id', siteId:'site_id', sampleType:'sample_type', containerType:'container_type', collectionDateTime:'collection_date_time', sampleDate:'sample_date', sampleTime:'sample_time', pickedUpBy:'picked_up_by', dropOffLocation:'drop_off_location', chainOfCustodyStatus:'chain_of_custody_status', labReceiptStatus:'lab_receipt_status', sampleStatus:'sample_status', sampleName:'sample_name', samplePoint:'sample_point', isDuplicate:'is_duplicate', sampleCollectionMode:'sample_collection_mode', cylinderNumber:'cylinder_number', testCodes:'test_codes', sampleTempF:'sample_temp_f', samplePressurePsig:'sample_pressure_psig', linkedWorkOrderId:'linked_work_order_id', linkedWorkOrderNumber:'linked_work_order_number', labReceivedAt:'lab_received_at', sampleSequence:'sample_sequence', priorityTat:'priority_tat', notes:'notes' }, idFields:['jobId', 'clientId', 'siteId'], booleanFields:['isDuplicate'], arrayFields:['testCodes'], numberFields:['sampleSequence', 'sampleTempF', 'samplePressurePsig'], dateFields:['sampleDate'], timeFields:['sampleTime'], dateTimeFields:['collectionDateTime', 'labReceivedAt'] },
   maintenanceRecords:{ table:'field_maintenance_records', label:'Maintenance Record', idPrefix:'maint', defaults:{ assetType:'Equipment', assetId:'', maintenanceType:'Preventive', openDate:'', dueDate:'', completedDate:'', status:'Open', issueDescription:'', resolution:'', vendorInternal:'Internal', cost:null, assignedPerson:'', notes:'' }, fieldMap:{ assetType:'asset_type', assetId:'asset_id', maintenanceType:'maintenance_type', openDate:'open_date', dueDate:'due_date', completedDate:'completed_date', status:'status', issueDescription:'issue_description', resolution:'resolution', vendorInternal:'vendor_internal', cost:'cost', assignedPerson:'assigned_person', notes:'notes' }, idFields:['assetId'], numberFields:['cost'], dateFields:['openDate', 'dueDate', 'completedDate'] }
@@ -1894,6 +1894,11 @@ function getSplSiteDeleteBlockMessage(siteId){
 }
 
 function getResourceRecord(assignmentType, resourceId){
+  if(assignmentType === 'Prover'){
+    return state.data.trucks.find((row) => row.id === resourceId)
+      || state.data.trailers.find((row) => row.id === resourceId)
+      || null;
+  }
   const entityKey = RESOURCE_ENTITY_BY_TYPE[assignmentType];
   if(!entityKey) return null;
   return state.data[entityKey].find((row) => row.id === resourceId) || null;
@@ -1903,7 +1908,8 @@ function getResourceLabel(assignmentType, resourceId){
   const record = getResourceRecord(assignmentType, resourceId);
   if(!record) return 'Unknown resource';
   if(assignmentType === 'Technician') return getEmployeeListName(record);
-  if(assignmentType === 'Truck' || assignmentType === 'Prover') return record.unitNumber || 'Unnamed truck';
+  if(assignmentType === 'Truck') return record.unitNumber || 'Unnamed truck';
+  if(assignmentType === 'Prover') return record.unitNumber || record.trailerNumber || 'Unnamed prover';
   if(assignmentType === 'Trailer') return record.trailerNumber || 'Unnamed trailer';
   return record.equipmentName || 'Unnamed equipment';
 }
@@ -2248,12 +2254,14 @@ function getAssignedResourceWarnings(job){
   getAssignmentsForJob(job.id).forEach((assignment) => {
     const resource = getResourceRecord(assignment.assignmentType, assignment.resourceId);
     if(!resource) return;
-    if(assignment.assignmentType === 'Truck' || assignment.assignmentType === 'Prover'){
+    const isTruckResource = !!resource.unitNumber;
+    const isTrailerResource = !!resource.trailerNumber;
+    if(assignment.assignmentType === 'Truck' || (assignment.assignmentType === 'Prover' && isTruckResource)){
       if(['Maintenance', 'Out of Service'].includes(resource.serviceStatus)) warnings.push(`${resource.unitNumber || 'Truck'} ${resource.serviceStatus.toLowerCase()}`);
       const inspectionAlert = getTruckInspectionAlert(resource);
       if(inspectionAlert) warnings.push(inspectionAlert);
     }
-    if(assignment.assignmentType === 'Trailer' && ['Maintenance', 'Out of Service'].includes(resource.serviceStatus)) warnings.push(`${resource.trailerNumber || 'Trailer'} ${resource.serviceStatus.toLowerCase()}`);
+    if((assignment.assignmentType === 'Trailer' || (assignment.assignmentType === 'Prover' && isTrailerResource)) && ['Maintenance', 'Out of Service'].includes(resource.serviceStatus)) warnings.push(`${resource.trailerNumber || 'Trailer'} ${resource.serviceStatus.toLowerCase()}`);
     if(assignment.assignmentType === 'Equipment'){
       if(['Needs Repair', 'Out of Service'].includes(resource.maintenanceStatus)) warnings.push(`${resource.equipmentName || 'Equipment'} ${resource.maintenanceStatus.toLowerCase()}`);
       if(resource.calibrationStatus === 'Overdue') warnings.push(`${resource.equipmentName || 'Equipment'} calibration overdue`);
@@ -2272,7 +2280,8 @@ function getScheduleConflicts(){
     const start = getJobPrimaryDate(job);
     const end = getJobSecondaryDate(job) || start;
     if(!start || !end) return;
-    const conflictType = assignment.assignmentType === 'Prover' ? 'Truck' : assignment.assignmentType;
+    const proverResource = assignment.assignmentType === 'Prover' ? getResourceRecord('Prover', assignment.resourceId) : null;
+    const conflictType = assignment.assignmentType === 'Prover' ? (proverResource?.trailerNumber ? 'Trailer' : 'Truck') : assignment.assignmentType;
     const key = `${conflictType}:${assignment.resourceId}`;
     if(!rowsByResource.has(key)) rowsByResource.set(key, []);
     rowsByResource.get(key).push({ assignment, job, start, end });
@@ -2533,6 +2542,7 @@ const FORM_DEFINITIONS = {
     { kind:'section', label:'Trailer' },
     { key:'trailerNumber', label:'Trailer Number', type:'text', required:true },
     { key:'trailerType', label:'Trailer Type', type:'text' },
+    { key:'isProver', label:'Prover', type:'checkbox' },
     { key:'serviceStatus', label:'Service Status', type:'select', options:TRAILER_STATUS_OPTIONS },
     { key:'assignedTruckId', label:'Assigned Truck', type:'select', options:() => buildTruckOptions() },
     { key:'capacityConfiguration', label:'Capacity / Configuration', type:'text', full:true },
@@ -2757,15 +2767,20 @@ function buildContactManagerOptions(clientId = '', currentContactId = modalState
 function buildAssetOptions(assetType = ''){ if(assetType === 'Truck') return state.data.trucks.map((row) => ({ value:row.id, label:row.unitNumber || 'Unnamed truck' })); if(assetType === 'Trailer') return state.data.trailers.map((row) => ({ value:row.id, label:row.trailerNumber || 'Unnamed trailer' })); return state.data.equipment.map((row) => ({ value:row.id, label:row.equipmentName || 'Unnamed equipment' })); }
 function buildResourceOptions(assignmentType = 'Technician', currentResourceId = ''){
   if(assignmentType === 'Technician') return buildTechnicianOptions(modalState.formData.jobType, currentResourceId);
+  if(assignmentType === 'Prover'){
+    return [
+      ...state.data.trucks.map((row) => ({ ...row, proverAssetType:'Truck', proverLabel:row.unitNumber || 'Unnamed truck' })),
+      ...state.data.trailers.map((row) => ({ ...row, proverAssetType:'Trailer', proverLabel:row.trailerNumber || 'Unnamed trailer' }))
+    ]
+      .filter((row) => row.isProver || row.id === currentResourceId)
+      .map((row) => ({
+        value:row.id,
+        label:`${row.proverLabel} | ${row.proverAssetType}${!row.isProver ? ' | Not marked as Prover' : ''}`
+      }));
+  }
   const entityKey = RESOURCE_ENTITY_BY_TYPE[assignmentType];
   if(!entityKey) return [];
-  const rows = assignmentType === 'Prover'
-    ? state.data.trucks.filter((row) => row.isProver || row.id === currentResourceId)
-    : state.data[entityKey];
-  return rows.map((row) => ({
-    value:row.id,
-    label:`${getResourceLabel(assignmentType, row.id)}${assignmentType === 'Prover' && !row.isProver ? ' | Not marked as Prover' : ''}`
-  }));
+  return state.data[entityKey].map((row) => ({ value:row.id, label:getResourceLabel(assignmentType, row.id) }));
 }
 function buildTechnicianOptions(jobType = '', currentResourceId = ''){
   const options = state.data.employees
@@ -4027,7 +4042,7 @@ function renderResources(){
   const splSitesPanel = document.getElementById('spl-sites-panel');
   if(splSitesPanel) splSitesPanel.innerHTML = renderResourceCards(state.data.splSites, (site) => `<div ${renderCardOpenAttrs('splSites', site.id)}><div class="resource-card-head"><div><div class="item-title">${esc(site.siteName || 'Unnamed SPL site')}</div><div class="muted">${esc(site.siteCode || 'No site code')}</div></div>${site.isActive ? '<span class="tag-chip">Active</span>' : '<span class="warning-chip">Inactive</span>'}</div><div class="muted">${esc(site.locationLabel || site.streetAddress || 'No location label')}</div><div class="muted">${esc([site.city, site.state, site.zipCode].filter(Boolean).join(', ') || 'No city/state')}</div></div>`, 'No SPL sites yet');
   document.getElementById('trucks-panel').innerHTML = renderResourceCards(state.data.trucks, (truck) => `<div ${renderCardOpenAttrs('trucks', truck.id)}>${renderAssetPhoto(truck, { className:'resource-photo', emptyLabel:getAssetPhotoEmptyLabel('trucks'), alt:getAssetPhotoAlt('trucks', truck), fallbackImageSrc:getDefaultAssetIconSrc('trucks', truck) })}<div class="resource-card-head"><div><div class="item-title">${esc(truck.unitNumber || 'Unnamed truck')}</div><div class="muted">${esc([truck.color, truck.vehicleYear, truck.make, truck.model].filter(Boolean).join(' ') || truck.vehicleType)}</div></div><div class="mini-tags">${truck.isProver ? '<span class="tag-chip">Prover</span>' : ''}${getStatusBadge(truck.serviceStatus)}${getFuelTypeBadge(truck.fuelType)}${getTruckInspectionBadge(truck)}</div></div><div class="muted">${esc(truck.licensePlateNumber || 'No plate')} ${truck.registeredState ? `| ${esc(truck.registeredState)}` : ''}</div><div class="muted">${truck.vin ? `VIN: ${esc(truck.vin)}` : 'No VIN'}</div><div class="muted">Assigned Employee: ${esc(truck.assignedTechnicianId ? getTechnicianLabel(truck.assignedTechnicianId) : 'Pool')}</div></div>`, 'No trucks yet');
-  document.getElementById('trailers-panel').innerHTML = renderResourceCards(state.data.trailers, (trailer) => `<div ${renderCardOpenAttrs('trailers', trailer.id)}>${renderAssetPhoto(trailer, { className:'resource-photo', emptyLabel:getAssetPhotoEmptyLabel('trailers'), alt:getAssetPhotoAlt('trailers', trailer), fallbackImageSrc:getDefaultAssetIconSrc('trailers', trailer) })}<div class="resource-card-head"><div><div class="item-title">${esc(trailer.trailerNumber || 'Unnamed trailer')}</div><div class="muted">${esc(trailer.trailerType || 'No trailer type')}</div></div>${getStatusBadge(trailer.serviceStatus)}</div><div class="muted">${esc(trailer.capacityConfiguration || 'No capacity/configuration')}</div><div class="muted">Assigned Truck: ${esc(trailer.assignedTruckId ? getTruckLabel(trailer.assignedTruckId) : 'Unassigned')}</div></div>`, 'No trailers yet');
+  document.getElementById('trailers-panel').innerHTML = renderResourceCards(state.data.trailers, (trailer) => `<div ${renderCardOpenAttrs('trailers', trailer.id)}>${renderAssetPhoto(trailer, { className:'resource-photo', emptyLabel:getAssetPhotoEmptyLabel('trailers'), alt:getAssetPhotoAlt('trailers', trailer), fallbackImageSrc:getDefaultAssetIconSrc('trailers', trailer) })}<div class="resource-card-head"><div><div class="item-title">${esc(trailer.trailerNumber || 'Unnamed trailer')}</div><div class="muted">${esc(trailer.trailerType || 'No trailer type')}</div></div><div class="mini-tags">${trailer.isProver ? '<span class="tag-chip">Prover</span>' : ''}${getStatusBadge(trailer.serviceStatus)}</div></div><div class="muted">${esc(trailer.capacityConfiguration || 'No capacity/configuration')}</div><div class="muted">Assigned Truck: ${esc(trailer.assignedTruckId ? getTruckLabel(trailer.assignedTruckId) : 'Unassigned')}</div></div>`, 'No trailers yet');
   document.getElementById('equipment-panel').innerHTML = renderResourceCards(state.data.equipment, (item) => `<div ${renderCardOpenAttrs('equipment', item.id)}><div class="resource-card-head"><div><div class="item-title">${esc(item.equipmentName || 'Unnamed equipment')}</div><div class="muted">${esc(item.equipmentType)}</div></div>${getStatusBadge(item.maintenanceStatus)}</div><div class="mini-tags">${getStatusBadge(item.calibrationStatus)}${item.serialNumber ? `<span class="tag-chip">${esc(item.serialNumber)}</span>` : ''}</div><div class="muted">${esc([item.manufacturer, item.model].filter(Boolean).join(' | ') || 'No manufacturer or model')}</div><div class="muted">${esc(item.splInventoryBarcode ? `Barcode: ${item.splInventoryBarcode}` : 'No SPL inventory barcode')}</div><div class="muted">Truck: ${esc(item.assignedTruckId ? getTruckLabel(item.assignedTruckId) : 'Pool')} | Trailer: ${esc(item.assignedTrailerId ? getTrailerLabel(item.assignedTrailerId) : 'Pool')}</div></div>`, 'No equipment yet');
 }
 
@@ -4942,7 +4957,7 @@ function renderAssignmentRow(assignment){
   const isRequired = getRequiredAssignmentTypes(modalState.formData.jobType).includes(assignment.assignmentType);
   const invalidProver = assignment.assignmentType === 'Prover' && assignment.resourceId && !getResourceRecord('Prover', assignment.resourceId)?.isProver;
   const needsResource = isRequired && (!assignment.resourceId || invalidProver);
-  const warningText = invalidProver ? 'This truck is not marked as a Prover.' : `${assignment.assignmentType} needs assigned for this job type.`;
+  const warningText = invalidProver ? 'This truck or trailer is not marked as a Prover.' : `${assignment.assignmentType} needs assigned for this job type.`;
   const resourceWarning = needsResource ? `<div class="assignment-warning">${esc(warningText)}</div>` : '';
   return `<div class="assignment-row ${needsResource ? 'assignment-row-warning' : ''}"><div class="form-group"><label class="form-label">Assignment Type</label><select class="form-input" onchange="updateModalAssignmentField('${assignment.id}', 'assignmentType', this.value)">${ASSIGNMENT_TYPE_OPTIONS.map((option) => `<option value="${esc(option)}" ${assignment.assignmentType === option ? 'selected' : ''}>${esc(option)}</option>`).join('')}</select></div><div class="form-group"><label class="form-label">Resource</label><select class="form-input ${needsResource ? 'assignment-resource-warning' : ''}" onchange="updateModalAssignmentField('${assignment.id}', 'resourceId', this.value)"><option value="">Select resource...</option>${buildResourceOptions(assignment.assignmentType, assignment.resourceId).map((option) => `<option value="${esc(option.value)}" ${assignment.resourceId === option.value ? 'selected' : ''}>${esc(option.label)}</option>`).join('')}</select>${resourceWarning}</div><div class="form-group"><label class="form-label">Remove</label><button class="act-btn danger" type="button" onclick="removeAssignmentRow('${assignment.id}')">Delete</button></div></div>`;
 }
@@ -4976,6 +4991,21 @@ function getModalDefaultTruckSuggestions(){
     })
     .filter(Boolean);
 }
+function getTrailersLinkedToTruck(truckId){
+  return state.data.trailers.filter((trailer) => trailer.assignedTruckId === String(truckId || ''));
+}
+function syncModalLinkedTrailerAssignments(nextTruckId, previousTruckId = ''){
+  if(previousTruckId && previousTruckId !== nextTruckId){
+    const previousTrailerIds = new Set(getTrailersLinkedToTruck(previousTruckId).map((trailer) => trailer.id));
+    modalState.assignments = modalState.assignments.filter((assignment) => !(assignment.assignmentType === 'Trailer' && previousTrailerIds.has(assignment.resourceId)));
+  }
+  getTrailersLinkedToTruck(nextTruckId).forEach((trailer) => {
+    if(modalState.assignments.some((assignment) => assignment.assignmentType === 'Trailer' && assignment.resourceId === trailer.id)) return;
+    const emptyRow = modalState.assignments.find((assignment) => assignment.assignmentType === 'Trailer' && !assignment.resourceId);
+    if(emptyRow) emptyRow.resourceId = trailer.id;
+    else modalState.assignments.push(normalizeRecord('jobAssignments', { id:uid(ENTITY_CONFIG.jobAssignments.idPrefix), assignmentType:'Trailer', resourceId:trailer.id }));
+  });
+}
 function applyTechnicianDefaultTruck(technicianId, replace = false){
   if(!modalState.open) return;
   const defaultTruck = getDefaultTruckForTechnician(technicianId);
@@ -4989,20 +5019,28 @@ function applyTechnicianDefaultTruck(technicianId, replace = false){
     return;
   }
   const currentTruck = getModalTruckAssignment();
-  if(currentTruck && currentTruck.resourceId === defaultTruck.id) return;
+  if(currentTruck && currentTruck.resourceId === defaultTruck.id){
+    syncModalLinkedTrailerAssignments(defaultTruck.id);
+    renderModal();
+    return;
+  }
   if(currentTruck && !replace){
     alert('A truck is already assigned to this job. Use the existing truck row to swap vehicles, or use this shortcut after clearing the current truck.');
     return;
   }
   const target = getOrCreateModalTruckAssignment();
+  const previousTruckId = target.resourceId;
   target.assignmentType = 'Truck';
   target.resourceId = defaultTruck.id;
+  syncModalLinkedTrailerAssignments(defaultTruck.id, previousTruckId);
   renderModal();
 }
 function clearModalTruckAssignment(){
   const target = modalState.assignments.find((item) => item.assignmentType === 'Truck');
   if(!target) return;
+  const previousTruckId = target.resourceId;
   target.resourceId = '';
+  syncModalLinkedTrailerAssignments('', previousTruckId);
   renderModal();
 }
 function renderAssignmentEditor(){
@@ -5010,7 +5048,7 @@ function renderAssignmentEditor(){
   const suggestions = getModalDefaultTruckSuggestions();
   const currentTruck = getModalTruckAssignment();
   const suggestionMarkup = suggestions.length ? `<div class="assignment-defaults">${suggestions.map(({ employee, defaultTruck }) => `<div class="assignment-default-row"><div><div class="item-title">${esc(getEmployeeOptionLabel(employee))}</div><div class="muted">Default truck ${esc(defaultTruck.unitNumber || 'Unnamed truck')}</div></div><div class="table-actions"><button class="act-btn" type="button" onclick="applyTechnicianDefaultTruck('${esc(employee.id)}', true)" ${currentTruck?.resourceId === defaultTruck.id ? 'disabled' : ''}>Use Default Truck</button>${currentTruck ? `<button class="act-btn danger" type="button" onclick="clearModalTruckAssignment()">Clear Truck</button>` : ''}</div></div>`).join('')}</div>` : '';
-  return `<div class="assignment-editor"><div class="assignment-head"><div><h4>Job Assignments</h4><div class="section-copy">${requirements.length ? `Required for ${getJobTypeDisplayName(modalState.formData.jobType)}: ${requirements.join(', ')}.` : 'Choose a job type, then add employees, trucks, provers, trailers, and equipment as needed.'}</div></div><button class="add-btn" type="button" onclick="addAssignmentRow()">+ Add Assignment</button></div>${suggestionMarkup}<div class="assignment-list">${modalState.assignments.length ? modalState.assignments.map((assignment) => renderAssignmentRow(assignment)).join('') : '<div class="empty-state">No assignments added yet.</div>'}</div><div class="form-hint">Selecting an employee auto-fills their default truck when no truck is assigned. You can swap to another vehicle or clear the truck from this editor at any time.</div></div>`;
+  return `<div class="assignment-editor"><div class="assignment-head"><div><h4>Job Assignments</h4><div class="section-copy">${requirements.length ? `Required for ${getJobTypeDisplayName(modalState.formData.jobType)}: ${requirements.join(', ')}.` : 'Choose a job type, then add employees, trucks, provers, trailers, and equipment as needed.'}</div></div><button class="add-btn" type="button" onclick="addAssignmentRow()">+ Add Assignment</button></div>${suggestionMarkup}<div class="assignment-list">${modalState.assignments.length ? modalState.assignments.map((assignment) => renderAssignmentRow(assignment)).join('') : '<div class="empty-state">No assignments added yet.</div>'}</div><div class="form-hint">Selecting an employee auto-fills their default truck, and selecting a truck auto-fills every trailer linked to it. You can adjust any assignment afterward.</div></div>`;
 }
 
 function renderJobSampleLogisticsEditor(){
@@ -5630,10 +5668,16 @@ function changeEquipmentAssignedTrailer(value){
 }
 
 function addAssignmentRow(){ modalState.assignments.push(normalizeRecord('jobAssignments', { id:uid(ENTITY_CONFIG.jobAssignments.idPrefix), assignmentType:'Technician', resourceId:'' })); renderModal(); }
-function removeAssignmentRow(id){ modalState.assignments = modalState.assignments.filter((row) => row.id !== id); renderModal(); }
+function removeAssignmentRow(id){
+  const row = modalState.assignments.find((assignment) => assignment.id === id);
+  modalState.assignments = modalState.assignments.filter((assignment) => assignment.id !== id);
+  if(row?.assignmentType === 'Truck') syncModalLinkedTrailerAssignments('', row.resourceId);
+  renderModal();
+}
 function updateModalAssignmentField(id, key, value){
   const row = modalState.assignments.find((item) => item.id === id);
   if(!row) return;
+  const previousValue = row[key];
   row[key] = value;
   if(key === 'assignmentType'){
     row.resourceId = '';
@@ -5644,6 +5688,11 @@ function updateModalAssignmentField(id, key, value){
     const currentTruck = getModalTruckAssignment();
     if(!currentTruck) applyTechnicianDefaultTruck(value, false);
     else renderModal();
+    return;
+  }
+  if(key === 'resourceId' && row.assignmentType === 'Truck'){
+    syncModalLinkedTrailerAssignments(value, previousValue);
+    renderModal();
     return;
   }
   if(key === 'resourceId'){
@@ -6524,7 +6573,7 @@ function buildLocalDeleteResult(entityKey, id){
   else if(entityKey === 'employees'){ next.employees = next.employees.filter((row) => row.id !== id); next.trucks = next.trucks.map((row) => row.assignedTechnicianId === id ? { ...row, assignedTechnicianId:'', currentDriver:'' } : row); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Technician' && row.resourceId === id)); next.technicianTravel = next.technicianTravel.filter((row) => row.technicianId !== id); }
   else if(entityKey === 'splSites'){ next.splSites = next.splSites.filter((row) => row.id !== id); }
   else if(entityKey === 'trucks'){ next.trucks = next.trucks.filter((row) => row.id !== id); next.trailers = next.trailers.map((row) => row.assignedTruckId === id ? { ...row, assignedTruckId:'' } : row); next.equipment = next.equipment.map((row) => row.assignedTruckId === id ? { ...row, assignedTruckId:'', assignedTrailerTruck:row.assignedTrailerId ? getTrailerLabel(row.assignedTrailerId) : '' } : row); next.jobAssignments = next.jobAssignments.filter((row) => !(['Truck', 'Prover'].includes(row.assignmentType) && row.resourceId === id)); next.maintenanceRecords = next.maintenanceRecords.filter((row) => !(row.assetType === 'Truck' && row.assetId === id)); }
-  else if(entityKey === 'trailers'){ next.trailers = next.trailers.filter((row) => row.id !== id); next.equipment = next.equipment.map((row) => row.assignedTrailerId === id ? { ...row, assignedTrailerId:'', assignedTrailerTruck:row.assignedTruckId ? getTruckLabel(row.assignedTruckId) : '' } : row); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Trailer' && row.resourceId === id)); next.maintenanceRecords = next.maintenanceRecords.filter((row) => !(row.assetType === 'Trailer' && row.assetId === id)); }
+  else if(entityKey === 'trailers'){ next.trailers = next.trailers.filter((row) => row.id !== id); next.equipment = next.equipment.map((row) => row.assignedTrailerId === id ? { ...row, assignedTrailerId:'', assignedTrailerTruck:row.assignedTruckId ? getTruckLabel(row.assignedTruckId) : '' } : row); next.jobAssignments = next.jobAssignments.filter((row) => !(['Trailer', 'Prover'].includes(row.assignmentType) && row.resourceId === id)); next.maintenanceRecords = next.maintenanceRecords.filter((row) => !(row.assetType === 'Trailer' && row.assetId === id)); }
   else if(entityKey === 'equipment'){ next.equipment = next.equipment.filter((row) => row.id !== id); next.jobAssignments = next.jobAssignments.filter((row) => !(row.assignmentType === 'Equipment' && row.resourceId === id)); next.maintenanceRecords = next.maintenanceRecords.filter((row) => !(row.assetType === 'Equipment' && row.assetId === id)); }
   else if(entityKey === 'parts'){ next.parts = next.parts.filter((row) => row.id !== id); next.partActivity = next.partActivity.filter((row) => row.partId !== id); }
   else next[entityKey] = next[entityKey].filter((row) => row.id !== id);
@@ -6572,7 +6621,7 @@ async function deleteEntityRecord(entityKey, id){
       const existing = state.data[entityKey]?.find((row) => row.id === id) || null;
       if(entityKey === 'employees'){ await remoteRepository.updateWhere(ENTITY_CONFIG.trucks.table, [{ column:'assigned_technician_id', value:id }], buildRemoteTruckAssignmentPayload(null)); await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'assignment_type', value:'Technician' }, { column:'resource_id', value:id }]); await remoteRepository.deleteWhere(ENTITY_CONFIG.technicianTravel.table, [{ column:'technician_id', value:id }]); }
       if(entityKey === 'trucks'){ await remoteRepository.updateWhere(ENTITY_CONFIG.trailers.table, [{ column:'assigned_truck_id', value:id }], { assigned_truck_id:null }); await remoteRepository.updateWhere(ENTITY_CONFIG.equipment.table, [{ column:'assigned_truck_id', value:id }], { assigned_truck_id:null, assigned_trailer_truck:'' }); await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'assignment_type', value:'Truck' }, { column:'resource_id', value:id }]); await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'assignment_type', value:'Prover' }, { column:'resource_id', value:id }]); await remoteRepository.deleteWhere(ENTITY_CONFIG.maintenanceRecords.table, [{ column:'asset_type', value:'Truck' }, { column:'asset_id', value:id }]); }
-      if(entityKey === 'trailers'){ await remoteRepository.updateWhere(ENTITY_CONFIG.equipment.table, [{ column:'assigned_trailer_id', value:id }], { assigned_trailer_id:null, assigned_trailer_truck:'' }); await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'assignment_type', value:'Trailer' }, { column:'resource_id', value:id }]); await remoteRepository.deleteWhere(ENTITY_CONFIG.maintenanceRecords.table, [{ column:'asset_type', value:'Trailer' }, { column:'asset_id', value:id }]); }
+      if(entityKey === 'trailers'){ await remoteRepository.updateWhere(ENTITY_CONFIG.equipment.table, [{ column:'assigned_trailer_id', value:id }], { assigned_trailer_id:null, assigned_trailer_truck:'' }); await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'assignment_type', value:'Trailer' }, { column:'resource_id', value:id }]); await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'assignment_type', value:'Prover' }, { column:'resource_id', value:id }]); await remoteRepository.deleteWhere(ENTITY_CONFIG.maintenanceRecords.table, [{ column:'asset_type', value:'Trailer' }, { column:'asset_id', value:id }]); }
       if(entityKey === 'equipment'){ await remoteRepository.deleteWhere(ENTITY_CONFIG.jobAssignments.table, [{ column:'assignment_type', value:'Equipment' }, { column:'resource_id', value:id }]); await remoteRepository.deleteWhere(ENTITY_CONFIG.maintenanceRecords.table, [{ column:'asset_type', value:'Equipment' }, { column:'asset_id', value:id }]); }
       if(existing?.assetPhotoPath){ await removeRemoteAssetPhoto(existing.assetPhotoPath).catch((error) => console.warn('Unable to remove deleted asset photo:', error)); clearCachedAssetPhoto(existing.assetPhotoPath); }
       await remoteRepository.deleteRecord(entityKey, id);
