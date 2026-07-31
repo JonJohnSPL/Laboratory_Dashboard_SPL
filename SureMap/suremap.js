@@ -4221,7 +4221,6 @@
         if(!getRouteLinkedJobIds(route).length) throw new Error('Link at least one open job to a route stop before saving and assigning.');
         const compliance = getRouteCompliance(route);
         if(compliance.hardIssues.length) throw new Error(`Resolve route compliance issues before assigning:\n${formatRouteComplianceMessage(compliance)}`);
-        if(!confirmRouteAssignment(route)) return;
         route.routeStatus = 'Assigned';
       } else if(options.draft){
         route.routeStatus = 'Draft';
@@ -5100,51 +5099,34 @@
       .map((assignment) => assignment.resourceId))];
   }
 
-  function confirmRouteAssignment(route){
-    const jobIds = getRouteLinkedJobIds(route);
-    const defaultTruck = getTechnicianDefaultTruck(route.assignedTechnicianId);
-    const replacementWarnings = [];
-    jobIds.forEach((jobId) => {
-      if(!jobRequiresAssignmentType(getJobById(jobId), 'Truck')) return;
-      const preservedProverIds = new Set(getProverAssetIdsToPreserve(jobId));
-      getAssignmentsForJob(jobId).forEach((assignment) => {
-        if(defaultTruck && assignment.assignmentType === 'Truck' && assignment.resourceId && assignment.resourceId !== defaultTruck.id && !preservedProverIds.has(assignment.resourceId)) replacementWarnings.push(`${getJobTitle(getJobById(jobId))}: truck ${getResourceName('Truck', assignment.resourceId)}`);
-      });
-    });
-    if(!replacementWarnings.length) return true;
-    return confirm(`Assigning this route will replace existing job assignments:\n\n${replacementWarnings.slice(0, 8).join('\n')}${replacementWarnings.length > 8 ? '\n...' : ''}\n\nContinue?`);
+  function getRouteTruckIdForJob(jobId, defaultTruckId){
+    const preservedProverIds = new Set(getProverAssetIdsToPreserve(jobId));
+    const assignedTruck = getAssignmentsForJob(jobId).find((assignment) => (
+      assignment.assignmentType === 'Truck'
+      && assignment.resourceId
+      && !preservedProverIds.has(assignment.resourceId)
+    ));
+    return assignedTruck?.resourceId || String(defaultTruckId || '');
   }
 
   async function assignCurrentRoute(){
     await saveCurrentRoute({ assign:true });
   }
 
-  function getResourceName(type, resourceId){
-    if(type === 'Technician') return getEmployeeName(state.indexes.employeesById.get(String(resourceId)));
-    if(type === 'Truck') return getTruckLabel(state.indexes.trucksById.get(String(resourceId)));
-    if(type === 'Prover'){
-      return state.indexes.trucksById.get(String(resourceId))?.unitNumber
-        || state.indexes.trailersById.get(String(resourceId))?.trailerNumber
-        || 'Unnamed prover';
-    }
-    return 'resource';
-  }
-
   async function assignRemoteRouteJobs(jobIds, technicianId, truckId){
     for(const jobId of jobIds){
-      const shouldAssignTruck = !!truckId && jobRequiresAssignmentType(getJobById(jobId), 'Truck');
-      const proverAssetIds = truckId ? getProverAssetIdsToPreserve(jobId) : [];
-      const linkedTrailers = shouldAssignTruck ? getTrailersLinkedToTruck(truckId) : [];
-      if(shouldAssignTruck) await window.appAuth.requestJson(`/rest/v1/field_job_assignments?job_id=eq.${encodeURIComponent(jobId)}&assignment_type=eq.Truck`, { method:'DELETE' });
-      else {
-        for(const proverAssetId of proverAssetIds){
-          if(!state.indexes.trucksById.has(proverAssetId)) continue;
-          await window.appAuth.requestJson(`/rest/v1/field_job_assignments?job_id=eq.${encodeURIComponent(jobId)}&assignment_type=eq.Truck&resource_id=eq.${encodeURIComponent(proverAssetId)}`, { method:'DELETE' });
-        }
+      const assignedTruckId = getRouteTruckIdForJob(jobId, truckId);
+      const shouldAssignTruck = !!assignedTruckId && jobRequiresAssignmentType(getJobById(jobId), 'Truck');
+      const proverAssetIds = assignedTruckId ? getProverAssetIdsToPreserve(jobId) : [];
+      const linkedTrailers = shouldAssignTruck ? getTrailersLinkedToTruck(assignedTruckId) : [];
+      for(const proverAssetId of proverAssetIds){
+        if(!state.indexes.trucksById.has(proverAssetId)) continue;
+        await window.appAuth.requestJson(`/rest/v1/field_job_assignments?job_id=eq.${encodeURIComponent(jobId)}&assignment_type=eq.Truck&resource_id=eq.${encodeURIComponent(proverAssetId)}`, { method:'DELETE' });
       }
       const hasRouteTechnician = getAssignmentsForJob(jobId).some((assignment) => assignment.assignmentType === 'Technician' && assignment.resourceId === technicianId);
       const rows = hasRouteTechnician ? [] : [{ job_id:jobId, assignment_type:'Technician', resource_id:technicianId, assignment_status:'Assigned', assignment_notes:'Assigned from SureMap route.' }];
-      if(shouldAssignTruck) rows.push({ job_id:jobId, assignment_type:'Truck', resource_id:truckId, assignment_status:'Assigned', assignment_notes:'Default truck assigned from SureMap route.' });
+      const hasAssignedTruck = getAssignmentsForJob(jobId).some((assignment) => assignment.assignmentType === 'Truck' && assignment.resourceId === assignedTruckId && !proverAssetIds.includes(assignment.resourceId));
+      if(shouldAssignTruck && !hasAssignedTruck) rows.push({ job_id:jobId, assignment_type:'Truck', resource_id:assignedTruckId, assignment_status:'Assigned', assignment_notes:'Default truck assigned from SureMap route.' });
       linkedTrailers.forEach((trailer) => {
         const alreadyAssigned = getAssignmentsForJob(jobId).some((assignment) => assignment.assignmentType === 'Trailer' && assignment.resourceId === trailer.id);
         if(!alreadyAssigned) rows.push({ job_id:jobId, assignment_type:'Trailer', resource_id:trailer.id, assignment_status:'Assigned', assignment_notes:'Linked trailer assigned from SureMap route.' });
@@ -5166,20 +5148,22 @@
     const raw = readLocalRaw();
     raw.jobAssignments = Array.isArray(raw.jobAssignments) ? raw.jobAssignments.map(normalizeJobAssignment) : [];
     const jobSet = new Set(jobIds);
-    const proverAssetIdsByJobId = new Map(jobIds.map((jobId) => [jobId, truckId ? getProverAssetIdsToPreserve(jobId) : []]));
-    const truckJobIds = new Set(jobIds.filter((jobId) => truckId && jobRequiresAssignmentType(getJobById(jobId), 'Truck')));
-    const linkedTrailers = truckId ? getTrailersLinkedToTruck(truckId) : [];
+    const truckIdsByJobId = new Map(jobIds.map((jobId) => [jobId, getRouteTruckIdForJob(jobId, truckId)]));
+    const proverAssetIdsByJobId = new Map(jobIds.map((jobId) => [jobId, truckIdsByJobId.get(jobId) ? getProverAssetIdsToPreserve(jobId) : []]));
+    const truckJobIds = new Set(jobIds.filter((jobId) => truckIdsByJobId.get(jobId) && jobRequiresAssignmentType(getJobById(jobId), 'Truck')));
     raw.jobAssignments = raw.jobAssignments.filter((assignment) => {
       if(!jobSet.has(assignment.jobId)) return true;
-      if(truckJobIds.has(assignment.jobId) && assignment.assignmentType === 'Truck') return false;
       if(assignment.assignmentType === 'Truck' && (proverAssetIdsByJobId.get(assignment.jobId) || []).includes(assignment.resourceId)) return false;
       return true;
     });
     jobIds.forEach((jobId) => {
+      const assignedTruckId = truckIdsByJobId.get(jobId);
       const hasRouteTechnician = raw.jobAssignments.some((assignment) => assignment.jobId === jobId && assignment.assignmentType === 'Technician' && assignment.resourceId === technicianId);
       if(!hasRouteTechnician) raw.jobAssignments.push(normalizeJobAssignment({ id:uid('asg'), jobId, assignmentType:'Technician', resourceId:technicianId }));
-      if(truckJobIds.has(jobId)) raw.jobAssignments.push(normalizeJobAssignment({ id:uid('asg'), jobId, assignmentType:'Truck', resourceId:truckId }));
-      (truckJobIds.has(jobId) ? linkedTrailers : []).forEach((trailer) => {
+      const hasAssignedTruck = raw.jobAssignments.some((assignment) => assignment.jobId === jobId && assignment.assignmentType === 'Truck' && assignment.resourceId === assignedTruckId);
+      if(truckJobIds.has(jobId) && !hasAssignedTruck) raw.jobAssignments.push(normalizeJobAssignment({ id:uid('asg'), jobId, assignmentType:'Truck', resourceId:assignedTruckId }));
+      const linkedTrailers = truckJobIds.has(jobId) ? getTrailersLinkedToTruck(assignedTruckId) : [];
+      linkedTrailers.forEach((trailer) => {
         const alreadyAssigned = raw.jobAssignments.some((assignment) => assignment.jobId === jobId && assignment.assignmentType === 'Trailer' && assignment.resourceId === trailer.id);
         if(!alreadyAssigned) raw.jobAssignments.push(normalizeJobAssignment({ id:uid('asg'), jobId, assignmentType:'Trailer', resourceId:trailer.id }));
       });
