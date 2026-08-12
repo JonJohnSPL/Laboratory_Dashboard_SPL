@@ -182,7 +182,7 @@ const ENTITY_CONFIG = {
   maintenanceRecords:{ table:'field_maintenance_records', label:'Maintenance Record', idPrefix:'maint', defaults:{ assetType:'Equipment', assetId:'', maintenanceType:'Preventive', openDate:'', dueDate:'', completedDate:'', status:'Open', issueDescription:'', resolution:'', vendorInternal:'Internal', cost:null, assignedPerson:'', notes:'' }, fieldMap:{ assetType:'asset_type', assetId:'asset_id', maintenanceType:'maintenance_type', openDate:'open_date', dueDate:'due_date', completedDate:'completed_date', status:'status', issueDescription:'issue_description', resolution:'resolution', vendorInternal:'vendor_internal', cost:'cost', assignedPerson:'assigned_person', notes:'notes' }, idFields:['assetId'], numberFields:['cost'], dateFields:['openDate', 'dueDate', 'completedDate'] }
 };
 
-let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'overview', scheduleAnchorDate:getStartOfWeekISO(new Date()), scheduleView:'work_week', scheduleJobFilter:'all', scheduleAddPromptDate:'', scheduleActionJobId:'', scheduleQuickTechJobId:'', scheduleQuickTechTechnicianId:'', scheduleQuickTicketJobId:'', scheduleQuickTicketNumber:'', scheduleQuickTicketUrl:'', scheduleActionSavingJobId:'', filters:{ dispatchSearch:'', dispatchPriority:'all', dispatchJobType:'all', dispatchJobFilter:'open', dispatchAlertFilter:'all', dispatchAssignmentFilter:'all', dispatchSortKey:'schedule', dispatchSortDirection:'asc', inventorySearch:'', inventoryStatus:'active', partPickerSearch:'', partCatalogType:'category', directoryClient:'all', directorySection:'overview', directoryClientSearch:'', directoryContactSearch:'', directoryContactScope:'all', directoryContactProject:'all', directoryContactSite:'all', directoryContactSortKey:'name', directoryContactSortDirection:'asc' }, data:createEmptyData(), labTestDefinitions:[], sampleLinkModal:createClosedSampleLinkModalState(), partAdjustModal:createClosedPartAdjustModalState(), partPickerOpen:false, sampleTableModalOpen:false, expandedSampleGroups:{}, saveInFlight:false, autoRefreshInFlight:false, autoRefreshTimer:null };
+let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'overview', scheduleAnchorDate:getStartOfWeekISO(new Date()), scheduleView:'work_week', scheduleJobFilter:'all', scheduleAddPromptDate:'', scheduleActionJobId:'', scheduleQuickTechJobId:'', scheduleQuickTechTechnicianId:'', scheduleQuickTicketJobId:'', scheduleQuickTicketNumber:'', scheduleQuickTicketUrl:'', scheduleActionSavingJobId:'', filters:{ dispatchSearch:'', dispatchPriority:'all', dispatchJobType:'all', dispatchJobFilter:'open', dispatchAlertFilter:'all', dispatchAssignmentFilter:'all', dispatchSortKey:'schedule', dispatchSortDirection:'asc', inventorySearch:'', inventoryStatus:'active', partPickerSearch:'', partCatalogType:'category', directoryClient:'all', directorySection:'overview', directoryClientSearch:'', directoryContactSearch:'', directoryContactScope:'all', directoryContactProject:'all', directoryContactSite:'all', directoryContactSortKey:'name', directoryContactSortDirection:'asc' }, data:createEmptyData(), labTestDefinitions:[], sampleLinkModal:createClosedSampleLinkModalState(), partAdjustModal:createClosedPartAdjustModalState(), partPickerOpen:false, sampleTableModalOpen:false, expandedSampleGroups:{}, saveInFlight:false, autoRefreshInFlight:false, autoRefreshTimer:null, geotabSyncInFlight:false };
 let modalState = createClosedModalState();
 let lastLoadedSnapshot = '';
 let hideSaveStatusTimer = null;
@@ -2806,7 +2806,15 @@ function getTechnicianLabel(id){
 function getTruckLabel(id){ return state.data.trucks.find((row) => row.id === id)?.unitNumber || 'Unassigned'; }
 function getTrailerLabel(id){ return state.data.trailers.find((row) => row.id === id)?.trailerNumber || 'Unassigned'; }
 
-function switchView(view){ state.activeView = view === 'dispatch' ? 'schedule' : view; render(); }
+function switchView(view){
+  const nextView = view === 'dispatch' ? 'schedule' : view;
+  const isEnteringResources = state.activeView !== 'resources' && nextView === 'resources';
+  state.activeView = nextView;
+  render();
+  if(isEnteringResources && isRemoteMode() && window.appAuth?.isAdmin?.()){
+    void refreshGeotabFleetStatus({ silent:true });
+  }
+}
 function setDispatchFilter(key, value){ state.filters[key] = value; renderDispatch(buildDerivedState()); }
 function setDispatchSort(key){
   if(state.filters.dispatchSortKey === key){
@@ -4932,10 +4940,11 @@ function renderGeotabSyncSummary(){
   summary.textContent = `${offlineCount} offline | ${latest.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' })}`;
 }
 
-async function refreshGeotabFleetStatus(){
+async function refreshGeotabFleetStatus(options = {}){
+  const silent = options.silent === true;
   if(state.geotabSyncInFlight) return;
   if(!isRemoteMode()){
-    alert('Geotab status requires the shared Supabase connection.');
+    if(!silent) alert('Geotab status requires the shared Supabase connection.');
     return;
   }
   state.geotabSyncInFlight = true;
@@ -4955,7 +4964,7 @@ async function refreshGeotabFleetStatus(){
     console.error('Unable to refresh Geotab fleet status:', error);
     showSaveStatus('error', 'GPS SYNC FAILED');
     hideSaveStatusSoon(4200);
-    alert(error.message || 'Unable to refresh Geotab fleet status.');
+    if(!silent) alert(error.message || 'Unable to refresh Geotab fleet status.');
   } finally {
     state.geotabSyncInFlight = false;
     renderGeotabSyncSummary();

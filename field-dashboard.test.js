@@ -117,3 +117,43 @@ test('Geotab communication state does not treat unavailable data as offline', ()
   assert.equal(notFound.tone, 'warn');
   assert.equal(notFound.label, 'GPS device not found');
 });
+
+test('opening Resources automatically starts one silent Geotab sync for admins', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const calls = [];
+  const context = {
+    state:{ activeView:'overview' },
+    window:{ appAuth:{ isAdmin:() => true } },
+    isRemoteMode:() => true,
+    render:() => calls.push({ type:'render' }),
+    refreshGeotabFleetStatus:(options) => calls.push({ type:'sync', options })
+  };
+  vm.createContext(context);
+  vm.runInContext(readFunction(source, 'switchView'), context);
+
+  context.switchView('resources');
+  context.switchView('resources');
+
+  assert.equal(calls.filter((call) => call.type === 'render').length, 2);
+  assert.deepEqual(calls.filter((call) => call.type === 'sync'), [
+    { type:'sync', options:{ silent:true } }
+  ]);
+});
+
+test('opening Resources does not start an automatic Geotab sync for non-admins', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  let syncCalls = 0;
+  const context = {
+    state:{ activeView:'overview' },
+    window:{ appAuth:{ isAdmin:() => false } },
+    isRemoteMode:() => true,
+    render:() => {},
+    refreshGeotabFleetStatus:() => { syncCalls += 1; }
+  };
+  vm.createContext(context);
+  vm.runInContext(readFunction(source, 'switchView'), context);
+
+  context.switchView('resources');
+
+  assert.equal(syncCalls, 0);
+});
