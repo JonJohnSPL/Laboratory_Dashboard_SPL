@@ -92,3 +92,28 @@ test('a Prover-only job replaces its truck default with a Prover selector', () =
     ]
   );
 });
+
+test('Geotab communication state flags a linked offline device', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const context = {};
+  vm.createContext(context);
+  vm.runInContext(readFunction(source, 'getGeotabCommunicationState'), context);
+
+  const status = context.getGeotabCommunicationState({ geotabDeviceId:'device-1', geotabIsCommunicating:false });
+  assert.equal(status.tone, 'danger');
+  assert.equal(status.label, 'Device not communicating');
+});
+
+test('Geotab communication state does not treat unavailable data as offline', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const context = {};
+  vm.createContext(context);
+  vm.runInContext(readFunction(source, 'getGeotabCommunicationState'), context);
+
+  const unavailable = context.getGeotabCommunicationState({ geotabDeviceId:'device-1', geotabIsCommunicating:null });
+  assert.equal(unavailable.tone, 'muted');
+  assert.equal(unavailable.label, 'GPS status unavailable');
+  const notFound = context.getGeotabCommunicationState({ geotabDeviceId:'', geotabLinkStatus:'Not Found' });
+  assert.equal(notFound.tone, 'warn');
+  assert.equal(notFound.label, 'GPS device not found');
+});

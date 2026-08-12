@@ -175,7 +175,7 @@ const ENTITY_CONFIG = {
   employees:{ table:'employees', label:'Employee', idPrefix:'emp', defaults:{ employeeFirstName:'', employeeLastName:'', employeeName:'', homeSplSite:LOCAL_SPL_SITE, workScope:'Field', labRole:'', fieldRole:'Field Tech', canSampleTransport:false, isActive:true, phone:'', email:'', notes:'' }, fieldMap:{ employeeFirstName:'employee_first_name', employeeLastName:'employee_last_name', employeeName:'employee_name', homeSplSite:'home_spl_site', workScope:'work_scope', labRole:'lab_role', fieldRole:'field_role', canSampleTransport:'can_sample_transport', isActive:'is_active', phone:'phone', email:'email', notes:'notes' }, booleanFields:['canSampleTransport', 'isActive'] },
   splSites:{ table:'field_spl_sites', label:'SPL Site', idPrefix:'splsite', defaults:{ siteName:'', siteCode:'', locationLabel:'', streetAddress:'', city:'', state:'', zipCode:'', isActive:true, notes:'' }, fieldMap:{ siteName:'site_name', siteCode:'site_code', locationLabel:'location_label', streetAddress:'street_address', city:'city', state:'state', zipCode:'zip_code', isActive:'is_active', notes:'notes' }, booleanFields:['isActive'] },
   technicianTravel:{ table:'field_technician_travel', label:'Technician Travel', idPrefix:'travel', defaults:{ technicianId:'', direction:'Outbound', travelStatus:'Planned', originType:'spl_site', originSplSiteId:'', originClientSiteId:'', originLabel:'', originLocation:'', destinationType:'client_site', destinationSplSiteId:'', destinationClientSiteId:'', destinationLabel:'', destinationLocation:'', arrivalAt:'', departureAt:'', purpose:'', notes:'' }, fieldMap:{ technicianId:'technician_id', direction:'direction', travelStatus:'travel_status', originType:'origin_type', originSplSiteId:'origin_spl_site_id', originClientSiteId:'origin_client_site_id', originLabel:'origin_label', originLocation:'origin_location', destinationType:'destination_type', destinationSplSiteId:'destination_spl_site_id', destinationClientSiteId:'destination_client_site_id', destinationLabel:'destination_label', destinationLocation:'destination_location', arrivalAt:'arrival_at', departureAt:'departure_at', purpose:'purpose', notes:'notes' }, idFields:['technicianId', 'originSplSiteId', 'originClientSiteId', 'destinationSplSiteId', 'destinationClientSiteId'], dateTimeFields:['arrivalAt', 'departureAt'] },
-  trucks:{ table:'field_trucks', label:'Truck', idPrefix:'truck', defaults:{ unitNumber:'', vehicleType:'Pickup', fuelType:'', serviceStatus:'Available', isProver:false, currentDriver:'', assignedTechnicianId:'', model:'', licensePlateNumber:'', make:'', color:'', registeredState:'', vin:'', vehicleId:'', vehicleYear:null, nextInspectionDue:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ unitNumber:'unit_number', vehicleType:'vehicle_type', fuelType:'fuel_type', serviceStatus:'service_status', isProver:'is_prover', currentDriver:'current_driver', assignedTechnicianId:'assigned_technician_id', model:'model', licensePlateNumber:'license_plate_number', make:'make', color:'color', registeredState:'registered_state', vin:'vin', vehicleId:'vehicle_id', vehicleYear:'vehicle_year', nextInspectionDue:'next_inspection_due', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTechnicianId'], numberFields:['vehicleYear'], booleanFields:['isProver'], dateFields:['nextInspectionDue'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
+  trucks:{ table:'field_trucks', label:'Truck', idPrefix:'truck', defaults:{ unitNumber:'', vehicleType:'Pickup', fuelType:'', serviceStatus:'Available', isProver:false, currentDriver:'', assignedTechnicianId:'', model:'', licensePlateNumber:'', make:'', color:'', registeredState:'', vin:'', vehicleId:'', vehicleYear:null, nextInspectionDue:'', geotabDeviceId:'', geotabDeviceName:'', geotabSerialNumber:'', geotabIsCommunicating:null, geotabLastContactAt:'', geotabStatusCheckedAt:'', geotabLinkStatus:'Unlinked', geotabLinkMethod:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ unitNumber:'unit_number', vehicleType:'vehicle_type', fuelType:'fuel_type', serviceStatus:'service_status', isProver:'is_prover', currentDriver:'current_driver', assignedTechnicianId:'assigned_technician_id', model:'model', licensePlateNumber:'license_plate_number', make:'make', color:'color', registeredState:'registered_state', vin:'vin', vehicleId:'vehicle_id', vehicleYear:'vehicle_year', nextInspectionDue:'next_inspection_due', geotabDeviceId:'geotab_device_id', geotabDeviceName:'geotab_device_name', geotabSerialNumber:'geotab_serial_number', geotabIsCommunicating:'geotab_is_communicating', geotabLastContactAt:'geotab_last_contact_at', geotabStatusCheckedAt:'geotab_status_checked_at', geotabLinkStatus:'geotab_link_status', geotabLinkMethod:'geotab_link_method', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTechnicianId'], numberFields:['vehicleYear'], booleanFields:['isProver', 'geotabIsCommunicating'], dateFields:['nextInspectionDue'], dateTimeFields:['geotabLastContactAt', 'geotabStatusCheckedAt'], serverManagedFields:['geotabDeviceName', 'geotabSerialNumber', 'geotabIsCommunicating', 'geotabLastContactAt', 'geotabStatusCheckedAt', 'geotabLinkStatus', 'geotabLinkMethod'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
   trailers:{ table:'field_trailers', label:'Trailer', idPrefix:'trailer', defaults:{ trailerNumber:'', trailerType:'', capacityConfiguration:'', serviceStatus:'Available', isProver:false, assignedTruckId:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ trailerNumber:'trailer_number', trailerType:'trailer_type', capacityConfiguration:'capacity_configuration', serviceStatus:'service_status', isProver:'is_prover', assignedTruckId:'assigned_truck_id', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTruckId'], booleanFields:['isProver'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
   equipment:{ table:'field_equipment', label:'Equipment', idPrefix:'equip', defaults:{ equipmentName:'', equipmentType:'Small Volume Prover', model:'', manufacturer:'', splInventoryBarcode:'', serialNumber:'', calibrationStatus:'Current', lastCalibrationDate:'', nextCalibrationDue:'', maintenanceStatus:'Available', storageLocation:'', assignedTrailerTruck:'', assignedTruckId:'', assignedTrailerId:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ equipmentName:'equipment_name', equipmentType:'equipment_type', model:'model', manufacturer:'manufacturer', splInventoryBarcode:'spl_inventory_barcode', serialNumber:'serial_number', calibrationStatus:'calibration_status', lastCalibrationDate:'last_calibration_date', nextCalibrationDue:'next_calibration_due', maintenanceStatus:'maintenance_status', storageLocation:'storage_location', assignedTrailerTruck:'assigned_trailer_truck', assignedTruckId:'assigned_truck_id', assignedTrailerId:'assigned_trailer_id', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTruckId', 'assignedTrailerId'], dateFields:['lastCalibrationDate', 'nextCalibrationDue'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
   samples:{ table:'field_samples', label:'Sample', idPrefix:'sample', defaults:{ jobId:'', clientId:'', siteId:'', sampleType:'Gas', containerType:'Cylinder', collectionDateTime:'', sampleDate:'', sampleTime:'', pickedUpBy:'', dropOffLocation:'', chainOfCustodyStatus:'Requested', labReceiptStatus:'Requested', sampleStatus:'Needs Pulled', sampleName:'', samplePoint:'', isDuplicate:false, sampleCollectionMode:'', cylinderNumber:'', testCodes:[], sampleTempF:null, samplePressurePsig:null, linkedWorkOrderId:'', linkedWorkOrderNumber:'', labReceivedAt:'', sampleSequence:null, priorityTat:'', notes:'' }, fieldMap:{ jobId:'job_id', clientId:'client_id', siteId:'site_id', sampleType:'sample_type', containerType:'container_type', collectionDateTime:'collection_date_time', sampleDate:'sample_date', sampleTime:'sample_time', pickedUpBy:'picked_up_by', dropOffLocation:'drop_off_location', chainOfCustodyStatus:'chain_of_custody_status', labReceiptStatus:'lab_receipt_status', sampleStatus:'sample_status', sampleName:'sample_name', samplePoint:'sample_point', isDuplicate:'is_duplicate', sampleCollectionMode:'sample_collection_mode', cylinderNumber:'cylinder_number', testCodes:'test_codes', sampleTempF:'sample_temp_f', samplePressurePsig:'sample_pressure_psig', linkedWorkOrderId:'linked_work_order_id', linkedWorkOrderNumber:'linked_work_order_number', labReceivedAt:'lab_received_at', sampleSequence:'sample_sequence', priorityTat:'priority_tat', notes:'notes' }, idFields:['jobId', 'clientId', 'siteId'], booleanFields:['isDuplicate'], arrayFields:['testCodes'], numberFields:['sampleSequence', 'sampleTempF', 'samplePressurePsig'], dateFields:['sampleDate'], timeFields:['sampleTime'], dateTimeFields:['collectionDateTime', 'labReceivedAt'] },
@@ -1079,7 +1079,7 @@ function toRemotePayload(entityKey, draft){
   }
   const payload = {};
   Object.keys(cfg.defaults).forEach((key) => {
-    if((cfg.localOnlyFields || []).includes(key)) return;
+    if((cfg.localOnlyFields || []).includes(key) || (cfg.serverManagedFields || []).includes(key)) return;
     const remoteKey = cfg.fieldMap[key] || key;
     const value = sourceDraft[key];
     if((cfg.booleanFields || []).includes(key)) payload[remoteKey] = !!value;
@@ -2535,6 +2535,8 @@ const FORM_DEFINITIONS = {
     { key:'registeredState', label:'Registered State', type:'text' },
     { key:'vin', label:'VIN', type:'text' },
     { key:'nextInspectionDue', label:'Next Inspection Due', type:'date' },
+    { kind:'section', label:'GPS / Telematics' },
+    { key:'geotabDeviceId', label:'Geotab Device ID', type:'text', full:true },
     { key:'assetPhotoPath', label:'Truck Photo', type:'image', full:true },
     { key:'notes', label:'Notes', type:'textarea', full:true }
   ],
@@ -3610,6 +3612,15 @@ function getScheduleDayClasses(dateIso){
   ].filter(Boolean).join(' ');
 }
 
+function renderScheduleCompanyIdentity(job){
+  const client = getClient(job?.clientId);
+  const companyName = client?.clientName || 'Company not set';
+  return `<div class="schedule-company" title="${esc(companyName)}">
+    <span class="schedule-company-name">${esc(companyName)}</span>
+    ${renderAssetPhoto(client, { className:'schedule-company-logo', emptyLabel:'No logo', alt:getAssetPhotoAlt('clients', client) })}
+  </div>`;
+}
+
 function renderSchedule(derived){
   const scheduleDates = getScheduleDates();
   const scheduleJobs = getJobsForScheduleDates(scheduleDates);
@@ -3634,7 +3645,10 @@ function renderSchedule(derived){
               const pastJob = isJobPast(job);
               const cardClasses = ['schedule-card', 'clickable-card', getJobTypeClassName(job.jobType), state.scheduleActionJobId === job.id ? 'action-open' : '', missingEquipment ? 'missing-equipment' : '', pastJob ? 'past-job' : '', derived.conflictJobIds.has(job.id) ? 'conflict' : '', warnings.length ? 'warning' : ''].filter(Boolean).join(' ');
               return `<div class="${esc(cardClasses)}" style="${esc(getJobTypeScheduleStyle(job.jobType))}" role="button" tabindex="0" title="Job Actions" aria-expanded="${state.scheduleActionJobId === job.id ? 'true' : 'false'}" onclick="openScheduleJobActions('${esc(job.id)}', event)" onkeydown="handleScheduleJobActionKey(event, '${esc(job.id)}')">
-                <div class="item-title">${esc(getJobDisplayTitle(job))}</div>
+                <div class="schedule-card-head">
+                  <div class="item-title">${esc(getJobDisplayTitle(job))}</div>
+                  ${renderScheduleCompanyIdentity(job)}
+                </div>
                 <div class="muted">${esc(fmtTime(job.scheduledStart || job.requestedDate))} | ${esc(getJobSiteSummary(job))}</div>
                 <div class="mini-tags">${renderJobSalesforceTag(job)}${renderJobNeedsTicketTag(job)}${renderJobNeedsRouteTag(job, derived)}</div>
                 ${renderScheduleTechnicianLine(job.id)}
@@ -3646,6 +3660,7 @@ function renderSchedule(derived){
         </div>`;
       }).join('')}
     </div>`;
+  hydrateAssetPhotoPreviews(document.getElementById('schedule-board'));
   renderTravelSchedule(scheduleDates);
 }
 
@@ -4041,9 +4056,10 @@ function renderAssetPhotoField(field){
 function renderResources(){
   const splSitesPanel = document.getElementById('spl-sites-panel');
   if(splSitesPanel) splSitesPanel.innerHTML = renderResourceCards(state.data.splSites, (site) => `<div ${renderCardOpenAttrs('splSites', site.id)}><div class="resource-card-head"><div><div class="item-title">${esc(site.siteName || 'Unnamed SPL site')}</div><div class="muted">${esc(site.siteCode || 'No site code')}</div></div>${site.isActive ? '<span class="tag-chip">Active</span>' : '<span class="warning-chip">Inactive</span>'}</div><div class="muted">${esc(site.locationLabel || site.streetAddress || 'No location label')}</div><div class="muted">${esc([site.city, site.state, site.zipCode].filter(Boolean).join(', ') || 'No city/state')}</div></div>`, 'No SPL sites yet');
-  document.getElementById('trucks-panel').innerHTML = renderResourceCards(state.data.trucks, (truck) => `<div ${renderCardOpenAttrs('trucks', truck.id)}>${renderAssetPhoto(truck, { className:'resource-photo', emptyLabel:getAssetPhotoEmptyLabel('trucks'), alt:getAssetPhotoAlt('trucks', truck), fallbackImageSrc:getDefaultAssetIconSrc('trucks', truck) })}<div class="resource-card-head"><div><div class="item-title">${esc(truck.unitNumber || 'Unnamed truck')}</div><div class="muted">${esc([truck.color, truck.vehicleYear, truck.make, truck.model].filter(Boolean).join(' ') || truck.vehicleType)}</div></div><div class="mini-tags">${truck.isProver ? '<span class="tag-chip">Prover</span>' : ''}${getStatusBadge(truck.serviceStatus)}${getFuelTypeBadge(truck.fuelType)}${getTruckInspectionBadge(truck)}</div></div><div class="muted">${esc(truck.licensePlateNumber || 'No plate')} ${truck.registeredState ? `| ${esc(truck.registeredState)}` : ''}</div><div class="muted">${truck.vin ? `VIN: ${esc(truck.vin)}` : 'No VIN'}</div><div class="muted">Assigned Employee: ${esc(truck.assignedTechnicianId ? getTechnicianLabel(truck.assignedTechnicianId) : 'Pool')}</div></div>`, 'No trucks yet');
+  document.getElementById('trucks-panel').innerHTML = renderResourceCards(state.data.trucks, (truck) => `<div ${renderCardOpenAttrs('trucks', truck.id)}>${renderAssetPhoto(truck, { className:'resource-photo', emptyLabel:getAssetPhotoEmptyLabel('trucks'), alt:getAssetPhotoAlt('trucks', truck), fallbackImageSrc:getDefaultAssetIconSrc('trucks', truck) })}<div class="resource-card-head"><div><div class="item-title">${esc(truck.unitNumber || 'Unnamed truck')}</div><div class="muted">${esc([truck.color, truck.vehicleYear, truck.make, truck.model].filter(Boolean).join(' ') || truck.vehicleType)}</div></div><div class="mini-tags">${truck.isProver ? '<span class="tag-chip">Prover</span>' : ''}${getStatusBadge(truck.serviceStatus)}${getFuelTypeBadge(truck.fuelType)}${getTruckInspectionBadge(truck)}</div></div>${renderGeotabCommunication(truck)}<div class="muted">${esc(truck.licensePlateNumber || 'No plate')} ${truck.registeredState ? `| ${esc(truck.registeredState)}` : ''}</div><div class="muted">${truck.vin ? `VIN: ${esc(truck.vin)}` : 'No VIN'}</div><div class="muted">Assigned Employee: ${esc(truck.assignedTechnicianId ? getTechnicianLabel(truck.assignedTechnicianId) : 'Pool')}</div></div>`, 'No trucks yet');
   document.getElementById('trailers-panel').innerHTML = renderResourceCards(state.data.trailers, (trailer) => `<div ${renderCardOpenAttrs('trailers', trailer.id)}>${renderAssetPhoto(trailer, { className:'resource-photo', emptyLabel:getAssetPhotoEmptyLabel('trailers'), alt:getAssetPhotoAlt('trailers', trailer), fallbackImageSrc:getDefaultAssetIconSrc('trailers', trailer) })}<div class="resource-card-head"><div><div class="item-title">${esc(trailer.trailerNumber || 'Unnamed trailer')}</div><div class="muted">${esc(trailer.trailerType || 'No trailer type')}</div></div><div class="mini-tags">${trailer.isProver ? '<span class="tag-chip">Prover</span>' : ''}${getStatusBadge(trailer.serviceStatus)}</div></div><div class="muted">${esc(trailer.capacityConfiguration || 'No capacity/configuration')}</div><div class="muted">Assigned Truck: ${esc(trailer.assignedTruckId ? getTruckLabel(trailer.assignedTruckId) : 'Unassigned')}</div></div>`, 'No trailers yet');
   document.getElementById('equipment-panel').innerHTML = renderResourceCards(state.data.equipment, (item) => `<div ${renderCardOpenAttrs('equipment', item.id)}><div class="resource-card-head"><div><div class="item-title">${esc(item.equipmentName || 'Unnamed equipment')}</div><div class="muted">${esc(item.equipmentType)}</div></div>${getStatusBadge(item.maintenanceStatus)}</div><div class="mini-tags">${getStatusBadge(item.calibrationStatus)}${item.serialNumber ? `<span class="tag-chip">${esc(item.serialNumber)}</span>` : ''}</div><div class="muted">${esc([item.manufacturer, item.model].filter(Boolean).join(' | ') || 'No manufacturer or model')}</div><div class="muted">${esc(item.splInventoryBarcode ? `Barcode: ${item.splInventoryBarcode}` : 'No SPL inventory barcode')}</div><div class="muted">Truck: ${esc(item.assignedTruckId ? getTruckLabel(item.assignedTruckId) : 'Pool')} | Trailer: ${esc(item.assignedTrailerId ? getTrailerLabel(item.assignedTrailerId) : 'Pool')}</div></div>`, 'No equipment yet');
+  renderGeotabSyncSummary();
 }
 
 function setInventoryFilter(key, value){
@@ -4881,6 +4897,69 @@ function renderFormField(field){
       ? `<select class="form-input" ${disabled ? 'disabled' : ''} onchange="${field.handler ? `${field.handler}(this.value)` : `setModalField('${field.key}', this.value)`}">${includeEmptyOption ? `<option value="">${esc(emptyOptionLabel)}</option>` : ''}${options.map((option) => `<option value="${esc(option.value)}" ${String(value) === String(option.value) ? 'selected' : ''}>${esc(option.label)}</option>`).join('')}</select>`
       : `<input class="form-input" ${disabled ? 'disabled' : ''} type="${field.type || 'text'}" value="${esc(value ?? '')}" oninput="setModalField('${field.key}', this.value, '${field.type === 'number' ? 'number' : 'text'}')">`;
   return `<div class="form-group${fullClass}"><label class="form-label">${esc(field.label)}</label>${control}</div>`;
+}
+
+function getGeotabCommunicationState(truck){
+  if(!truck?.geotabDeviceId){
+    const linkStatus = String(truck?.geotabLinkStatus || 'Unlinked');
+    return { tone:['Ambiguous', 'Not Found', 'Error'].includes(linkStatus) ? 'warn' : 'muted', label:linkStatus === 'Ambiguous' ? 'GPS match ambiguous' : (linkStatus === 'Not Found' ? 'GPS device not found' : (linkStatus === 'Error' ? 'GPS sync error' : 'GPS not linked')) };
+  }
+  if(truck.geotabIsCommunicating === false) return { tone:'danger', label:'Device not communicating' };
+  if(truck.geotabIsCommunicating === true) return { tone:'ok', label:'GPS communicating' };
+  return { tone:'muted', label:'GPS status unavailable' };
+}
+
+function renderGeotabCommunication(truck){
+  const status = getGeotabCommunicationState(truck);
+  const deviceLabel = truck.geotabDeviceName || truck.geotabDeviceId || '';
+  const lastContact = truck.geotabLastContactAt ? `Last contact ${fmtDateTime(truck.geotabLastContactAt)}` : 'No contact time received';
+  return `<div class="truck-gps-status ${esc(status.tone)}"><div><span class="status-badge ${esc(status.tone)}">${esc(status.label)}</span>${deviceLabel ? `<span class="truck-gps-device">${esc(deviceLabel)}</span>` : ''}</div><span class="muted">${esc(lastContact)}</span></div>`;
+}
+
+function renderGeotabSyncSummary(){
+  const summary = document.getElementById('geotab-sync-summary');
+  const button = document.getElementById('geotab-refresh-btn');
+  if(button){
+    button.disabled = !!state.geotabSyncInFlight;
+    button.textContent = state.geotabSyncInFlight ? 'Refreshing GPS...' : 'Refresh GPS';
+  }
+  if(!summary) return;
+  if(state.geotabSyncInFlight){ summary.textContent = 'Checking fleet'; return; }
+  const checkedDates = state.data.trucks.map((truck) => parseDateTime(truck.geotabStatusCheckedAt)).filter(Boolean);
+  const offlineCount = state.data.trucks.filter((truck) => truck.geotabDeviceId && truck.geotabIsCommunicating === false).length;
+  if(!checkedDates.length){ summary.textContent = 'GPS not refreshed'; return; }
+  const latest = new Date(Math.max(...checkedDates.map((date) => date.getTime())));
+  summary.textContent = `${offlineCount} offline | ${latest.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' })}`;
+}
+
+async function refreshGeotabFleetStatus(){
+  if(state.geotabSyncInFlight) return;
+  if(!isRemoteMode()){
+    alert('Geotab status requires the shared Supabase connection.');
+    return;
+  }
+  state.geotabSyncInFlight = true;
+  renderGeotabSyncSummary();
+  showSaveStatus('saving', 'CHECKING GPS');
+  try {
+    const result = await window.appAuth.requestJson('/functions/v1/geotab-fleet-status', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body:JSON.stringify({ action:'sync' })
+    });
+    await loadData({ silent:true, force:true });
+    const offlineCount = Number(result?.notCommunicating || 0);
+    showSaveStatus(offlineCount ? 'error' : 'saved', offlineCount ? `${offlineCount} GPS OFFLINE` : 'GPS STATUS CURRENT');
+    hideSaveStatusSoon(offlineCount ? 4200 : 2600);
+  } catch (error){
+    console.error('Unable to refresh Geotab fleet status:', error);
+    showSaveStatus('error', 'GPS SYNC FAILED');
+    hideSaveStatusSoon(4200);
+    alert(error.message || 'Unable to refresh Geotab fleet status.');
+  } finally {
+    state.geotabSyncInFlight = false;
+    renderGeotabSyncSummary();
+  }
 }
 
 function getBillingRateSectionClass(section){

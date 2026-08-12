@@ -1466,6 +1466,14 @@ create table if not exists public.field_trucks (
   vehicle_id text not null default '',
   vehicle_year integer,
   next_inspection_due date,
+  geotab_device_id text not null default '',
+  geotab_device_name text not null default '',
+  geotab_serial_number text not null default '',
+  geotab_is_communicating boolean,
+  geotab_last_contact_at timestamptz,
+  geotab_status_checked_at timestamptz,
+  geotab_link_status text not null default 'Unlinked',
+  geotab_link_method text not null default '',
   notes text not null default '',
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
@@ -1486,6 +1494,17 @@ alter table public.field_trucks add column if not exists vin text not null defau
 alter table public.field_trucks add column if not exists vehicle_id text not null default '';
 alter table public.field_trucks add column if not exists vehicle_year integer;
 alter table public.field_trucks add column if not exists next_inspection_due date;
+alter table public.field_trucks add column if not exists geotab_device_id text not null default '';
+alter table public.field_trucks add column if not exists geotab_device_name text not null default '';
+alter table public.field_trucks add column if not exists geotab_serial_number text not null default '';
+alter table public.field_trucks add column if not exists geotab_is_communicating boolean;
+alter table public.field_trucks add column if not exists geotab_last_contact_at timestamptz;
+alter table public.field_trucks add column if not exists geotab_status_checked_at timestamptz;
+alter table public.field_trucks add column if not exists geotab_link_status text not null default 'Unlinked';
+alter table public.field_trucks add column if not exists geotab_link_method text not null default '';
+create unique index if not exists field_trucks_geotab_device_id_unique_idx
+on public.field_trucks(geotab_device_id)
+where btrim(geotab_device_id) <> '';
 alter table public.field_trucks drop column if exists plate_vin;
 alter table public.field_trucks drop column if exists assigned_region;
 alter table public.field_trucks drop column if exists odometer;

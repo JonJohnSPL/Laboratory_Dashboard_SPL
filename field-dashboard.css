@@ -681,6 +681,62 @@ tbody tr.clickable-table-row:focus-visible{
   animation:missing-equipment-pulse 1.2s ease-in-out infinite;
 }
 .schedule-card .item-title{color:var(--schedule-card-color);}
+.schedule-card-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:2px;
+}
+.schedule-card-head .item-title{
+  min-width:0;
+  padding-top:2px;
+}
+.schedule-company{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:7px;
+  min-width:0;
+  max-width:52%;
+  flex:0 1 auto;
+}
+.schedule-company-name{
+  min-width:0;
+  overflow:hidden;
+  color:#d4dfd6;
+  font-family:var(--mono);
+  font-size:10px;
+  font-weight:700;
+  line-height:1.2;
+  letter-spacing:.35px;
+  text-align:right;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.schedule-company-logo{
+  display:block;
+  width:32px;
+  min-width:32px;
+  height:32px;
+  padding:3px;
+  object-fit:contain;
+  border-radius:7px;
+  border:1px solid rgba(255,255,255,.14);
+  background:rgba(8,12,9,.82);
+}
+.schedule-company-logo.empty{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:3px;
+  color:var(--muted);
+  font-family:var(--mono);
+  font-size:7px;
+  line-height:1.05;
+  text-align:center;
+  text-transform:uppercase;
+}
 .sr-only{
   position:absolute;
   width:1px;
@@ -1873,6 +1929,32 @@ textarea.form-input{min-height:86px;resize:vertical;}
   border:0;
   border-left:1px solid var(--border);
   border-radius:0;
+}
+.truck-gps-status{
+  display:grid;
+  gap:6px;
+  margin:12px 0;
+  padding:10px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:rgba(8,12,9,.34);
+}
+.truck-gps-status > div{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.truck-gps-status.danger{
+  border-color:rgba(255,93,115,.38);
+  background:rgba(255,93,115,.08);
+}
+.truck-gps-status.warn{border-color:rgba(255,209,102,.3);}
+.truck-gps-status.ok{border-color:rgba(78,226,154,.24);}
+.truck-gps-device{
+  color:var(--muted);
+  font-family:var(--mono);
+  font-size:11px;
 }
 .billing-price-editor{
   margin-top:16px;

@@ -141,7 +141,11 @@
       <section class="panel">
         <div class="panel-header">
           <h2>Trucks</h2>
-          <button class="act-btn" type="button" onclick="openEntityModal('trucks')">+ Add Truck</button>
+          <div class="panel-actions">
+            <span class="panel-meta" id="geotab-sync-summary">GPS not refreshed</span>
+            <button class="act-btn" id="geotab-refresh-btn" type="button" onclick="refreshGeotabFleetStatus()">Refresh GPS</button>
+            <button class="act-btn" type="button" onclick="openEntityModal('trucks')">+ Add Truck</button>
+          </div>
         </div>
         <div class="panel-body" id="trucks-panel"></div>
       </section>
