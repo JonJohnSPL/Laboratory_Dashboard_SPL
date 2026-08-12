@@ -1531,6 +1531,7 @@ alter table public.field_trucks drop column if exists state_insurance_expiration
 create table if not exists public.field_trailers (
   id uuid primary key default gen_random_uuid(),
   trailer_number text not null default '',
+  vin text not null default '',
   trailer_type text not null default '',
   capacity_configuration text not null default '',
   service_status text not null default 'Available' check (service_status in ('Available', 'Assigned', 'In Use', 'Maintenance', 'Out of Service')),
@@ -1551,6 +1552,7 @@ create table if not exists public.field_trailers (
   updated_by uuid
 );
 alter table public.field_trailers add column if not exists photo_path text;
+alter table public.field_trailers add column if not exists vin text not null default '';
 alter table public.field_trailers add column if not exists is_prover boolean not null default false;
 alter table public.field_trailers add column if not exists assigned_truck_id uuid;
 alter table public.field_trailers add column if not exists geotab_device_id text not null default '';

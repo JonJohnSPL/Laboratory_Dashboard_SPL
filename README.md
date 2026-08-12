@@ -70,7 +70,7 @@ GEOTAB_PASSWORD
 supabase functions deploy geotab-fleet-status
 ```
 
-Run the latest `supabase/schema.sql`, open Field Ops > Resources, and select **Refresh GPS**. Unlinked trucks are matched only by an exact VIN, license plate, or unit-number/device-name match. Unlinked trailers are matched by an exact trailer-number/device-name match. A Geotab device ID can also be entered directly in either asset editor.
+Run the latest `supabase/schema.sql`, open Field Ops > Resources, and select **Refresh GPS**. Unlinked trucks are matched only by an exact VIN, license plate, or unit-number/device-name match. Unlinked trailers are matched first by VIN, then by an exact trailer-number/device-name match. A Geotab device ID can also be entered directly in either asset editor.
 
 ## GitHub repo and Pages
 

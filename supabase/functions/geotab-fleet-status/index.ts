@@ -122,7 +122,7 @@ async function requireAppAdmin(request: Request, env: Env): Promise<void> {
 async function syncFleetStatus(env: Env): Promise<RecordValue> {
   const [trucks, trailers] = await Promise.all([
     supabaseSelect(env, "field_trucks?select=id,unit_number,vin,license_plate_number,geotab_device_id"),
-    supabaseSelect(env, "field_trailers?select=id,trailer_number,geotab_device_id"),
+    supabaseSelect(env, "field_trailers?select=id,trailer_number,vin,geotab_device_id"),
   ]);
   const devices = await geotabGet(env, "Device", {
     search: { fromDate: new Date().toISOString() },
@@ -157,7 +157,10 @@ async function syncFleetStatus(env: Env): Promise<RecordValue> {
     trailer,
     deviceById,
     statusByDeviceId,
-    [{ value: trailer.trailer_number, index: deviceIndexes.byName, method: "Trailer Number" }],
+    [
+      { value: trailer.vin, index: deviceIndexes.byVin, method: "VIN" },
+      { value: trailer.trailer_number, index: deviceIndexes.byName, method: "Trailer Number" },
+    ],
     checkedAt,
     claimedDeviceIds,
   ));
