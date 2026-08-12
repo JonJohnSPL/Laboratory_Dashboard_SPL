@@ -118,6 +118,40 @@ test('Geotab communication state does not treat unavailable data as offline', ()
   assert.equal(notFound.label, 'GPS device not found');
 });
 
+test('Geotab communication state applies to a linked trailer device', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const context = {};
+  vm.createContext(context);
+  vm.runInContext(readFunction(source, 'getGeotabCommunicationState'), context);
+
+  const status = context.getGeotabCommunicationState({ geotabDeviceId:'trailer-device-1', geotabIsCommunicating:false });
+  assert.equal(status.tone, 'danger');
+  assert.equal(status.label, 'Device not communicating');
+});
+
+test('Geotab summary counts offline trucks and trailers', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const summary = { textContent:'' };
+  const button = { disabled:false, textContent:'' };
+  const context = {
+    state:{
+      geotabSyncInFlight:false,
+      data:{
+        trucks:[{ geotabDeviceId:'truck-device', geotabIsCommunicating:false, geotabStatusCheckedAt:'2026-08-12T14:00:00Z' }],
+        trailers:[{ geotabDeviceId:'trailer-device', geotabIsCommunicating:false, geotabStatusCheckedAt:'2026-08-12T14:01:00Z' }]
+      }
+    },
+    document:{ getElementById:(id) => id === 'geotab-sync-summary' ? summary : button },
+    parseDateTime:(value) => value ? new Date(value) : null
+  };
+  vm.createContext(context);
+  vm.runInContext(readFunction(source, 'renderGeotabSyncSummary'), context);
+
+  context.renderGeotabSyncSummary();
+
+  assert.match(summary.textContent, /^2 offline \(1 truck, 1 trailer\) \|/);
+});
+
 test('opening Resources automatically starts one silent Geotab sync for admins', () => {
   const source = fs.readFileSync('field-dashboard.js', 'utf8');
   const calls = [];

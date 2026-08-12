@@ -1536,6 +1536,14 @@ create table if not exists public.field_trailers (
   service_status text not null default 'Available' check (service_status in ('Available', 'Assigned', 'In Use', 'Maintenance', 'Out of Service')),
   is_prover boolean not null default false,
   assigned_truck_id uuid,
+  geotab_device_id text not null default '',
+  geotab_device_name text not null default '',
+  geotab_serial_number text not null default '',
+  geotab_is_communicating boolean,
+  geotab_last_contact_at timestamptz,
+  geotab_status_checked_at timestamptz,
+  geotab_link_status text not null default 'Unlinked',
+  geotab_link_method text not null default '',
   notes text not null default '',
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
@@ -1545,6 +1553,17 @@ create table if not exists public.field_trailers (
 alter table public.field_trailers add column if not exists photo_path text;
 alter table public.field_trailers add column if not exists is_prover boolean not null default false;
 alter table public.field_trailers add column if not exists assigned_truck_id uuid;
+alter table public.field_trailers add column if not exists geotab_device_id text not null default '';
+alter table public.field_trailers add column if not exists geotab_device_name text not null default '';
+alter table public.field_trailers add column if not exists geotab_serial_number text not null default '';
+alter table public.field_trailers add column if not exists geotab_is_communicating boolean;
+alter table public.field_trailers add column if not exists geotab_last_contact_at timestamptz;
+alter table public.field_trailers add column if not exists geotab_status_checked_at timestamptz;
+alter table public.field_trailers add column if not exists geotab_link_status text not null default 'Unlinked';
+alter table public.field_trailers add column if not exists geotab_link_method text not null default '';
+create unique index if not exists field_trailers_geotab_device_id_unique_idx
+on public.field_trailers(geotab_device_id)
+where btrim(geotab_device_id) <> '';
 alter table public.field_trailers drop column if exists last_inspection_date;
 alter table public.field_trailers drop column if exists next_inspection_due;
 

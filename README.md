@@ -54,7 +54,7 @@ supabase functions deploy field-ops-teams
 
 ## Geotab fleet status
 
-The Resources view can link trucks to Geotab devices and display the current device communication state. Geotab credentials stay in the `geotab-fleet-status` Edge Function and must not be added to `app-config.js`.
+The Resources view can link trucks and trailers to Geotab devices and display the current device communication state. Geotab credentials stay in the `geotab-fleet-status` Edge Function and must not be added to `app-config.js`.
 
 Configure a dedicated, read-only Geotab API user and store these Supabase secrets:
 
@@ -70,7 +70,7 @@ GEOTAB_PASSWORD
 supabase functions deploy geotab-fleet-status
 ```
 
-Run the latest `supabase/schema.sql`, open Field Ops > Resources, and select **Refresh GPS**. Unlinked trucks are matched only by an exact VIN, license plate, or unit-number/device-name match. A Geotab device ID can also be entered directly in the truck editor.
+Run the latest `supabase/schema.sql`, open Field Ops > Resources, and select **Refresh GPS**. Unlinked trucks are matched only by an exact VIN, license plate, or unit-number/device-name match. Unlinked trailers are matched by an exact trailer-number/device-name match. A Geotab device ID can also be entered directly in either asset editor.
 
 ## GitHub repo and Pages
 

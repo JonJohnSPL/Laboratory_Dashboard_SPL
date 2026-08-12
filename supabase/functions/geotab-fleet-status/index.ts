@@ -120,10 +120,10 @@ async function requireAppAdmin(request: Request, env: Env): Promise<void> {
 }
 
 async function syncFleetStatus(env: Env): Promise<RecordValue> {
-  const trucks = await supabaseSelect(
-    env,
-    "field_trucks?select=id,unit_number,vin,license_plate_number,geotab_device_id",
-  );
+  const [trucks, trailers] = await Promise.all([
+    supabaseSelect(env, "field_trucks?select=id,unit_number,vin,license_plate_number,geotab_device_id"),
+    supabaseSelect(env, "field_trailers?select=id,trailer_number,geotab_device_id"),
+  ]);
   const devices = await geotabGet(env, "Device", {
     search: { fromDate: new Date().toISOString() },
     resultsLimit: 5000,
@@ -141,44 +141,64 @@ async function syncFleetStatus(env: Env): Promise<RecordValue> {
   const deviceIndexes = buildDeviceIndexes(devices);
   const checkedAt = new Date().toISOString();
   const claimedDeviceIds = new Set<string>();
-  const updates = trucks.map((truck) => buildTruckUpdate(
+  const truckUpdates = trucks.map((truck) => buildFleetAssetUpdate(
     truck,
     deviceById,
     statusByDeviceId,
-    deviceIndexes,
+    [
+      { value: truck.vin, index: deviceIndexes.byVin, method: "VIN" },
+      { value: truck.license_plate_number, index: deviceIndexes.byPlate, method: "License Plate" },
+      { value: truck.unit_number, index: deviceIndexes.byName, method: "Unit Number" },
+    ],
+    checkedAt,
+    claimedDeviceIds,
+  ));
+  const trailerUpdates = trailers.map((trailer) => buildFleetAssetUpdate(
+    trailer,
+    deviceById,
+    statusByDeviceId,
+    [{ value: trailer.trailer_number, index: deviceIndexes.byName, method: "Trailer Number" }],
     checkedAt,
     claimedDeviceIds,
   ));
 
-  for (const update of updates) {
-    await updateTruck(env, stringValue(update.id), update.payload as RecordValue);
+  for (const update of truckUpdates) {
+    await updateFleetAsset(env, "field_trucks", stringValue(update.id), update.payload as RecordValue);
+  }
+  for (const update of trailerUpdates) {
+    await updateFleetAsset(env, "field_trailers", stringValue(update.id), update.payload as RecordValue);
   }
 
+  const updates = [...truckUpdates, ...trailerUpdates];
   return {
     ok: true,
     checkedAt,
-    trucks: updates.length,
+    assets: updates.length,
+    trucks: truckUpdates.length,
+    trailers: trailerUpdates.length,
     linked: updates.filter((update) => update.payload.geotab_link_status === "Linked").length,
     notCommunicating: updates.filter((update) => update.payload.geotab_is_communicating === false).length,
     unlinked: updates.filter((update) => update.payload.geotab_link_status !== "Linked").length,
+    truckStatus: summarizeUpdates(truckUpdates),
+    trailerStatus: summarizeUpdates(trailerUpdates),
   };
 }
 
-function buildTruckUpdate(
-  truck: RecordValue,
+function buildFleetAssetUpdate(
+  asset: RecordValue,
   deviceById: Map<string, RecordValue>,
   statusByDeviceId: Map<string, RecordValue>,
-  indexes: ReturnType<typeof buildDeviceIndexes>,
+  matchCandidates: Array<{ value: unknown; index: Map<string, RecordValue[]>; method: string }>,
   checkedAt: string,
   claimedDeviceIds: Set<string>,
 ): { id: string; payload: RecordValue } {
-  const explicitDeviceId = stringValue(truck.geotab_device_id);
+  const explicitDeviceId = stringValue(asset.geotab_device_id);
   let device = explicitDeviceId ? deviceById.get(explicitDeviceId) || null : null;
   let linkMethod = explicitDeviceId ? "Device ID" : "";
   let linkStatus = "Unlinked";
 
   if (!device && !explicitDeviceId) {
-    const match = findAutomaticDeviceMatch(truck, indexes);
+    const match = findAutomaticDeviceMatch(matchCandidates);
     device = match.device;
     linkMethod = match.method;
     linkStatus = match.status;
@@ -192,14 +212,14 @@ function buildTruckUpdate(
   if (matchedDeviceId && claimedDeviceIds.has(matchedDeviceId)) {
     device = null;
     linkStatus = "Ambiguous";
-    linkMethod = linkMethod || "Duplicate truck match";
+    linkMethod = linkMethod || "Duplicate fleet match";
   } else if (matchedDeviceId) {
     claimedDeviceIds.add(matchedDeviceId);
   }
 
   if (!device) {
     return {
-      id: stringValue(truck.id),
+      id: stringValue(asset.id),
       payload: {
         geotab_device_id: linkStatus === "Ambiguous" ? "" : explicitDeviceId,
         geotab_device_name: "",
@@ -216,7 +236,7 @@ function buildTruckUpdate(
   const deviceId = stringValue(valueOf(device, "id"));
   const status = statusByDeviceId.get(deviceId) || null;
   return {
-    id: stringValue(truck.id),
+    id: stringValue(asset.id),
     payload: {
       geotab_device_id: deviceId,
       geotab_device_name: stringValue(valueOf(device, "name")),
@@ -231,15 +251,8 @@ function buildTruckUpdate(
 }
 
 function findAutomaticDeviceMatch(
-  truck: RecordValue,
-  indexes: ReturnType<typeof buildDeviceIndexes>,
+  candidates: Array<{ value: unknown; index: Map<string, RecordValue[]>; method: string }>,
 ): { device: RecordValue | null; method: string; status: string } {
-  const candidates = [
-    { value: truck.vin, index: indexes.byVin, method: "VIN" },
-    { value: truck.license_plate_number, index: indexes.byPlate, method: "License Plate" },
-    { value: truck.unit_number, index: indexes.byName, method: "Unit Number" },
-  ];
-
   for (const candidate of candidates) {
     const key = normalizedIdentifier(candidate.value);
     if (!key) continue;
@@ -248,6 +261,15 @@ function findAutomaticDeviceMatch(
     if (matches.length > 1) return { device: null, method: candidate.method, status: "Ambiguous" };
   }
   return { device: null, method: "", status: "Not Found" };
+}
+
+function summarizeUpdates(updates: Array<{ id: string; payload: RecordValue }>): RecordValue {
+  return {
+    total: updates.length,
+    linked: updates.filter((update) => update.payload.geotab_link_status === "Linked").length,
+    notCommunicating: updates.filter((update) => update.payload.geotab_is_communicating === false).length,
+    unlinked: updates.filter((update) => update.payload.geotab_link_status !== "Linked").length,
+  };
 }
 
 function buildDeviceIndexes(devices: RecordValue[]) {
@@ -342,8 +364,8 @@ async function supabaseSelect(env: Env, path: string): Promise<RecordValue[]> {
   return Array.isArray(payload) ? payload.filter(isRecord) : [];
 }
 
-async function updateTruck(env: Env, truckId: string, payload: RecordValue): Promise<void> {
-  const response = await fetch(`${env.supabaseUrl}/rest/v1/field_trucks?id=eq.${encodeURIComponent(truckId)}`, {
+async function updateFleetAsset(env: Env, table: "field_trucks" | "field_trailers", assetId: string, payload: RecordValue): Promise<void> {
+  const response = await fetch(`${env.supabaseUrl}/rest/v1/${table}?id=eq.${encodeURIComponent(assetId)}`, {
     method: "PATCH",
     headers: { ...serviceHeaders(env), "Content-Type": "application/json", Prefer: "return=minimal" },
     body: JSON.stringify(payload),
