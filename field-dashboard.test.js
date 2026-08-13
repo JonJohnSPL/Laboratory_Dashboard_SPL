@@ -191,3 +191,31 @@ test('opening Resources does not start an automatic Geotab sync for non-admins',
 
   assert.equal(syncCalls, 0);
 });
+
+test('dispatch date range includes jobs whose schedule overlaps either boundary', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const context = {};
+  vm.createContext(context);
+  vm.runInContext([
+    readFunction(source, 'parseDateOnly'),
+    readFunction(source, 'parseDateTime'),
+    readFunction(source, 'getJobPrimaryDate'),
+    readFunction(source, 'getJobSecondaryDate'),
+    readFunction(source, 'jobOverlapsDispatchDateRange')
+  ].join('\n'), context);
+
+  const spanningJob = { scheduledStart:'2026-08-10T08:00:00', scheduledEnd:'2026-08-14T17:00:00' };
+  assert.equal(context.jobOverlapsDispatchDateRange(spanningJob, '2026-08-12', '2026-08-13'), true);
+  assert.equal(context.jobOverlapsDispatchDateRange(spanningJob, '2026-08-15', ''), false);
+  assert.equal(context.jobOverlapsDispatchDateRange(spanningJob, '', '2026-08-09'), false);
+});
+
+test('dispatch board exposes the requested filters and removes priority controls', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const renderDispatchSource = readFunction(source, 'renderDispatch');
+
+  for(const filter of ['dispatchClient', 'dispatchJobType', 'dispatchDateFrom', 'dispatchDateTo', 'dispatchStatus', 'dispatchTechnician']){
+    assert.match(renderDispatchSource, new RegExp(filter));
+  }
+  assert.doesNotMatch(source, /dispatchPriority|dispatchAlertFilter|dispatchAssignmentFilter|getPriorityBadge|PRIORITY_OPTIONS/);
+});

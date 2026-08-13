@@ -365,7 +365,7 @@ tbody tr.clickable-table-row:focus-visible{
   gap:6px;
   margin-top:8px;
 }
-.tag-chip,.warning-chip,.mini-tag,.status-badge,.priority-badge,.job-type-badge,.fuel-badge{
+.tag-chip,.warning-chip,.mini-tag,.status-badge,.job-type-badge,.fuel-badge{
   display:inline-flex;
   align-items:center;
   justify-content:center;
@@ -383,10 +383,6 @@ tbody tr.clickable-table-row:focus-visible{
 .tag-chip{color:var(--muted);}
 .mini-tag{color:#bdd0c0;}
 .warning-chip{color:var(--warn);border-color:rgba(255,209,102,.28);background:rgba(255,209,102,.08);}
-.priority-badge.urgent{color:var(--danger);border-color:rgba(255,93,115,.28);background:rgba(255,93,115,.1);}
-.priority-badge.high{color:#ffb347;border-color:rgba(255,179,71,.28);background:rgba(255,179,71,.1);}
-.priority-badge.normal{color:var(--accent);border-color:rgba(89,214,125,.28);background:rgba(89,214,125,.1);}
-.priority-badge.low{color:var(--muted);background:rgba(100,116,139,.1);}
 .job-type-badge{color:var(--muted);background:rgba(100,116,139,.1);}
 .job-type-badge.job-type-allocation-proving{color:var(--ok);border-color:rgba(78,226,154,.28);background:rgba(78,226,154,.1);}
 .job-type-badge.job-type-lact-proving{color:#52e0d4;border-color:rgba(82,224,212,.28);background:rgba(82,224,212,.1);}

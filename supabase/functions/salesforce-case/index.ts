@@ -247,7 +247,6 @@ function buildCasePayload(context: FieldContext): Record<string, unknown> {
   const payload: Record<string, unknown> = {
     Subject: subject || `Field Job ${stringValue(context.job.id)}`,
     Description: buildCaseDescription(context),
-    Priority: salesforcePriority(stringValue(context.job.priority)),
     Status: "New",
     Origin: "Dashboard",
   };
@@ -270,7 +269,6 @@ function buildCaseDescription(context: FieldContext): string {
     `Site: ${stringValue(context.site?.site_name) || "Not set"}`,
     `Site Address: ${stringValue(context.site?.physical_address) || "Not set"}`,
     `Job Type: ${stringValue(context.job.job_type) || "Not set"}`,
-    `Priority: ${stringValue(context.job.priority) || "Normal"}`,
     `Scheduled Start: ${formatDateTime(context.job.scheduled_start)}`,
     `Scheduled End: ${formatDateTime(context.job.scheduled_end)}`,
     `Client Contact: ${stringValue(context.job.client_contact_for_job) || "Not set"}`,
@@ -307,13 +305,6 @@ function resourceLabel(type: string, resource: Record<string, unknown> | undefin
   if (type === "Trailer") return stringValue(resource.trailer_number) || "Unnamed trailer";
   if (type === "Equipment") return stringValue(resource.equipment_name) || stringValue(resource.serial_number) || "Unnamed equipment";
   return stringValue(resource.id) || "Unknown resource";
-}
-
-function salesforcePriority(priority: string): string {
-  if (priority === "Urgent") return "High";
-  if (priority === "High") return "High";
-  if (priority === "Low") return "Low";
-  return "Medium";
 }
 
 function formatDateTime(value: unknown): string {

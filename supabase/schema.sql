@@ -829,7 +829,6 @@ create table if not exists public.field_jobs (
   project_id uuid not null references public.field_projects(id) on delete cascade,
   site_id uuid not null references public.field_sites(id) on delete cascade,
   job_type text not null default '' check (job_type in ('', 'Allocation Proving', 'LACT Proving', 'Sample Pickup', 'Sample Drop-Off', 'Maintenance', 'Multi-Service')),
-  priority text not null default 'Normal' check (priority in ('Low', 'Normal', 'High', 'Urgent')),
   requested_date date,
   scheduled_start timestamptz,
   scheduled_end timestamptz,
@@ -862,6 +861,7 @@ alter table public.field_jobs add column if not exists salesforce_synced_at time
 alter table public.field_jobs add column if not exists salesforce_sync_status text not null default '';
 alter table public.field_jobs add column if not exists salesforce_sync_error text not null default '';
 alter table public.field_jobs add column if not exists no_ticket_required boolean not null default false;
+alter table public.field_jobs drop column if exists priority;
 alter table public.field_jobs add column if not exists project_id uuid;
 alter table public.field_jobs drop constraint if exists field_jobs_project_id_fkey;
 alter table public.field_jobs add constraint field_jobs_project_id_fkey foreign key (project_id) references public.field_projects(id) on delete cascade;
