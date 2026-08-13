@@ -993,7 +993,7 @@
         console.warn('Unable to load SureMap job types. Using defaults.', error);
         return [];
       }),
-      window.appAuth.requestJson('/rest/v1/field_jobs?select=id,fieldfx_ticket_id,client_id,project_id,site_id,job_type,priority,requested_date,scheduled_start,scheduled_end,scope_summary'),
+      window.appAuth.requestJson('/rest/v1/field_jobs?select=id,fieldfx_ticket_id,client_id,project_id,site_id,job_type,requested_date,scheduled_start,scheduled_end,scope_summary'),
       window.appAuth.requestJson('/rest/v1/field_job_sites?select=*'),
       window.appAuth.requestJson('/rest/v1/field_job_assignments?select=id,job_id,assignment_type,resource_id'),
       window.appAuth.requestJson('/rest/v1/employees?select=id,employee_first_name,employee_last_name,employee_name,work_scope,field_role,phone,email'),
@@ -1148,7 +1148,6 @@
       siteId: String((fromRemote ? row?.site_id : row?.siteId) || ''),
       siteIds: normalizeStringArray(fromRemote ? row?.site_ids : row?.siteIds),
       jobType: String((fromRemote ? row?.job_type : row?.jobType) || '').trim(),
-      priority: String((fromRemote ? row?.priority : row?.priority) || 'Normal').trim() || 'Normal',
       requestedDate: toInputDate(fromRemote ? row?.requested_date : row?.requestedDate),
       scheduledStart: String((fromRemote ? row?.scheduled_start : row?.scheduledStart) || '').trim(),
       scheduledEnd: String((fromRemote ? row?.scheduled_end : row?.scheduledEnd) || '').trim(),
@@ -3738,7 +3737,7 @@
       ${renderRouteStopLegMeta(stop, index, route)}
       ${renderRouteStopComplianceBadges(stop, index, route, context.compliance)}
       <div class="suremap-route-job-options">
-        ${jobs.length ? jobs.map((job) => `<label class="suremap-route-job-option"><input type="checkbox" data-route-job-toggle data-stop-id="${esc(stop.id)}" value="${esc(job.id)}" ${selected.has(job.id) ? 'checked' : ''}><span><strong>${esc(getJobTitle(job))}</strong><small>${esc(getJobDate(job) ? formatDate(getJobDate(job)) : 'Unscheduled')} | ${esc(job.priority)}</small></span></label>`).join('') : '<div class="empty-state">No open matching-site jobs are available for this stop.</div>'}
+        ${jobs.length ? jobs.map((job) => `<label class="suremap-route-job-option"><input type="checkbox" data-route-job-toggle data-stop-id="${esc(stop.id)}" value="${esc(job.id)}" ${selected.has(job.id) ? 'checked' : ''}><span><strong>${esc(getJobTitle(job))}</strong><small>${esc(getJobDate(job) ? formatDate(getJobDate(job)) : 'Unscheduled')}</small></span></label>`).join('') : '<div class="empty-state">No open matching-site jobs are available for this stop.</div>'}
       </div>
     </div>`;
   }
@@ -4011,7 +4010,7 @@
       .map((siteId) => getViewSite(siteId)?.name || getSiteById(siteId)?.siteName || '')
       .filter(Boolean);
     const siteLabel = siteNames.length > 1 ? 'Multiple Sites' : (siteNames[0] || 'No mapped site');
-    const meta = [client?.clientName || 'Unknown client', siteLabel, getJobDate(job) ? formatDate(getJobDate(job)) : 'Unscheduled', job.priority].filter(Boolean).join(' | ');
+    const meta = [client?.clientName || 'Unknown client', siteLabel, getJobDate(job) ? formatDate(getJobDate(job)) : 'Unscheduled'].filter(Boolean).join(' | ');
     const siteCount = getJobSiteIds(job).length;
     return `<button type="button" class="suremap-add-job-option" data-route-add-job-id="${esc(job.id)}">
       <span><strong>${esc(getJobTypeLabel(job))}</strong><small>${esc(meta)}</small></span>

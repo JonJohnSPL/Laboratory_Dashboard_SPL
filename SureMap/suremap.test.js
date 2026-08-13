@@ -92,3 +92,10 @@ test('cloud route assignment does not delete or replace an explicitly assigned t
   const postedRows = requests.flatMap(({ options }) => options.body ? JSON.parse(options.body) : []);
   assert.equal(postedRows.some((row) => row.assignment_type === 'Truck'), false);
 });
+
+test('SureMap no longer requests or renders removed job priority data', () => {
+  const source = fs.readFileSync('SureMap/suremap.js', 'utf8');
+
+  assert.doesNotMatch(source, /field_jobs\?select=[^'\n]*priority/);
+  assert.doesNotMatch(source, /job\.priority|row\?\.priority/);
+});
