@@ -551,7 +551,12 @@ tbody tr.clickable-table-row:focus-visible{
   letter-spacing:1px;
   text-transform:uppercase;
 }
-.day-list{display:grid;gap:8px;}
+.day-list{
+  display:grid;
+  grid-template-columns:minmax(0, 1fr);
+  gap:8px;
+  min-width:0;
+}
 .schedule-add-popover{
   position:absolute;
   z-index:12;
@@ -647,6 +652,9 @@ tbody tr.clickable-table-row:focus-visible{
   --schedule-card-border:rgba(89,214,125,.28);
   --schedule-card-bg:rgba(89,214,125,.08);
   position:relative;
+  width:100%;
+  min-width:0;
+  max-width:100%;
   padding:12px;
   border-radius:10px;
   border:1px solid var(--schedule-card-border);
@@ -682,11 +690,14 @@ tbody tr.clickable-table-row:focus-visible{
   align-items:flex-start;
   justify-content:space-between;
   gap:10px;
+  min-width:0;
   margin-bottom:2px;
 }
 .schedule-card-head .item-title{
+  flex:1 1 auto;
   min-width:0;
   padding-top:2px;
+  overflow-wrap:anywhere;
 }
 .schedule-company{
   display:flex;
@@ -696,6 +707,7 @@ tbody tr.clickable-table-row:focus-visible{
   min-width:0;
   max-width:52%;
   flex:0 1 auto;
+  overflow:hidden;
 }
 .schedule-company-name{
   min-width:0;
@@ -746,6 +758,11 @@ tbody tr.clickable-table-row:focus-visible{
 }
 .schedule-card .schedule-tech{
   color:#d4dfd6;
+}
+.schedule-card > .muted,
+.schedule-card .schedule-tech{
+  min-width:0;
+  overflow-wrap:anywhere;
 }
 .travel-schedule-panel{
   margin-top:14px;
@@ -2430,6 +2447,42 @@ textarea.form-input{min-height:86px;resize:vertical;}
 .sample-table-invalid .sample-table-input{
   border-color:var(--danger);
   box-shadow:0 0 0 1px rgba(255,107,107,.28);
+}
+@media (min-width: 1201px){
+  #schedule-board > .schedule-week.schedule-month .day-column,
+  #schedule-board > .schedule-week:not(.schedule-work_week):not(.schedule-month) .day-column{
+    padding:8px;
+  }
+  #schedule-board > .schedule-week.schedule-month .schedule-card,
+  #schedule-board > .schedule-week:not(.schedule-work_week):not(.schedule-month) .schedule-card{
+    padding:8px;
+  }
+  #schedule-board > .schedule-week.schedule-month .schedule-card-head,
+  #schedule-board > .schedule-week:not(.schedule-work_week):not(.schedule-month) .schedule-card-head{
+    gap:6px;
+  }
+  #schedule-board > .schedule-week.schedule-month .schedule-card-head .item-title,
+  #schedule-board > .schedule-week:not(.schedule-work_week):not(.schedule-month) .schedule-card-head .item-title{
+    font-size:14px;
+    line-height:1.18;
+  }
+  #schedule-board > .schedule-week.schedule-month .schedule-company,
+  #schedule-board > .schedule-week:not(.schedule-work_week):not(.schedule-month) .schedule-company{
+    max-width:none;
+    flex:0 0 26px;
+  }
+  #schedule-board > .schedule-week.schedule-month .schedule-company-name,
+  #schedule-board > .schedule-week:not(.schedule-work_week):not(.schedule-month) .schedule-company-name{
+    display:none;
+  }
+  #schedule-board > .schedule-week.schedule-month .schedule-company-logo,
+  #schedule-board > .schedule-week:not(.schedule-work_week):not(.schedule-month) .schedule-company-logo{
+    width:26px;
+    min-width:26px;
+    height:26px;
+    padding:2px;
+    border-radius:6px;
+  }
 }
 @media (max-width: 1200px){
   .schedule-layout{grid-template-columns:1fr;}
