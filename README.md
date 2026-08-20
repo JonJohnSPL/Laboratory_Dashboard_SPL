@@ -72,6 +72,36 @@ supabase functions deploy geotab-fleet-status
 
 Run the latest `supabase/schema.sql`, open Field Ops > Resources, and select **Refresh GPS**. Unlinked trucks are matched only by an exact VIN, license plate, or unit-number/device-name match. Unlinked trailers are matched first by VIN, then by an exact trailer-number/device-name match. A Geotab device ID can also be entered directly in either asset editor.
 
+## DoneSafe Equipment Tracker
+
+The Field Ops Resources view can synchronize the `Equipment Tracker` module from the `splinc` HSI DoneSafe tenant. DoneSafe remains the system of record; the dashboard stores a read-only cache plus the original payload for tenant-specific fields.
+
+Create or use a read-only DoneSafe integration account and store its credentials as Supabase Edge Function secrets:
+
+```text
+DONESAFE_TENANT=splinc
+DONESAFE_USERNAME=integration-account@example.com
+DONESAFE_PASSWORD=replace-with-the-account-password
+```
+
+Optional routing and module overrides:
+
+```text
+DONESAFE_API_URL=https://splinc.donesafe.com
+DONESAFE_CLIENT_SUBDOMAIN=splinc
+DONESAFE_EQUIPMENT_MODULE_NAME=Equipment Tracker
+DONESAFE_EQUIPMENT_MODULE_ID=
+DONESAFE_RECORD_URL_TEMPLATE=
+```
+
+Do not add these values to `app-config.js` or commit them to a file. Apply the latest `supabase/schema.sql`, deploy the function, then open **Field Ops > Resources > Equipment** and select **Sync DoneSafe**:
+
+```text
+supabase functions deploy donesafe-equipment-sync
+```
+
+If the DoneSafe account uses mandatory SSO or MFA, request a dedicated API/integration account from the DoneSafe administrator. The first sync discovers the module ID by its name; after it succeeds, `DONESAFE_EQUIPMENT_MODULE_ID` can be set to lock synchronization to that specific module.
+
 ## GitHub repo and Pages
 
 1. Create a new empty GitHub repository.

@@ -3747,3 +3747,80 @@ where j.client_id = project_choice.client_id
 
 alter table public.field_sites alter column project_id set not null;
 alter table public.field_jobs alter column project_id set not null;
+
+-- Read-only cache of the HSI Donesafe "Equipment Tracker" module. Donesafe remains
+-- the system of record; the Edge Function writes this cache with the service role.
+create table if not exists public.donesafe_equipment_assets (
+  id uuid primary key default gen_random_uuid(),
+  donesafe_record_id text not null,
+  donesafe_module_id text not null default '',
+  donesafe_module_name text not null default 'Equipment Tracker',
+  record_title text not null default '',
+  asset_name text not null default '',
+  asset_type text not null default '',
+  manufacturer text not null default '',
+  model text not null default '',
+  serial_number text not null default '',
+  inventory_barcode text not null default '',
+  asset_status text not null default '',
+  asset_location text not null default '',
+  last_inspection_date date,
+  next_inspection_due date,
+  source_created_at timestamptz,
+  source_updated_at timestamptz,
+  source_url text not null default '',
+  field_values jsonb not null default '{}'::jsonb,
+  raw_record jsonb not null default '{}'::jsonb,
+  is_active boolean not null default true,
+  sync_token text not null default '',
+  first_synced_at timestamptz not null default timezone('utc', now()),
+  last_synced_at timestamptz not null default timezone('utc', now()),
+  unique (donesafe_record_id)
+);
+
+create index if not exists donesafe_equipment_assets_active_idx
+on public.donesafe_equipment_assets(is_active, asset_name);
+create index if not exists donesafe_equipment_assets_serial_idx
+on public.donesafe_equipment_assets(serial_number)
+where btrim(serial_number) <> '';
+create index if not exists donesafe_equipment_assets_barcode_idx
+on public.donesafe_equipment_assets(inventory_barcode)
+where btrim(inventory_barcode) <> '';
+
+create table if not exists public.donesafe_sync_runs (
+  id uuid primary key default gen_random_uuid(),
+  integration_name text not null default 'equipment_tracker',
+  status text not null default 'running' check (status in ('running', 'complete', 'error')),
+  started_at timestamptz not null default timezone('utc', now()),
+  completed_at timestamptz,
+  records_received integer not null default 0,
+  records_saved integer not null default 0,
+  error_message text not null default '',
+  details jsonb not null default '{}'::jsonb,
+  requested_by uuid
+);
+
+alter table public.donesafe_equipment_assets enable row level security;
+alter table public.donesafe_sync_runs enable row level security;
+
+grant select on public.donesafe_equipment_assets to authenticated;
+grant select on public.donesafe_sync_runs to authenticated;
+revoke insert, update, delete on public.donesafe_equipment_assets from anon, authenticated;
+revoke insert, update, delete on public.donesafe_sync_runs from anon, authenticated;
+
+drop policy if exists "Authorized users can read Donesafe equipment" on public.donesafe_equipment_assets;
+create policy "Authorized users can read Donesafe equipment"
+on public.donesafe_equipment_assets
+for select
+to authenticated
+using (
+  public.is_app_admin()
+  or public.has_any_employee_feature(array['field.jobs.view', 'field.routes.view', 'field.samples.view'])
+);
+
+drop policy if exists "Administrators can read Donesafe sync runs" on public.donesafe_sync_runs;
+create policy "Administrators can read Donesafe sync runs"
+on public.donesafe_sync_runs
+for select
+to authenticated
+using (public.is_app_admin());

@@ -137,7 +137,11 @@
       <section class="panel">
         <div class="panel-header">
           <h2>Equipment</h2>
-          <button class="act-btn" type="button" onclick="openEntityModal('equipment')">+ Add Equipment</button>
+          <div class="panel-actions">
+            <span class="panel-meta" id="donesafe-sync-summary">DoneSafe not synchronized</span>
+            <button class="act-btn" id="donesafe-refresh-btn" type="button" onclick="refreshDonesafeEquipment()">Sync DoneSafe</button>
+            <button class="act-btn" type="button" onclick="openEntityModal('equipment')">+ Add Equipment</button>
+          </div>
         </div>
         <div class="panel-body" id="equipment-panel"></div>
       </section>
