@@ -87,12 +87,13 @@ DONESAFE_PASSWORD=replace-with-the-account-password
 Optional routing and module overrides:
 
 ```text
-DONESAFE_API_URL=https://splinc.donesafe.com
-DONESAFE_CLIENT_SUBDOMAIN=splinc
+DONESAFE_API_URL=https://splinc.na.hsiplatform.com
 DONESAFE_EQUIPMENT_MODULE_NAME=Equipment Tracker
 DONESAFE_EQUIPMENT_MODULE_ID=
 DONESAFE_RECORD_URL_TEMPLATE=
 ```
+
+`DONESAFE_API_URL` defaults to `https://splinc.na.hsiplatform.com` for this tenant. Do not set `DONESAFE_CLIENT_SUBDOMAIN` unless HSI support provides a specific value; the North America tenant accepts API requests directly at its own host.
 
 Do not add these values to `app-config.js` or commit them to a file. Apply the latest `supabase/schema.sql`, deploy the function, then open **Field Ops > Resources > Equipment** and select **Sync DoneSafe**:
 

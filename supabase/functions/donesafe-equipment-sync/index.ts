@@ -91,8 +91,8 @@ function readEnv(): Env {
     supabaseUrl: requiredEnv("SUPABASE_URL").replace(/\/+$/, ""),
     supabaseServiceRoleKey: requiredEnv("SUPABASE_SERVICE_ROLE_KEY"),
     tenant,
-    apiBaseUrl: (Deno.env.get("DONESAFE_API_URL") || `https://${tenant}.donesafe.com`).replace(/\/+$/, ""),
-    clientSubdomain: (Deno.env.get("DONESAFE_CLIENT_SUBDOMAIN") || tenant).trim(),
+    apiBaseUrl: (Deno.env.get("DONESAFE_API_URL") || `https://${tenant}.na.hsiplatform.com`).replace(/\/+$/, ""),
+    clientSubdomain: (Deno.env.get("DONESAFE_CLIENT_SUBDOMAIN") || "").trim(),
     username: requiredEnv("DONESAFE_USERNAME"),
     password: requiredEnv("DONESAFE_PASSWORD"),
     moduleName: (Deno.env.get("DONESAFE_EQUIPMENT_MODULE_NAME") || "Equipment Tracker").trim(),
@@ -129,6 +129,12 @@ async function requireAppAdmin(request: Request, env: Env): Promise<string> {
 }
 
 async function authenticateDonesafe(env: Env): Promise<DonesafeSession> {
+  console.log("[donesafe-equipment-sync] authentication started", {
+    tenant: env.tenant,
+    apiHost: safeHost(env.apiBaseUrl),
+    clientSubdomain: env.clientSubdomain,
+    usernameConfigured: !!env.username,
+  });
   const form = new URLSearchParams({ email: env.username, password: env.password, endpoint: "v1" });
   const response = await donesafeFetchRaw(env.apiBaseUrl, env.clientSubdomain, "/api/auth", {
     method: "POST",
@@ -136,15 +142,27 @@ async function authenticateDonesafe(env: Env): Promise<DonesafeSession> {
     body: form.toString(),
   });
   const payload = await parseJson(response);
-  if (!response.ok) throw new HttpError(502, donesafeError(payload, response.status, "authentication"));
+  const responseHost = response.headers.get("X-Donesafe-Api-Base") || env.apiBaseUrl;
+  const responseSubdomain = response.headers.get("X-Donesafe-Client-Subdomain") || env.clientSubdomain;
+  console.log("[donesafe-equipment-sync] authentication response", {
+    status: response.status,
+    apiHost: safeHost(responseHost),
+    clientSubdomain: responseSubdomain,
+  });
+  if (!response.ok) {
+    throw new HttpError(
+      502,
+      donesafeError(payload, response.status, "authentication", responseHost, responseSubdomain),
+    );
+  }
   const accessToken = stringValue(valueOf(payload, "authentication_token")) ||
     stringValue(valueOf(payload, "access_token")) ||
     stringValue(valueOf(valueOf(payload, "data"), "authentication_token"));
   if (!accessToken) throw new HttpError(502, "Donesafe authentication succeeded but did not return an access token.");
   return {
     accessToken,
-    apiBaseUrl: response.headers.get("X-Donesafe-Api-Base") || env.apiBaseUrl,
-    clientSubdomain: response.headers.get("X-Donesafe-Client-Subdomain") || env.clientSubdomain,
+    apiBaseUrl: responseHost,
+    clientSubdomain: responseSubdomain,
   };
 }
 
@@ -158,6 +176,7 @@ async function findEquipmentModule(env: Env, session: DonesafeSession): Promise<
     const available = modules.map((item) => moduleLabels(item)[0]).filter(Boolean).slice(0, 20);
     throw new HttpError(404, `${env.moduleName} was not found in Donesafe.${available.length ? ` Available modules include: ${available.join(", ")}.` : ""}`);
   }
+  console.log("[donesafe-equipment-sync] equipment module found", sanitizeModule(module));
   return module;
 }
 
@@ -180,6 +199,7 @@ async function loadAllModuleRecords(env: Env, session: DonesafeSession, module: 
     if ((totalPages && page >= totalPages) || batch.length < perPage) break;
     if (page === 200) throw new HttpError(502, "Donesafe returned more than 20,000 equipment records; synchronization stopped safely.");
   }
+  console.log("[donesafe-equipment-sync] equipment records loaded", { moduleId, count: records.length });
   return records;
 }
 
@@ -210,12 +230,18 @@ async function donesafeFetchRaw(baseUrl: string, clientSubdomain: string, path: 
   if (!urlMatch) return response;
   const redirected = new URL(urlMatch[0]);
   const redirectedBase = redirected.origin;
+  const redirectedSubdomain = subdomainMatch?.[1] || clientSubdomain;
+  console.log("[donesafe-equipment-sync] following Donesafe regional routing", {
+    fromHost: safeHost(baseUrl),
+    toHost: safeHost(redirectedBase),
+    clientSubdomain: redirectedSubdomain,
+  });
   const redirectedHeaders = new Headers(init.headers || {});
-  redirectedHeaders.set("X-Client-Subdomain", subdomainMatch?.[1] || clientSubdomain);
+  redirectedHeaders.set("X-Client-Subdomain", redirectedSubdomain);
   response = await fetch(`${redirectedBase}${path}`, { ...init, headers: redirectedHeaders });
   const outputHeaders = new Headers(response.headers);
   outputHeaders.set("X-Donesafe-Api-Base", redirectedBase);
-  outputHeaders.set("X-Donesafe-Client-Subdomain", subdomainMatch?.[1] || clientSubdomain);
+  outputHeaders.set("X-Donesafe-Client-Subdomain", redirectedSubdomain);
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers: outputHeaders });
 }
 
@@ -383,10 +409,26 @@ async function parseJson(response: Response): Promise<unknown> {
   return response.json().catch(() => ({}));
 }
 
-function donesafeError(payload: unknown, status: number, operation: string): string {
+function donesafeError(payload: unknown, status: number, operation: string, apiBaseUrl = "", clientSubdomain = ""): string {
   const message = stringValue(valueOf(payload, "error")) || stringValue(valueOf(payload, "message"));
-  if (status === 401 || status === 403) return `Donesafe rejected ${operation}. Verify the integration account, API access, MFA/SSO requirements, and tenant routing.`;
+  const route = apiBaseUrl
+    ? ` via ${safeHost(apiBaseUrl)}${clientSubdomain ? ` with client subdomain ${clientSubdomain}` : ""}`
+    : "";
+  if (status === 401) {
+    return `Donesafe ${operation} returned HTTP 401 Unauthorized${route}. Confirm DONESAFE_USERNAME is the account's full email address, re-enter DONESAFE_PASSWORD, and verify that the account is permitted to use the API without interactive SSO or MFA.`;
+  }
+  if (status === 403) {
+    return `Donesafe ${operation} returned HTTP 403 Forbidden${route}. The account or tenant does not have permission for this API operation.`;
+  }
   return message ? `Donesafe ${operation} failed: ${message}` : `Donesafe ${operation} returned HTTP ${status}.`;
+}
+
+function safeHost(value: string): string {
+  try {
+    return new URL(value).host;
+  } catch {
+    return value.replace(/^https?:\/\//i, "").replace(/\/.*$/, "");
+  }
 }
 
 async function supabaseError(response: Response, fallback: string): Promise<string> {
