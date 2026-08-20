@@ -219,3 +219,40 @@ test('dispatch board exposes the requested filters and removes priority controls
   }
   assert.doesNotMatch(source, /dispatchPriority|dispatchAlertFilter|dispatchAssignmentFilter|getPriorityBadge|PRIORITY_OPTIONS/);
 });
+
+test('Field Ops lands on Schedule without an Overview tab', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const html = fs.readFileSync('field-dashboard.html', 'utf8');
+
+  assert.match(source, /activeView:IS_CLIENTS_STANDALONE \? 'directory' : 'schedule'/);
+  assert.doesNotMatch(html, /data-view="overview"/);
+  assert.doesNotMatch(html, /id="overview-screen"/);
+  assert.match(html, /id="schedule-screen" class="screen active"/);
+});
+
+test('month schedule includes jobs shown on adjacent-month grid days', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const context = {
+    state:{
+      scheduleView:'month',
+      scheduleJobFilter:'all',
+      data:{
+        jobs:[
+          { id:'july-job', scheduledStart:'2026-07-31T08:00:00' },
+          { id:'august-job', scheduledStart:'2026-08-05T08:00:00' },
+          { id:'september-job', scheduledStart:'2026-09-01T08:00:00' }
+        ]
+      }
+    },
+    getJobPrimaryDate:(job) => new Date(job.scheduledStart),
+    toInputDate:(date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
+    isDateInScheduleMonth:(dateIso) => dateIso.startsWith('2026-08'),
+    isJobPast:() => false,
+    getEntitySorter:() => (left, right) => left.id.localeCompare(right.id)
+  };
+  vm.createContext(context);
+  vm.runInContext(readFunction(source, 'getJobsForScheduleDates'), context);
+
+  const jobs = context.getJobsForScheduleDates(['2026-07-31', '2026-08-05', '2026-09-01']);
+  assert.deepEqual(Array.from(jobs, (job) => job.id), ['august-job', 'july-job', 'september-job']);
+});

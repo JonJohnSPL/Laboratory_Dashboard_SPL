@@ -37,8 +37,7 @@
   </header>
 
   <div class="view-tabs">
-    <button class="view-btn active" data-view="overview" onclick="switchView('overview')">Overview</button>
-    <button class="view-btn" data-view="schedule" onclick="switchView('schedule')">Schedule</button>
+    <button class="view-btn active" data-view="schedule" onclick="switchView('schedule')">Schedule</button>
     <button class="view-btn" data-view="inventory" onclick="switchView('inventory')">Inventory</button>
     <button class="view-btn" data-view="resources" onclick="switchView('resources')">Resources</button>
     <button class="view-btn" data-view="samples" onclick="switchView('samples')">Samples</button>
@@ -46,28 +45,7 @@
     <button class="view-btn" data-view="setup" onclick="switchView('setup')">Setup</button>
   </div>
 
-  <div id="overview-screen" class="screen active">
-    <div class="stats-bar" id="overview-stats"></div>
-    <div class="quick-actions" id="overview-actions"></div>
-    <div class="overview-grid">
-      <section class="panel">
-        <div class="panel-header">
-          <h2>Today's Dispatch</h2>
-          <button class="act-btn" type="button" onclick="switchView('schedule')">Open Schedule</button>
-        </div>
-        <div class="panel-body" id="today-jobs-panel"></div>
-      </section>
-      <section class="panel">
-        <div class="panel-header">
-          <h2>Next 7 Days</h2>
-          <button class="act-btn" type="button" onclick="switchView('schedule')">Open Week</button>
-        </div>
-        <div class="panel-body" id="next-seven-panel"></div>
-      </section>
-    </div>
-  </div>
-
-  <div id="schedule-screen" class="screen">
+  <div id="schedule-screen" class="screen active">
     <div class="toolbar schedule-toolbar" id="schedule-toolbar"></div>
     <div class="schedule-layout">
       <section class="panel">
