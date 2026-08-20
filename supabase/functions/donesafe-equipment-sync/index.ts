@@ -265,22 +265,23 @@ function normalizeEquipmentRecord(env: Env, module: RecordValue, record: RecordV
     fields[key] = valueOf(item, "response");
     if (label) fields[`label:${label}`] = valueOf(item, "response");
   }
+  const fieldSources = [fields, completion, record];
   const title = stringValue(valueOf(completion, "title")) || stringValue(valueOf(record, "title"));
   return {
     donesafe_record_id: recordId,
     donesafe_module_id: stringValue(valueOf(module, "id")),
     donesafe_module_name: moduleLabels(module)[0] || env.moduleName,
     record_title: title,
-    asset_name: pickField(fields, ["eqt_mf_description", "equipment_name", "asset_name", "equipment_title", "asset_title", "name"]) || title,
-    asset_type: pickField(fields, ["eqt_mf_equipment_group", "equipment_type", "asset_type", "category", "type"]),
-    manufacturer: pickField(fields, ["eqt_mf_manufacturer", "manufacturer", "make", "equipment_manufacturer"]),
-    model: pickField(fields, ["eqt_mf_model", "model", "model_number", "equipment_model"]),
-    serial_number: pickField(fields, ["eqt_mf_serial_no", "serial_number", "serial_no", "serial", "equipment_serial_number"]),
-    inventory_barcode: pickField(fields, ["uniq_id", "inventory_barcode", "barcode", "asset_id", "equipment_id", "equipment_number"]),
-    asset_status: pickField(fields, ["status", "equipment_status", "asset_status", "service_status"]),
-    asset_location: pickField(fields, ["location", "equipment_location", "storage_location", "site"]),
-    last_inspection_date: nullableDate(pickField(fields, ["last_inspection_date", "inspection_date", "last_inspection"])),
-    next_inspection_due: nullableDate(pickField(fields, ["next_inspection_due", "inspection_due_date", "next_inspection_date"])),
+    asset_name: pickFieldFromSources(fieldSources, ["eqt_mf_description", "equipment_name", "asset_name", "equipment_title", "asset_title", "name"]) || title,
+    asset_type: pickFieldFromSources(fieldSources, ["eqt_mf_equipment_group", "equipment_type", "asset_type", "category", "type"]),
+    manufacturer: pickFieldFromSources(fieldSources, ["eqt_mf_manufacturer", "manufacturer", "make", "equipment_manufacturer"]),
+    model: pickFieldFromSources(fieldSources, ["eqt_mf_model", "model", "model_number", "equipment_model"]),
+    serial_number: pickFieldFromSources(fieldSources, ["eqt_mf_serial_no", "serial_number", "serial_no", "serial", "equipment_serial_number"]),
+    inventory_barcode: pickFieldFromSources(fieldSources, ["uniq_id", "inventory_barcode", "barcode", "asset_id", "equipment_id", "equipment_number"]),
+    asset_status: pickFieldFromSources(fieldSources, ["indicator_51", "status", "equipment_status", "asset_status", "service_status"]),
+    asset_location: pickFieldFromSources(fieldSources, ["eqt_mf_location", "location", "equipment_location", "storage_location", "site"]),
+    last_inspection_date: nullableDate(pickFieldFromSources(fieldSources, ["eqt_mf_date_of_last_ca", "last_inspection_date", "inspection_date", "last_inspection"])),
+    next_inspection_due: nullableDate(pickFieldFromSources(fieldSources, ["eqt_mf_date_of_next_ca", "next_inspection_due", "inspection_due_date", "next_inspection_date"])),
     source_created_at: nullableDateTime(valueOf(record, "created_at")),
     source_updated_at: nullableDateTime(valueOf(record, "updated_at")),
     source_url: buildRecordUrl(env.recordUrlTemplate, recordId),
@@ -290,6 +291,14 @@ function normalizeEquipmentRecord(env: Env, module: RecordValue, record: RecordV
     sync_token: syncToken,
     last_synced_at: syncedAt,
   };
+}
+
+function pickFieldFromSources(sources: RecordValue[], aliases: string[]): string {
+  for (const source of sources) {
+    const value = pickField(source, aliases);
+    if (value) return value;
+  }
+  return "";
 }
 
 function pickField(fields: RecordValue, aliases: string[]): string {
