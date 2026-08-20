@@ -89,7 +89,7 @@ Optional routing and module overrides:
 ```text
 DONESAFE_API_URL=https://splinc.na.hsiplatform.com
 DONESAFE_EQUIPMENT_MODULE_NAME=Equipment Tracker
-DONESAFE_EQUIPMENT_MODULE_ID=
+DONESAFE_EQUIPMENT_MODULE_ID=30
 DONESAFE_RECORD_URL_TEMPLATE=
 ```
 
@@ -101,7 +101,7 @@ Do not add these values to `app-config.js` or commit them to a file. Apply the l
 supabase functions deploy donesafe-equipment-sync
 ```
 
-If the DoneSafe account uses mandatory SSO or MFA, request a dedicated API/integration account from the DoneSafe administrator. The first sync discovers the module ID by its name; after it succeeds, `DONESAFE_EQUIPMENT_MODULE_ID` can be set to lock synchronization to that specific module.
+If the DoneSafe account uses mandatory SSO or MFA, request a dedicated API/integration account from the DoneSafe administrator. For the `splinc` tenant, Equipment Tracker is module ID `30` (internal name `spl_equipment`), and the function defaults to that ID.
 
 ## GitHub repo and Pages
 

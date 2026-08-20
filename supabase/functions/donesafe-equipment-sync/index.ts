@@ -96,7 +96,7 @@ function readEnv(): Env {
     username: requiredEnv("DONESAFE_USERNAME"),
     password: requiredEnv("DONESAFE_PASSWORD"),
     moduleName: (Deno.env.get("DONESAFE_EQUIPMENT_MODULE_NAME") || "Equipment Tracker").trim(),
-    moduleId: (Deno.env.get("DONESAFE_EQUIPMENT_MODULE_ID") || "").trim(),
+    moduleId: (Deno.env.get("DONESAFE_EQUIPMENT_MODULE_ID") || "30").trim(),
     recordUrlTemplate: (Deno.env.get("DONESAFE_RECORD_URL_TEMPLATE") || "").trim(),
   };
 }
@@ -167,11 +167,18 @@ async function authenticateDonesafe(env: Env): Promise<DonesafeSession> {
 }
 
 async function findEquipmentModule(env: Env, session: DonesafeSession): Promise<RecordValue> {
+  if (env.moduleId) {
+    const configuredModule = await donesafeGet(session, `/api/module_names/${encodeURIComponent(env.moduleId)}`);
+    if (!isRecord(configuredModule)) {
+      throw new HttpError(404, `Donesafe module ID ${env.moduleId} did not return module metadata.`);
+    }
+    console.log("[donesafe-equipment-sync] equipment module found by configured ID", sanitizeModule(configuredModule));
+    return configuredModule;
+  }
+
   const modules = await donesafeList(session, "/api/module_names?per_page=-1");
   const target = normalizeText(env.moduleName);
-  const module = env.moduleId
-    ? modules.find((item) => stringValue(valueOf(item, "id")) === env.moduleId)
-    : modules.find((item) => moduleLabels(item).some((label) => normalizeText(label) === target));
+  const module = modules.find((item) => moduleLabels(item).some((label) => normalizeText(label) === target));
   if (!module) {
     const available = modules.map((item) => moduleLabels(item)[0]).filter(Boolean).slice(0, 20);
     throw new HttpError(404, `${env.moduleName} was not found in Donesafe.${available.length ? ` Available modules include: ${available.join(", ")}.` : ""}`);
@@ -264,12 +271,12 @@ function normalizeEquipmentRecord(env: Env, module: RecordValue, record: RecordV
     donesafe_module_id: stringValue(valueOf(module, "id")),
     donesafe_module_name: moduleLabels(module)[0] || env.moduleName,
     record_title: title,
-    asset_name: pickField(fields, ["equipment_name", "asset_name", "equipment_title", "asset_title", "name"]) || title,
-    asset_type: pickField(fields, ["equipment_type", "asset_type", "category", "type"]),
-    manufacturer: pickField(fields, ["manufacturer", "make", "equipment_manufacturer"]),
-    model: pickField(fields, ["model", "model_number", "equipment_model"]),
-    serial_number: pickField(fields, ["serial_number", "serial_no", "serial", "equipment_serial_number"]),
-    inventory_barcode: pickField(fields, ["inventory_barcode", "barcode", "asset_id", "equipment_id", "equipment_number"]),
+    asset_name: pickField(fields, ["eqt_mf_description", "equipment_name", "asset_name", "equipment_title", "asset_title", "name"]) || title,
+    asset_type: pickField(fields, ["eqt_mf_equipment_group", "equipment_type", "asset_type", "category", "type"]),
+    manufacturer: pickField(fields, ["eqt_mf_manufacturer", "manufacturer", "make", "equipment_manufacturer"]),
+    model: pickField(fields, ["eqt_mf_model", "model", "model_number", "equipment_model"]),
+    serial_number: pickField(fields, ["eqt_mf_serial_no", "serial_number", "serial_no", "serial", "equipment_serial_number"]),
+    inventory_barcode: pickField(fields, ["uniq_id", "inventory_barcode", "barcode", "asset_id", "equipment_id", "equipment_number"]),
     asset_status: pickField(fields, ["status", "equipment_status", "asset_status", "service_status"]),
     asset_location: pickField(fields, ["location", "equipment_location", "storage_location", "site"]),
     last_inspection_date: nullableDate(pickField(fields, ["last_inspection_date", "inspection_date", "last_inspection"])),
@@ -369,7 +376,7 @@ function unwrapJsonApiRecord(record: RecordValue): RecordValue {
 }
 
 function moduleLabels(module: RecordValue): string[] {
-  return ["name", "module_name", "display_name", "title", "label"]
+  return ["plural_display", "display", "name", "module_name", "display_name", "default", "title", "label"]
     .map((key) => stringValue(valueOf(module, key))).filter(Boolean);
 }
 
