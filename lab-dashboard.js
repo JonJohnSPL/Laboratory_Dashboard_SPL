@@ -475,7 +475,7 @@ function getWOAssigneeList(w){ const entry = scheduleState.entries.find(item => 
 function getWOAssigneeLabel(w){ if(isFullySubcontractedWO(w)) return `Subcontracted - ${getSubcontractLabSummaryForWO(w) || 'Unassigned Lab'}`; const assignees = getWOAssigneeList(w); return assignees.length ? assignees.join(' | ') : 'Unassigned'; }
 function getFilteredWorkOrders(){ const showDone = document.getElementById('show-done').checked;
 let sorted = getSorted();
-if(appView === 'pending') return sorted.filter(w => w.stage === WO_STAGE.PENDING || isFullySubcontractedWO(w));
+if(appView === 'pending') return sorted.filter(w => (w.stage === WO_STAGE.PENDING || isFullySubcontractedWO(w)) && (showDone || !w.complete));
 if(showDone) return sorted.filter(w => w.stage !== WO_STAGE.PENDING && !isFullySubcontractedWO(w));
 return sorted.filter(w => w.stage === WO_STAGE.RUNNING && !isFullySubcontractedWO(w));
 }
