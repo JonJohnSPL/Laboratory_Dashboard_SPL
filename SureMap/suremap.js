@@ -115,7 +115,8 @@
     markerIconCache: new Map(),
     clientLogoUrlCache: new Map(),
     clientLogoLoadPromises: new Map(),
-    routeIconCache: new Map()
+    routeIconCache: new Map(),
+    splSiteGeocodeCache: new Map()
   };
 
   const els = {};
@@ -881,6 +882,7 @@
   async function loadData(options = {}){
     showSaveStatus('saving', 'LOADING');
     state.data = isRemoteMode() ? await readRemoteData() : readLocalData();
+    await hydrateSplSiteCoordinates(state.data.splSites);
     state.indexes = buildDataIndexes(state.data);
     state.viewClients = buildViewClients(state.data, state.indexes);
     state.viewIndexes = buildViewIndexes(state.viewClients);
@@ -1238,6 +1240,23 @@
 
   function getDefaultSplSiteRecords(){
     return [normalizeSplSite({ id:'spl-pittsburgh', siteName:HOME_BASE.name, siteCode:'PITTSBURGH', locationLabel:HOME_BASE.name, streetAddress:HOME_BASE.street, city:HOME_BASE.city, state:HOME_BASE.state, zipCode:HOME_BASE.zip, latitude:HOME_BASE.lat, longitude:HOME_BASE.lng, isActive:true, notes:'Default internal SPL site for Field Ops travel scheduling.' })];
+  }
+
+  async function hydrateSplSiteCoordinates(sites){
+    const pending = (Array.isArray(sites) ? sites : []).filter((site) => !hasUsableCoords(site.latitude, site.longitude));
+    await Promise.all(pending.map(async (site) => {
+      const query = getSplSiteAddress(site) || String(site.locationLabel || site.siteName || '').trim();
+      if(!query) return;
+      const cacheKey = query.toLowerCase();
+      let coords = state.splSiteGeocodeCache.get(cacheKey);
+      if(coords === undefined){
+        coords = await geocodeFreeformAddress(query).catch(() => null);
+        state.splSiteGeocodeCache.set(cacheKey, coords || null);
+      }
+      if(!hasUsableCoords(coords?.lat, coords?.lng)) return;
+      site.latitude = coords.lat;
+      site.longitude = coords.lng;
+    }));
   }
 
   function normalizeTrailer(row, fromRemote = false){
