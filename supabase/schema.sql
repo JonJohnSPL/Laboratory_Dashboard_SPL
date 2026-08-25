@@ -1278,6 +1278,8 @@ create table if not exists public.field_spl_sites (
   city text not null default '',
   state text not null default '',
   zip_code text not null default '',
+  latitude numeric,
+  longitude numeric,
   is_active boolean not null default true,
   notes text not null default '',
   created_at timestamptz not null default timezone('utc', now()),
@@ -1292,6 +1294,8 @@ alter table public.field_spl_sites add column if not exists street_address text 
 alter table public.field_spl_sites add column if not exists city text not null default '';
 alter table public.field_spl_sites add column if not exists state text not null default '';
 alter table public.field_spl_sites add column if not exists zip_code text not null default '';
+alter table public.field_spl_sites add column if not exists latitude numeric;
+alter table public.field_spl_sites add column if not exists longitude numeric;
 alter table public.field_spl_sites add column if not exists is_active boolean not null default true;
 alter table public.field_spl_sites add column if not exists notes text not null default '';
 update public.field_spl_sites
@@ -1299,9 +1303,18 @@ set site_code = upper(btrim(site_code))
 where coalesce(site_code, '') <> '';
 create unique index if not exists field_spl_sites_site_code_lower_unique_idx on public.field_spl_sites(lower(site_code)) where btrim(site_code) <> '';
 
-insert into public.field_spl_sites (site_name, site_code, location_label, is_active, notes)
-values ('SPL Pittsburgh', 'PITTSBURGH', 'SPL Pittsburgh', true, 'Default internal SPL site for Field Ops travel scheduling.')
+insert into public.field_spl_sites (site_name, site_code, location_label, street_address, city, state, zip_code, latitude, longitude, is_active, notes)
+values ('SPL Pittsburgh', 'PITTSBURGH', 'SPL Pittsburgh', '1817 Parkway View Drive', 'Pittsburgh', 'PA', '15205', 40.435349, -80.130022, true, 'Default internal SPL site for Field Ops travel scheduling.')
 on conflict do nothing;
+
+update public.field_spl_sites
+set street_address = coalesce(nullif(street_address, ''), '1817 Parkway View Drive'),
+    city = coalesce(nullif(city, ''), 'Pittsburgh'),
+    state = coalesce(nullif(state, ''), 'PA'),
+    zip_code = coalesce(nullif(zip_code, ''), '15205'),
+    latitude = coalesce(latitude, 40.435349),
+    longitude = coalesce(longitude, -80.130022)
+where upper(btrim(site_code)) = 'PITTSBURGH';
 
 create table if not exists public.field_technician_travel (
   id uuid primary key default gen_random_uuid(),

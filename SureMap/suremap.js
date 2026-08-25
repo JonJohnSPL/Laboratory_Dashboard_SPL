@@ -17,6 +17,8 @@
   const ROUTE_PLACE_LOCATION_TYPES = ['address', 'gps'];
   const SITE_LIST_CLIENT_PREFIX = 'client:';
   const SITE_LIST_PLACE_PREFIX = 'place-list:';
+  const SITE_LIST_SPL_KEY = 'spl-sites';
+  const SPL_SITE_MARKER_COLOR = '#ff5d73';
   const ROUTE_PLACE_COLORS = ['#6fe3ff', '#ff8fa3', '#ffd166', '#b0f28f', '#c9b6ff', '#8afcc3'];
   const ROUTE_PLACE_ICON_OPTIONS = [
     { key:'pin', label:'Pin' },
@@ -72,6 +74,7 @@
     activeSiteListKey: '',
     activeClientId: '',
     activeSiteId: '',
+    activeSplSiteId: '',
     activeRoutePlaceId: '',
     activeRestrictedRoadId: '',
     activeRouteId: '',
@@ -171,7 +174,7 @@
   }
 
   function createEmptyData(){
-    return { clients: [], projects: [], sites: [], siteProjects: [], jobTypes: getDefaultJobTypeRecords(), jobs: [], jobSites: [], jobAssignments: [], employees: [], trucks: [], trailers: [], samples: [], fieldRoutes: [], routePlaceLists: [], routePlaces: [], restrictedRoads: [], fieldRouteStops: [], fieldRouteStopJobs: [] };
+    return { clients: [], projects: [], sites: [], siteProjects: [], jobTypes: getDefaultJobTypeRecords(), jobs: [], jobSites: [], jobAssignments: [], employees: [], splSites: [], trucks: [], trailers: [], samples: [], fieldRoutes: [], routePlaceLists: [], routePlaces: [], restrictedRoads: [], fieldRouteStops: [], fieldRouteStopJobs: [] };
   }
 
   function createEmptyIndexes(){
@@ -180,6 +183,7 @@
       projectsById:new Map(),
       projectsByClientId:new Map(),
       sitesById:new Map(),
+      splSitesById:new Map(),
       siteProjectIdsBySiteId:new Map(),
       routePlaceListsById:new Map(),
       routePlacesById:new Map(),
@@ -256,6 +260,7 @@
       indexes.trucksById.set(truck.id, truck);
       if(truck.assignedTechnicianId && !indexes.defaultTruckByTechnicianId.has(truck.assignedTechnicianId)) indexes.defaultTruckByTechnicianId.set(truck.assignedTechnicianId, truck);
     });
+    (data.splSites || []).forEach((site) => indexes.splSitesById.set(site.id, site));
     (data.trailers || []).forEach((trailer) => indexes.trailersById.set(trailer.id, trailer));
     indexes.projectsByClientId.forEach((list) => list.sort(sortByProjectName));
     indexes.routePlacesByListId.forEach((list) => list.sort(sortByRoutePlace));
@@ -595,7 +600,7 @@
       if(event.key !== 'Enter' || !event.target.closest('#suremap-client-picker-input')) return;
       event.preventDefault();
       const matches = getClientPickerMatches();
-      const first = matches.clients[0] || matches.other[0];
+      const first = matches.spl[0] || matches.clients[0] || matches.other[0];
       if(first) selectClientFromPicker(first.key);
     });
     els['client-picker'].addEventListener('click', (event) => {
@@ -660,6 +665,11 @@
         selectRoutePlace(placeCard.dataset.routePlaceId, { focusMap:true });
         return;
       }
+      const splSiteCard = event.target.closest('[data-spl-site-id]');
+      if(splSiteCard){
+        selectSplSite(splSiteCard.dataset.splSiteId, { focusMap:true });
+        return;
+      }
       const siteCard = event.target.closest('[data-site-id]');
       if(siteCard){
         selectSite(siteCard.dataset.clientId, siteCard.dataset.siteId, { focusMap:true });
@@ -677,6 +687,8 @@
       if(actionName === 'copy-coords') copyToClipboard(getSiteCoords(siteId), 'Coordinates copied.');
       if(actionName === 'open-directions-client') openDirections(getClientAddress(clientId));
       if(actionName === 'open-directions-site') openDirections(getSiteDirections(siteId));
+      if(actionName === 'copy-spl-location') copyToClipboard(getSplSiteDirections(getSplSite(action.dataset.splSiteId)), 'SPL site location copied.');
+      if(actionName === 'open-directions-spl-site') openDirections(getSplSiteDirections(getSplSite(action.dataset.splSiteId)));
       if(actionName === 'open-client') openClientInDirectory(clientId);
       if(actionName === 'edit-site') openSiteModal(clientId, siteId);
       if(actionName === 'add-site') openSiteModal(clientId);
@@ -960,6 +972,7 @@
       clients: Array.isArray(raw.clients) ? raw.clients.map(normalizeClient).sort(sortByClientName) : [],
       projects: Array.isArray(raw.projects) ? raw.projects.map(normalizeProject).sort(sortByProjectName) : [],
       sites: Array.isArray(raw.sites) ? raw.sites.map(normalizeSite).sort(sortBySiteName) : [],
+      splSites: Array.isArray(raw.splSites) && raw.splSites.length ? raw.splSites.map(normalizeSplSite).sort(sortBySplSiteName) : getDefaultSplSiteRecords(),
       siteProjects: Array.isArray(raw.siteProjects) ? raw.siteProjects.map(normalizeSiteProject).sort(sortBySiteProject) : [],
       jobTypes: Array.isArray(raw.jobTypes) ? raw.jobTypes.map(normalizeJobType).filter((row) => row.jobTypeName).sort(sortByJobType) : [],
       jobs: Array.isArray(raw.jobs) ? raw.jobs.map(normalizeJob) : [],
@@ -984,7 +997,7 @@
   }
 
   async function readRemoteData(){
-    const [clients, projects, sites, siteProjects, jobTypes, jobs, jobSites, jobAssignments, employees, trucks, trailers, samples, fieldRoutes, routePlaceLists, routePlaces, restrictedRoads, fieldRouteStops, fieldRouteStopJobs] = await Promise.all([
+    const [clients, projects, sites, siteProjects, jobTypes, jobs, jobSites, jobAssignments, employees, splSites, trucks, trailers, samples, fieldRoutes, routePlaceLists, routePlaces, restrictedRoads, fieldRouteStops, fieldRouteStopJobs] = await Promise.all([
       window.appAuth.requestJson('/rest/v1/field_clients?select=*'),
       window.appAuth.requestJson('/rest/v1/field_projects?select=*'),
       window.appAuth.requestJson('/rest/v1/field_sites?select=*'),
@@ -997,6 +1010,7 @@
       window.appAuth.requestJson('/rest/v1/field_job_sites?select=*'),
       window.appAuth.requestJson('/rest/v1/field_job_assignments?select=id,job_id,assignment_type,resource_id'),
       window.appAuth.requestJson('/rest/v1/employees?select=id,employee_first_name,employee_last_name,employee_name,work_scope,field_role,phone,email'),
+      window.appAuth.requestJson('/rest/v1/field_spl_sites?select=*'),
       window.appAuth.requestJson('/rest/v1/field_trucks?select=id,unit_number,service_status,is_prover,assigned_technician_id,current_driver'),
       window.appAuth.requestJson('/rest/v1/field_trailers?select=id,trailer_number,service_status,is_prover,assigned_truck_id'),
       window.appAuth.requestJson('/rest/v1/field_samples?select=id,job_id,client_id,site_id'),
@@ -1020,6 +1034,7 @@
       jobSites: (jobSites || []).map((row) => normalizeJobSite(row, true)).sort(sortByJobSite),
       jobAssignments: (jobAssignments || []).map((row) => normalizeJobAssignment(row, true)),
       employees: (employees || []).map((row) => normalizeEmployee(row, true)).sort(sortByEmployee),
+      splSites: (splSites || []).map((row) => normalizeSplSite(row, true)).sort(sortBySplSiteName),
       trucks: (trucks || []).map((row) => normalizeTruck(row, true)).sort(sortByTruck),
       trailers: (trailers || []).map((row) => normalizeTrailer(row, true)).sort(sortByTrailer),
       samples: (samples || []).map((row) => ({ id:String(row?.id || ''), jobId:String(row?.job_id || ''), clientId:String(row?.client_id || ''), siteId:String(row?.site_id || '') })),
@@ -1200,6 +1215,29 @@
       assignedTechnicianId: String((fromRemote ? row?.assigned_technician_id : row?.assignedTechnicianId) || ''),
       currentDriver: String((fromRemote ? row?.current_driver : row?.currentDriver) || '').trim()
     };
+  }
+
+  function normalizeSplSite(row, fromRemote = false){
+    const siteCode = String((fromRemote ? row?.site_code : row?.siteCode) || '').trim().toUpperCase();
+    const isPittsburgh = siteCode === 'PITTSBURGH';
+    return {
+      id: String(row?.id || ''),
+      siteName: String((fromRemote ? row?.site_name : row?.siteName) || '').trim(),
+      siteCode,
+      locationLabel: String((fromRemote ? row?.location_label : row?.locationLabel) || '').trim(),
+      streetAddress: String((fromRemote ? row?.street_address : row?.streetAddress) || '').trim(),
+      city: String(row?.city || '').trim(),
+      state: String(row?.state || '').trim().toUpperCase(),
+      zipCode: String((fromRemote ? row?.zip_code : row?.zipCode) || '').trim(),
+      latitude: normalizeNumber(row?.latitude) ?? (isPittsburgh ? HOME_BASE.lat : null),
+      longitude: normalizeNumber(row?.longitude) ?? (isPittsburgh ? HOME_BASE.lng : null),
+      isActive: (fromRemote ? row?.is_active : row?.isActive) !== false,
+      notes: String(row?.notes || '').trim()
+    };
+  }
+
+  function getDefaultSplSiteRecords(){
+    return [normalizeSplSite({ id:'spl-pittsburgh', siteName:HOME_BASE.name, siteCode:'PITTSBURGH', locationLabel:HOME_BASE.name, streetAddress:HOME_BASE.street, city:HOME_BASE.city, state:HOME_BASE.state, zipCode:HOME_BASE.zip, latitude:HOME_BASE.lat, longitude:HOME_BASE.lng, isActive:true, notes:'Default internal SPL site for Field Ops travel scheduling.' })];
   }
 
   function normalizeTrailer(row, fromRemote = false){
@@ -1436,6 +1474,7 @@
   function sortByClientName(left, right){ return left.clientName.localeCompare(right.clientName); }
   function sortByProjectName(left, right){ return left.projectName.localeCompare(right.projectName); }
   function sortBySiteName(left, right){ return left.siteName.localeCompare(right.siteName); }
+  function sortBySplSiteName(left, right){ return left.siteName.localeCompare(right.siteName); }
   function sortBySiteProject(left, right){ return left.siteId.localeCompare(right.siteId) || left.projectId.localeCompare(right.projectId); }
   function sortByJobType(left, right){ return (Number(left.sortOrder || 0) - Number(right.sortOrder || 0)) || left.jobTypeName.localeCompare(right.jobTypeName); }
   function sortByJobSite(left, right){ return left.jobId.localeCompare(right.jobId) || Number(left.sortOrder || 0) - Number(right.sortOrder || 0) || left.siteId.localeCompare(right.siteId); }
@@ -1515,6 +1554,7 @@
 
   function getFilteredClients(){
     if(state.activeMode === 'routes' || state.activeMode === 'restrictions') return state.viewClients;
+    if(parseSiteListKey(state.activeSiteListKey).type === 'spl') return [];
     const query = state.searchQuery;
     const clients = state.activeClientId ? state.viewClients.filter((client) => client.id === state.activeClientId) : state.viewClients;
     return clients.map((client) => ({
@@ -1537,6 +1577,7 @@
       state.activeSiteListKey = '';
       state.activeClientId = '';
       state.activeSiteId = '';
+      state.activeSplSiteId = '';
       state.activeRoutePlaceId = '';
       state.activeRestrictedRoadId = '';
       return;
@@ -1550,12 +1591,20 @@
       return;
     }
     const parsedList = parseSiteListKey(state.activeSiteListKey);
+    if(parsedList.type === 'spl'){
+      if(state.activeSplSiteId && !getSplSite(state.activeSplSiteId)) state.activeSplSiteId = '';
+      state.activeClientId = '';
+      state.activeSiteId = '';
+      state.activeRoutePlaceId = '';
+      return;
+    }
     if(state.activeRoutePlaceId){
       const place = getRoutePlace(state.activeRoutePlaceId);
       if(place && getRoutePlaceList(place.listId)){
         state.activeSiteListKey = getSiteListKey('place-list', place.listId);
         state.activeClientId = '';
         state.activeSiteId = '';
+        state.activeSplSiteId = '';
         return;
       }
     }
@@ -1564,6 +1613,7 @@
       if(list){
         state.activeClientId = '';
         state.activeSiteId = '';
+        state.activeSplSiteId = '';
         state.activeRoutePlaceId = '';
         return;
       }
@@ -1582,6 +1632,7 @@
       if(client){
         state.activeSiteListKey = getSiteListKey('client', client.id);
         state.activeSiteId = '';
+        state.activeSplSiteId = '';
         state.activeRoutePlaceId = '';
         return;
       }
@@ -1589,6 +1640,7 @@
     state.activeSiteListKey = '';
     state.activeClientId = '';
     state.activeSiteId = '';
+    state.activeSplSiteId = '';
     state.activeRoutePlaceId = '';
   }
 
@@ -1613,6 +1665,11 @@
       els['toolbar-summary'].textContent = `${client?.name || 'Client'} / ${site?.name || 'Site'} selected. Shared data updates write back to Field Ops.`;
       return;
     }
+    if(state.activeSplSiteId){
+      const splSite = getActiveSplSite();
+      els['toolbar-summary'].textContent = `${splSite?.siteName || 'SPL Site'} selected. View its address, coordinates, and directions.`;
+      return;
+    }
     if(state.activeRoutePlaceId){
       const place = getActiveRoutePlace();
       const list = getRoutePlaceList(place?.listId);
@@ -1622,6 +1679,11 @@
     const activePlaceList = getActiveRoutePlaceList();
     if(activePlaceList){
       els['toolbar-summary'].textContent = `${activePlaceList.listName} selected. Manage reusable Other Sites here, then add them to routes.`;
+      return;
+    }
+    if(parseSiteListKey(state.activeSiteListKey).type === 'spl'){
+      const count = getActiveSplSites().length;
+      els['toolbar-summary'].textContent = `SPL Sites selected. Browse ${count} internal location${count === 1 ? '' : 's'} and open directions.`;
       return;
     }
     if(state.activeClientId){
@@ -1657,11 +1719,14 @@
       if(!query) return true;
       const childText = option.type === 'client'
         ? (option.client?.sublocations || []).map((site) => [site.name, site.address, site.coordsLabel, site.type].join(' ')).join(' ')
-        : getRoutePlacesForList(option.id).map((place) => [place.placeName, place.addressValue, place.phone, place.websiteUrl, place.notes].join(' ')).join(' ');
+        : option.type === 'spl'
+          ? getActiveSplSites().map((site) => [site.siteName, site.siteCode, site.locationLabel, getSplSiteAddress(site), site.notes].join(' ')).join(' ')
+          : getRoutePlacesForList(option.id).map((place) => [place.placeName, place.addressValue, place.phone, place.websiteUrl, place.notes].join(' ')).join(' ');
       const haystack = [option.label, option.meta, childText].join(' ').toLowerCase();
       return haystack.includes(query);
     };
     return {
+      spl:getSplSiteListOptions().filter(matches),
       clients:getClientSiteListOptions().filter(matches),
       other:getOtherSiteListOptions().filter(matches)
     };
@@ -1672,6 +1737,7 @@
     if(!allOptions.length) return '<div class="client-picker-empty">Add clients or Other Site lists to start mapping.</div>';
     const matches = getClientPickerMatches();
     const sections = [
+      { title:'SPL', items:matches.spl },
       { title:'Clients', items:matches.clients },
       { title:'Other Sites', items:matches.other }
     ].filter((section) => section.items.length);
@@ -1721,6 +1787,10 @@
       els['filter-row'].innerHTML = '<button class="suremap-chip active" type="button">Other Sites</button>';
       return;
     }
+    if(parseSiteListKey(state.activeSiteListKey).type === 'spl'){
+      els['filter-row'].innerHTML = '<button class="suremap-chip active" type="button">SPL Locations</button>';
+      return;
+    }
     const tags = ['All', ...SITE_TYPE_OPTIONS];
     if(!tags.includes(state.filterTag)) state.filterTag = 'All';
     els['filter-row'].innerHTML = tags.map((tag) => `<button class="suremap-chip ${state.filterTag === tag ? 'active' : ''}" type="button" data-filter="${esc(tag)}">${esc(tag)}</button>`).join('');
@@ -1738,6 +1808,10 @@
     const activePlaceList = getActiveRoutePlaceList();
     if(activePlaceList){
       renderRoutePlaceList(activePlaceList);
+      return;
+    }
+    if(parseSiteListKey(state.activeSiteListKey).type === 'spl'){
+      renderSplSiteList();
       return;
     }
     const totalSiteLists = getAllSiteListOptions().length;
@@ -1785,6 +1859,37 @@
       return;
     }
     els['client-list'].innerHTML = places.map((place) => renderRoutePlaceCardMarkup(list, place)).join('');
+  }
+
+  function renderSplSiteList(){
+    const query = String(state.searchQuery || '').trim().toLowerCase();
+    const allSites = getActiveSplSites();
+    const sites = allSites.filter((site) => !query || [site.siteName, site.siteCode, site.locationLabel, getSplSiteAddress(site), site.notes].join(' ').toLowerCase().includes(query));
+    els['list-summary'].textContent = query ? `${sites.length} visible / ${allSites.length} SPL locations` : `${allSites.length} SPL location${allSites.length === 1 ? '' : 's'}`;
+    if(!allSites.length){
+      els['client-list'].innerHTML = '<div class="empty-state"><strong>No SPL sites yet</strong>Add SPL locations from Field Ops.</div>';
+      return;
+    }
+    if(!sites.length){
+      els['client-list'].innerHTML = '<div class="empty-state"><strong>No matching SPL sites</strong>Clear search to see all SPL locations.</div>';
+      return;
+    }
+    els['client-list'].innerHTML = sites.map(renderSplSiteCardMarkup).join('');
+  }
+
+  function renderSplSiteCardMarkup(site){
+    const active = state.activeSplSiteId === site.id;
+    return `
+      <div class="suremap-site-card suremap-spl-site-card ${active ? 'active' : ''}" data-spl-site-id="${esc(site.id)}">
+        <div class="suremap-site-icon" style="background:${SPL_SITE_MARKER_COLOR}22;color:${SPL_SITE_MARKER_COLOR}">SPL</div>
+        <div class="suremap-site-copy">
+          <div class="item-title">${esc(site.siteName || 'SPL Site')}</div>
+          <div class="item-sub">${esc(site.siteCode || site.locationLabel || 'SPL')}</div>
+          <div class="item-sub">${esc(getSplSiteAddress(site) || site.locationLabel || 'No address set')}</div>
+          <div class="tag-row"><span class="status-badge ok">SPL Location</span></div>
+        </div>
+      </div>
+    `;
   }
 
   function renderRoutePlaceCardMarkup(list, place){
@@ -1836,7 +1941,7 @@
       els['map-summary'].textContent = route ? `${stopCount} stop${stopCount === 1 ? '' : 's'} | ${providerLabel}` : `Route builder | ${providerLabel}`;
       return;
     }
-    const siteCount = state.filteredClients.reduce((sum, client) => sum + client.sublocations.length, 0) + getVisibleRoutePlaces().length;
+    const siteCount = state.filteredClients.reduce((sum, client) => sum + client.sublocations.length, 0) + getVisibleRoutePlaces().length + getVisibleSplSites().length;
     const providerLabel = state.mapProvider === 'google' ? 'SureMap' : 'Default map';
     els['map-summary'].textContent = `${siteCount} site${siteCount === 1 ? '' : 's'} visible | ${providerLabel}`;
   }
@@ -1854,6 +1959,11 @@
     const site = getActiveSite();
     const place = getActiveRoutePlace();
     const placeList = getActiveRoutePlaceList();
+    const splSite = getActiveSplSite();
+    if(parseSiteListKey(state.activeSiteListKey).type === 'spl'){
+      els['detail-panel'].innerHTML = splSite ? renderSplSiteDetail(splSite) : renderSplSiteListDetail();
+      return;
+    }
     if(place){
       els['detail-panel'].innerHTML = renderRoutePlaceDetail(place);
       return;
@@ -2225,6 +2335,11 @@
       visibleKeys.add(key);
       upsertMarker(key, [point.lat, point.lng], makeRoutePlaceMarkerIcon(color, getRoutePlaceIconToken(list?.iconKey)), buildPopup(point.label, point.value || place.notes || 'Other Site'), () => selectRoutePlace(place.id, { focusMap:false, fromMap:true }));
     });
+    getVisibleSplSites().forEach((site) => {
+      const key = `spl-site:${site.id}`;
+      visibleKeys.add(key);
+      upsertMarker(key, [site.latitude, site.longitude], makeRoutePlaceMarkerIcon(SPL_SITE_MARKER_COLOR, 'SPL'), buildPopup(site.siteName || 'SPL Site', getSplSiteAddress(site) || site.locationLabel || site.notes), () => selectSplSite(site.id, { focusMap:false, fromMap:true }));
+    });
     Array.from(state.markerCache.keys()).forEach((key) => {
       if(!visibleKeys.has(key)){
         removeMapMarker(state.markerCache.get(key));
@@ -2529,6 +2644,19 @@
       els['map-placeholder'].classList.remove('hidden');
       return;
     }
+    const splSite = getActiveSplSite();
+    if(splSite && hasUsableCoords(splSite.latitude, splSite.longitude)){
+      els['map-placeholder'].classList.add('hidden');
+      if(state.mapProvider === 'google'){
+        state.map.panTo({ lat:splSite.latitude, lng:splSite.longitude });
+        state.map.setZoom(14);
+        openMapPopup(state.markerCache.get(`spl-site:${splSite.id}`));
+        return;
+      }
+      state.map.flyTo([splSite.latitude, splSite.longitude], 14, { animate:true, duration:.6 });
+      state.markerCache.get(`spl-site:${splSite.id}`)?.openPopup();
+      return;
+    }
     const place = getActiveRoutePlace();
     if(place){
       const point = getRoutePlacePoint(place);
@@ -2580,8 +2708,17 @@
       .filter(({ site }) => hasUsableCoords(site.lat, site.lng));
   }
 
+  function getVisibleSplSites(){
+    if(state.activeMode !== 'sites' || parseSiteListKey(state.activeSiteListKey).type !== 'spl') return [];
+    const query = String(state.searchQuery || '').trim().toLowerCase();
+    return getActiveSplSites()
+      .filter((site) => hasUsableCoords(site.latitude, site.longitude))
+      .filter((site) => !query || [site.siteName, site.siteCode, site.locationLabel, getSplSiteAddress(site), site.notes].join(' ').toLowerCase().includes(query));
+  }
+
   function getVisibleRoutePlaces(){
     if(state.activeMode === 'routes') return [];
+    if(parseSiteListKey(state.activeSiteListKey).type === 'spl') return [];
     const activeList = getActiveRoutePlaceList();
     if(state.activeClientId && !activeList) return [];
     const places = activeList ? getRoutePlacesForList(activeList.id) : getActiveRoutePlaces();
@@ -2607,9 +2744,11 @@
     }
     const visibleSites = getVisibleMappedSites();
     const visiblePlaces = getVisibleRoutePlaces();
+    const visibleSplSites = getVisibleSplSites();
     const points = [
       ...visibleSites.map(({ site }) => ({ lat:site.lat, lng:site.lng })),
-      ...visiblePlaces.map(({ point }) => ({ lat:point.lat, lng:point.lng }))
+      ...visiblePlaces.map(({ point }) => ({ lat:point.lat, lng:point.lng })),
+      ...visibleSplSites.map((site) => ({ lat:site.latitude, lng:site.longitude }))
     ];
     if(!points.length){
       alert('No visible sites have GPS coordinates to fit on the map.');
@@ -2666,12 +2805,29 @@
 
   function selectSiteList(siteListKey, options = {}){
     const parsed = parseSiteListKey(siteListKey);
+    if(parsed.type === 'spl'){
+      state.activeSiteListKey = SITE_LIST_SPL_KEY;
+      state.activeClientId = '';
+      state.activeSiteId = '';
+      state.activeSplSiteId = '';
+      state.activeRoutePlaceId = '';
+      state.filteredClients = getFilteredClients();
+      renderClientPicker();
+      renderFilterRow();
+      renderList();
+      renderToolbarSummary();
+      renderDetailPanel();
+      syncMarkers();
+      if(options.focusMap !== false) fitVisibleSites();
+      return;
+    }
     if(parsed.type === 'place-list'){
       const list = getRoutePlaceList(parsed.id);
       if(!list) return;
       state.activeSiteListKey = getSiteListKey('place-list', list.id);
       state.activeClientId = '';
       state.activeSiteId = '';
+      state.activeSplSiteId = '';
       state.activeRoutePlaceId = '';
       state.filteredClients = getFilteredClients();
       renderClientPicker();
@@ -2692,6 +2848,7 @@
     state.activeSiteListKey = getSiteListKey('client', client.id);
     state.activeClientId = client.id;
     state.activeSiteId = '';
+    state.activeSplSiteId = '';
     state.activeRoutePlaceId = '';
     state.expandedIds.add(client.id);
     state.filteredClients = getFilteredClients();
@@ -2711,6 +2868,7 @@
     state.activeSiteListKey = getSiteListKey('client', sourceClient.id);
     state.activeClientId = sourceClient.id;
     state.activeSiteId = sourceSite.id;
+    state.activeSplSiteId = '';
     state.activeRoutePlaceId = '';
     state.expandedIds.add(sourceClient.id);
     state.filteredClients = getFilteredClients();
@@ -2737,6 +2895,7 @@
     state.activeSiteListKey = getSiteListKey('place-list', place.listId);
     state.activeClientId = '';
     state.activeSiteId = '';
+    state.activeSplSiteId = '';
     state.activeRoutePlaceId = place.id;
     state.filteredClients = getFilteredClients();
     renderClientPicker();
@@ -2771,6 +2930,7 @@
       state.activeSiteListKey = '';
       state.activeClientId = '';
       state.activeSiteId = '';
+      state.activeSplSiteId = '';
       state.activeRoutePlaceId = '';
       state.activeRestrictedRoadId = '';
       state.restrictedRoadDraft = null;
@@ -2784,6 +2944,7 @@
       state.activeSiteListKey = '';
       state.activeClientId = '';
       state.activeSiteId = '';
+      state.activeSplSiteId = '';
       state.activeRoutePlaceId = '';
       state.activeRouteId = '';
       state.routeAddStopListKey = '';
@@ -3382,15 +3543,65 @@
   }
 
   function getSiteListKey(type, id){
+    if(type === 'spl') return SITE_LIST_SPL_KEY;
     return `${type === 'place-list' ? SITE_LIST_PLACE_PREFIX : SITE_LIST_CLIENT_PREFIX}${String(id || '')}`;
+  }
+
+  function selectSplSite(siteId, options = {}){
+    const site = getSplSite(siteId);
+    if(!site) return;
+    state.activeSiteListKey = SITE_LIST_SPL_KEY;
+    state.activeClientId = '';
+    state.activeSiteId = '';
+    state.activeSplSiteId = site.id;
+    state.activeRoutePlaceId = '';
+    renderClientPicker();
+    renderFilterRow();
+    renderList();
+    renderToolbarSummary();
+    renderDetailPanel();
+    syncMarkers();
+    if(options.focusMap !== false) focusSelectionOnMap();
+  }
+
+  function renderSplSiteListDetail(){
+    const sites = getActiveSplSites();
+    return `<div class="suremap-detail-card suremap-spl-site-detail"><div class="suremap-detail-title"><div class="item-title">SPL Sites</div><div class="tag-row"><span class="tag-chip">${esc(sites.length)} location${sites.length === 1 ? '' : 's'}</span></div><div class="item-sub">Internal SPL offices and facilities</div></div><div class="suremap-detail-grid"><div class="suremap-detail-item full"><label>Directory</label><span>Select a location to view its address, coordinates, and directions.</span></div></div></div>`;
+  }
+
+  function renderSplSiteDetail(site){
+    const address = getSplSiteAddress(site);
+    const mapped = hasUsableCoords(site.latitude, site.longitude);
+    return `
+      <div class="suremap-detail-card suremap-spl-site-detail">
+        <div class="suremap-detail-title"><div class="item-title">${esc(site.siteName || 'SPL Site')}</div><div class="tag-row"><span class="status-badge ok">SPL Location</span><span class="tag-chip">${esc(site.siteCode || 'No code')}</span></div><div class="item-sub">${esc(site.locationLabel || 'SPL')}</div></div>
+        <div class="suremap-detail-grid">
+          <div class="suremap-detail-item full"><label>Address</label><span>${esc(address || 'No address set')}</span></div>
+          <div class="suremap-detail-item"><label>Coordinates</label><span>${esc(mapped ? formatGps(site.latitude, site.longitude) : 'Not mapped')}</span></div>
+          <div class="suremap-detail-item"><label>Status</label><span>${site.isActive ? 'Active' : 'Inactive'}</span></div>
+          <div class="suremap-detail-item full"><label>Notes</label><span>${esc(site.notes || 'No notes')}</span></div>
+        </div>
+        <div class="suremap-detail-actions"><button class="act-btn" type="button" data-action="copy-spl-location" data-spl-site-id="${esc(site.id)}">Copy Location</button><button class="act-btn" type="button" data-action="open-directions-spl-site" data-spl-site-id="${esc(site.id)}" ${getSplSiteDirections(site) ? '' : 'disabled'}>Directions</button></div>
+      </div>
+    `;
   }
 
   function parseSiteListKey(key){
     const raw = String(key || '');
+    if(raw === SITE_LIST_SPL_KEY) return { type:'spl', id:SITE_LIST_SPL_KEY };
     if(raw.startsWith(SITE_LIST_PLACE_PREFIX)) return { type:'place-list', id:raw.slice(SITE_LIST_PLACE_PREFIX.length) };
     if(raw.startsWith(SITE_LIST_CLIENT_PREFIX)) return { type:'client', id:raw.slice(SITE_LIST_CLIENT_PREFIX.length) };
     if(raw) return { type:'client', id:raw };
     return { type:'', id:'' };
+  }
+
+  function getActiveSplSites(){
+    return (state.data.splSites || []).filter((site) => site.isActive !== false).sort(sortBySplSiteName);
+  }
+
+  function getSplSiteListOptions(){
+    const sites = getActiveSplSites();
+    return [{ key:SITE_LIST_SPL_KEY, type:'spl', id:SITE_LIST_SPL_KEY, label:'SPL Sites', meta:`${sites.length} location${sites.length === 1 ? '' : 's'}`, count:sites.length, color:SPL_SITE_MARKER_COLOR }];
   }
 
   function getClientSiteListOptions(){
@@ -3423,7 +3634,7 @@
   }
 
   function getAllSiteListOptions(){
-    return [...getClientSiteListOptions(), ...getOtherSiteListOptions()];
+    return [...getSplSiteListOptions(), ...getClientSiteListOptions(), ...getOtherSiteListOptions()];
   }
 
   function getSiteListOptionByKey(key){
@@ -3445,6 +3656,23 @@
 
   function getActiveRoutePlace(){
     return getRoutePlace(state.activeRoutePlaceId);
+  }
+
+  function getSplSite(siteId){
+    return state.indexes.splSitesById.get(String(siteId || '')) || null;
+  }
+
+  function getActiveSplSite(){
+    return getSplSite(state.activeSplSiteId);
+  }
+
+  function getSplSiteAddress(site){
+    return formatAddress(site?.streetAddress, site?.city, site?.state, site?.zipCode);
+  }
+
+  function getSplSiteDirections(site){
+    const address = getSplSiteAddress(site);
+    return address || (hasUsableCoords(site?.latitude, site?.longitude) ? formatGps(site.latitude, site.longitude) : '');
   }
 
   function getSiteListPickerLabel(){

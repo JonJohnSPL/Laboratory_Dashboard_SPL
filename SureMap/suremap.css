@@ -506,6 +506,20 @@
   background:rgba(111,227,255,.08);
 }
 
+.suremap-spl-site-card{
+  border-color:rgba(255,93,115,.28);
+}
+
+.suremap-spl-site-card.active{
+  border-color:rgba(255,93,115,.62);
+  background:rgba(255,93,115,.08);
+}
+
+.suremap-spl-site-detail{
+  border-left:3px solid rgba(255,93,115,.58);
+  padding-left:12px;
+}
+
 .suremap-site-icon{
   width:28px;
   height:28px;
