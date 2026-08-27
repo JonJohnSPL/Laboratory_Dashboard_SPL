@@ -118,9 +118,13 @@ If the DoneSafe account uses mandatory SSO or MFA, request a dedicated API/integ
 - The Field Ops `field-assets` storage bucket is used for uploaded asset photos and client logos.
 - Field Ops Salesforce ticket linking is currently manual. Paste the Salesforce ticket URL and ticket/case number into the saved job's Salesforce Ticket Link section.
 
-## Master Methods and Test Codes
+## Test Catalog and lab-specific Test Setup
 
-Run the latest `supabase/schema.sql` before opening `master-methods.html`. The migration imports the legacy Lab WIP Test Types into `lab_test_types`, preserves the old JSON in `app_state`, marks existing billing methods as needing a Test Type link, and keeps saved client rates while clearing their initial visible selections. Administrators can then map methods to existing Test Codes or create a new Test Code and method together from the Master Methods page.
+Run the latest `supabase/schema.sql` before opening `test-catalog.html` or `test-setup.html`. The forward migration keeps each Test Code in `lab_test_types`, moves aliases to `lab_test_type_aliases`, imports reusable standards into `lab_methods`, and moves lab timing, workload counting, bundles, and instrument assignments into site-scoped `lab_test_setups` and `lab_instruments`.
+
+Existing Lab WIP definitions become Pittsburgh migration-placeholder setups so historical estimates remain available until an administrator assigns an instrument or explicitly selects **No instrument required**. New imported work-order test rows are deliberately unassigned and contribute no estimated time until a setup is selected. Existing client billing selections, rates, and notes are preserved; legacy billing items are resolved from the **Legacy Items** tab without silent rate overwrites.
+
+Administrators manage the global Test Catalog. Employees with `lab.tests.view` can read it, while `lab.tests.manage` permits instrument and Test Setup changes only for the employee's relational Home SPL Site. The former `master-methods.html` and `test-types.html` paths remain compatibility redirects.
 
 ## Salesforce ticket linking
 

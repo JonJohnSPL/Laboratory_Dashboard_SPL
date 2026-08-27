@@ -33,7 +33,7 @@
 <a class="sec-btn" href="standards.html">Standards</a>
 <a class="sec-btn" href="consumables.html">Consumables</a>
 <a class="sec-btn" href="import.html">Import</a>
-<a class="sec-btn" href="test-types.html">Test Types</a>
+<a class="sec-btn" href="test-setup.html">Test Setup</a>
 </div>
 </div>
 <button class="sec-btn" onclick="window.location.href='SureMap/SPLClientMap.HTML'">SureMap</button>
@@ -47,6 +47,7 @@
 <button id="view-queue-btn" class="view-btn active" onclick="switchView('queue')">Queue</button>
 <button id="view-pending-btn" class="view-btn" onclick="switchView('pending')">Results Pending</button>
 <button id="view-schedule-btn" class="view-btn" onclick="switchView('schedule')">Daily Scheduling</button>
+<label class="tb-label" style="margin-left:auto;display:flex;align-items:center;gap:8px;">SPL Lab <select id="lab-site-select" onchange="selectLabSite(this.value)"></select></label>
 </div>
 <div id="queue-screen" class="screen active">
 <!-- STATS -->
@@ -394,6 +395,7 @@
 <div class="modal-action-row">
 <button type="button" class="act-btn done-btn" id="modal-done-btn" onclick="toggleDoneFromModal()">Done</button>
 <button type="button" class="act-btn" onclick="openSamplesFromModal()">Samples</button>
+<button type="button" class="act-btn" onclick="openTestSelectorModal()">Assign Test Setups</button>
 <button type="button" class="act-btn" id="modal-move-btn" onclick="moveWorkOrderStageFromModal()">Move to Results Pending</button>
 </div>
 </div>
@@ -458,7 +460,7 @@
 <div class="modal-overlay" id="test-select-overlay">
 <div class="modal" style="width:560px;max-width:96vw;">
 <div class="modal-header">
-<h3>Select Test To Edit</h3>
+<h3>Select Test Setup Assignment</h3>
 <button class="modal-close" onclick="closeTestSelectorModal()">X</button>
 </div>
 <div class="modal-body">
@@ -467,9 +469,8 @@
 </select>
 </div>
 <div class="modal-footer">
-<button class="btn-del" onclick="deleteSelectedTestRow()">Delete Test</button>
 <button class="btn-cancel" onclick="closeTestSelectorModal()">Cancel</button>
-<button class="btn-save" onclick="openEditTestModalFromSelector()">Edit Selected</button>
+<button class="btn-save" onclick="openEditTestModalFromSelector()">Assign Selected</button>
 </div>
 </div>
 </div>
@@ -477,39 +478,39 @@
 <div class="modal-overlay" id="test-edit-overlay">
 <div class="modal" style="width:640px;max-width:96vw;">
 <div class="modal-header">
-<h3>Edit Test Row</h3>
+<h3>Assign Test Setup</h3>
 <button class="modal-close" onclick="closeTestEditModal()">X</button>
 </div>
 <div class="modal-body">
 <div class="form-grid">
 <div class="form-group">
 <label class="form-label">Test Type</label>
-<select class="form-input" id="e-test-type">
+<select class="form-input" id="e-test-type" disabled>
 </select>
 </div>
 <div class="form-group">
 <label class="form-label">Test Code</label>
-<input class="form-input" id="e-test-code" type="text">
+<input class="form-input" id="e-test-code" type="text" disabled>
 </div>
 <div class="form-group">
 <label class="form-label">Sample #</label>
-<input class="form-input" id="e-test-sample" type="text">
+<input class="form-input" id="e-test-sample" type="text" disabled>
 </div>
 <div class="form-group">
 <label class="form-label">Cylinder #</label>
-<input class="form-input" id="e-test-cylinder" type="text">
+<input class="form-input" id="e-test-cylinder" type="text" disabled>
 </div>
 <div class="form-group">
 <label class="form-label">Matrix</label>
-<input class="form-input" id="e-test-matrix" type="text">
+<input class="form-input" id="e-test-matrix" type="text" disabled>
 </div>
 <div class="form-group">
 <label class="form-label">Container Type</label>
-<input class="form-input" id="e-test-container" type="text">
+<input class="form-input" id="e-test-container" type="text" disabled>
 </div>
 <div class="form-group">
 <label class="form-label">Hydrocarbon</label>
-<select class="form-input" id="e-test-hydrocarbon">
+<select class="form-input" id="e-test-hydrocarbon" disabled>
 <option value="">Not set</option>
 <option value="C1">C1</option>
 <option value="C2">C2</option>
@@ -526,91 +527,22 @@
 </div>
 <div class="form-group">
 <label class="form-label">Received</label>
-<input class="form-input" id="e-test-received" type="text">
+<input class="form-input" id="e-test-received" type="text" disabled>
 </div>
 <div class="form-group">
 <label class="form-label">Log Date</label>
-<input class="form-input" id="e-test-log-date" type="text">
+<input class="form-input" id="e-test-log-date" type="text" disabled>
+</div>
+<div class="form-group full">
+<label class="form-label">Lab Setup / Instrument</label>
+<select class="form-input" id="e-test-setup"></select>
+<div class="form-label" style="margin-top:6px;text-transform:none;letter-spacing:.5px;">Unassigned tests contribute no estimated time. Archived setups remain visible only when already assigned.</div>
 </div>
 </div>
 </div>
 <div class="modal-footer">
 <button class="btn-cancel" onclick="closeTestEditModal()">Cancel</button>
-<button class="btn-save" onclick="saveEditedTestRow()">Save Test</button>
-</div>
-</div>
-</div>
-<!-- TEST CATALOG MODAL -->
-<div class="modal-overlay" id="test-catalog-overlay">
-<div class="modal" style="width:900px;max-width:96vw;">
-<div class="modal-header">
-<h3>Manage Test Types</h3>
-<button class="modal-close" onclick="closeTestCatalogModal()">X</button>
-</div>
-<div class="modal-body">
-<div class="form-label" style="font-size:11px;margin-bottom:10px;">Add or update test definitions used in the lab dashboard. Grouped families count once per sample using the highest group rank present.</div>
-<div style="display:grid;grid-template-columns:minmax(280px,1fr) minmax(360px,1.2fr);gap:14px;align-items:start;">
-<div style="border:1px solid var(--border);border-radius:8px;background:var(--surface2);padding:10px;">
-<div class="form-label" style="margin-bottom:8px;">Current Test Types</div>
-<div id="test-catalog-list" style="display:flex;flex-direction:column;gap:8px;max-height:420px;overflow:auto;"></div>
-</div>
-<div style="border:1px solid var(--border);border-radius:8px;background:var(--surface2);padding:10px;">
-<div class="form-grid">
-<div class="form-group">
-<label class="form-label">Test Code</label>
-<input class="form-input" id="tc-key" type="text" placeholder="e.g. C6GAS">
-</div>
-<div class="form-group">
-<label class="form-label">Display Label</label>
-<input class="form-input" id="tc-label" type="text" placeholder="Shown in table headers">
-</div>
-<div class="form-group">
-<label class="form-label">Short Label</label>
-<input class="form-input" id="tc-short-label" type="text" placeholder="Used in summaries">
-</div>
-<div class="form-group">
-<label class="form-label">Minutes</label>
-<input class="form-input" id="tc-minutes" type="number" min="0" step="5" placeholder="15">
-</div>
-<div class="form-group">
-<label class="form-label">Count Method</label>
-<select class="form-input" id="tc-count-mode">
-<option value="perSample">Once Per Sample</option>
-<option value="perRow">Every Matching Row</option>
-</select>
-</div>
-<div class="form-group">
-<label class="form-label">Matrix Type</label>
-<select class="form-input" id="tc-matrix-type" onchange="applyTestCatalogMatrixDefaults()">
-<option value="">Unspecified</option>
-<option value="Gas">Gas Test</option>
-<option value="Liquid">Liquid Test</option>
-<option value="Calculated">Calculated Test</option>
-</select>
-</div>
-<div class="form-group">
-<label class="form-label">Group Family</label>
-<input class="form-input" id="tc-group-key" type="text" placeholder="Optional, e.g. GC-BFVC">
-</div>
-<div class="form-group">
-<label class="form-label">Group Rank</label>
-<input class="form-input" id="tc-group-rank" type="number" min="0" step="1" placeholder="Higher rank wins">
-</div>
-<div class="form-group">
-<label class="form-label">Aliases</label>
-<input class="form-input" id="tc-aliases" type="text" placeholder="Comma separated optional aliases">
-</div>
-<div class="form-group full">
-<label class="form-label">Notes</label>
-<div class="form-label" style="font-size:11px;letter-spacing:1px;text-transform:none;">Example: keep `GC-BFVC6MZ`, `GC-BFVC7MZ`, and `GC-BFVC10MZ` in the same family with ranks `6`, `7`, and `10` so only the heaviest one counts per sample.</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="modal-footer">
-<button class="btn-cancel" type="button" onclick="resetTestCatalogForm()">Clear Form</button>
-<button class="btn-save" type="button" onclick="saveTestCatalogEntry()">Save Test Type</button>
+<button class="btn-save" onclick="saveEditedTestRow()">Save Assignment</button>
 </div>
 </div>
 </div>
@@ -619,7 +551,7 @@
 window.APP_CONFIG = Object.assign({}, window.APP_CONFIG || {}, {
   authTitle: 'Lab WIP Dashboard',
   authHelpText: 'Sign in to access the shared lab WIP dashboard.',
-  requiresAppAdmin: true
+  requiresAppAdmin: false
 });
 </script>
 <script src="cloud-auth.js"></script>

@@ -61,7 +61,7 @@ h1{font-size:28px;letter-spacing:3px;text-transform:uppercase;color:var(--accent
           <a class="btn" href="standards.html">Standards</a>
           <a class="btn" href="consumables.html">Consumables</a>
           <a class="btn current" href="import.html">Import</a>
-          <a class="btn" href="test-types.html">Test Types</a>
+          <a class="btn" href="test-setup.html">Test Setup</a>
         </div>
       </div>
       <button class="btn" onclick="window.location.href='SureMap/SPLClientMap.HTML'">SureMap</button>
@@ -100,6 +100,7 @@ window.APP_CONFIG = Object.assign({}, window.APP_CONFIG || {}, {
 <script>
 const STORAGE_KEY = 'lab-wip-workorders';
 const TEST_DEFINITION_STORAGE_KEY = 'lab-wip-test-definitions';
+const FIELD_DIRECTORY_STORAGE_KEY = 'field-ops-dashboard-data';
 const PRI = {CRITICAL:0,HIGH:1,MEDIUM:2,LOW:3,NONE:4};
 const DEFAULT_TEST_DEFS = [
   { key:'AS-BFV_DENSITY', label:'AS-BFV_DENSITY', aliases:['AS-BFV_DENSITY','ASBFVDENSITY'] },
@@ -131,8 +132,31 @@ const woKey = n => (n || '').toString().trim().toUpperCase();
 function normalizeCatalogKey(raw){ return String(raw || '').trim().toUpperCase().replace(/\s+/g,'_').replace(/[^A-Z0-9_-]/g,''); }
 function normalizeAliasToken(raw){ return String(raw || '').trim().toUpperCase().replace(/[^A-Z0-9]/g,''); }
 function uniqueList(list){ return [...new Set((Array.isArray(list) ? list : []).map(v => String(v || '').trim()).filter(Boolean))]; }
-function normalizeTestDefinition(def, index = 0){ const key = normalizeCatalogKey(def?.key || def?.label || `TEST_${index + 1}`); if(!key) return null; const aliasSource = Array.isArray(def?.aliases) ? def.aliases : String(def?.aliases || '').split(','); return { key, aliases:uniqueList([key, def?.label || key, ...aliasSource]), matrixType:String(def?.matrixType || '').trim() || '' }; }
-async function loadTestDefinitions(){ const storageAdapter = getStorageAdapter(); try { const raw = await storageAdapter.get(TEST_DEFINITION_STORAGE_KEY); const value = typeof raw?.value === 'string' ? raw.value : ''; const parsed = value ? JSON.parse(value) : DEFAULT_TEST_DEFS; const defs = (Array.isArray(parsed) && parsed.length ? parsed : DEFAULT_TEST_DEFS).map((def, index) => normalizeTestDefinition(def, index)).filter(Boolean); return defs.length ? defs : DEFAULT_TEST_DEFS.map((def, index) => normalizeTestDefinition(def, index)).filter(Boolean); } catch { return DEFAULT_TEST_DEFS.map((def, index) => normalizeTestDefinition(def, index)).filter(Boolean); } }
+function normalizeTestDefinition(def, index = 0){ const key = normalizeCatalogKey(def?.testCode || def?.test_code || def?.key || def?.label || `TEST_${index + 1}`); if(!key) return null; const aliasSource = Array.isArray(def?.aliases) ? def.aliases : String(def?.aliases || '').split(','); return { id:String(def?.id || key), key, testName:String(def?.testName || def?.test_name || def?.label || key), aliases:uniqueList([key, ...aliasSource]), matrixType:String(def?.matrixType || def?.matrix_type || '').trim() || 'Unspecified', isActive:def?.isActive !== false && def?.is_active !== false }; }
+async function loadTestDefinitions(){
+  const storageAdapter = getStorageAdapter();
+  try {
+    let types=[], aliases=[];
+    if(window.appAuth?.getMode?.()==='remote'){
+      [types,aliases]=await Promise.all([
+        window.appAuth.requestJson('/rest/v1/lab_test_types?select=*&is_active=eq.true&order=test_code.asc'),
+        window.appAuth.requestJson('/rest/v1/lab_test_type_aliases?select=*')
+      ]);
+    }else{
+      const [fieldRaw,legacyRaw]=await Promise.all([storageAdapter.get(FIELD_DIRECTORY_STORAGE_KEY),storageAdapter.get(TEST_DEFINITION_STORAGE_KEY)]);
+      const field=fieldRaw?.value?JSON.parse(fieldRaw.value):{};
+      const legacy=legacyRaw?.value?JSON.parse(legacyRaw.value):DEFAULT_TEST_DEFS;
+      types=(field.testTypes&&field.testTypes.length)?field.testTypes:legacy;
+      aliases=field.labTestTypeAliases||field.testTypeAliases||[];
+    }
+    const defs=(types||[]).map((def,index)=>normalizeTestDefinition(def,index)).filter(def=>def&&def.isActive);
+    defs.forEach(def=>{def.aliases=uniqueList([def.key,...def.aliases,...(aliases||[]).filter(alias=>String(alias.testTypeId||alias.test_type_id)===def.id).map(alias=>alias.aliasCode||alias.alias_code||alias.alias)]);});
+    return defs.length?defs:DEFAULT_TEST_DEFS.map((def,index)=>normalizeTestDefinition(def,index)).filter(Boolean);
+  } catch(error){
+    console.warn('Unable to load Test Catalog:',error);
+    return DEFAULT_TEST_DEFS.map((def,index)=>normalizeTestDefinition(def,index)).filter(Boolean);
+  }
+}
 function resolveImportedTestCode(rawCode, defs){ const raw = String(rawCode || '').trim(); if(!raw) return ''; const normalizedKey = normalizeCatalogKey(raw); if(defs.some(def => def.key === normalizedKey)) return normalizedKey; const token = normalizeAliasToken(raw); if(!token) return ''; for(const def of defs){ for(const alias of def.aliases){ if(normalizeAliasToken(alias) === token) return def.key; } } return ''; }
 function getDefinitionByKey(defs, key){ const normalized = normalizeCatalogKey(key); return defs.find(def => def.key === normalized) || null; }
 function getLegacyBucketForCanonical(defs, canonicalKey){ const def = getDefinitionByKey(defs, canonicalKey); if(!def) return ''; if(String(canonicalKey || '').startsWith('GC-')) return 'gc'; if(def.matrixType === 'Gas') return 'gas'; if(def.matrixType === 'Liquid') return 'liq'; return ''; }
@@ -243,6 +267,10 @@ async function buildWOsFromSureChemCSV(text){
     wo.testRows.push({
       id:uid(),
       type:canonicalType || '',
+      testTypeId:getDefinitionByKey(defs,canonicalType)?.id || '',
+      testSetupId:'',
+      instrumentId:'',
+      setupAssignmentStatus:'unassigned',
       testCode:testCode || '',
       mappingStatus,
       mappingError: mappingStatus === 'unmapped' ? `Unknown test code: ${testCode}` : mappingStatus === 'missing' ? 'Missing test code' : '',

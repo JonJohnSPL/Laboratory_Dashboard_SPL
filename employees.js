@@ -5,6 +5,7 @@ const WORK_SCOPE_OPTIONS = ['Lab', 'Field', 'Both'];
 const LOCAL_SPL_SITE = 'Pittsburgh';
 const PORTAL_FEATURE_FALLBACKS = [
   { featureKey:'lab.tests.view', featureScope:'lab', featureName:'Lab Test Visibility', featureDescription:'View lab WIP work orders and test visibility.', sortOrder:10 },
+  { featureKey:'lab.tests.manage', featureScope:'lab', featureName:'Lab Test Setup Management', featureDescription:'Manage instruments and test setups for the employee home SPL site.', sortOrder:15 },
   { featureKey:'lab.consumables.view', featureScope:'lab', featureName:'Consumables Visibility', featureDescription:'View consumable inventory.', sortOrder:20 },
   { featureKey:'lab.consumables.change_counts', featureScope:'lab', featureName:'Consumable Count Changes', featureDescription:'Receive, start, empty, return, and adjust consumable counts.', sortOrder:30 },
   { featureKey:'lab.consumables.manage_orders', featureScope:'lab', featureName:'Consumable Order Management', featureDescription:'Create, update, order, and receive consumable orders.', sortOrder:40 },
@@ -20,6 +21,7 @@ const PORTAL_FEATURE_FALLBACKS = [
 let state = {
   employees: [],
   trucks: [],
+  splSites: [],
   portalFeatures: [],
   saveInFlight: false
 };
@@ -97,6 +99,7 @@ function createEmployeeDraft(){
     employeeLastName: '',
     employeeName: '',
     homeSplSite: LOCAL_SPL_SITE,
+    homeSplSiteId: '',
     workScope: 'Field',
     labRole: '',
     fieldRole: 'Field Tech',
@@ -123,6 +126,7 @@ function normalizeEmployeeRecord(source, fromRemote = false){
   if(!record.employeeLastName) record.employeeLastName = parsedName.last;
   record.employeeName = buildEmployeeName(record.employeeFirstName, record.employeeLastName, record.employeeName);
   record.homeSplSite = String((fromRemote ? source?.home_spl_site : source?.homeSplSite) || LOCAL_SPL_SITE);
+  record.homeSplSiteId = String((fromRemote ? source?.home_spl_site_id : source?.homeSplSiteId) || '');
   record.workScope = String((fromRemote ? source?.work_scope : source?.workScope) || 'Field');
   record.labRole = String((fromRemote ? source?.lab_role : source?.labRole) || '');
   record.fieldRole = String((fromRemote ? source?.field_role : source?.fieldRole) || '');
@@ -210,7 +214,7 @@ function getDefaultTruckForEmployee(employeeId){
 async function readLocalDirectory(){
   try {
     const raw = localStorage.getItem(EMPLOYEE_STORAGE_KEY);
-    if(!raw) return { rawData:{}, employees:[], trucks:[] };
+    if(!raw) return { rawData:{}, employees:[], trucks:[], splSites:[] };
     const parsed = JSON.parse(raw);
     const baseEmployees = Array.isArray(parsed?.employees) && parsed.employees.length
       ? parsed.employees.map((row) => normalizeEmployeeRecord(row))
@@ -220,10 +224,16 @@ async function readLocalDirectory(){
       defaultTruckId: String(row.defaultTruckId || '')
     })));
     const trucks = sortTrucks((Array.isArray(parsed?.trucks) ? parsed.trucks : []).map((row) => normalizeTruckRecord(row)));
-    return { rawData:parsed, employees, trucks };
+    const splSites = Array.isArray(parsed?.splSites) ? parsed.splSites.map((site) => ({
+      id:String(site?.id || ''),
+      siteName:String(site?.siteName || site?.site_name || ''),
+      siteCode:String(site?.siteCode || site?.site_code || ''),
+      isActive:site?.isActive !== false && site?.is_active !== false
+    })).filter((site) => site.id) : [];
+    return { rawData:parsed, employees, trucks, splSites };
   } catch (error){
     console.warn('Unable to read local employee directory:', error);
-    return { rawData:{}, employees:[], trucks:[] };
+    return { rawData:{}, employees:[], trucks:[], splSites:[] };
   }
 }
 
@@ -236,6 +246,7 @@ function buildLocalWritePayload(rawData, employees, trucks){
       employeeLastName: employee.employeeLastName,
       employeeName: employee.employeeName,
       homeSplSite: employee.homeSplSite || LOCAL_SPL_SITE,
+      homeSplSiteId: employee.homeSplSiteId || '',
       workScope: employee.workScope,
       labRole: employee.labRole,
       fieldRole: employee.fieldRole,
@@ -258,12 +269,13 @@ function buildLocalWritePayload(rawData, employees, trucks){
 
 const remoteRepository = {
   async list(){
-    const [employees, trucks, features, profiles, grants] = await Promise.all([
+    const [employees, trucks, features, profiles, grants, splSites] = await Promise.all([
       window.appAuth.requestJson('/rest/v1/employees?select=*'),
       window.appAuth.requestJson('/rest/v1/field_trucks?select=id,unit_number,service_status,assigned_technician_id,current_driver'),
       window.appAuth.requestJson('/rest/v1/app_features?select=*&is_active=eq.true&order=sort_order.asc'),
       window.appAuth.requestJson('/rest/v1/app_user_profiles?select=*'),
-      window.appAuth.requestJson('/rest/v1/employee_feature_grants?select=*')
+      window.appAuth.requestJson('/rest/v1/employee_feature_grants?select=*'),
+      window.appAuth.requestJson('/rest/v1/field_spl_sites?select=id,site_code,site_name,is_active&order=site_name.asc')
     ]);
     const featureRows = (Array.isArray(features) && features.length ? features : PORTAL_FEATURE_FALLBACKS).map(normalizePortalFeature).filter((feature) => feature.featureKey);
     const employeeProfiles = (Array.isArray(profiles) ? profiles : [])
@@ -292,7 +304,8 @@ const remoteRepository = {
     return {
       employees: employeeRows,
       trucks: sortTrucks((Array.isArray(trucks) ? trucks : []).map((row) => normalizeTruckRecord(row, true))),
-      features: featureRows
+      features: featureRows,
+      splSites:(Array.isArray(splSites) ? splSites : []).map((site) => ({ id:String(site.id || ''), siteCode:String(site.site_code || ''), siteName:String(site.site_name || ''), isActive:site.is_active !== false }))
     };
   },
   async saveEmployee(formData){
@@ -302,6 +315,7 @@ const remoteRepository = {
       employee_last_name: String(formData.employeeLastName || '').trim(),
       employee_name: employeeName,
       home_spl_site: String(formData.homeSplSite || LOCAL_SPL_SITE).trim() || LOCAL_SPL_SITE,
+      home_spl_site_id: formData.homeSplSiteId || null,
       work_scope: formData.workScope,
       lab_role: formData.labRole,
       field_role: formData.fieldRole,
@@ -419,11 +433,13 @@ async function loadData(){
       state.employees = next.employees;
       state.trucks = next.trucks;
       state.portalFeatures = next.features || [];
+      state.splSites = next.splSites || [];
     } else {
       const next = await readLocalDirectory();
       state.employees = next.employees;
       state.trucks = next.trucks;
       state.portalFeatures = PORTAL_FEATURE_FALLBACKS;
+      state.splSites = next.splSites || [];
     }
     render();
   } catch (error){
@@ -622,6 +638,8 @@ function renderModalBody(){
   const showSampleTransport = scope === 'Lab';
   const defaultTruckId = modalState.formData.defaultTruckId || '';
   const truckOptions = buildTruckOptions();
+  const siteOptions = state.splSites.filter((site) => site.isActive !== false || site.id === modalState.formData.homeSplSiteId);
+  const selectedSiteId = modalState.formData.homeSplSiteId || siteOptions.find((site) => String(site.siteName).toLowerCase() === String(modalState.formData.homeSplSite || LOCAL_SPL_SITE).toLowerCase())?.id || '';
   const body = `
     <div class="form-grid">
       <div class="form-group">
@@ -634,7 +652,10 @@ function renderModalBody(){
       </div>
       <div class="form-group">
         <label class="form-label">Home SPL Site</label>
-        <input class="form-input" type="text" value="${esc(modalState.formData.homeSplSite || LOCAL_SPL_SITE)}" oninput="setModalField('homeSplSite', this.value)">
+        ${siteOptions.length ? `<select class="form-input" onchange="changeHomeSplSite(this.value)">
+          <option value="">Select a site...</option>
+          ${siteOptions.map((site) => `<option value="${esc(site.id)}" ${site.id === selectedSiteId ? 'selected' : ''}>${esc(site.siteName || site.siteCode)}</option>`).join('')}
+        </select>` : `<input class="form-input" type="text" value="${esc(modalState.formData.homeSplSite || LOCAL_SPL_SITE)}" oninput="setModalField('homeSplSite', this.value)">`}
       </div>
       <div class="form-group">
         <label class="form-label">Work Scope</label>
@@ -677,6 +698,15 @@ function renderModalBody(){
 function openEmployeeModal(id = ''){
   const existing = id ? state.employees.find((employee) => employee.id === id) : null;
   const draft = existing ? clone(existing) : createEmployeeDraft();
+  if(!draft.homeSplSiteId){
+    const defaultSite = state.splSites.find((site) => String(site.siteName).toLowerCase() === String(draft.homeSplSite || LOCAL_SPL_SITE).toLowerCase())
+      || state.splSites.find((site) => site.isActive !== false)
+      || null;
+    if(defaultSite){
+      draft.homeSplSiteId = defaultSite.id;
+      draft.homeSplSite = defaultSite.siteName || draft.homeSplSite;
+    }
+  }
   draft.defaultTruckId = existing ? (getDefaultTruckForEmployee(existing.id)?.id || '') : '';
   modalState = { open:true, id:existing?.id || '', formData:draft };
   document.getElementById('employee-modal-title').textContent = `${modalState.id ? 'Edit' : 'Add'} Employee`;
@@ -694,6 +724,12 @@ function closeEmployeeModal(){
 
 function setModalField(key, value){
   modalState.formData[key] = value;
+}
+
+function changeHomeSplSite(siteId){
+  const site = state.splSites.find((row) => row.id === siteId) || null;
+  modalState.formData.homeSplSiteId = site?.id || '';
+  modalState.formData.homeSplSite = site?.siteName || '';
 }
 
 function toggleModalField(key, checked){
@@ -730,6 +766,7 @@ function validateModal(){
   const formData = modalState.formData;
   if(!String(formData.employeeFirstName || '').trim() && !String(formData.employeeLastName || '').trim()) return 'First or last name is required.';
   if(!String(formData.homeSplSite || '').trim()) return 'Home SPL Site is required.';
+  if(isRemoteMode() && state.splSites.length && !String(formData.homeSplSiteId || '').trim()) return 'Choose a Home SPL Site from the list.';
   if(!WORK_SCOPE_OPTIONS.includes(formData.workScope)) return 'Choose a valid work scope.';
   if(isLabEligible(formData.workScope) && !String(formData.labRole || '').trim()) return 'Lab role is required for Lab or Both employees.';
   if(isFieldEligible(formData.workScope) && !String(formData.fieldRole || '').trim()) return 'Field role is required for Field or Both employees.';

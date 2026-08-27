@@ -3,91 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Master Methods Catalog</title>
-<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="standards.css">
-<link rel="stylesheet" href="master-methods.css">
+<meta http-equiv="refresh" content="0; url=test-catalog.html">
+<title>Test Catalog</title>
 </head>
 <body>
-<header>
-  <div class="header-left">
-    <img class="spl-logo" src="assets/spl-logo.svg" alt="SPL">
-    <div class="header-brand"><h1>Master Methods Catalog</h1><p>Shared billing methods linked to authoritative Lab WIP Test Codes</p></div>
-  </div>
-  <div class="header-right">
-    <div data-session-slot></div>
-    <div class="nav-row">
-      <button class="sec-btn" onclick="location.href='index.html'">Home</button>
-      <button class="sec-btn" onclick="location.href='clients.html'">Clients</button>
-      <button class="sec-btn" onclick="location.href='test-types.html'">Test Types</button>
-    </div>
-    <div id="save-indicator" class="save-indicator" style="visibility:hidden">Saved</div>
-  </div>
-</header>
-
-<div class="stats-bar">
-  <div class="stat-card"><div class="stat-label">Methods</div><div class="stat-value" id="stat-total">0</div></div>
-  <div class="stat-card ok"><div class="stat-label">Mapped</div><div class="stat-value ok" id="stat-mapped">0</div></div>
-  <div class="stat-card warn"><div class="stat-label">Needs Test Type</div><div class="stat-value warn" id="stat-unmapped">0</div></div>
-  <div class="stat-card danger"><div class="stat-label">Archived</div><div class="stat-value danger" id="stat-archived">0</div></div>
-</div>
-
-<div class="toolbar">
-  <span class="tb-label">Search</span>
-  <input id="method-search" type="text" placeholder="Test Code, method, or description..." oninput="setMethodFilter('search', this.value)">
-  <select id="method-section" onchange="setMethodFilter('section', this.value)"><option value="all">All sections</option><option>Liquid Samples</option><option>Natural Gas Samples</option><option>Field &amp; Labor</option></select>
-  <select id="method-status" onchange="setMethodFilter('status', this.value)"><option value="active">Active</option><option value="all">All statuses</option><option value="unmapped">Needs Test Type</option><option value="archived">Archived</option></select>
-  <div class="toolbar-spacer"></div>
-  <button class="add-wo-btn" type="button" onclick="openMethodModal()">+ Add Method</button>
-</div>
-
-<main class="methods-main">
-  <section class="table-container">
-    <div class="table-header"><h2>Master Methods</h2><div class="refresh-time" id="last-update">Loading...</div></div>
-    <table class="methods-table">
-      <thead><tr><th>Test Code</th><th>Method / Standard</th><th>Description</th><th>Section</th><th>Matrix</th><th>Unit</th><th>Lab WIP</th><th>Status</th><th></th></tr></thead>
-      <tbody id="methods-tbody"></tbody>
-    </table>
-  </section>
-</main>
-
-<div class="modal-overlay" id="method-modal-overlay">
-  <div class="modal standard-modal method-modal">
-    <div class="modal-header"><h3 id="method-modal-title">Add Method</h3><button class="modal-close" onclick="closeMethodModal()">X</button></div>
-    <div class="modal-body">
-      <div class="form-grid">
-        <div class="form-group full"><label class="form-label">Test Code Source</label><select class="form-input" id="method-test-type-mode" onchange="changeTestTypeMode(this.value)"><option value="existing">Select Existing Test Code</option><option value="new">Create New Test Code</option></select></div>
-        <div class="form-group full" id="existing-test-type-group"><label class="form-label">Test Code *</label><select class="form-input" id="method-test-type-id"></select></div>
-        <div class="new-test-type-fields form-grid full" id="new-test-type-fields">
-          <div class="form-section"><h4>New Test Type</h4></div>
-          <div class="form-group"><label class="form-label">Test Code *</label><input class="form-input" id="new-test-code" placeholder="C6GAS"></div>
-          <div class="form-group"><label class="form-label">Display Label</label><input class="form-input" id="new-display-label"></div>
-          <div class="form-group"><label class="form-label">Short Label</label><input class="form-input" id="new-short-label"></div>
-          <div class="form-group"><label class="form-label">Matrix</label><select class="form-input" id="new-matrix-type"><option value="">Unspecified</option><option>Gas</option><option>Liquid</option><option>Calculated</option></select></div>
-          <div class="form-group"><label class="form-label">Minutes</label><input class="form-input" id="new-minutes" type="number" min="0" step="5" value="15"></div>
-          <div class="form-group"><label class="form-label">Counting</label><select class="form-input" id="new-count-mode"><option value="perSample">Once Per Sample</option><option value="perRow">Every Matching Row</option></select></div>
-          <div class="form-group"><label class="form-label">Group Family</label><input class="form-input" id="new-group-key"></div>
-          <div class="form-group"><label class="form-label">Group Rank</label><input class="form-input" id="new-group-rank" type="number" min="0" value="0"></div>
-          <div class="form-group full"><label class="form-label">Aliases</label><input class="form-input" id="new-aliases" placeholder="Comma separated"></div>
-          <div class="form-group full"><label class="check-row"><input id="new-lab-wip-enabled" type="checkbox" checked> Available in Lab WIP</label></div>
-        </div>
-        <div class="form-section"><h4>Billing Method</h4></div>
-        <div class="form-group"><label class="form-label">Method / Standard</label><input class="form-input" id="method-standard" placeholder="ASTM D156"></div>
-        <div class="form-group"><label class="form-label">Description *</label><input class="form-input" id="method-description"></div>
-        <div class="form-group"><label class="form-label">Section *</label><select class="form-input" id="method-price-section"><option>Liquid Samples</option><option>Natural Gas Samples</option><option>Field &amp; Labor</option></select></div>
-        <div class="form-group"><label class="form-label">Category</label><select class="form-input" id="method-category"><option>Liquid</option><option>Gas</option><option>Field</option></select></div>
-        <div class="form-group"><label class="form-label">Unit *</label><input class="form-input" id="method-unit" value="Per Sample"></div>
-        <div class="form-group"><label class="form-label">Sort Order</label><input class="form-input" id="method-sort-order" type="number" step="10"></div>
-        <div class="form-group full"><label class="form-label">Notes</label><textarea class="form-input" id="method-notes"></textarea></div>
-      </div>
-    </div>
-    <div class="modal-footer"><button class="btn-cancel" onclick="closeMethodModal()">Cancel</button><button class="btn-save" id="method-save-button" onclick="saveMethod()">Save Method</button></div>
-  </div>
-</div>
-
-<script src="app-config.js"></script>
-<script>window.APP_CONFIG=Object.assign({},window.APP_CONFIG||{},{authTitle:'SPL Master Methods',authHelpText:'Sign in to manage billing methods and Test Codes.',requiresAppAdmin:true});</script>
-<script src="cloud-auth.js"></script>
-<script src="master-methods.js"></script>
+<p>Master Methods has moved to <a href="test-catalog.html">Test Catalog</a>.</p>
+<script>location.replace(`test-catalog.html${location.search}${location.hash}`);</script>
 </body>
 </html>

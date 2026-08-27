@@ -133,7 +133,7 @@
 
     const userId = encodeURIComponent(state.user.id);
     try {
-      const profileRows = await requestJson(`/rest/v1/app_user_profiles?select=user_id,access_role,employee_id,is_active,portal_enabled,notes,employee:employees(id,employee_first_name,employee_last_name,employee_name,home_spl_site,work_scope,lab_role,field_role,can_sample_transport,is_active,phone,email,notes)&user_id=eq.${userId}&limit=1`);
+      const profileRows = await requestJson(`/rest/v1/app_user_profiles?select=user_id,access_role,employee_id,is_active,portal_enabled,notes,employee:employees(id,employee_first_name,employee_last_name,employee_name,home_spl_site,home_spl_site_id,work_scope,lab_role,field_role,can_sample_transport,is_active,phone,email,notes)&user_id=eq.${userId}&limit=1`);
       const profile = Array.isArray(profileRows) && profileRows.length ? normalizeProfile(profileRows[0]) : null;
       const features = await requestJson('/rest/v1/app_features?select=feature_key,feature_scope,feature_name,feature_description,sort_order,is_active&is_active=eq.true&order=sort_order.asc');
       const grants = profile?.employeeId
@@ -182,6 +182,7 @@
       employeeLastName: last,
       employeeName: [first, last].filter(Boolean).join(' ') || fallback,
       homeSplSite: String(row.home_spl_site || ''),
+      homeSplSiteId: String(row.home_spl_site_id || ''),
       workScope: String(row.work_scope || ''),
       labRole: String(row.lab_role || ''),
       fieldRole: String(row.field_role || ''),

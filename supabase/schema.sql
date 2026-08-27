@@ -778,18 +778,6 @@ create index if not exists field_billing_profile_prices_billing_profile_id_idx o
 create index if not exists field_billing_profile_prices_price_item_id_idx on public.field_billing_profile_prices(price_item_id);
 create index if not exists field_billing_profile_prices_effective_year_idx on public.field_billing_profile_prices(effective_year);
 
--- The new client schedule is opt-in. Run once while preserving every saved rate and note.
-do $$
-begin
-  if not exists (select 1 from public.app_state where storage_key = 'billing-method-selection-v1-migrated') then
-    update public.field_billing_profile_prices set is_active = false;
-    insert into public.app_state (storage_key, storage_value)
-    values ('billing-method-selection-v1-migrated', timezone('utc', now())::text)
-    on conflict (storage_key) do nothing;
-  end if;
-end;
-$$;
-
 with ranked_profiles as (
   select
     p.id,
@@ -1401,7 +1389,7 @@ set search_path = public
 as $$
   select public.is_app_admin()
     or (
-      public.has_employee_feature('lab.tests.view')
+      public.has_any_employee_feature(array['lab.tests.view', 'lab.tests.manage'])
       and storage_key_value in (
         'lab-wip-workorders',
         'lab-wip-daily-schedule',
@@ -3586,7 +3574,7 @@ create policy "Authorized users can read lab_test_types"
 on public.lab_test_types
 for select
 to authenticated
-using (public.is_app_admin() or public.has_employee_feature('lab.tests.view'));
+using (public.is_app_admin() or public.has_any_employee_feature(array['lab.tests.view', 'lab.tests.manage']));
 
 drop policy if exists "Administrators can insert lab_test_types" on public.lab_test_types;
 create policy "Administrators can insert lab_test_types"
@@ -4126,3 +4114,775 @@ on public.donesafe_sync_runs
 for select
 to authenticated
 using (public.is_app_admin());
+
+-- Unified Test Catalog and lab-specific Test Setup (v2)
+-- This is intentionally a forward migration from the original Master Methods model.
+
+insert into public.app_features (feature_key, feature_scope, feature_name, feature_description, sort_order, is_active)
+values ('lab.tests.manage', 'lab', 'Lab Test Setup Management', 'Manage instruments and test setup for the employee home SPL lab.', 15, true)
+on conflict (feature_key) do update
+set feature_scope = excluded.feature_scope,
+    feature_name = excluded.feature_name,
+    feature_description = excluded.feature_description,
+    sort_order = excluded.sort_order,
+    is_active = excluded.is_active;
+
+alter table public.employees add column if not exists home_spl_site_id uuid;
+alter table public.employees drop constraint if exists employees_home_spl_site_id_fkey;
+alter table public.employees add constraint employees_home_spl_site_id_fkey
+  foreign key (home_spl_site_id) references public.field_spl_sites(id) on delete set null;
+create index if not exists employees_home_spl_site_id_idx on public.employees(home_spl_site_id);
+
+update public.employees e
+set home_spl_site_id = (
+  select s.id
+  from public.field_spl_sites s
+  where lower(btrim(e.home_spl_site)) in (
+    lower(btrim(s.site_code)),
+    lower(btrim(s.site_name)),
+    lower(btrim(s.location_label)),
+    lower(btrim(regexp_replace(s.site_name, '^SPL\\s+', '', 'i')))
+  )
+  order by s.is_active desc, s.site_name asc
+  limit 1
+)
+where e.home_spl_site_id is null
+  and exists (
+    select 1 from public.field_spl_sites s
+    where lower(btrim(e.home_spl_site)) in (
+      lower(btrim(s.site_code)), lower(btrim(s.site_name)), lower(btrim(s.location_label)),
+      lower(btrim(regexp_replace(s.site_name, '^SPL\\s+', '', 'i')))
+    )
+  );
+
+update public.employees e
+set home_spl_site_id = s.id
+from public.field_spl_sites s
+where e.home_spl_site_id is null
+  and lower(btrim(e.home_spl_site)) = 'pittsburgh'
+  and s.site_code = 'PITTSBURGH';
+
+create table if not exists public.lab_methods (
+  id uuid primary key default gen_random_uuid(),
+  organization text not null default '',
+  standard_designation text not null,
+  method_title text not null default '',
+  revision text not null default '',
+  effective_date date,
+  document_reference text not null default '',
+  notes text not null default '',
+  is_active boolean not null default true,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid,
+  check (btrim(standard_designation) <> '')
+);
+create unique index if not exists lab_methods_designation_revision_unique_idx
+on public.lab_methods(lower(btrim(standard_designation)), lower(btrim(revision)));
+create index if not exists lab_methods_active_designation_idx
+  on public.lab_methods(is_active, standard_designation, revision);
+
+alter table public.lab_test_types add column if not exists test_name text not null default '';
+alter table public.lab_test_types add column if not exists method_id uuid;
+alter table public.lab_test_types drop constraint if exists lab_test_types_matrix_type_check;
+update public.lab_test_types set matrix_type = 'Unspecified' where btrim(coalesce(matrix_type, '')) = '';
+alter table public.lab_test_types alter column matrix_type set default 'Unspecified';
+alter table public.lab_test_types add constraint lab_test_types_matrix_type_check
+  check (matrix_type in ('Unspecified', 'Gas', 'Liquid', 'Calculated'));
+alter table public.lab_test_types drop constraint if exists lab_test_types_method_id_fkey;
+alter table public.lab_test_types add constraint lab_test_types_method_id_fkey
+  foreign key (method_id) references public.lab_methods(id) on delete restrict;
+update public.lab_test_types
+set test_name = coalesce(nullif(btrim(test_name), ''), nullif(btrim(display_label), ''), test_code)
+where btrim(test_name) = '';
+create index if not exists lab_test_types_method_id_idx on public.lab_test_types(method_id);
+create index if not exists lab_test_types_active_code_idx on public.lab_test_types(is_active, test_code);
+
+insert into public.lab_methods (standard_designation, notes, is_active)
+select distinct btrim(method), 'Imported from the legacy billing catalog. Add organization, title, revision, and document details as available.', true
+from public.billing_price_items
+where btrim(coalesce(method, '')) <> ''
+on conflict ((lower(btrim(standard_designation))), (lower(btrim(revision)))) do nothing;
+
+with unambiguous as (
+  select b.test_type_id, min(m.id::text)::uuid as method_id
+  from public.billing_price_items b
+  join public.lab_methods m
+    on lower(btrim(m.standard_designation)) = lower(btrim(b.method))
+   and btrim(m.revision) = ''
+  where b.test_type_id is not null and btrim(coalesce(b.method, '')) <> ''
+  group by b.test_type_id
+  having count(distinct lower(btrim(b.method))) = 1
+)
+update public.lab_test_types t
+set method_id = unambiguous.method_id
+from unambiguous
+where t.id = unambiguous.test_type_id and t.method_id is null;
+
+create table if not exists public.lab_test_type_aliases (
+  id uuid primary key default gen_random_uuid(),
+  test_type_id uuid not null references public.lab_test_types(id) on delete cascade,
+  alias_code text not null,
+  alias_kind text not null default 'manual' check (alias_kind in ('canonical', 'historical', 'manual')),
+  created_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  check (btrim(alias_code) <> '')
+);
+create unique index if not exists lab_test_type_aliases_code_unique_idx
+  on public.lab_test_type_aliases(lower(btrim(alias_code)));
+create index if not exists lab_test_type_aliases_test_type_id_idx
+  on public.lab_test_type_aliases(test_type_id);
+
+insert into public.lab_test_type_aliases (test_type_id, alias_code, alias_kind)
+select t.id, public.lab_test_code_key(alias_value), case when public.lab_test_code_key(alias_value) = t.test_code then 'canonical' else 'manual' end
+from public.lab_test_types t
+cross join lateral unnest(coalesce(t.aliases, array[]::text[]) || array[t.test_code]) alias_rows(alias_value)
+where btrim(alias_value) <> ''
+on conflict do nothing;
+
+create table if not exists public.lab_instruments (
+  id uuid primary key default gen_random_uuid(),
+  spl_site_id uuid not null references public.field_spl_sites(id) on delete restrict,
+  instrument_code text not null,
+  instrument_name text not null,
+  instrument_type text not null default 'GC',
+  notes text not null default '',
+  is_active boolean not null default true,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid,
+  check (btrim(instrument_code) <> ''),
+  check (btrim(instrument_name) <> '')
+);
+create unique index if not exists lab_instruments_site_code_unique_idx
+  on public.lab_instruments(spl_site_id, lower(btrim(instrument_code)));
+create index if not exists lab_instruments_site_active_name_idx
+  on public.lab_instruments(spl_site_id, is_active, instrument_name);
+
+create table if not exists public.lab_test_setups (
+  id uuid primary key default gen_random_uuid(),
+  test_type_id uuid not null references public.lab_test_types(id) on delete restrict,
+  spl_site_id uuid not null references public.field_spl_sites(id) on delete restrict,
+  setup_kind text not null default 'instrument' check (setup_kind in ('instrument', 'no_instrument', 'migration_pending')),
+  instrument_id uuid references public.lab_instruments(id) on delete restrict,
+  estimated_minutes numeric(10,2) not null default 0 check (estimated_minutes >= 0),
+  workload_counting text not null default 'per_sample' check (workload_counting in ('per_sample', 'per_import_row')),
+  workload_bundle text not null default '',
+  bundle_priority integer not null default 0 check (bundle_priority >= 0),
+  is_migration_placeholder boolean not null default false,
+  is_active boolean not null default true,
+  notes text not null default '',
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid,
+  check (
+    (setup_kind = 'instrument' and instrument_id is not null and not is_migration_placeholder)
+    or (setup_kind = 'no_instrument' and instrument_id is null and not is_migration_placeholder)
+    or (setup_kind = 'migration_pending' and instrument_id is null and is_migration_placeholder)
+  )
+);
+create unique index if not exists lab_test_setups_instrument_unique_idx
+  on public.lab_test_setups(test_type_id, spl_site_id, instrument_id)
+  where instrument_id is not null;
+create unique index if not exists lab_test_setups_non_instrument_unique_idx
+  on public.lab_test_setups(test_type_id, spl_site_id, setup_kind)
+  where instrument_id is null;
+create index if not exists lab_test_setups_site_active_test_idx
+  on public.lab_test_setups(spl_site_id, is_active, test_type_id);
+
+insert into public.lab_test_setups (
+  test_type_id, spl_site_id, setup_kind, instrument_id, estimated_minutes,
+  workload_counting, workload_bundle, bundle_priority, is_migration_placeholder,
+  is_active, notes
+)
+select
+  t.id,
+  s.id,
+  'migration_pending',
+  null,
+  greatest(0, coalesce(t.minutes, 0)),
+  case when t.count_mode = 'perRow' then 'per_import_row' else 'per_sample' end,
+  coalesce(t.group_key, ''),
+  greatest(0, coalesce(t.group_rank, 0)),
+  true,
+  coalesce(t.lab_wip_enabled, true) and t.is_active,
+  'Migrated from the original Lab WIP Test Type definition. Assign an instrument or mark No instrument required.'
+from public.lab_test_types t
+join public.field_spl_sites s on s.site_code = 'PITTSBURGH'
+on conflict do nothing;
+
+create table if not exists public.billing_services (
+  id uuid primary key default gen_random_uuid(),
+  service_code text not null,
+  service_name text not null,
+  category text not null default 'Services',
+  unit_name text not null default 'Each',
+  notes text not null default '',
+  is_active boolean not null default true,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid,
+  check (btrim(service_code) <> ''),
+  check (btrim(service_name) <> ''),
+  check (btrim(unit_name) <> '')
+);
+create unique index if not exists billing_services_code_unique_idx
+  on public.billing_services(lower(btrim(service_code)));
+create index if not exists billing_services_active_name_idx
+  on public.billing_services(is_active, service_name);
+
+alter table public.billing_price_items add column if not exists item_kind text not null default 'legacy';
+alter table public.billing_price_items add column if not exists service_id uuid;
+alter table public.billing_price_items add column if not exists legacy_status text not null default 'needs_mapping';
+alter table public.billing_price_items add column if not exists resolved_to_price_item_id uuid;
+alter table public.billing_price_items drop constraint if exists billing_price_items_item_kind_check;
+alter table public.billing_price_items add constraint billing_price_items_item_kind_check
+  check (item_kind in ('test', 'service', 'legacy'));
+alter table public.billing_price_items drop constraint if exists billing_price_items_legacy_status_check;
+alter table public.billing_price_items add constraint billing_price_items_legacy_status_check
+  check (legacy_status in ('needs_mapping', 'conflict', 'resolved'));
+alter table public.billing_price_items drop constraint if exists billing_price_items_service_id_fkey;
+alter table public.billing_price_items add constraint billing_price_items_service_id_fkey
+  foreign key (service_id) references public.billing_services(id) on delete restrict;
+alter table public.billing_price_items drop constraint if exists billing_price_items_resolved_to_price_item_id_fkey;
+alter table public.billing_price_items add constraint billing_price_items_resolved_to_price_item_id_fkey
+  foreign key (resolved_to_price_item_id) references public.billing_price_items(id) on delete restrict;
+
+with ranked as (
+  select id, row_number() over (partition by test_type_id order by created_at asc, id asc) as target_rank
+  from public.billing_price_items
+  where test_type_id is not null
+)
+update public.billing_price_items b
+set item_kind = case when ranked.target_rank = 1 then 'test' else 'legacy' end,
+    legacy_status = case when ranked.target_rank = 1 then 'resolved' else 'conflict' end
+from ranked
+where b.id = ranked.id;
+
+update public.billing_price_items
+set item_kind = 'legacy', legacy_status = 'needs_mapping'
+where test_type_id is null and service_id is null and legacy_status <> 'resolved';
+
+insert into public.billing_price_items (
+  test_type_id, item_key, price_section, category, method, description,
+  unit_name, sort_order, is_active, notes, item_kind, legacy_status
+)
+select
+  t.id,
+  'TEST_' || replace(t.id::text, '-', '_'),
+  '', '', '', '', 'Per Sample', 0, t.is_active, '', 'test', 'resolved'
+from public.lab_test_types t
+where not exists (
+  select 1 from public.billing_price_items b where b.item_kind = 'test' and b.test_type_id = t.id
+)
+on conflict (item_key) do nothing;
+
+create unique index if not exists billing_price_items_test_target_unique_idx
+  on public.billing_price_items(test_type_id) where item_kind = 'test';
+create unique index if not exists billing_price_items_service_target_unique_idx
+  on public.billing_price_items(service_id) where item_kind = 'service';
+create index if not exists billing_price_items_kind_status_idx
+  on public.billing_price_items(item_kind, legacy_status, is_active);
+
+create table if not exists public.billing_legacy_item_resolutions (
+  id uuid primary key default gen_random_uuid(),
+  legacy_price_item_id uuid not null references public.billing_price_items(id) on delete restrict,
+  resolved_price_item_id uuid references public.billing_price_items(id) on delete restrict,
+  target_kind text not null check (target_kind in ('test', 'service')),
+  conflict_action text not null check (conflict_action in ('error', 'keep_target', 'replace_target')),
+  rate_snapshot jsonb not null default '[]'::jsonb,
+  resolved_at timestamptz not null default timezone('utc', now()),
+  resolved_by uuid
+);
+create index if not exists billing_legacy_item_resolutions_legacy_idx
+  on public.billing_legacy_item_resolutions(legacy_price_item_id, resolved_at desc);
+
+create or replace function public.current_employee_spl_site_id()
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select e.home_spl_site_id
+  from public.app_user_profiles p
+  join public.employees e on e.id = p.employee_id
+  where p.user_id = auth.uid()
+    and p.is_active
+    and p.portal_enabled
+    and p.access_role = 'employee'
+    and e.is_active
+  limit 1;
+$$;
+
+create or replace function public.can_manage_lab_site(target_site_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_app_admin()
+    or (
+      public.has_employee_feature('lab.tests.manage')
+      and target_site_id = public.current_employee_spl_site_id()
+    );
+$$;
+
+revoke all on function public.current_employee_spl_site_id() from public;
+revoke all on function public.can_manage_lab_site(uuid) from public;
+grant execute on function public.current_employee_spl_site_id() to authenticated;
+grant execute on function public.can_manage_lab_site(uuid) to authenticated;
+
+create or replace function public.normalize_lab_method()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.organization := btrim(coalesce(new.organization, ''));
+  new.standard_designation := regexp_replace(btrim(coalesce(new.standard_designation, '')), '\\s+', ' ', 'g');
+  new.method_title := btrim(coalesce(new.method_title, ''));
+  new.revision := regexp_replace(btrim(coalesce(new.revision, '')), '\\s+', ' ', 'g');
+  new.document_reference := btrim(coalesce(new.document_reference, ''));
+  if new.standard_designation = '' then raise exception 'Method / Standard is required.'; end if;
+  return new;
+end;
+$$;
+
+create or replace function public.normalize_lab_test_type()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.test_code := public.lab_test_code_key(new.test_code);
+  new.test_name := btrim(coalesce(new.test_name, ''));
+  if new.test_code = '' then raise exception 'Test Code is required.'; end if;
+  if new.test_name = '' then raise exception 'Test Name is required.'; end if;
+  if exists (
+    select 1 from public.lab_test_type_aliases a
+    where lower(btrim(a.alias_code)) = lower(new.test_code)
+      and a.test_type_id <> new.id
+  ) then
+    raise exception 'Test Code conflicts with an existing alias.';
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.capture_lab_test_type_alias()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'UPDATE' and old.test_code <> new.test_code then
+    update public.lab_test_type_aliases
+    set alias_kind = 'historical'
+    where test_type_id = new.id and lower(btrim(alias_code)) = lower(btrim(old.test_code));
+    insert into public.lab_test_type_aliases(test_type_id, alias_code, alias_kind)
+    values (new.id, old.test_code, 'historical')
+    on conflict do nothing;
+  end if;
+  insert into public.lab_test_type_aliases(test_type_id, alias_code, alias_kind)
+  values (new.id, new.test_code, 'canonical')
+  on conflict do nothing;
+  update public.lab_test_type_aliases
+  set alias_kind = 'canonical'
+  where test_type_id = new.id and lower(btrim(alias_code)) = lower(new.test_code);
+  return new;
+end;
+$$;
+
+create or replace function public.normalize_lab_test_type_alias()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.alias_code := public.lab_test_code_key(new.alias_code);
+  if new.alias_code = '' then raise exception 'Alias is required.'; end if;
+  if exists (
+    select 1 from public.lab_test_types t
+    where lower(t.test_code) = lower(new.alias_code)
+      and t.id <> new.test_type_id
+  ) then
+    raise exception 'Alias conflicts with an existing Test Code.';
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.validate_lab_test_setup()
+returns trigger
+language plpgsql
+as $$
+declare
+  instrument_site_id uuid;
+begin
+  new.workload_bundle := public.lab_test_code_key(new.workload_bundle);
+  if new.setup_kind = 'instrument' then
+    select spl_site_id into instrument_site_id from public.lab_instruments where id = new.instrument_id;
+    if instrument_site_id is null or instrument_site_id <> new.spl_site_id then
+      raise exception 'The selected instrument must belong to the selected SPL lab.';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.ensure_test_billing_entry()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.billing_price_items (
+    test_type_id, item_key, price_section, category, method, description,
+    unit_name, sort_order, is_active, notes, item_kind, legacy_status
+  ) values (
+    new.id, 'TEST_' || replace(new.id::text, '-', '_'), '', '', '', '',
+    'Per Sample', 0, new.is_active, '', 'test', 'resolved'
+  )
+  on conflict (item_key) do update
+  set test_type_id = excluded.test_type_id,
+      item_kind = 'test',
+      is_active = excluded.is_active,
+      legacy_status = 'resolved';
+  update public.billing_price_items set is_active = new.is_active
+  where item_kind = 'test' and test_type_id = new.id;
+  return new;
+end;
+$$;
+
+create or replace function public.ensure_service_billing_entry()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.billing_price_items (
+    service_id, item_key, price_section, category, method, description,
+    unit_name, sort_order, is_active, notes, item_kind, legacy_status
+  ) values (
+    new.id, 'SERVICE_' || replace(new.id::text, '-', '_'), '', '', '', '',
+    new.unit_name, 0, new.is_active, '', 'service', 'resolved'
+  )
+  on conflict (item_key) do update
+  set service_id = excluded.service_id,
+      item_kind = 'service',
+      unit_name = excluded.unit_name,
+      is_active = excluded.is_active,
+      legacy_status = 'resolved';
+  update public.billing_price_items
+  set unit_name = new.unit_name, is_active = new.is_active
+  where item_kind = 'service' and service_id = new.id;
+  return new;
+end;
+$$;
+
+drop trigger if exists lab_methods_normalize on public.lab_methods;
+create trigger lab_methods_normalize before insert or update on public.lab_methods
+for each row execute function public.normalize_lab_method();
+drop trigger if exists lab_methods_touch on public.lab_methods;
+create trigger lab_methods_touch before insert or update on public.lab_methods
+for each row execute function public.touch_field_ops_row();
+
+drop trigger if exists lab_test_types_normalize on public.lab_test_types;
+create trigger lab_test_types_normalize before insert or update on public.lab_test_types
+for each row execute function public.normalize_lab_test_type();
+drop trigger if exists lab_test_types_capture_alias on public.lab_test_types;
+create trigger lab_test_types_capture_alias after insert or update of test_code on public.lab_test_types
+for each row execute function public.capture_lab_test_type_alias();
+drop trigger if exists lab_test_types_billing_entry on public.lab_test_types;
+create trigger lab_test_types_billing_entry after insert or update of is_active on public.lab_test_types
+for each row execute function public.ensure_test_billing_entry();
+
+drop trigger if exists lab_test_type_aliases_normalize on public.lab_test_type_aliases;
+create trigger lab_test_type_aliases_normalize before insert or update on public.lab_test_type_aliases
+for each row execute function public.normalize_lab_test_type_alias();
+
+drop trigger if exists lab_instruments_touch on public.lab_instruments;
+create trigger lab_instruments_touch before insert or update on public.lab_instruments
+for each row execute function public.touch_field_ops_row();
+drop trigger if exists lab_test_setups_validate on public.lab_test_setups;
+create trigger lab_test_setups_validate before insert or update on public.lab_test_setups
+for each row execute function public.validate_lab_test_setup();
+drop trigger if exists lab_test_setups_touch on public.lab_test_setups;
+create trigger lab_test_setups_touch before insert or update on public.lab_test_setups
+for each row execute function public.touch_field_ops_row();
+drop trigger if exists billing_services_touch on public.billing_services;
+create trigger billing_services_touch before insert or update on public.billing_services
+for each row execute function public.touch_field_ops_row();
+drop trigger if exists billing_services_billing_entry on public.billing_services;
+create trigger billing_services_billing_entry after insert or update of is_active, unit_name on public.billing_services
+for each row execute function public.ensure_service_billing_entry();
+
+create or replace function public.admin_save_test_type(test_record jsonb, alias_values text[] default array[]::text[])
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  saved_id uuid;
+  supplied_id uuid;
+  alias_value text;
+begin
+  if not public.is_app_admin() then raise exception 'Administrator access is required.'; end if;
+  supplied_id := nullif(test_record->>'id', '')::uuid;
+  if supplied_id is null then
+    insert into public.lab_test_types(test_code, test_name, matrix_type, method_id, is_active)
+    values (
+      public.lab_test_code_key(test_record->>'test_code'),
+      btrim(coalesce(test_record->>'test_name', '')),
+      case when test_record->>'matrix_type' in ('Gas', 'Liquid', 'Calculated') then test_record->>'matrix_type' else 'Unspecified' end,
+      nullif(test_record->>'method_id', '')::uuid,
+      coalesce((test_record->>'is_active')::boolean, true)
+    ) returning id into saved_id;
+  else
+    update public.lab_test_types
+    set test_code = public.lab_test_code_key(test_record->>'test_code'),
+        test_name = btrim(coalesce(test_record->>'test_name', '')),
+        matrix_type = case when test_record->>'matrix_type' in ('Gas', 'Liquid', 'Calculated') then test_record->>'matrix_type' else 'Unspecified' end,
+        method_id = nullif(test_record->>'method_id', '')::uuid,
+        is_active = coalesce((test_record->>'is_active')::boolean, is_active)
+    where id = supplied_id
+    returning id into saved_id;
+    if saved_id is null then raise exception 'Test Type was not found.'; end if;
+  end if;
+
+  delete from public.lab_test_type_aliases
+  where test_type_id = saved_id and alias_kind = 'manual';
+  foreach alias_value in array coalesce(alias_values, array[]::text[]) loop
+    alias_value := public.lab_test_code_key(alias_value);
+    if alias_value <> '' then
+      insert into public.lab_test_type_aliases(test_type_id, alias_code, alias_kind)
+      values (saved_id, alias_value, 'manual')
+      on conflict do nothing;
+      if not exists (
+        select 1 from public.lab_test_type_aliases
+        where test_type_id = saved_id and lower(btrim(alias_code)) = lower(alias_value)
+      ) then raise exception 'Alias % is already assigned to another Test Code.', alias_value; end if;
+    end if;
+  end loop;
+  return saved_id;
+end;
+$$;
+
+create or replace function public.admin_resolve_legacy_billing_item(
+  legacy_item_id uuid,
+  target_kind text,
+  target_id uuid default null,
+  conflict_action text default 'error',
+  service_record jsonb default '{}'::jsonb
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  legacy_item public.billing_price_items;
+  canonical_item_id uuid;
+  service_target_id uuid;
+  conflict_count integer;
+  rate_snapshot jsonb;
+  imported_method_id uuid;
+begin
+  if not public.is_app_admin() then raise exception 'Administrator access is required.'; end if;
+  if target_kind not in ('test', 'service') then raise exception 'Target kind must be test or service.'; end if;
+  if conflict_action not in ('error', 'keep_target', 'replace_target') then raise exception 'Unknown conflict action.'; end if;
+
+  select * into legacy_item from public.billing_price_items where id = legacy_item_id for update;
+  if legacy_item.id is null or legacy_item.item_kind <> 'legacy' then raise exception 'Legacy billing item was not found.'; end if;
+
+  if target_kind = 'test' then
+    if target_id is null or not exists (select 1 from public.lab_test_types where id = target_id) then
+      raise exception 'Select a valid Test Type.';
+    end if;
+    select id into canonical_item_id from public.billing_price_items
+    where item_kind = 'test' and test_type_id = target_id;
+    if canonical_item_id is null then
+      insert into public.billing_price_items(
+        test_type_id, item_key, price_section, category, method, description,
+        unit_name, sort_order, is_active, notes, item_kind, legacy_status
+      ) values (
+        target_id, 'TEST_' || replace(target_id::text, '-', '_'), '', '', '', '',
+        'Per Sample', 0, true, '', 'test', 'resolved'
+      ) returning id into canonical_item_id;
+    end if;
+    select id into imported_method_id from public.lab_methods
+    where lower(btrim(standard_designation)) = lower(btrim(legacy_item.method)) and btrim(revision) = '' limit 1;
+    if imported_method_id is not null then
+      update public.lab_test_types set method_id = imported_method_id
+      where id = target_id and method_id is null;
+    end if;
+  else
+    service_target_id := target_id;
+    if service_target_id is null then
+      insert into public.billing_services(service_code, service_name, category, unit_name, notes, is_active)
+      values (
+        public.field_ops_catalog_key(coalesce(nullif(service_record->>'service_code', ''), legacy_item.item_key)),
+        coalesce(nullif(btrim(service_record->>'service_name'), ''), legacy_item.description),
+        coalesce(nullif(btrim(service_record->>'category'), ''), nullif(legacy_item.category, ''), 'Services'),
+        coalesce(nullif(btrim(service_record->>'unit_name'), ''), nullif(legacy_item.unit_name, ''), 'Each'),
+        coalesce(service_record->>'notes', legacy_item.notes, ''),
+        true
+      ) returning id into service_target_id;
+    end if;
+    select id into canonical_item_id from public.billing_price_items
+    where item_kind = 'service' and service_id = service_target_id;
+    if canonical_item_id is null then raise exception 'Billing Service catalog entry could not be created.'; end if;
+  end if;
+
+  select count(*) into conflict_count
+  from public.field_billing_profile_prices legacy_rate
+  join public.field_billing_profile_prices target_rate
+    on target_rate.billing_profile_id = legacy_rate.billing_profile_id
+   and target_rate.effective_year = legacy_rate.effective_year
+   and target_rate.price_item_id = canonical_item_id
+  where legacy_rate.price_item_id = legacy_item_id;
+
+  if conflict_count > 0 and conflict_action = 'error' then
+    update public.billing_price_items set legacy_status = 'conflict' where id = legacy_item_id;
+    return jsonb_build_object(
+      'status', 'conflict',
+      'legacy_item_id', legacy_item_id,
+      'catalog_item_id', canonical_item_id,
+      'target_kind', target_kind,
+      'conflicts', conflict_count
+    );
+  end if;
+
+  select coalesce(jsonb_agg(to_jsonb(r)), '[]'::jsonb) into rate_snapshot
+  from public.field_billing_profile_prices r where r.price_item_id = legacy_item_id;
+
+  insert into public.billing_legacy_item_resolutions(
+    legacy_price_item_id, resolved_price_item_id, target_kind, conflict_action, rate_snapshot, resolved_by
+  ) values (legacy_item_id, canonical_item_id, target_kind, conflict_action, rate_snapshot, auth.uid());
+
+  if conflict_action = 'keep_target' then
+    delete from public.field_billing_profile_prices legacy_rate
+    using public.field_billing_profile_prices target_rate
+    where legacy_rate.price_item_id = legacy_item_id
+      and target_rate.price_item_id = canonical_item_id
+      and target_rate.billing_profile_id = legacy_rate.billing_profile_id
+      and target_rate.effective_year = legacy_rate.effective_year;
+  elsif conflict_action = 'replace_target' then
+    delete from public.field_billing_profile_prices target_rate
+    using public.field_billing_profile_prices legacy_rate
+    where target_rate.price_item_id = canonical_item_id
+      and legacy_rate.price_item_id = legacy_item_id
+      and target_rate.billing_profile_id = legacy_rate.billing_profile_id
+      and target_rate.effective_year = legacy_rate.effective_year;
+  end if;
+
+  update public.field_billing_profile_prices
+  set price_item_id = canonical_item_id
+  where price_item_id = legacy_item_id;
+
+  update public.billing_price_items
+  set legacy_status = 'resolved', is_active = false, resolved_to_price_item_id = canonical_item_id
+  where id = legacy_item_id;
+
+  return jsonb_build_object(
+    'legacy_item_id', legacy_item_id,
+    'catalog_item_id', canonical_item_id,
+    'target_kind', target_kind,
+    'target_id', case when target_kind = 'test' then target_id else service_target_id end,
+    'conflicts', conflict_count
+  );
+end;
+$$;
+
+drop function if exists public.admin_create_billing_method_with_test_type(jsonb, jsonb);
+revoke all on function public.admin_save_test_type(jsonb, text[]) from public;
+revoke all on function public.admin_resolve_legacy_billing_item(uuid, text, uuid, text, jsonb) from public;
+grant execute on function public.admin_save_test_type(jsonb, text[]) to authenticated;
+grant execute on function public.admin_resolve_legacy_billing_item(uuid, text, uuid, text, jsonb) to authenticated;
+
+alter table public.lab_methods enable row level security;
+alter table public.lab_test_type_aliases enable row level security;
+alter table public.lab_instruments enable row level security;
+alter table public.lab_test_setups enable row level security;
+alter table public.billing_services enable row level security;
+alter table public.billing_legacy_item_resolutions enable row level security;
+
+grant select, insert, update on public.lab_methods to authenticated;
+grant select on public.lab_test_type_aliases to authenticated;
+grant select, insert, update on public.lab_instruments to authenticated;
+grant select, insert, update on public.lab_test_setups to authenticated;
+grant select, insert, update on public.billing_services to authenticated;
+grant select on public.billing_legacy_item_resolutions to authenticated;
+revoke delete on public.lab_methods, public.lab_test_type_aliases, public.lab_instruments, public.lab_test_setups, public.billing_services, public.billing_legacy_item_resolutions from authenticated;
+
+drop policy if exists "Authorized users can read lab_methods" on public.lab_methods;
+create policy "Authorized users can read lab_methods" on public.lab_methods for select to authenticated
+using (public.is_app_admin() or public.has_any_employee_feature(array['lab.tests.view', 'lab.tests.manage']));
+drop policy if exists "Administrators can insert lab_methods" on public.lab_methods;
+create policy "Administrators can insert lab_methods" on public.lab_methods for insert to authenticated
+with check (public.is_app_admin());
+drop policy if exists "Administrators can update lab_methods" on public.lab_methods;
+create policy "Administrators can update lab_methods" on public.lab_methods for update to authenticated
+using (public.is_app_admin()) with check (public.is_app_admin());
+
+drop policy if exists "Authorized users can read lab_test_type_aliases" on public.lab_test_type_aliases;
+create policy "Authorized users can read lab_test_type_aliases" on public.lab_test_type_aliases for select to authenticated
+using (public.is_app_admin() or public.has_any_employee_feature(array['lab.tests.view', 'lab.tests.manage']));
+
+drop policy if exists "Authorized users can read lab_instruments" on public.lab_instruments;
+create policy "Authorized users can read lab_instruments" on public.lab_instruments for select to authenticated
+using (public.is_app_admin() or public.has_any_employee_feature(array['lab.tests.view', 'lab.tests.manage']));
+drop policy if exists "Lab managers can insert lab_instruments" on public.lab_instruments;
+create policy "Lab managers can insert lab_instruments" on public.lab_instruments for insert to authenticated
+with check (public.can_manage_lab_site(spl_site_id));
+drop policy if exists "Lab managers can update lab_instruments" on public.lab_instruments;
+create policy "Lab managers can update lab_instruments" on public.lab_instruments for update to authenticated
+using (public.can_manage_lab_site(spl_site_id)) with check (public.can_manage_lab_site(spl_site_id));
+
+drop policy if exists "Authorized users can read lab_test_setups" on public.lab_test_setups;
+create policy "Authorized users can read lab_test_setups" on public.lab_test_setups for select to authenticated
+using (public.is_app_admin() or public.has_any_employee_feature(array['lab.tests.view', 'lab.tests.manage']));
+drop policy if exists "Lab managers can insert lab_test_setups" on public.lab_test_setups;
+create policy "Lab managers can insert lab_test_setups" on public.lab_test_setups for insert to authenticated
+with check (public.can_manage_lab_site(spl_site_id));
+drop policy if exists "Lab managers can update lab_test_setups" on public.lab_test_setups;
+create policy "Lab managers can update lab_test_setups" on public.lab_test_setups for update to authenticated
+using (public.can_manage_lab_site(spl_site_id)) with check (public.can_manage_lab_site(spl_site_id));
+
+drop policy if exists "Administrators can read billing_services" on public.billing_services;
+create policy "Administrators can read billing_services" on public.billing_services for select to authenticated
+using (public.is_app_admin() or public.has_any_employee_feature(array['lab.tests.view', 'lab.tests.manage']));
+
+drop policy if exists "Lab users can read SPL sites" on public.field_spl_sites;
+create policy "Lab users can read SPL sites" on public.field_spl_sites for select to authenticated
+using (public.is_app_admin() or public.has_any_employee_feature(array['lab.tests.view', 'lab.tests.manage']));
+drop policy if exists "Administrators can insert billing_services" on public.billing_services;
+create policy "Administrators can insert billing_services" on public.billing_services for insert to authenticated
+with check (public.is_app_admin());
+drop policy if exists "Administrators can update billing_services" on public.billing_services;
+create policy "Administrators can update billing_services" on public.billing_services for update to authenticated
+using (public.is_app_admin()) with check (public.is_app_admin());
+
+drop policy if exists "Administrators can read billing legacy resolutions" on public.billing_legacy_item_resolutions;
+create policy "Administrators can read billing legacy resolutions" on public.billing_legacy_item_resolutions for select to authenticated
+using (public.is_app_admin());
+
+-- The v2 browser model no longer reads these mixed catalog/setup columns. They are
+-- removed only after their values have been copied into the normalized tables above.
+drop index if exists public.lab_test_types_active_sort_idx;
+alter table public.lab_test_types drop column if exists display_label;
+alter table public.lab_test_types drop column if exists short_label;
+alter table public.lab_test_types drop column if exists minutes;
+alter table public.lab_test_types drop column if exists count_mode;
+alter table public.lab_test_types drop column if exists group_key;
+alter table public.lab_test_types drop column if exists group_rank;
+alter table public.lab_test_types drop column if exists aliases;
+alter table public.lab_test_types drop column if exists sort_order;
+alter table public.lab_test_types drop column if exists lab_wip_enabled;

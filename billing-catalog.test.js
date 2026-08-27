@@ -16,21 +16,19 @@ function readFunction(source, name){
   throw new Error(`Could not parse ${name}`);
 }
 
-test('remote test types normalize into the shared browser model', () => {
-  const source = fs.readFileSync('master-methods.js', 'utf8');
-  const context = { normalizeKey:(value) => String(value || '').trim().toUpperCase(), uid:() => 'fallback' };
+test('Test Catalog normalizes the relational Test Type model', () => {
+  const source = fs.readFileSync('test-catalog.js', 'utf8');
+  const context = { normalizeCode:(value) => String(value || '').trim().toUpperCase(), uid:() => 'fallback' };
   vm.createContext(context);
-  vm.runInContext(readFunction(source, 'normalizeTestType'), context);
-  const result = context.normalizeTestType({
-    id:'type-1', test_code:'GC-BFVC6MZ', display_label:'BFV C6', short_label:'BFVC6',
-    count_mode:'perSample', matrix_type:'Liquid', lab_wip_enabled:false, is_active:true
-  }, 0, true);
+  vm.runInContext(readFunction(source, 'normalizeTest'), context);
+  const result = context.normalizeTest({id:'type-1', test_code:'gc-bfvc6mz', test_name:'BFV C6', matrix_type:'Liquid', method_id:null, is_active:true}, true);
   assert.equal(result.testCode, 'GC-BFVC6MZ');
-  assert.equal(result.displayLabel, 'BFV C6');
-  assert.equal(result.labWipEnabled, false);
+  assert.equal(result.testName, 'BFV C6');
+  assert.equal(result.matrixType, 'Liquid');
+  assert.equal(result.methodId, '');
 });
 
-test('new client drafts start unselected while retained rows preserve selection', () => {
+test('new client catalog drafts start unselected while retained rows keep rate and notes', () => {
   const source = fs.readFileSync('field-dashboard.js', 'utf8');
   const context = {
     state:{ data:{ priceItems:[{id:'new',isActive:true},{id:'saved',isActive:true}] } },
@@ -43,36 +41,47 @@ test('new client drafts start unselected while retained rows preserve selection'
   vm.runInContext(readFunction(source, 'buildBillingPriceDrafts'), context);
   const rows = context.buildBillingPriceDrafts('profile-1');
   assert.equal(rows.find((row) => row.priceItemId === 'new').isActive, false);
-  assert.equal(rows.find((row) => row.priceItemId === 'saved').isActive, true);
-  assert.equal(rows.find((row) => row.priceItemId === 'saved').rateAmount, 42);
+  assert.deepEqual(
+    {active:rows.find((row) => row.priceItemId === 'saved').isActive,rate:rows.find((row) => row.priceItemId === 'saved').rateAmount,notes:rows.find((row) => row.priceItemId === 'saved').notes},
+    {active:true,rate:42,notes:'keep'}
+  );
 });
 
-test('client remove and add toggles visibility without clearing rate data', () => {
+test('client remove and re-add toggles visibility without clearing billing data', () => {
   const source = fs.readFileSync('field-dashboard.js', 'utf8');
-  const draft = {priceItemId:'method-1',isActive:true,rateAmount:125,notes:'contract rate'};
+  const draft = {priceItemId:'catalog-1',isActive:true,rateAmount:125,notes:'contract rate'};
   const context = {
-    modalState:{open:true,entity:'billingRates',formData:{priceDrafts:[draft],methodPickerSelection:['method-1'],methodPickerOpen:true}},
+    modalState:{open:true,entity:'billingRates',formData:{priceDrafts:[draft],methodPickerSelection:['catalog-1'],methodPickerOpen:true}},
     normalizeStringArray:(value) => Array.isArray(value) ? value : [],
     getModalBillingPriceDrafts:() => context.modalState.formData.priceDrafts,
     renderModal:() => {}
   };
   vm.createContext(context);
   vm.runInContext([readFunction(source,'removeBillingMethodFromClient'),readFunction(source,'addSelectedBillingMethods')].join('\n'),context);
-  context.removeBillingMethodFromClient('method-1');
-  assert.equal(draft.isActive,false);
-  assert.equal(draft.rateAmount,125);
-  assert.equal(draft.notes,'contract rate');
+  context.removeBillingMethodFromClient('catalog-1');
+  assert.deepEqual({active:draft.isActive,rate:draft.rateAmount,notes:draft.notes},{active:false,rate:125,notes:'contract rate'});
   context.addSelectedBillingMethods();
-  assert.equal(draft.isActive,true);
-  assert.equal(draft.rateAmount,125);
+  assert.deepEqual({active:draft.isActive,rate:draft.rateAmount,notes:draft.notes},{active:true,rate:125,notes:'contract rate'});
 });
 
-test('schema provides relational linkage, migration marker, and Lab read policy', () => {
+test('schema implements normalized catalog, setup migration, RPC, and scoped access', () => {
   const schema = fs.readFileSync('supabase/schema.sql','utf8');
-  assert.match(schema,/create table if not exists public\.lab_test_types/);
-  assert.match(schema,/test_type_id uuid references public\.lab_test_types/);
-  assert.match(schema,/billing-method-selection-v1-migrated/);
-  assert.match(schema,/has_employee_feature\('lab\.tests\.view'\)/);
-  assert.match(schema,/admin_create_billing_method_with_test_type/);
-  assert.match(schema,/old\.test_code/);
+  assert.match(schema,/create table if not exists public\.lab_methods/);
+  assert.match(schema,/create table if not exists public\.lab_test_type_aliases/);
+  assert.match(schema,/create table if not exists public\.lab_instruments/);
+  assert.match(schema,/create table if not exists public\.lab_test_setups/);
+  assert.match(schema,/create table if not exists public\.billing_services/);
+  assert.match(schema,/admin_resolve_legacy_billing_item/);
+  assert.match(schema,/is_migration_placeholder/);
+  assert.match(schema,/lab\.tests\.manage/);
+  assert.match(schema,/current_employee_spl_site_id/);
+  assert.doesNotMatch(schema,/billing-method-selection-v1-migrated/);
+});
+
+test('new import rows carry stable catalog IDs and remain explicitly unassigned', () => {
+  const source = fs.readFileSync('import.html','utf8');
+  assert.match(source,/testTypeId:getDefinitionByKey\(defs,canonicalType\)\?\.id/);
+  assert.match(source,/testSetupId:''/);
+  assert.match(source,/instrumentId:''/);
+  assert.match(source,/setupAssignmentStatus:'unassigned'/);
 });

@@ -1,6 +1,6 @@
 const STORAGE_KEY = 'field-ops-dashboard-data';
 const AUTO_REFRESH_MS = 15000;
-const ENTITY_ORDER = ['clients', 'projects', 'contacts', 'contactProjects', 'contactSites', 'billingProfiles', 'testTypes', 'priceItems', 'billingProfilePrices', 'siteTypes', 'sites', 'siteProjects', 'jobTypes', 'siteTypeJobTypes', 'jobs', 'jobSites', 'jobAssignments', 'partCatalogs', 'parts', 'jobParts', 'partActivity', 'fieldRoutes', 'routePlaceLists', 'routePlaces', 'restrictedRoads', 'fieldRouteStops', 'fieldRouteStopJobs', 'employees', 'splSites', 'technicianTravel', 'trucks', 'trailers', 'equipment', 'donesafeEquipment', 'samples', 'maintenanceRecords'];
+const ENTITY_ORDER = ['clients', 'projects', 'contacts', 'contactProjects', 'contactSites', 'billingProfiles', 'labMethods', 'testTypes', 'billingServices', 'priceItems', 'billingProfilePrices', 'siteTypes', 'sites', 'siteProjects', 'jobTypes', 'siteTypeJobTypes', 'jobs', 'jobSites', 'jobAssignments', 'partCatalogs', 'parts', 'jobParts', 'partActivity', 'fieldRoutes', 'routePlaceLists', 'routePlaces', 'restrictedRoads', 'fieldRouteStops', 'fieldRouteStopJobs', 'employees', 'splSites', 'technicianTravel', 'trucks', 'trailers', 'equipment', 'donesafeEquipment', 'samples', 'maintenanceRecords'];
 const FIELD_ASSET_BUCKET = 'field-assets';
 const ASSET_PHOTO_ENTITY_KEYS = ['clients', 'trucks', 'trailers', 'equipment'];
 const DEFAULT_ASSET_ICON_PATHS = {
@@ -101,7 +101,6 @@ const DEFAULT_JOB_TYPE_DEFS = [
 ];
 const LAB_WIP_WORK_ORDER_STORAGE_KEY = 'lab-wip-workorders';
 const TEST_DEFINITION_STORAGE_KEY = 'lab-wip-test-definitions';
-const BILLING_SELECTION_MIGRATION_KEY = 'billing-method-selection-v1-migrated';
 const DEFAULT_LAB_TEST_DEFS = [
   { key:'AS-BFV_DENSITY', label:'AS-BFV_DENSITY', shortLabel:'DENS', matrixType:'Liquid' },
   { key:'AS-BFV_MW', label:'AS-BFV_MW', shortLabel:'MW', matrixType:'Liquid' },
@@ -151,8 +150,10 @@ const ENTITY_CONFIG = {
   contactProjects:{ table:'field_contact_projects', label:'Contact Project Link', idPrefix:'contactproj', defaults:{ contactId:'', projectId:'' }, fieldMap:{ contactId:'contact_id', projectId:'project_id' }, idFields:['contactId', 'projectId'] },
   contactSites:{ table:'field_contact_sites', label:'Contact Site Link', idPrefix:'contactsite', defaults:{ contactId:'', siteId:'' }, fieldMap:{ contactId:'contact_id', siteId:'site_id' }, idFields:['contactId', 'siteId'] },
   billingProfiles:{ table:'field_billing_profiles', label:'Billing Profile', idPrefix:'bill', defaults:{ clientId:'', projectId:'', billingContactId:'', billingName:'', billingAddress:'', billingEmail:'', billingPhone:'', poNumber:'', referenceNumber:'', invoiceNotes:'', fieldBillingNotes:'', labBillingNotes:'', isDefault:false }, fieldMap:{ clientId:'client_id', projectId:'project_id', billingContactId:'billing_contact_id', billingName:'billing_name', billingAddress:'billing_address', billingEmail:'billing_email', billingPhone:'billing_phone', poNumber:'po_number', referenceNumber:'reference_number', invoiceNotes:'invoice_notes', fieldBillingNotes:'field_billing_notes', labBillingNotes:'lab_billing_notes', isDefault:'is_default' }, idFields:['clientId', 'projectId', 'billingContactId'], booleanFields:['isDefault'] },
-  testTypes:{ table:'lab_test_types', label:'Test Type', idPrefix:'testtype', defaults:{ testCode:'', displayLabel:'', shortLabel:'', minutes:0, countMode:'perSample', matrixType:'', groupKey:'', groupRank:0, aliases:[], sortOrder:0, labWipEnabled:true, isActive:true }, fieldMap:{ testCode:'test_code', displayLabel:'display_label', shortLabel:'short_label', minutes:'minutes', countMode:'count_mode', matrixType:'matrix_type', groupKey:'group_key', groupRank:'group_rank', aliases:'aliases', sortOrder:'sort_order', labWipEnabled:'lab_wip_enabled', isActive:'is_active' }, numberFields:['minutes', 'groupRank', 'sortOrder'], booleanFields:['labWipEnabled', 'isActive'], arrayFields:['aliases'] },
-  priceItems:{ table:'billing_price_items', label:'Price Item', idPrefix:'priceitem', defaults:{ testTypeId:'', itemKey:'', priceSection:'', category:'', method:'', description:'', unitName:'Per Sample', sortOrder:0, isActive:true, notes:'' }, fieldMap:{ testTypeId:'test_type_id', itemKey:'item_key', priceSection:'price_section', category:'category', method:'method', description:'description', unitName:'unit_name', sortOrder:'sort_order', isActive:'is_active', notes:'notes' }, idFields:['testTypeId'], numberFields:['sortOrder'], booleanFields:['isActive'] },
+  labMethods:{ table:'lab_methods', label:'Method', idPrefix:'method', defaults:{ organization:'', designation:'', title:'', revision:'', effectiveDate:'', documentReference:'', notes:'', isActive:true }, fieldMap:{ organization:'organization', designation:'standard_designation', title:'method_title', revision:'revision', effectiveDate:'effective_date', documentReference:'document_reference', notes:'notes', isActive:'is_active' }, dateFields:['effectiveDate'], booleanFields:['isActive'] },
+  testTypes:{ table:'lab_test_types', label:'Test Type', idPrefix:'testtype', defaults:{ testCode:'', testName:'', matrixType:'Unspecified', methodId:'', isActive:true }, fieldMap:{ testCode:'test_code', testName:'test_name', matrixType:'matrix_type', methodId:'method_id', isActive:'is_active' }, idFields:['methodId'], booleanFields:['isActive'] },
+  billingServices:{ table:'billing_services', label:'Billing Service', idPrefix:'service', defaults:{ serviceCode:'', serviceName:'', category:'Services', unitName:'Each', notes:'', isActive:true }, fieldMap:{ serviceCode:'service_code', serviceName:'service_name', category:'category', unitName:'unit_name', notes:'notes', isActive:'is_active' }, booleanFields:['isActive'] },
+  priceItems:{ table:'billing_price_items', label:'Price Item', idPrefix:'priceitem', defaults:{ testTypeId:'', serviceId:'', itemKind:'legacy', legacyStatus:'needs_mapping', itemKey:'', priceSection:'', category:'', method:'', description:'', unitName:'Per Sample', sortOrder:0, isActive:true, notes:'' }, fieldMap:{ testTypeId:'test_type_id', serviceId:'service_id', itemKind:'item_kind', legacyStatus:'legacy_status', itemKey:'item_key', priceSection:'price_section', category:'category', method:'method', description:'description', unitName:'unit_name', sortOrder:'sort_order', isActive:'is_active', notes:'notes' }, idFields:['testTypeId','serviceId'], numberFields:['sortOrder'], booleanFields:['isActive'] },
   billingProfilePrices:{ table:'field_billing_profile_prices', label:'Billing Profile Price', idPrefix:'billprice', defaults:{ billingProfileId:'', priceItemId:'', rateAmount:null, currencyCode:'USD', effectiveYear:BILLING_RATE_EFFECTIVE_YEAR, isActive:true, notes:'' }, fieldMap:{ billingProfileId:'billing_profile_id', priceItemId:'price_item_id', rateAmount:'rate_amount', currencyCode:'currency_code', effectiveYear:'effective_year', isActive:'is_active', notes:'notes' }, idFields:['billingProfileId', 'priceItemId'], numberFields:['rateAmount', 'effectiveYear'], booleanFields:['isActive'] },
   siteTypes:{ table:'field_site_types', label:'Site Type', idPrefix:'sitetype', defaults:{ siteTypeKey:'', siteTypeName:'', isActive:true, siteTypeStatus:'active', defaultJobTypes:[], notes:'' }, fieldMap:{ siteTypeKey:'site_type_key', siteTypeName:'site_type_name', isActive:'is_active', notes:'notes' }, booleanFields:['isActive'], arrayFields:['defaultJobTypes'], localOnlyFields:['siteTypeStatus', 'defaultJobTypes'] },
   sites:{ table:'field_sites', label:'Site/Location', idPrefix:'site', defaults:{ clientId:'', projectId:'', projectIds:[], siteName:'', siteType:'OTHER', physicalAddress:'', countyState:'', gpsCoordinates:'', accessInstructions:'', safetyPpeNotes:'', gateCodeEntryRequirements:'', clientSiteContact:'', accessRequired:false, approvedAccessLabel:'', approvedAccessLatitude:null, approvedAccessLongitude:null, approvedAccessNotes:'', siteStatus:'Active', standardJobTypes:'', notes:'' }, fieldMap:{ clientId:'client_id', projectId:'project_id', siteName:'site_name', siteType:'site_type', physicalAddress:'physical_address', countyState:'county_state', gpsCoordinates:'gps_coordinates', accessInstructions:'access_instructions', safetyPpeNotes:'safety_ppe_notes', gateCodeEntryRequirements:'gate_code_entry_requirements', clientSiteContact:'client_site_contact', accessRequired:'access_required', approvedAccessLabel:'approved_access_label', approvedAccessLatitude:'approved_access_latitude', approvedAccessLongitude:'approved_access_longitude', approvedAccessNotes:'approved_access_notes', siteStatus:'site_status', standardJobTypes:'standard_job_types', notes:'notes' }, idFields:['clientId', 'projectId'], arrayFields:['projectIds'], localOnlyFields:['projectIds'], numberFields:['approvedAccessLatitude', 'approvedAccessLongitude'], booleanFields:['accessRequired'] },
@@ -172,7 +173,7 @@ const ENTITY_CONFIG = {
   restrictedRoads:{ table:'field_restricted_roads', label:'Restricted Road', idPrefix:'rroad', optional:true, defaults:{ roadName:'', isActive:true, clientId:'', siteId:'', polylinePoints:[], bufferMeters:75, notes:'' }, fieldMap:{ roadName:'road_name', isActive:'is_active', clientId:'client_id', siteId:'site_id', polylinePoints:'polyline_points', bufferMeters:'buffer_meters', notes:'notes' }, idFields:['clientId', 'siteId'], numberFields:['bufferMeters'], booleanFields:['isActive'], jsonFields:['polylinePoints'] },
   fieldRouteStops:{ table:'field_route_stops', label:'Route Stop', idPrefix:'rstop', defaults:{ routeId:'', siteId:'', stopType:'site', placeId:'', stopLabel:'', stopValue:'', stopLatitude:null, stopLongitude:null, stopOrder:0, legDistanceMeters:null, legDurationSeconds:null, stopNotes:'' }, fieldMap:{ routeId:'route_id', siteId:'site_id', stopType:'stop_type', placeId:'place_id', stopLabel:'stop_label', stopValue:'stop_value', stopLatitude:'stop_latitude', stopLongitude:'stop_longitude', stopOrder:'stop_order', legDistanceMeters:'leg_distance_meters', legDurationSeconds:'leg_duration_seconds', stopNotes:'stop_notes' }, idFields:['routeId', 'siteId', 'placeId'], numberFields:['stopLatitude', 'stopLongitude', 'stopOrder', 'legDistanceMeters', 'legDurationSeconds'] },
   fieldRouteStopJobs:{ table:'field_route_stop_jobs', label:'Route Stop Job', idPrefix:'rjob', defaults:{ routeStopId:'', jobId:'' }, fieldMap:{ routeStopId:'route_stop_id', jobId:'job_id' }, idFields:['routeStopId', 'jobId'] },
-  employees:{ table:'employees', label:'Employee', idPrefix:'emp', defaults:{ employeeFirstName:'', employeeLastName:'', employeeName:'', homeSplSite:LOCAL_SPL_SITE, workScope:'Field', labRole:'', fieldRole:'Field Tech', canSampleTransport:false, isActive:true, phone:'', email:'', notes:'' }, fieldMap:{ employeeFirstName:'employee_first_name', employeeLastName:'employee_last_name', employeeName:'employee_name', homeSplSite:'home_spl_site', workScope:'work_scope', labRole:'lab_role', fieldRole:'field_role', canSampleTransport:'can_sample_transport', isActive:'is_active', phone:'phone', email:'email', notes:'notes' }, booleanFields:['canSampleTransport', 'isActive'] },
+  employees:{ table:'employees', label:'Employee', idPrefix:'emp', defaults:{ employeeFirstName:'', employeeLastName:'', employeeName:'', homeSplSite:LOCAL_SPL_SITE, homeSplSiteId:'', workScope:'Field', labRole:'', fieldRole:'Field Tech', canSampleTransport:false, isActive:true, phone:'', email:'', notes:'' }, fieldMap:{ employeeFirstName:'employee_first_name', employeeLastName:'employee_last_name', employeeName:'employee_name', homeSplSite:'home_spl_site', homeSplSiteId:'home_spl_site_id', workScope:'work_scope', labRole:'lab_role', fieldRole:'field_role', canSampleTransport:'can_sample_transport', isActive:'is_active', phone:'phone', email:'email', notes:'notes' }, booleanFields:['canSampleTransport', 'isActive'], idFields:['homeSplSiteId'] },
   splSites:{ table:'field_spl_sites', label:'SPL Site', idPrefix:'splsite', defaults:{ siteName:'', siteCode:'', locationLabel:'', streetAddress:'', city:'', state:'', zipCode:'', latitude:null, longitude:null, isActive:true, notes:'' }, fieldMap:{ siteName:'site_name', siteCode:'site_code', locationLabel:'location_label', streetAddress:'street_address', city:'city', state:'state', zipCode:'zip_code', latitude:'latitude', longitude:'longitude', isActive:'is_active', notes:'notes' }, numberFields:['latitude', 'longitude'], booleanFields:['isActive'] },
   technicianTravel:{ table:'field_technician_travel', label:'Technician Travel', idPrefix:'travel', defaults:{ technicianId:'', direction:'Outbound', travelStatus:'Planned', originType:'spl_site', originSplSiteId:'', originClientSiteId:'', originLabel:'', originLocation:'', destinationType:'client_site', destinationSplSiteId:'', destinationClientSiteId:'', destinationLabel:'', destinationLocation:'', arrivalAt:'', departureAt:'', purpose:'', notes:'' }, fieldMap:{ technicianId:'technician_id', direction:'direction', travelStatus:'travel_status', originType:'origin_type', originSplSiteId:'origin_spl_site_id', originClientSiteId:'origin_client_site_id', originLabel:'origin_label', originLocation:'origin_location', destinationType:'destination_type', destinationSplSiteId:'destination_spl_site_id', destinationClientSiteId:'destination_client_site_id', destinationLabel:'destination_label', destinationLocation:'destination_location', arrivalAt:'arrival_at', departureAt:'departure_at', purpose:'purpose', notes:'notes' }, idFields:['technicianId', 'originSplSiteId', 'originClientSiteId', 'destinationSplSiteId', 'destinationClientSiteId'], dateTimeFields:['arrivalAt', 'departureAt'] },
   trucks:{ table:'field_trucks', label:'Truck', idPrefix:'truck', defaults:{ unitNumber:'', vehicleType:'Pickup', fuelType:'', serviceStatus:'Available', isProver:false, currentDriver:'', assignedTechnicianId:'', model:'', licensePlateNumber:'', make:'', color:'', registeredState:'', vin:'', vehicleId:'', vehicleYear:null, nextInspectionDue:'', geotabDeviceId:'', geotabDeviceName:'', geotabSerialNumber:'', geotabIsCommunicating:null, geotabLastContactAt:'', geotabStatusCheckedAt:'', geotabLinkStatus:'Unlinked', geotabLinkMethod:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ unitNumber:'unit_number', vehicleType:'vehicle_type', fuelType:'fuel_type', serviceStatus:'service_status', isProver:'is_prover', currentDriver:'current_driver', assignedTechnicianId:'assigned_technician_id', model:'model', licensePlateNumber:'license_plate_number', make:'make', color:'color', registeredState:'registered_state', vin:'vin', vehicleId:'vehicle_id', vehicleYear:'vehicle_year', nextInspectionDue:'next_inspection_due', geotabDeviceId:'geotab_device_id', geotabDeviceName:'geotab_device_name', geotabSerialNumber:'geotab_serial_number', geotabIsCommunicating:'geotab_is_communicating', geotabLastContactAt:'geotab_last_contact_at', geotabStatusCheckedAt:'geotab_status_checked_at', geotabLinkStatus:'geotab_link_status', geotabLinkMethod:'geotab_link_method', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTechnicianId'], numberFields:['vehicleYear'], booleanFields:['isProver', 'geotabIsCommunicating'], dateFields:['nextInspectionDue'], dateTimeFields:['geotabLastContactAt', 'geotabStatusCheckedAt'], serverManagedFields:['geotabDeviceName', 'geotabSerialNumber', 'geotabIsCommunicating', 'geotabLastContactAt', 'geotabStatusCheckedAt', 'geotabLinkStatus', 'geotabLinkMethod'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
@@ -190,7 +191,7 @@ let hideSaveStatusTimer = null;
 const remoteAssetPhotoUrlCache = new Map();
 const remoteAssetPhotoLoadPromises = new Map();
 
-function createEmptyData(){ return { clients:[], projects:[], contacts:[], contactProjects:[], contactSites:[], billingProfiles:[], testTypes:[], priceItems:[], billingProfilePrices:[], siteTypes:[], sites:[], siteProjects:[], jobTypes:[], siteTypeJobTypes:[], jobs:[], jobSites:[], jobAssignments:[], partCatalogs:[], parts:[], jobParts:[], partActivity:[], fieldRoutes:[], routePlaceLists:[], routePlaces:[], restrictedRoads:[], fieldRouteStops:[], fieldRouteStopJobs:[], employees:[], splSites:[], technicianTravel:[], trucks:[], trailers:[], equipment:[], donesafeEquipment:[], samples:[], maintenanceRecords:[], technicians:[] }; }
+function createEmptyData(){ return { clients:[], projects:[], contacts:[], contactProjects:[], contactSites:[], billingProfiles:[], labMethods:[], testTypes:[], billingServices:[], priceItems:[], billingProfilePrices:[], siteTypes:[], sites:[], siteProjects:[], jobTypes:[], siteTypeJobTypes:[], jobs:[], jobSites:[], jobAssignments:[], partCatalogs:[], parts:[], jobParts:[], partActivity:[], fieldRoutes:[], routePlaceLists:[], routePlaces:[], restrictedRoads:[], fieldRouteStops:[], fieldRouteStopJobs:[], employees:[], splSites:[], technicianTravel:[], trucks:[], trailers:[], equipment:[], donesafeEquipment:[], samples:[], maintenanceRecords:[], technicians:[] }; }
 function createClosedModalState(){ return { open:false, entity:'', id:'', formData:{}, assignments:[], baselineSnapshot:'', openMultiSelectKey:'', openSampleTestDraftId:'', sampleDraftExpanded:{} }; }
 function createClosedSampleLinkModalState(){ return { open:false, mode:'single', sampleId:'', sampleIds:[], selectedWorkOrderId:'', search:'', workOrders:[] }; }
 function createClosedPartAdjustModalState(){ return { open:false, partId:'', mode:'receive' }; }
@@ -228,16 +229,16 @@ function normalizeHexColor(value, fallback = DEFAULT_JOB_TYPE_COLOR){
 function normalizeLabTestDefinition(def, index = 0){
   const key = normalizeCatalogKey(def?.key || def?.testCode || def?.test_code || def?.code || def?.label || def?.displayLabel || def?.display_label || `TEST_${index + 1}`);
   if(!key) return null;
-  const label = String(def?.label || def?.displayLabel || def?.display_label || key).trim() || key;
+  const label = String(def?.testName || def?.test_name || def?.label || def?.displayLabel || def?.display_label || key).trim() || key;
   return {
     id:String(def?.id || key),
     key,
     label,
-    shortLabel:String(def?.shortLabel || def?.short_label || label).trim() || label,
+    shortLabel:key,
     matrixType:String(def?.matrixType || def?.matrix_type || '').trim(),
-    labWipEnabled:def?.labWipEnabled ?? def?.lab_wip_enabled ?? true,
+    labWipEnabled:true,
     isActive:def?.isActive ?? def?.is_active ?? true,
-    sortOrder:Number.isFinite(Number(def?.sortOrder ?? def?.sort_order)) ? Number(def.sortOrder ?? def.sort_order) : index
+    sortOrder:index
   };
 }
 function getDefaultLabTestDefinitions(){ return DEFAULT_LAB_TEST_DEFS.map((def, index) => normalizeLabTestDefinition({ ...def, sortOrder:index }, index)).filter(Boolean); }
@@ -254,11 +255,8 @@ function syncLocalTestTypesFromLabDefinitions(){
   state.data.testTypes = state.labTestDefinitions.map((test, index) => normalizeRecord('testTypes', {
     id:test.id,
     testCode:test.key,
-    displayLabel:test.label,
-    shortLabel:test.shortLabel,
+    testName:test.label,
     matrixType:test.matrixType,
-    sortOrder:test.sortOrder ?? index,
-    labWipEnabled:test.labWipEnabled !== false,
     isActive:test.isActive !== false
   }, { fromRemote:false })).sort(getEntitySorter('testTypes'));
 }
@@ -297,7 +295,7 @@ function getStorageAdapter(){
 async function loadLabTestDefinitions(){
   try {
     if(isRemoteMode()){
-      const rows = await window.appAuth.requestJson('/rest/v1/lab_test_types?select=*&is_active=eq.true&lab_wip_enabled=eq.true&order=sort_order.asc,test_code.asc');
+      const rows = await window.appAuth.requestJson('/rest/v1/lab_test_types?select=*&is_active=eq.true&order=test_code.asc');
       if(Array.isArray(rows) && rows.length){
         setLabTestDefinitions(rows);
         return true;
@@ -913,7 +911,8 @@ function syncJobSiteLinks(data){
 function normalizeData(source, fromRemote = false){
   const normalized = createEmptyData();
   ENTITY_ORDER.forEach((entityKey) => {
-    const rows = Array.isArray(source?.[entityKey]) ? source[entityKey] : [];
+    let rows = Array.isArray(source?.[entityKey]) ? source[entityKey] : [];
+    if(entityKey === 'testTypes' && !fromRemote) rows = rows.map((row) => ({ ...row, testCode:row?.testCode || row?.key || '', testName:row?.testName || row?.displayLabel || row?.label || row?.testCode || row?.key || '' }));
     normalized[entityKey] = rows.map((row) => normalizeRecord(entityKey, row, { fromRemote })).sort(getEntitySorter(entityKey));
   });
   if(!normalized.jobTypes.length) normalized.jobTypes = getDefaultJobTypeRecords();
@@ -925,6 +924,7 @@ function normalizeData(source, fromRemote = false){
       employeeLastName:row?.employeeLastName ?? row?.employee_last_name ?? '',
       employeeName:row?.employeeName ?? row?.employee_name ?? '',
       homeSplSite:row?.homeSplSite ?? row?.home_spl_site ?? LOCAL_SPL_SITE,
+      homeSplSiteId:row?.homeSplSiteId ?? row?.home_spl_site_id ?? '',
       workScope:'Field',
       labRole:'',
       fieldRole:row?.role || 'Field Tech',
@@ -958,6 +958,14 @@ function ensureLegacyProject(data, clientId){
 
 function repairDataRelationships(data){
   if(!data || typeof data !== 'object') return data;
+  data.testTypes = (data.testTypes || []).map((test, index) => normalizeRecord('testTypes', {
+    ...test,
+    id:test.id || test.key || `TEST_TYPE_${index + 1}`,
+    testCode:normalizeCatalogKey(test.testCode || test.key),
+    testName:test.testName || test.displayLabel || test.label || test.testCode || test.key,
+    matrixType:test.matrixType || 'Unspecified',
+    isActive:test.isActive
+  }, { fromRemote:false })).filter((test) => test.testCode).sort((a,b) => compareStrings(a.testCode,b.testCode));
   if(!Array.isArray(data.siteTypes) || !data.siteTypes.length) data.siteTypes = getDefaultSiteTypeRecords();
   data.siteTypes = data.siteTypes.map((siteType, index) => normalizeRecord('siteTypes', {
     ...siteType,
@@ -998,11 +1006,22 @@ function repairDataRelationships(data){
     ...item,
     id:item.id || item.itemKey || normalizeCatalogKey(`${item.method}_${item.description}`) || `PRICE_ITEM_${index + 1}`,
     itemKey:item.itemKey || normalizeCatalogKey(`${item.method}_${item.description}`) || `PRICE_ITEM_${index + 1}`,
+    itemKind:item.itemKind || (item.testTypeId ? 'test' : item.serviceId ? 'service' : 'legacy'),
+    legacyStatus:item.legacyStatus || (item.testTypeId || item.serviceId ? 'resolved' : 'needs_mapping'),
     priceSection:item.priceSection || (String(item.category || '').toLowerCase() === 'gas' ? 'Natural Gas Samples' : 'Liquid Samples'),
     unitName:item.unitName || 'Per Sample',
     sortOrder:Number.isFinite(Number(item.sortOrder)) ? Number(item.sortOrder) : (index + 1) * 10,
     isActive:item.isActive
-  }, { fromRemote:false })).filter((item) => item.itemKey && item.description).sort(getEntitySorter('priceItems'));
+  }, { fromRemote:false })).filter((item) => item.itemKey && (item.description || item.testTypeId || item.serviceId)).sort(getEntitySorter('priceItems'));
+  data.testTypes.forEach((test) => {
+    if(data.priceItems.some((item) => item.itemKind === 'test' && item.testTypeId === test.id)) return;
+    data.priceItems.push(normalizeRecord('priceItems', { id:`price-test-${test.id}`, testTypeId:test.id, itemKind:'test', legacyStatus:'resolved', itemKey:`TEST_${test.id}`, unitName:'Per Sample', isActive:test.isActive }, { fromRemote:false }));
+  });
+  data.billingServices.forEach((service) => {
+    if(data.priceItems.some((item) => item.itemKind === 'service' && item.serviceId === service.id)) return;
+    data.priceItems.push(normalizeRecord('priceItems', { id:`price-service-${service.id}`, serviceId:service.id, itemKind:'service', legacyStatus:'resolved', itemKey:`SERVICE_${service.id}`, unitName:service.unitName, isActive:service.isActive }, { fromRemote:false }));
+  });
+  data.priceItems.sort(getEntitySorter('priceItems'));
   data.billingProfilePrices = data.billingProfilePrices
     .filter((price) => data.billingProfiles.some((profile) => profile.id === price.billingProfileId))
     .filter((price) => data.priceItems.some((item) => item.id === price.priceItemId))
@@ -1125,7 +1144,7 @@ function toRemotePayload(entityKey, draft){
 }
 
 const localRepository = {
-  async list(){ try { const raw = localStorage.getItem(STORAGE_KEY); const parsed = raw ? JSON.parse(raw) : createEmptyData(); if(!localStorage.getItem(BILLING_SELECTION_MIGRATION_KEY)){ if(Array.isArray(parsed.billingProfilePrices)) parsed.billingProfilePrices.forEach((row) => { row.isActive = false; row.is_active = false; }); localStorage.setItem(BILLING_SELECTION_MIGRATION_KEY, new Date().toISOString()); if(raw) localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed)); } return normalizeData(parsed, false); } catch { return normalizeData(createEmptyData(), false); } },
+  async list(){ try { const raw = localStorage.getItem(STORAGE_KEY); const parsed = raw ? JSON.parse(raw) : createEmptyData(); return normalizeData(parsed, false); } catch { return normalizeData(createEmptyData(), false); } },
   async write(data){ const normalized = normalizeData(data, false); localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized)); return normalized; }
 };
 
@@ -1314,10 +1333,17 @@ function getClient(id){ return state.data.clients.find((row) => row.id === id) |
 function getProject(id){ return state.data.projects.find((row) => row.id === id) || null; }
 function getContact(id){ return state.data.contacts.find((row) => row.id === id) || null; }
 function getBillingProfile(id){ return state.data.billingProfiles.find((row) => row.id === id) || null; }
+function getLabMethod(id){ return state.data.labMethods.find((row) => row.id === id) || null; }
 function getTestType(id){ return state.data.testTypes.find((row) => row.id === id) || null; }
+function getBillingService(id){ return state.data.billingServices.find((row) => row.id === id) || null; }
 function getPriceItem(id){ return state.data.priceItems.find((row) => row.id === id) || null; }
 function getPriceItemTestType(item){ return getTestType(item?.testTypeId || ''); }
-function getPriceItemTestCode(item){ return getPriceItemTestType(item)?.testCode || ''; }
+function getPriceItemCatalogDetails(item){
+  if(item?.itemKind === 'test' || item?.testTypeId){ const test=getPriceItemTestType(item); const method=getLabMethod(test?.methodId); return { code:test?.testCode||'', name:test?.testName||'', method:method ? `${method.designation}${method.revision?` (${method.revision})`:''}` : '', matrix:test?.matrixType||'Unspecified', unit:item?.unitName||'Per Sample', section:`${test?.matrixType||'Unspecified'} Tests` }; }
+  if(item?.itemKind === 'service' || item?.serviceId){ const service=getBillingService(item?.serviceId); return { code:service?.serviceCode||'', name:service?.serviceName||'', method:'', matrix:'Service', unit:service?.unitName||item?.unitName||'Each', section:'Billing Services' }; }
+  return { code:'', name:item?.description||item?.itemKey||'Legacy item', method:item?.method||'', matrix:item?.category||'Legacy', unit:item?.unitName||'', section:'Legacy Items' };
+}
+function getPriceItemTestCode(item){ return getPriceItemCatalogDetails(item).code; }
 function getSite(id){ return state.data.sites.find((row) => row.id === id) || null; }
 function getJob(id){ return state.data.jobs.find((row) => row.id === id) || null; }
 function getEmployee(id){ return state.data.employees.find((row) => row.id === id) || null; }
@@ -1366,7 +1392,8 @@ function getContactLabel(contactId){
 }
 function getPriceItemLabel(priceItemId){
   const item = getPriceItem(priceItemId);
-  return item ? `${getPriceItemTestCode(item) ? `${getPriceItemTestCode(item)} | ` : ''}${item.method || 'No method'} - ${item.description || 'No description'}` : 'Unknown price item';
+  const details = item ? getPriceItemCatalogDetails(item) : null;
+  return details ? `${details.code ? `${details.code} | ` : ''}${details.method || 'No method'} - ${details.name}` : 'Unknown price item';
 }
 function getActivePriceItems(){
   return state.data.priceItems.filter((item) => item.isActive !== false).sort(getEntitySorter('priceItems'));
@@ -4498,6 +4525,10 @@ function mergeFieldSampleIntoWorkOrder(workOrder, sample){
       sampleName:sample.sampleName || '',
       type:normalizeCatalogKey(testCode),
       testCode,
+      testTypeId:state.data.testTypes.find((test) => normalizeCatalogKey(test.testCode) === normalizeCatalogKey(testCode))?.id || '',
+      testSetupId:'',
+      instrumentId:'',
+      setupAssignmentStatus:'unassigned',
       sampleId,
       cylinderNumber:sample.cylinderNumber || '',
       matrix:getSampleMatrix(sample),
@@ -5095,15 +5126,15 @@ async function refreshDonesafeEquipment(options = {}){
 }
 
 function getBillingRateSectionClass(section){
-  if(section === 'Natural Gas Samples') return 'gas';
-  if(section === 'Field & Labor') return 'field-labor';
+  if(section === 'Gas Tests') return 'gas';
+  if(section === 'Billing Services' || section === 'Legacy Items') return 'field-labor';
   return 'liquid';
 }
-function getBillingRateSections(){ return ['Liquid Samples', 'Natural Gas Samples', 'Field & Labor']; }
+function getBillingRateSections(){ return ['Gas Tests', 'Liquid Tests', 'Calculated Tests', 'Unspecified Tests', 'Billing Services', 'Legacy Items']; }
 function getBillingRateItemsBySection(items = getActivePriceItems()){
   return getBillingRateSections().map((section) => ({
     section,
-    items:items.filter((item) => (item.priceSection || (item.category === 'Gas' ? 'Natural Gas Samples' : 'Liquid Samples')) === section)
+    items:items.filter((item) => getPriceItemCatalogDetails(item).section === section)
   })).filter((group) => group.items.length);
 }
 function getBillingPriceMap(profileId){
@@ -5116,18 +5147,19 @@ function renderBillingRateScheduleTable(profile){
     return !!price && price.isActive !== false;
   });
   const groups = getBillingRateItemsBySection(selectedItems);
-  if(!groups.length) return '<div class="empty-state">No methods have been added to this client yet.</div>';
+  if(!groups.length) return '<div class="empty-state">No tests or services have been added to this client yet.</div>';
   const body = groups.map((group) => {
     const sectionClass = getBillingRateSectionClass(group.section);
     const rows = group.items.map((item) => {
       const price = priceByItemId.get(item.id) || null;
       const rate = normalizeNumber(price?.rateAmount);
       const inactive = price && price.isActive === false;
+      const details = getPriceItemCatalogDetails(item);
       return `<tr class="${inactive ? 'is-inactive' : ''}">
-        <td>${esc(getPriceItemTestCode(item) || 'Unmapped')}${item.isActive === false ? '<div class="muted">Archived</div>' : ''}</td>
-        <td>${esc(item.method || '')}</td>
-        <td>${esc(item.description || '')}</td>
-        <td>${esc(item.unitName || '')}</td>
+        <td>${esc(details.code || 'Legacy')}${item.isActive === false ? '<div class="muted">Archived</div>' : ''}</td>
+        <td>${esc(details.method || '—')}</td>
+        <td>${esc(details.name)}</td>
+        <td>${esc(details.unit)}</td>
         <td class="rate-cell">${esc(rate === null ? '' : fmtCurrency(rate))}</td>
       </tr>`;
     }).join('');
@@ -5152,11 +5184,12 @@ function renderBillingRateScheduleEditor(){
     const sectionClass = getBillingRateSectionClass(group.section);
     const rows = group.items.map((item) => {
       const draft = draftByItemId.get(item.id) || {};
+      const details = getPriceItemCatalogDetails(item);
       return `<tr>
-        <td><strong>${esc(getPriceItemTestCode(item) || 'Unmapped')}</strong>${item.isActive === false ? '<div class="muted">Archived</div>' : ''}</td>
-        <td>${esc(item.method || '')}</td>
-        <td>${esc(item.description || '')}</td>
-        <td>${esc(item.unitName || '')}</td>
+        <td><strong>${esc(details.code || 'Legacy')}</strong>${item.isActive === false ? '<div class="muted">Archived</div>' : ''}</td>
+        <td>${esc(details.method || '—')}</td>
+        <td>${esc(details.name)}</td>
+        <td>${esc(details.unit)}</td>
         <td><div class="currency-input-wrap compact-currency"><span>$</span><input class="form-input" type="number" step="0.01" min="0" value="${esc(draft.rateAmount ?? '')}" oninput="updateBillingPriceDraft('${esc(item.id)}', 'rateAmount', this.value, 'number')"></div></td>
         <td><input class="form-input compact-notes-input" type="text" value="${esc(draft.notes || '')}" oninput="updateBillingPriceDraft('${esc(item.id)}', 'notes', this.value)"></td>
         <td><button class="act-btn danger" type="button" onclick="removeBillingMethodFromClient('${esc(item.id)}')">Remove</button></td>
@@ -5168,8 +5201,8 @@ function renderBillingRateScheduleEditor(){
       ${rows}
     </tbody>`;
   }).join('');
-  const emptyMarkup = groups.length ? '' : '<div class="empty-state">No methods have been added to this client. Use Add Methods to build the rate schedule.</div>';
-  return `<div class="billing-price-editor"><div class="rate-schedule-head"><div class="section-copy">Edit the selected ${esc(BILLING_RATE_EFFECTIVE_YEAR)} client methods. Removed methods retain their saved rates and notes.</div><button class="act-btn" type="button" onclick="toggleBillingMethodPicker()">+ Add Methods</button></div>${renderBillingMethodPicker()}${emptyMarkup}<div class="billing-rate-table-wrap billing-rate-edit-wrap"><table class="billing-rate-table billing-rate-edit-table">${groupMarkup}</table></div></div>`;
+  const emptyMarkup = groups.length ? '' : '<div class="empty-state">No tests or services have been added to this client. Use Add Tests / Services to build the rate schedule.</div>';
+  return `<div class="billing-price-editor"><div class="rate-schedule-head"><div class="section-copy">Edit the selected ${esc(BILLING_RATE_EFFECTIVE_YEAR)} client catalog items. Removed items retain their saved rates and notes.</div><button class="act-btn" type="button" onclick="toggleBillingMethodPicker()">+ Add Tests / Services</button></div>${renderBillingMethodPicker()}${emptyMarkup}<div class="billing-rate-table-wrap billing-rate-edit-wrap"><table class="billing-rate-table billing-rate-edit-table">${groupMarkup}</table></div></div>`;
 }
 
 function renderBillingMethodPicker(){
@@ -5178,13 +5211,14 @@ function renderBillingMethodPicker(){
   const section = String(modalState.formData.methodPickerSection || 'all');
   const selectedClientIds = new Set(getSelectedBillingPriceDrafts().map((row) => row.priceItemId));
   const checkedIds = new Set(normalizeStringArray(modalState.formData.methodPickerSelection));
-  const candidates = getActivePriceItems().filter((item) => item.testTypeId && !selectedClientIds.has(item.id)).filter((item) => {
-    if(section !== 'all' && item.priceSection !== section) return false;
+  const candidates = getActivePriceItems().filter((item) => ['test','service'].includes(item.itemKind) && !selectedClientIds.has(item.id)).filter((item) => {
+    const details = getPriceItemCatalogDetails(item);
+    if(section !== 'all' && details.section !== section) return false;
     if(!query) return true;
-    return [getPriceItemTestCode(item), item.method, item.description, item.priceSection].some((value) => String(value || '').toLowerCase().includes(query));
+    return [details.code, details.method, details.name, details.matrix, details.section].some((value) => String(value || '').toLowerCase().includes(query));
   });
-  const rows = candidates.map((item) => `<label class="billing-method-picker-row"><input type="checkbox" ${checkedIds.has(item.id) ? 'checked' : ''} onchange="toggleBillingMethodPickerSelection('${esc(item.id)}', this.checked)"><span><strong>${esc(getPriceItemTestCode(item))}</strong> | ${esc(item.method || 'No method')} | ${esc(item.description)}</span><small>${esc(item.priceSection || item.category || '')} | ${esc(item.unitName || '')}</small></label>`).join('');
-  return `<div class="billing-method-picker"><div class="toolbar"><input type="text" value="${esc(modalState.formData.methodPickerSearch || '')}" placeholder="Search code, method, or description..." oninput="updateBillingMethodPickerFilter('methodPickerSearch', this.value)"><select onchange="updateBillingMethodPickerFilter('methodPickerSection', this.value)"><option value="all">All sections</option>${getBillingRateSections().map((value) => `<option value="${esc(value)}" ${section === value ? 'selected' : ''}>${esc(value)}</option>`).join('')}</select></div><div class="billing-method-picker-list">${rows || '<div class="empty-state">No available mapped methods match this search.</div>'}</div><div class="table-actions"><button class="btn-cancel" type="button" onclick="toggleBillingMethodPicker()">Cancel</button><button class="btn-save" type="button" onclick="addSelectedBillingMethods()" ${checkedIds.size ? '' : 'disabled'}>Add Selected (${checkedIds.size})</button></div></div>`;
+  const rows = candidates.map((item) => {const details=getPriceItemCatalogDetails(item);return `<label class="billing-method-picker-row"><input type="checkbox" ${checkedIds.has(item.id) ? 'checked' : ''} onchange="toggleBillingMethodPickerSelection('${esc(item.id)}', this.checked)"><span><strong>${esc(details.code)}</strong> | ${esc(details.method || (item.itemKind==='service'?'Billing Service':'No method'))} | ${esc(details.name)}</span><small>${esc(details.section)} | ${esc(details.unit)}</small></label>`;}).join('');
+  return `<div class="billing-method-picker"><div class="toolbar"><input type="text" value="${esc(modalState.formData.methodPickerSearch || '')}" placeholder="Search code, method, test, or service..." oninput="updateBillingMethodPickerFilter('methodPickerSearch', this.value)"><select onchange="updateBillingMethodPickerFilter('methodPickerSection', this.value)"><option value="all">All catalog items</option>${getBillingRateSections().filter(value=>value!=='Legacy Items').map((value) => `<option value="${esc(value)}" ${section === value ? 'selected' : ''}>${esc(value)}</option>`).join('')}</select></div><div class="billing-method-picker-list">${rows || '<div class="empty-state">No available tests or services match this search.</div>'}</div><div class="table-actions"><button class="btn-cancel" type="button" onclick="toggleBillingMethodPicker()">Cancel</button><button class="btn-save" type="button" onclick="addSelectedBillingMethods()" ${checkedIds.size ? '' : 'disabled'}>Add Selected (${checkedIds.size})</button></div></div>`;
 }
 
 function renderAssignmentRow(assignment){

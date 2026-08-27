@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test Catalog</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="standards.css">
+<link rel="stylesheet" href="test-catalog.css">
+</head>
+<body>
+<header>
+  <div class="header-left">
+    <img class="spl-logo" src="assets/spl-logo.svg" alt="SPL">
+    <div class="header-brand"><h1>Test Catalog</h1><p>Shared Test Types, reusable Methods, and Billing Services</p></div>
+  </div>
+  <div class="header-right">
+    <div data-session-slot></div>
+    <div class="nav-row">
+      <button class="sec-btn" onclick="location.href='index.html'">Home</button>
+      <button class="sec-btn" onclick="location.href='clients.html'">Clients</button>
+      <button class="sec-btn" onclick="location.href='test-setup.html'">Test Setup</button>
+      <button class="sec-btn current" onclick="location.href='test-catalog.html'">Test Catalog</button>
+    </div>
+    <div id="save-indicator" class="save-indicator" style="visibility:hidden">Saved</div>
+  </div>
+</header>
+
+<div class="catalog-tabs" role="tablist">
+  <button class="catalog-tab active" data-tab="tests" onclick="selectCatalogTab('tests')">Test Types <span id="count-tests">0</span></button>
+  <button class="catalog-tab" data-tab="methods" onclick="selectCatalogTab('methods')">Methods <span id="count-methods">0</span></button>
+  <button class="catalog-tab" data-tab="services" onclick="selectCatalogTab('services')">Billing Services <span id="count-services">0</span></button>
+  <button class="catalog-tab" data-tab="legacy" onclick="selectCatalogTab('legacy')">Legacy Items <span id="count-legacy">0</span></button>
+</div>
+
+<div class="toolbar catalog-toolbar">
+  <span class="tb-label">Search</span>
+  <input id="catalog-search" type="search" placeholder="Search the catalog..." oninput="setCatalogSearch(this.value)">
+  <select id="catalog-status" onchange="setCatalogStatus(this.value)">
+    <option value="active">Active</option>
+    <option value="all">All statuses</option>
+    <option value="archived">Archived</option>
+  </select>
+  <div class="toolbar-spacer"></div>
+  <button class="add-wo-btn" id="catalog-add-button" type="button" onclick="openCatalogModal()">+ Add Test Type</button>
+</div>
+
+<main class="catalog-main">
+  <section class="table-container">
+    <div class="table-header"><h2 id="catalog-heading">Test Types</h2><div class="refresh-time" id="last-update">Loading...</div></div>
+    <div class="catalog-help" id="catalog-help"></div>
+    <div class="catalog-table-wrap">
+      <table class="catalog-table">
+        <thead id="catalog-thead"></thead>
+        <tbody id="catalog-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<div class="modal-overlay" id="catalog-modal-overlay">
+  <div class="modal standard-modal catalog-modal">
+    <div class="modal-header"><h3 id="catalog-modal-title">Catalog Item</h3><button class="modal-close" type="button" onclick="closeCatalogModal()">X</button></div>
+    <div class="modal-body" id="catalog-modal-body"></div>
+    <div class="modal-footer"><button class="btn-cancel" type="button" onclick="closeCatalogModal()">Cancel</button><button class="btn-save" id="catalog-modal-save" type="button" onclick="saveCatalogModal()">Save</button></div>
+  </div>
+</div>
+
+<script src="app-config.js"></script>
+<script>window.APP_CONFIG=Object.assign({},window.APP_CONFIG||{},{authTitle:'SPL Test Catalog',authHelpText:'Sign in to view the shared Test Catalog. Administrators can make changes.',requiresAppAdmin:false});</script>
+<script src="cloud-auth.js"></script>
+<script src="test-catalog.js"></script>
+</body>
+</html>
