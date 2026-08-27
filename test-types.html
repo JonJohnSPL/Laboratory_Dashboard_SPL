@@ -38,6 +38,7 @@
       <button class="sec-btn" onclick="window.location.href='SureMap/SPLClientMap.HTML'">SureMap</button>
       <button class="sec-btn" onclick="window.location.href='employees.html'">Employees</button>
       <button class="sec-btn" onclick="window.location.href='clients.html'">Clients</button>
+      <button class="sec-btn" onclick="window.location.href='master-methods.html'">Master Methods</button>
     </div>
     <div id="save-indicator" class="save-indicator" style="visibility:hidden;">Saved</div>
   </div>
@@ -66,7 +67,7 @@
   <span class="tb-label">Search</span>
   <input id="search-input" type="text" placeholder="Search code, label, alias, or family..." oninput="updateSearch(this.value)">
   <div class="toolbar-spacer"></div>
-  <button class="add-wo-btn" type="button" onclick="openTestTypeModal()">+ Add Test Type</button>
+  <button class="add-wo-btn" type="button" onclick="window.location.href='master-methods.html'">+ Add Master Method</button>
 </div>
 
 <div class="standards-layout">
@@ -84,11 +85,12 @@
           <th>Minutes</th>
           <th>Counting</th>
           <th>Group</th>
+          <th>Linked Methods</th>
         </tr>
       </thead>
       <tbody id="test-types-tbody">
         <tr>
-          <td colspan="6">
+          <td colspan="7">
             <div class="empty-state">
               <div class="big">[]</div>
               Loading test type catalog...
@@ -150,6 +152,10 @@
         <div class="form-group">
           <label class="form-label" for="type-group-key">Group Family</label>
           <input class="form-input" id="type-group-key" type="text" placeholder="Optional, e.g. GC-BFVC">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="type-lab-wip-enabled">Lab WIP Visibility</label>
+          <label class="check-row"><input id="type-lab-wip-enabled" type="checkbox" checked> Available in Lab WIP</label>
         </div>
         <div class="form-group">
           <label class="form-label" for="type-group-rank">Group Rank</label>

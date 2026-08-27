@@ -565,8 +565,149 @@ before insert or update on public.field_billing_profiles
 for each row
 execute function public.validate_field_billing_profile_contact();
 
+create or replace function public.lab_test_code_key(raw_value text)
+returns text
+language sql
+immutable
+as $$
+  select trim(both '_' from regexp_replace(upper(coalesce(raw_value, '')), '[^A-Z0-9_-]+', '_', 'g'));
+$$;
+
+create table if not exists public.lab_test_types (
+  id uuid primary key default gen_random_uuid(),
+  test_code text not null,
+  display_label text not null default '',
+  short_label text not null default '',
+  minutes numeric(10,2) not null default 0 check (minutes >= 0),
+  count_mode text not null default 'perSample' check (count_mode in ('perSample', 'perRow')),
+  matrix_type text not null default '' check (matrix_type in ('', 'Gas', 'Liquid', 'Calculated')),
+  group_key text not null default '',
+  group_rank integer not null default 0 check (group_rank >= 0),
+  aliases text[] not null default array[]::text[],
+  sort_order integer not null default 0,
+  lab_wip_enabled boolean not null default true,
+  is_active boolean not null default true,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+alter table public.lab_test_types add column if not exists test_code text;
+alter table public.lab_test_types add column if not exists display_label text not null default '';
+alter table public.lab_test_types add column if not exists short_label text not null default '';
+alter table public.lab_test_types add column if not exists minutes numeric(10,2) not null default 0;
+alter table public.lab_test_types add column if not exists count_mode text not null default 'perSample';
+alter table public.lab_test_types add column if not exists matrix_type text not null default '';
+alter table public.lab_test_types add column if not exists group_key text not null default '';
+alter table public.lab_test_types add column if not exists group_rank integer not null default 0;
+alter table public.lab_test_types add column if not exists aliases text[] not null default array[]::text[];
+alter table public.lab_test_types add column if not exists sort_order integer not null default 0;
+alter table public.lab_test_types add column if not exists lab_wip_enabled boolean not null default true;
+alter table public.lab_test_types add column if not exists is_active boolean not null default true;
+update public.lab_test_types
+set test_code = trim(both '_' from regexp_replace(upper(coalesce(nullif(test_code, ''), display_label)), '[^A-Z0-9_-]+', '_', 'g')),
+    display_label = coalesce(nullif(display_label, ''), test_code),
+    short_label = coalesce(nullif(short_label, ''), nullif(display_label, ''), test_code),
+    aliases = array(select distinct value from unnest(coalesce(aliases, array[]::text[]) || array[test_code]) as alias_rows(value) where btrim(value) <> '')
+where test_code is null
+   or test_code = ''
+   or test_code <> trim(both '_' from regexp_replace(upper(test_code), '[^A-Z0-9_-]+', '_', 'g'))
+   or display_label = ''
+   or short_label = ''
+   or not (test_code = any(aliases));
+alter table public.lab_test_types alter column test_code set not null;
+create unique index if not exists lab_test_types_test_code_lower_unique_idx on public.lab_test_types(lower(test_code));
+create index if not exists lab_test_types_active_sort_idx on public.lab_test_types(is_active, lab_wip_enabled, sort_order, test_code);
+
+create or replace function public.normalize_lab_test_type()
+returns trigger
+language plpgsql
+as $$
+declare
+  prior_codes text[] := array[]::text[];
+begin
+  new.test_code := public.lab_test_code_key(new.test_code);
+  if new.test_code = '' then raise exception 'Test Code is required.'; end if;
+  new.display_label := coalesce(nullif(btrim(new.display_label), ''), new.test_code);
+  new.short_label := coalesce(nullif(btrim(new.short_label), ''), new.display_label);
+  new.group_key := public.lab_test_code_key(new.group_key);
+  if tg_op = 'UPDATE' and old.test_code <> new.test_code then
+    prior_codes := array[old.test_code];
+  end if;
+  new.aliases := array(
+    select distinct alias_value
+    from unnest(
+      coalesce(new.aliases, array[]::text[])
+      || array[new.test_code]
+      || prior_codes
+    ) as alias_rows(alias_value)
+    where btrim(alias_value) <> ''
+  );
+  return new;
+end;
+$$;
+
+-- Import the legacy JSON catalog once. The app_state value remains untouched as a rollback backup.
+do $$
+declare
+  legacy_value text;
+begin
+  select storage_value into legacy_value
+  from public.app_state
+  where storage_key = 'lab-wip-test-definitions';
+
+  if coalesce(legacy_value, '') <> '' then
+    insert into public.lab_test_types (
+      test_code, display_label, short_label, minutes, count_mode, matrix_type,
+      group_key, group_rank, aliases, sort_order, lab_wip_enabled, is_active
+    )
+    select
+      trim(both '_' from regexp_replace(upper(coalesce(nullif(item->>'key', ''), item->>'code', item->>'label')), '[^A-Z0-9_-]+', '_', 'g')),
+      coalesce(nullif(item->>'label', ''), item->>'key', item->>'code'),
+      coalesce(nullif(item->>'shortLabel', ''), nullif(item->>'label', ''), item->>'key', item->>'code'),
+      greatest(0, coalesce((item->>'minutes')::numeric, 0)),
+      case when item->>'countMode' = 'perRow' then 'perRow' else 'perSample' end,
+      case when item->>'matrixType' in ('Gas', 'Liquid', 'Calculated') then item->>'matrixType' else '' end,
+      coalesce(item->>'groupKey', ''),
+      greatest(0, coalesce((item->>'groupRank')::integer, 0)),
+      array(select distinct alias_value from jsonb_array_elements_text(coalesce(item->'aliases', '[]'::jsonb)) as alias_rows(alias_value) where btrim(alias_value) <> ''),
+      coalesce((item->>'sortOrder')::integer, (row_number() over ())::integer - 1),
+      true,
+      true
+    from jsonb_array_elements(legacy_value::jsonb) item
+    where coalesce(nullif(item->>'key', ''), nullif(item->>'code', ''), nullif(item->>'label', '')) is not null
+    on conflict ((lower(test_code))) do update
+    set display_label = excluded.display_label,
+        short_label = excluded.short_label,
+        minutes = excluded.minutes,
+        count_mode = excluded.count_mode,
+        matrix_type = excluded.matrix_type,
+        group_key = excluded.group_key,
+        group_rank = excluded.group_rank,
+        aliases = excluded.aliases,
+        sort_order = excluded.sort_order;
+  end if;
+exception when others then
+  raise notice 'Legacy lab test type JSON could not be imported: %', sqlerrm;
+end;
+$$;
+
+insert into public.lab_test_types (test_code, display_label, short_label, minutes, count_mode, matrix_type, group_key, group_rank, aliases, sort_order, lab_wip_enabled, is_active)
+values
+  ('AS-BFV_DENSITY', 'AS-BFV_DENSITY', 'DENS', 15, 'perSample', 'Liquid', '', 0, array['AS-BFV_DENSITY','ASBFVDENSITY'], 0, true, true),
+  ('AS-BFV_MW', 'AS-BFV_MW', 'MW', 15, 'perSample', 'Liquid', '', 0, array['AS-BFV_MW','ASBFVMW'], 1, true, true),
+  ('C6GAS', 'C6GAS', 'C6GAS', 15, 'perSample', 'Gas', '', 0, array['C6GAS','C6-GAS','GAS','GC-C6GAS'], 2, true, true),
+  ('GC-BFVC6MZ', 'GC-BFVC6MZ', 'BFVC6', 40, 'perSample', 'Liquid', 'GC-BFVC', 6, array['GC-BFVC6MZ','BFVC6MZ','BFVC6'], 3, true, true),
+  ('GC-BFVC7MZ', 'GC-BFVC7MZ', 'BFVC7', 40, 'perSample', 'Liquid', 'GC-BFVC', 7, array['GC-BFVC7MZ','BFVC7MZ','BFVC7'], 4, true, true),
+  ('GC-BFVC10MZ', 'GC-BFVC10MZ', 'BFVC10', 40, 'perSample', 'Liquid', 'GC-BFVC', 10, array['GC-BFVC10MZ','BFVC10MZ','BFVC10','GC'], 5, true, true),
+  ('GC-2103-C10MZ', 'GC-2103-C10MZ', 'GC2103', 90, 'perSample', 'Gas', '', 0, array['GC-2103-C10MZ','2103C10MZ'], 6, true, true),
+  ('C6LIQ', 'C6LIQ', 'C6LIQ', 40, 'perSample', 'Liquid', '', 0, array['C6LIQ','C6-LIQ','LIQ'], 7, true, true),
+  ('C10LIQ', 'C10LIQ', 'C10LIQ', 40, 'perSample', 'Liquid', '', 0, array['C10LIQ','C10-LIQ'], 8, true, true)
+on conflict ((lower(test_code))) do nothing;
+
 create table if not exists public.billing_price_items (
   id uuid primary key default gen_random_uuid(),
+  test_type_id uuid references public.lab_test_types(id) on delete restrict,
   item_key text not null default '',
   price_section text not null default '',
   category text not null default '',
@@ -582,6 +723,7 @@ create table if not exists public.billing_price_items (
   updated_by uuid
 );
 alter table public.billing_price_items add column if not exists item_key text not null default '';
+alter table public.billing_price_items add column if not exists test_type_id uuid;
 alter table public.billing_price_items add column if not exists price_section text not null default '';
 alter table public.billing_price_items add column if not exists category text not null default '';
 alter table public.billing_price_items add column if not exists method text not null default '';
@@ -590,6 +732,8 @@ alter table public.billing_price_items add column if not exists unit_name text n
 alter table public.billing_price_items add column if not exists sort_order integer not null default 0;
 alter table public.billing_price_items add column if not exists is_active boolean not null default true;
 alter table public.billing_price_items add column if not exists notes text not null default '';
+alter table public.billing_price_items drop constraint if exists billing_price_items_test_type_id_fkey;
+alter table public.billing_price_items add constraint billing_price_items_test_type_id_fkey foreign key (test_type_id) references public.lab_test_types(id) on delete restrict;
 update public.billing_price_items
 set item_key = trim(both '_' from regexp_replace(upper(coalesce(nullif(item_key, ''), method || ' ' || description)), '[^A-Z0-9]+', '_', 'g'))
 where coalesce(item_key, '') = ''
@@ -597,6 +741,7 @@ where coalesce(item_key, '') = ''
 create unique index if not exists billing_price_items_item_key_unique_idx on public.billing_price_items(item_key);
 create unique index if not exists billing_price_items_item_key_lower_unique_idx on public.billing_price_items(lower(item_key));
 create index if not exists billing_price_items_active_sort_idx on public.billing_price_items(is_active, sort_order, item_key);
+create index if not exists billing_price_items_test_type_id_idx on public.billing_price_items(test_type_id);
 
 create table if not exists public.field_billing_profile_prices (
   id uuid primary key default gen_random_uuid(),
@@ -632,6 +777,18 @@ create unique index if not exists field_billing_profile_prices_profile_item_year
 create index if not exists field_billing_profile_prices_billing_profile_id_idx on public.field_billing_profile_prices(billing_profile_id);
 create index if not exists field_billing_profile_prices_price_item_id_idx on public.field_billing_profile_prices(price_item_id);
 create index if not exists field_billing_profile_prices_effective_year_idx on public.field_billing_profile_prices(effective_year);
+
+-- The new client schedule is opt-in. Run once while preserving every saved rate and note.
+do $$
+begin
+  if not exists (select 1 from public.app_state where storage_key = 'billing-method-selection-v1-migrated') then
+    update public.field_billing_profile_prices set is_active = false;
+    insert into public.app_state (storage_key, storage_value)
+    values ('billing-method-selection-v1-migrated', timezone('utc', now())::text)
+    on conflict (storage_key) do nothing;
+  end if;
+end;
+$$;
 
 with ranked_profiles as (
   select
@@ -3411,6 +3568,138 @@ begin
   end loop;
 end
 $$;
+
+drop trigger if exists lab_test_types_touch on public.lab_test_types;
+drop trigger if exists lab_test_types_normalize on public.lab_test_types;
+create trigger lab_test_types_normalize
+before insert or update on public.lab_test_types
+for each row
+execute function public.normalize_lab_test_type();
+create trigger lab_test_types_touch
+before insert or update on public.lab_test_types
+for each row
+execute function public.touch_field_ops_row();
+
+alter table public.lab_test_types enable row level security;
+drop policy if exists "Authorized users can read lab_test_types" on public.lab_test_types;
+create policy "Authorized users can read lab_test_types"
+on public.lab_test_types
+for select
+to authenticated
+using (public.is_app_admin() or public.has_employee_feature('lab.tests.view'));
+
+drop policy if exists "Administrators can insert lab_test_types" on public.lab_test_types;
+create policy "Administrators can insert lab_test_types"
+on public.lab_test_types
+for insert
+to authenticated
+with check (public.is_app_admin());
+
+drop policy if exists "Administrators can update lab_test_types" on public.lab_test_types;
+create policy "Administrators can update lab_test_types"
+on public.lab_test_types
+for update
+to authenticated
+using (public.is_app_admin())
+with check (public.is_app_admin());
+
+drop policy if exists "Administrators can delete lab_test_types" on public.lab_test_types;
+grant select, insert, update on public.lab_test_types to authenticated;
+revoke delete on public.lab_test_types from authenticated;
+
+-- Catalog records are archived, never hard-deleted, so historical client and work-order links remain valid.
+drop policy if exists "Authenticated users can delete billing_price_items" on public.billing_price_items;
+revoke delete on public.billing_price_items from authenticated;
+
+create or replace function public.admin_create_billing_method_with_test_type(method_record jsonb, test_type_record jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  next_test_type_id uuid;
+  next_method_id uuid;
+  next_test_code text;
+  next_aliases text[];
+begin
+  if not public.is_app_admin() then
+    raise exception 'Administrator access is required.';
+  end if;
+
+  next_test_code := public.lab_test_code_key(coalesce(test_type_record->>'test_code', ''));
+  if next_test_code = '' then
+    raise exception 'Test Code is required.';
+  end if;
+  if btrim(coalesce(method_record->>'description', '')) = '' then
+    raise exception 'Method description is required.';
+  end if;
+
+  select coalesce(array_agg(distinct alias_value), array[]::text[])
+  into next_aliases
+  from (
+    select btrim(value) as alias_value
+    from jsonb_array_elements_text(coalesce(test_type_record->'aliases', '[]'::jsonb)) as alias_rows(value)
+    union all
+    select next_test_code
+  ) aliases
+  where alias_value <> '';
+
+  insert into public.lab_test_types (
+    test_code, display_label, short_label, minutes, count_mode, matrix_type,
+    group_key, group_rank, aliases, sort_order, lab_wip_enabled, is_active
+  ) values (
+    next_test_code,
+    coalesce(nullif(btrim(test_type_record->>'display_label'), ''), next_test_code),
+    coalesce(nullif(btrim(test_type_record->>'short_label'), ''), nullif(btrim(test_type_record->>'display_label'), ''), next_test_code),
+    greatest(0, coalesce((test_type_record->>'minutes')::numeric, 0)),
+    case when test_type_record->>'count_mode' = 'perRow' then 'perRow' else 'perSample' end,
+    case when test_type_record->>'matrix_type' in ('Gas', 'Liquid', 'Calculated') then test_type_record->>'matrix_type' else '' end,
+    public.field_ops_catalog_key(coalesce(test_type_record->>'group_key', '')),
+    greatest(0, coalesce((test_type_record->>'group_rank')::integer, 0)),
+    next_aliases,
+    coalesce((test_type_record->>'sort_order')::integer, 0),
+    coalesce((test_type_record->>'lab_wip_enabled')::boolean, true),
+    true
+  ) returning id into next_test_type_id;
+
+  if coalesce(method_record->>'id', '') <> '' then
+    next_method_id := (method_record->>'id')::uuid;
+    update public.billing_price_items
+    set test_type_id = next_test_type_id,
+        price_section = coalesce(method_record->>'price_section', ''),
+        category = coalesce(method_record->>'category', ''),
+        method = coalesce(method_record->>'method', ''),
+        description = coalesce(method_record->>'description', ''),
+        unit_name = coalesce(nullif(method_record->>'unit_name', ''), 'Per Sample'),
+        sort_order = coalesce((method_record->>'sort_order')::integer, 0),
+        notes = coalesce(method_record->>'notes', '')
+    where id = next_method_id;
+    if not found then raise exception 'Billing method was not found.'; end if;
+  else
+    insert into public.billing_price_items (
+      test_type_id, item_key, price_section, category, method, description,
+      unit_name, sort_order, is_active, notes
+    ) values (
+      next_test_type_id,
+      public.field_ops_catalog_key(coalesce(nullif(method_record->>'item_key', ''), next_test_code || ' ' || coalesce(method_record->>'method', '') || ' ' || coalesce(method_record->>'description', ''))),
+      coalesce(method_record->>'price_section', ''),
+      coalesce(method_record->>'category', ''),
+      coalesce(method_record->>'method', ''),
+      coalesce(method_record->>'description', ''),
+      coalesce(nullif(method_record->>'unit_name', ''), 'Per Sample'),
+      coalesce((method_record->>'sort_order')::integer, 0),
+      true,
+      coalesce(method_record->>'notes', '')
+    ) returning id into next_method_id;
+  end if;
+
+  return jsonb_build_object('test_type_id', next_test_type_id, 'method_id', next_method_id);
+end;
+$$;
+
+revoke all on function public.admin_create_billing_method_with_test_type(jsonb, jsonb) from public;
+grant execute on function public.admin_create_billing_method_with_test_type(jsonb, jsonb) to authenticated;
 
 alter table public.app_user_profiles enable row level security;
 alter table public.app_features enable row level security;

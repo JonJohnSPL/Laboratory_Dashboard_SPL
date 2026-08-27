@@ -1,6 +1,6 @@
 const STORAGE_KEY = 'field-ops-dashboard-data';
 const AUTO_REFRESH_MS = 15000;
-const ENTITY_ORDER = ['clients', 'projects', 'contacts', 'contactProjects', 'contactSites', 'billingProfiles', 'priceItems', 'billingProfilePrices', 'siteTypes', 'sites', 'siteProjects', 'jobTypes', 'siteTypeJobTypes', 'jobs', 'jobSites', 'jobAssignments', 'partCatalogs', 'parts', 'jobParts', 'partActivity', 'fieldRoutes', 'routePlaceLists', 'routePlaces', 'restrictedRoads', 'fieldRouteStops', 'fieldRouteStopJobs', 'employees', 'splSites', 'technicianTravel', 'trucks', 'trailers', 'equipment', 'donesafeEquipment', 'samples', 'maintenanceRecords'];
+const ENTITY_ORDER = ['clients', 'projects', 'contacts', 'contactProjects', 'contactSites', 'billingProfiles', 'testTypes', 'priceItems', 'billingProfilePrices', 'siteTypes', 'sites', 'siteProjects', 'jobTypes', 'siteTypeJobTypes', 'jobs', 'jobSites', 'jobAssignments', 'partCatalogs', 'parts', 'jobParts', 'partActivity', 'fieldRoutes', 'routePlaceLists', 'routePlaces', 'restrictedRoads', 'fieldRouteStops', 'fieldRouteStopJobs', 'employees', 'splSites', 'technicianTravel', 'trucks', 'trailers', 'equipment', 'donesafeEquipment', 'samples', 'maintenanceRecords'];
 const FIELD_ASSET_BUCKET = 'field-assets';
 const ASSET_PHOTO_ENTITY_KEYS = ['clients', 'trucks', 'trailers', 'equipment'];
 const DEFAULT_ASSET_ICON_PATHS = {
@@ -101,6 +101,7 @@ const DEFAULT_JOB_TYPE_DEFS = [
 ];
 const LAB_WIP_WORK_ORDER_STORAGE_KEY = 'lab-wip-workorders';
 const TEST_DEFINITION_STORAGE_KEY = 'lab-wip-test-definitions';
+const BILLING_SELECTION_MIGRATION_KEY = 'billing-method-selection-v1-migrated';
 const DEFAULT_LAB_TEST_DEFS = [
   { key:'AS-BFV_DENSITY', label:'AS-BFV_DENSITY', shortLabel:'DENS', matrixType:'Liquid' },
   { key:'AS-BFV_MW', label:'AS-BFV_MW', shortLabel:'MW', matrixType:'Liquid' },
@@ -150,7 +151,8 @@ const ENTITY_CONFIG = {
   contactProjects:{ table:'field_contact_projects', label:'Contact Project Link', idPrefix:'contactproj', defaults:{ contactId:'', projectId:'' }, fieldMap:{ contactId:'contact_id', projectId:'project_id' }, idFields:['contactId', 'projectId'] },
   contactSites:{ table:'field_contact_sites', label:'Contact Site Link', idPrefix:'contactsite', defaults:{ contactId:'', siteId:'' }, fieldMap:{ contactId:'contact_id', siteId:'site_id' }, idFields:['contactId', 'siteId'] },
   billingProfiles:{ table:'field_billing_profiles', label:'Billing Profile', idPrefix:'bill', defaults:{ clientId:'', projectId:'', billingContactId:'', billingName:'', billingAddress:'', billingEmail:'', billingPhone:'', poNumber:'', referenceNumber:'', invoiceNotes:'', fieldBillingNotes:'', labBillingNotes:'', isDefault:false }, fieldMap:{ clientId:'client_id', projectId:'project_id', billingContactId:'billing_contact_id', billingName:'billing_name', billingAddress:'billing_address', billingEmail:'billing_email', billingPhone:'billing_phone', poNumber:'po_number', referenceNumber:'reference_number', invoiceNotes:'invoice_notes', fieldBillingNotes:'field_billing_notes', labBillingNotes:'lab_billing_notes', isDefault:'is_default' }, idFields:['clientId', 'projectId', 'billingContactId'], booleanFields:['isDefault'] },
-  priceItems:{ table:'billing_price_items', label:'Price Item', idPrefix:'priceitem', defaults:{ itemKey:'', priceSection:'', category:'', method:'', description:'', unitName:'Per Sample', sortOrder:0, isActive:true, notes:'' }, fieldMap:{ itemKey:'item_key', priceSection:'price_section', category:'category', method:'method', description:'description', unitName:'unit_name', sortOrder:'sort_order', isActive:'is_active', notes:'notes' }, numberFields:['sortOrder'], booleanFields:['isActive'] },
+  testTypes:{ table:'lab_test_types', label:'Test Type', idPrefix:'testtype', defaults:{ testCode:'', displayLabel:'', shortLabel:'', minutes:0, countMode:'perSample', matrixType:'', groupKey:'', groupRank:0, aliases:[], sortOrder:0, labWipEnabled:true, isActive:true }, fieldMap:{ testCode:'test_code', displayLabel:'display_label', shortLabel:'short_label', minutes:'minutes', countMode:'count_mode', matrixType:'matrix_type', groupKey:'group_key', groupRank:'group_rank', aliases:'aliases', sortOrder:'sort_order', labWipEnabled:'lab_wip_enabled', isActive:'is_active' }, numberFields:['minutes', 'groupRank', 'sortOrder'], booleanFields:['labWipEnabled', 'isActive'], arrayFields:['aliases'] },
+  priceItems:{ table:'billing_price_items', label:'Price Item', idPrefix:'priceitem', defaults:{ testTypeId:'', itemKey:'', priceSection:'', category:'', method:'', description:'', unitName:'Per Sample', sortOrder:0, isActive:true, notes:'' }, fieldMap:{ testTypeId:'test_type_id', itemKey:'item_key', priceSection:'price_section', category:'category', method:'method', description:'description', unitName:'unit_name', sortOrder:'sort_order', isActive:'is_active', notes:'notes' }, idFields:['testTypeId'], numberFields:['sortOrder'], booleanFields:['isActive'] },
   billingProfilePrices:{ table:'field_billing_profile_prices', label:'Billing Profile Price', idPrefix:'billprice', defaults:{ billingProfileId:'', priceItemId:'', rateAmount:null, currencyCode:'USD', effectiveYear:BILLING_RATE_EFFECTIVE_YEAR, isActive:true, notes:'' }, fieldMap:{ billingProfileId:'billing_profile_id', priceItemId:'price_item_id', rateAmount:'rate_amount', currencyCode:'currency_code', effectiveYear:'effective_year', isActive:'is_active', notes:'notes' }, idFields:['billingProfileId', 'priceItemId'], numberFields:['rateAmount', 'effectiveYear'], booleanFields:['isActive'] },
   siteTypes:{ table:'field_site_types', label:'Site Type', idPrefix:'sitetype', defaults:{ siteTypeKey:'', siteTypeName:'', isActive:true, siteTypeStatus:'active', defaultJobTypes:[], notes:'' }, fieldMap:{ siteTypeKey:'site_type_key', siteTypeName:'site_type_name', isActive:'is_active', notes:'notes' }, booleanFields:['isActive'], arrayFields:['defaultJobTypes'], localOnlyFields:['siteTypeStatus', 'defaultJobTypes'] },
   sites:{ table:'field_sites', label:'Site/Location', idPrefix:'site', defaults:{ clientId:'', projectId:'', projectIds:[], siteName:'', siteType:'OTHER', physicalAddress:'', countyState:'', gpsCoordinates:'', accessInstructions:'', safetyPpeNotes:'', gateCodeEntryRequirements:'', clientSiteContact:'', accessRequired:false, approvedAccessLabel:'', approvedAccessLatitude:null, approvedAccessLongitude:null, approvedAccessNotes:'', siteStatus:'Active', standardJobTypes:'', notes:'' }, fieldMap:{ clientId:'client_id', projectId:'project_id', siteName:'site_name', siteType:'site_type', physicalAddress:'physical_address', countyState:'county_state', gpsCoordinates:'gps_coordinates', accessInstructions:'access_instructions', safetyPpeNotes:'safety_ppe_notes', gateCodeEntryRequirements:'gate_code_entry_requirements', clientSiteContact:'client_site_contact', accessRequired:'access_required', approvedAccessLabel:'approved_access_label', approvedAccessLatitude:'approved_access_latitude', approvedAccessLongitude:'approved_access_longitude', approvedAccessNotes:'approved_access_notes', siteStatus:'site_status', standardJobTypes:'standard_job_types', notes:'notes' }, idFields:['clientId', 'projectId'], arrayFields:['projectIds'], localOnlyFields:['projectIds'], numberFields:['approvedAccessLatitude', 'approvedAccessLongitude'], booleanFields:['accessRequired'] },
@@ -188,7 +190,7 @@ let hideSaveStatusTimer = null;
 const remoteAssetPhotoUrlCache = new Map();
 const remoteAssetPhotoLoadPromises = new Map();
 
-function createEmptyData(){ return { clients:[], projects:[], contacts:[], contactProjects:[], contactSites:[], billingProfiles:[], priceItems:[], billingProfilePrices:[], siteTypes:[], sites:[], siteProjects:[], jobTypes:[], siteTypeJobTypes:[], jobs:[], jobSites:[], jobAssignments:[], partCatalogs:[], parts:[], jobParts:[], partActivity:[], fieldRoutes:[], routePlaceLists:[], routePlaces:[], restrictedRoads:[], fieldRouteStops:[], fieldRouteStopJobs:[], employees:[], splSites:[], technicianTravel:[], trucks:[], trailers:[], equipment:[], donesafeEquipment:[], samples:[], maintenanceRecords:[], technicians:[] }; }
+function createEmptyData(){ return { clients:[], projects:[], contacts:[], contactProjects:[], contactSites:[], billingProfiles:[], testTypes:[], priceItems:[], billingProfilePrices:[], siteTypes:[], sites:[], siteProjects:[], jobTypes:[], siteTypeJobTypes:[], jobs:[], jobSites:[], jobAssignments:[], partCatalogs:[], parts:[], jobParts:[], partActivity:[], fieldRoutes:[], routePlaceLists:[], routePlaces:[], restrictedRoads:[], fieldRouteStops:[], fieldRouteStopJobs:[], employees:[], splSites:[], technicianTravel:[], trucks:[], trailers:[], equipment:[], donesafeEquipment:[], samples:[], maintenanceRecords:[], technicians:[] }; }
 function createClosedModalState(){ return { open:false, entity:'', id:'', formData:{}, assignments:[], baselineSnapshot:'', openMultiSelectKey:'', openSampleTestDraftId:'', sampleDraftExpanded:{} }; }
 function createClosedSampleLinkModalState(){ return { open:false, mode:'single', sampleId:'', sampleIds:[], selectedWorkOrderId:'', search:'', workOrders:[] }; }
 function createClosedPartAdjustModalState(){ return { open:false, partId:'', mode:'receive' }; }
@@ -224,16 +226,18 @@ function normalizeHexColor(value, fallback = DEFAULT_JOB_TYPE_COLOR){
   return /^#[0-9a-fA-F]{6}$/.test(normalized) ? normalized.toLowerCase() : fallback;
 }
 function normalizeLabTestDefinition(def, index = 0){
-  const key = normalizeCatalogKey(def?.key || def?.code || def?.label || `TEST_${index + 1}`);
+  const key = normalizeCatalogKey(def?.key || def?.testCode || def?.test_code || def?.code || def?.label || def?.displayLabel || def?.display_label || `TEST_${index + 1}`);
   if(!key) return null;
-  const label = String(def?.label || key).trim() || key;
+  const label = String(def?.label || def?.displayLabel || def?.display_label || key).trim() || key;
   return {
     id:String(def?.id || key),
     key,
     label,
-    shortLabel:String(def?.shortLabel || label).trim() || label,
-    matrixType:String(def?.matrixType || '').trim(),
-    sortOrder:Number.isFinite(Number(def?.sortOrder)) ? Number(def.sortOrder) : index
+    shortLabel:String(def?.shortLabel || def?.short_label || label).trim() || label,
+    matrixType:String(def?.matrixType || def?.matrix_type || '').trim(),
+    labWipEnabled:def?.labWipEnabled ?? def?.lab_wip_enabled ?? true,
+    isActive:def?.isActive ?? def?.is_active ?? true,
+    sortOrder:Number.isFinite(Number(def?.sortOrder ?? def?.sort_order)) ? Number(def.sortOrder ?? def.sort_order) : index
   };
 }
 function getDefaultLabTestDefinitions(){ return DEFAULT_LAB_TEST_DEFS.map((def, index) => normalizeLabTestDefinition({ ...def, sortOrder:index }, index)).filter(Boolean); }
@@ -244,7 +248,20 @@ function setLabTestDefinitions(defs){
     .sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label));
   state.labTestDefinitions = normalized.length ? normalized : getDefaultLabTestDefinitions();
 }
-function getLabTestDefinitions(){ return state.labTestDefinitions.length ? state.labTestDefinitions : getDefaultLabTestDefinitions(); }
+function getLabTestDefinitions(){ return (state.labTestDefinitions.length ? state.labTestDefinitions : getDefaultLabTestDefinitions()).filter((test) => test.isActive !== false && test.labWipEnabled !== false); }
+function syncLocalTestTypesFromLabDefinitions(){
+  if(isRemoteMode()) return;
+  state.data.testTypes = state.labTestDefinitions.map((test, index) => normalizeRecord('testTypes', {
+    id:test.id,
+    testCode:test.key,
+    displayLabel:test.label,
+    shortLabel:test.shortLabel,
+    matrixType:test.matrixType,
+    sortOrder:test.sortOrder ?? index,
+    labWipEnabled:test.labWipEnabled !== false,
+    isActive:test.isActive !== false
+  }, { fromRemote:false })).sort(getEntitySorter('testTypes'));
+}
 function getLabTestLabel(key){
   const normalized = normalizeCatalogKey(key);
   return getLabTestDefinitions().find((def) => def.key === normalized)?.label || String(key || '');
@@ -279,6 +296,13 @@ function getStorageAdapter(){
 }
 async function loadLabTestDefinitions(){
   try {
+    if(isRemoteMode()){
+      const rows = await window.appAuth.requestJson('/rest/v1/lab_test_types?select=*&is_active=eq.true&lab_wip_enabled=eq.true&order=sort_order.asc,test_code.asc');
+      if(Array.isArray(rows) && rows.length){
+        setLabTestDefinitions(rows);
+        return true;
+      }
+    }
     const result = await getStorageAdapter().get(TEST_DEFINITION_STORAGE_KEY);
     const raw = typeof result?.value === 'string' ? result.value : '';
     if(raw){
@@ -530,6 +554,7 @@ function getEntitySorter(entityKey){
     case 'contactProjects': return (a, b) => compareStrings(a.contactId, b.contactId) || compareStrings(a.projectId, b.projectId);
     case 'contactSites': return (a, b) => compareStrings(a.contactId, b.contactId) || compareStrings(a.siteId, b.siteId);
     case 'billingProfiles': return (a, b) => Number(b.isDefault) - Number(a.isDefault) || compareStrings(a.billingName, b.billingName);
+    case 'testTypes': return (a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0) || compareStrings(a.testCode, b.testCode);
     case 'priceItems': return (a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0) || compareStrings(a.method, b.method) || compareStrings(a.description, b.description);
     case 'billingProfilePrices': return (a, b) => compareStrings(a.billingProfileId, b.billingProfileId) || Number(a.effectiveYear || 0) - Number(b.effectiveYear || 0) || compareStrings(a.priceItemId, b.priceItemId);
     case 'siteTypes': return (a, b) => compareStrings(a.siteTypeName, b.siteTypeName) || compareStrings(a.siteTypeKey, b.siteTypeKey);
@@ -1100,7 +1125,7 @@ function toRemotePayload(entityKey, draft){
 }
 
 const localRepository = {
-  async list(){ try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? normalizeData(JSON.parse(raw), false) : normalizeData(createEmptyData(), false); } catch { return normalizeData(createEmptyData(), false); } },
+  async list(){ try { const raw = localStorage.getItem(STORAGE_KEY); const parsed = raw ? JSON.parse(raw) : createEmptyData(); if(!localStorage.getItem(BILLING_SELECTION_MIGRATION_KEY)){ if(Array.isArray(parsed.billingProfilePrices)) parsed.billingProfilePrices.forEach((row) => { row.isActive = false; row.is_active = false; }); localStorage.setItem(BILLING_SELECTION_MIGRATION_KEY, new Date().toISOString()); if(raw) localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed)); } return normalizeData(parsed, false); } catch { return normalizeData(createEmptyData(), false); } },
   async write(data){ const normalized = normalizeData(data, false); localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized)); return normalized; }
 };
 
@@ -1289,7 +1314,10 @@ function getClient(id){ return state.data.clients.find((row) => row.id === id) |
 function getProject(id){ return state.data.projects.find((row) => row.id === id) || null; }
 function getContact(id){ return state.data.contacts.find((row) => row.id === id) || null; }
 function getBillingProfile(id){ return state.data.billingProfiles.find((row) => row.id === id) || null; }
+function getTestType(id){ return state.data.testTypes.find((row) => row.id === id) || null; }
 function getPriceItem(id){ return state.data.priceItems.find((row) => row.id === id) || null; }
+function getPriceItemTestType(item){ return getTestType(item?.testTypeId || ''); }
+function getPriceItemTestCode(item){ return getPriceItemTestType(item)?.testCode || ''; }
 function getSite(id){ return state.data.sites.find((row) => row.id === id) || null; }
 function getJob(id){ return state.data.jobs.find((row) => row.id === id) || null; }
 function getEmployee(id){ return state.data.employees.find((row) => row.id === id) || null; }
@@ -1338,7 +1366,7 @@ function getContactLabel(contactId){
 }
 function getPriceItemLabel(priceItemId){
   const item = getPriceItem(priceItemId);
-  return item ? `${item.method || 'No method'} - ${item.description || 'No description'}` : 'Unknown price item';
+  return item ? `${getPriceItemTestCode(item) ? `${getPriceItemTestCode(item)} | ` : ''}${item.method || 'No method'} - ${item.description || 'No description'}` : 'Unknown price item';
 }
 function getActivePriceItems(){
   return state.data.priceItems.filter((item) => item.isActive !== false).sort(getEntitySorter('priceItems'));
@@ -1353,7 +1381,7 @@ function getBillingPriceCount(profileId){
 }
 function buildBillingPriceDrafts(profileId = ''){
   const existingPrices = new Map(getBillingPricesForProfile(profileId).map((row) => [row.priceItemId, row]));
-  return getActivePriceItems().map((item) => {
+  return state.data.priceItems.filter((item) => item.isActive !== false || existingPrices.has(item.id)).sort(getEntitySorter('priceItems')).map((item) => {
     const existing = existingPrices.get(item.id) || null;
     return {
       draftId:existing?.id || `${profileId || 'draft'}::${item.id}`,
@@ -1363,7 +1391,7 @@ function buildBillingPriceDrafts(profileId = ''){
       rateAmount:normalizeNumber(existing?.rateAmount),
       currencyCode:existing?.currencyCode || 'USD',
       effectiveYear:Number(existing?.effectiveYear || BILLING_RATE_EFFECTIVE_YEAR),
-      isActive:existing ? existing.isActive !== false : true,
+      isActive:existing ? existing.isActive !== false : false,
       notes:existing?.notes || ''
     };
   });
@@ -1379,6 +1407,35 @@ function updateBillingPriceDraft(priceItemId, key, value, mode = 'text'){
   if(key === 'rateAmount') row.rateAmount = mode === 'number' ? normalizeNumber(value) : value;
   else if(key === 'isActive') row.isActive = !!value;
   else if(key === 'notes') row.notes = String(value || '');
+}
+function getSelectedBillingPriceDrafts(){ return getModalBillingPriceDrafts().filter((row) => row.isActive !== false); }
+function removeBillingMethodFromClient(priceItemId){
+  const row = getModalBillingPriceDrafts().find((item) => item.priceItemId === priceItemId);
+  if(!row) return;
+  row.isActive = false;
+  renderModal();
+}
+function toggleBillingMethodPicker(){
+  modalState.formData.methodPickerOpen = !modalState.formData.methodPickerOpen;
+  if(!Array.isArray(modalState.formData.methodPickerSelection)) modalState.formData.methodPickerSelection = [];
+  renderModal();
+}
+function updateBillingMethodPickerFilter(key, value){
+  modalState.formData[key] = String(value || '');
+  renderModal();
+}
+function toggleBillingMethodPickerSelection(priceItemId, checked){
+  const selection = new Set(normalizeStringArray(modalState.formData.methodPickerSelection));
+  if(checked) selection.add(priceItemId); else selection.delete(priceItemId);
+  modalState.formData.methodPickerSelection = [...selection];
+  renderModal();
+}
+function addSelectedBillingMethods(){
+  const selected = new Set(normalizeStringArray(modalState.formData.methodPickerSelection));
+  getModalBillingPriceDrafts().forEach((row) => { if(selected.has(row.priceItemId)) row.isActive = true; });
+  modalState.formData.methodPickerSelection = [];
+  modalState.formData.methodPickerOpen = false;
+  renderModal();
 }
 function getContactsForSite(siteId){
   const site = getSite(siteId);
@@ -5043,19 +5100,23 @@ function getBillingRateSectionClass(section){
   return 'liquid';
 }
 function getBillingRateSections(){ return ['Liquid Samples', 'Natural Gas Samples', 'Field & Labor']; }
-function getBillingRateItemsBySection(){
+function getBillingRateItemsBySection(items = getActivePriceItems()){
   return getBillingRateSections().map((section) => ({
     section,
-    items:getActivePriceItems().filter((item) => (item.priceSection || (item.category === 'Gas' ? 'Natural Gas Samples' : 'Liquid Samples')) === section)
+    items:items.filter((item) => (item.priceSection || (item.category === 'Gas' ? 'Natural Gas Samples' : 'Liquid Samples')) === section)
   })).filter((group) => group.items.length);
 }
 function getBillingPriceMap(profileId){
   return new Map(getBillingPricesForProfile(profileId).map((row) => [row.priceItemId, row]));
 }
 function renderBillingRateScheduleTable(profile){
-  const groups = getBillingRateItemsBySection();
-  if(!groups.length) return '<div class="empty-state">No price items are available yet.</div>';
   const priceByItemId = getBillingPriceMap(profile?.id || '');
+  const selectedItems = state.data.priceItems.filter((item) => {
+    const price = priceByItemId.get(item.id);
+    return !!price && price.isActive !== false;
+  });
+  const groups = getBillingRateItemsBySection(selectedItems);
+  if(!groups.length) return '<div class="empty-state">No methods have been added to this client yet.</div>';
   const body = groups.map((group) => {
     const sectionClass = getBillingRateSectionClass(group.section);
     const rows = group.items.map((item) => {
@@ -5063,6 +5124,7 @@ function renderBillingRateScheduleTable(profile){
       const rate = normalizeNumber(price?.rateAmount);
       const inactive = price && price.isActive === false;
       return `<tr class="${inactive ? 'is-inactive' : ''}">
+        <td>${esc(getPriceItemTestCode(item) || 'Unmapped')}${item.isActive === false ? '<div class="muted">Archived</div>' : ''}</td>
         <td>${esc(item.method || '')}</td>
         <td>${esc(item.description || '')}</td>
         <td>${esc(item.unitName || '')}</td>
@@ -5070,8 +5132,8 @@ function renderBillingRateScheduleTable(profile){
       </tr>`;
     }).join('');
     return `<tbody class="billing-rate-section billing-rate-section-${sectionClass}">
-      <tr class="section-row"><th colspan="4">${esc(group.section)}</th></tr>
-      <tr class="column-row"><th>Method</th><th>Description</th><th>Units</th><th>${esc(BILLING_RATE_EFFECTIVE_YEAR)} Rate</th></tr>
+      <tr class="section-row"><th colspan="5">${esc(group.section)}</th></tr>
+      <tr class="column-row"><th>Test Code</th><th>Method</th><th>Description</th><th>Units</th><th>${esc(BILLING_RATE_EFFECTIVE_YEAR)} Rate</th></tr>
       ${rows}
     </tbody>`;
   }).join('');
@@ -5081,30 +5143,48 @@ function renderBillingRateScheduleEditor(){
   if(modalState.entity !== 'billingRates') return '';
   const drafts = getModalBillingPriceDrafts();
   const draftByItemId = new Map(drafts.map((row) => [row.priceItemId, row]));
-  const groups = getBillingRateItemsBySection();
-  if(!groups.length){
-    return `<div class="billing-price-editor"><div class="empty-state">No price items are available yet.</div></div>`;
-  }
+  const selectedItems = state.data.priceItems.filter((item) => {
+    const draft = draftByItemId.get(item.id);
+    return !!draft && draft.isActive !== false;
+  });
+  const groups = getBillingRateItemsBySection(selectedItems);
   const groupMarkup = groups.map((group) => {
     const sectionClass = getBillingRateSectionClass(group.section);
     const rows = group.items.map((item) => {
       const draft = draftByItemId.get(item.id) || {};
       return `<tr>
+        <td><strong>${esc(getPriceItemTestCode(item) || 'Unmapped')}</strong>${item.isActive === false ? '<div class="muted">Archived</div>' : ''}</td>
         <td>${esc(item.method || '')}</td>
         <td>${esc(item.description || '')}</td>
         <td>${esc(item.unitName || '')}</td>
         <td><div class="currency-input-wrap compact-currency"><span>$</span><input class="form-input" type="number" step="0.01" min="0" value="${esc(draft.rateAmount ?? '')}" oninput="updateBillingPriceDraft('${esc(item.id)}', 'rateAmount', this.value, 'number')"></div></td>
-        <td><label class="rate-active-toggle"><input type="checkbox" ${draft.isActive !== false ? 'checked' : ''} onchange="updateBillingPriceDraft('${esc(item.id)}', 'isActive', this.checked)"><span>Active</span></label></td>
         <td><input class="form-input compact-notes-input" type="text" value="${esc(draft.notes || '')}" oninput="updateBillingPriceDraft('${esc(item.id)}', 'notes', this.value)"></td>
+        <td><button class="act-btn danger" type="button" onclick="removeBillingMethodFromClient('${esc(item.id)}')">Remove</button></td>
       </tr>`;
     }).join('');
     return `<tbody class="billing-rate-section billing-rate-section-${sectionClass}">
-      <tr class="section-row"><th colspan="6">${esc(group.section)}</th></tr>
-      <tr class="column-row"><th>Method</th><th>Description</th><th>Units</th><th>${esc(BILLING_RATE_EFFECTIVE_YEAR)} Rate</th><th>Active</th><th>Notes</th></tr>
+      <tr class="section-row"><th colspan="7">${esc(group.section)}</th></tr>
+      <tr class="column-row"><th>Test Code</th><th>Method</th><th>Description</th><th>Units</th><th>${esc(BILLING_RATE_EFFECTIVE_YEAR)} Rate</th><th>Notes</th><th></th></tr>
       ${rows}
     </tbody>`;
   }).join('');
-  return `<div class="billing-price-editor"><div class="section-copy">Edit all ${esc(BILLING_RATE_EFFECTIVE_YEAR)} rates for this billing profile. Save applies the full rate schedule together.</div><div class="billing-rate-table-wrap billing-rate-edit-wrap"><table class="billing-rate-table billing-rate-edit-table">${groupMarkup}</table></div></div>`;
+  const emptyMarkup = groups.length ? '' : '<div class="empty-state">No methods have been added to this client. Use Add Methods to build the rate schedule.</div>';
+  return `<div class="billing-price-editor"><div class="rate-schedule-head"><div class="section-copy">Edit the selected ${esc(BILLING_RATE_EFFECTIVE_YEAR)} client methods. Removed methods retain their saved rates and notes.</div><button class="act-btn" type="button" onclick="toggleBillingMethodPicker()">+ Add Methods</button></div>${renderBillingMethodPicker()}${emptyMarkup}<div class="billing-rate-table-wrap billing-rate-edit-wrap"><table class="billing-rate-table billing-rate-edit-table">${groupMarkup}</table></div></div>`;
+}
+
+function renderBillingMethodPicker(){
+  if(!modalState.formData.methodPickerOpen) return '';
+  const query = String(modalState.formData.methodPickerSearch || '').trim().toLowerCase();
+  const section = String(modalState.formData.methodPickerSection || 'all');
+  const selectedClientIds = new Set(getSelectedBillingPriceDrafts().map((row) => row.priceItemId));
+  const checkedIds = new Set(normalizeStringArray(modalState.formData.methodPickerSelection));
+  const candidates = getActivePriceItems().filter((item) => item.testTypeId && !selectedClientIds.has(item.id)).filter((item) => {
+    if(section !== 'all' && item.priceSection !== section) return false;
+    if(!query) return true;
+    return [getPriceItemTestCode(item), item.method, item.description, item.priceSection].some((value) => String(value || '').toLowerCase().includes(query));
+  });
+  const rows = candidates.map((item) => `<label class="billing-method-picker-row"><input type="checkbox" ${checkedIds.has(item.id) ? 'checked' : ''} onchange="toggleBillingMethodPickerSelection('${esc(item.id)}', this.checked)"><span><strong>${esc(getPriceItemTestCode(item))}</strong> | ${esc(item.method || 'No method')} | ${esc(item.description)}</span><small>${esc(item.priceSection || item.category || '')} | ${esc(item.unitName || '')}</small></label>`).join('');
+  return `<div class="billing-method-picker"><div class="toolbar"><input type="text" value="${esc(modalState.formData.methodPickerSearch || '')}" placeholder="Search code, method, or description..." oninput="updateBillingMethodPickerFilter('methodPickerSearch', this.value)"><select onchange="updateBillingMethodPickerFilter('methodPickerSection', this.value)"><option value="all">All sections</option>${getBillingRateSections().map((value) => `<option value="${esc(value)}" ${section === value ? 'selected' : ''}>${esc(value)}</option>`).join('')}</select></div><div class="billing-method-picker-list">${rows || '<div class="empty-state">No available mapped methods match this search.</div>'}</div><div class="table-actions"><button class="btn-cancel" type="button" onclick="toggleBillingMethodPicker()">Cancel</button><button class="btn-save" type="button" onclick="addSelectedBillingMethods()" ${checkedIds.size ? '' : 'disabled'}>Add Selected (${checkedIds.size})</button></div></div>`;
 }
 
 function renderAssignmentRow(assignment){
@@ -6205,6 +6285,7 @@ async function saveLocalBillingRateRows(profileId, priceDrafts){
   next.billingProfilePrices = next.billingProfilePrices.filter((row) => !(row.billingProfileId === profileId && Number(row.effectiveYear || keepYear) === keepYear));
   (Array.isArray(priceDrafts) ? priceDrafts : []).forEach((row) => {
     if(!row.priceItemId || !next.priceItems.some((item) => item.id === row.priceItemId)) return;
+    if(!row.id && row.isActive === false && normalizeNumber(row.rateAmount) === null && !String(row.notes || '').trim()) return;
     next.billingProfilePrices.push(normalizeRecord('billingProfilePrices', {
       id:row.id || `${profileId}::${row.priceItemId}::${keepYear}`,
       billingProfileId:profileId,
@@ -6500,6 +6581,7 @@ async function saveRemoteContactRecord(draft){
 function buildBillingPriceRowsForSave(profileId, priceDrafts){
   return (Array.isArray(priceDrafts) ? priceDrafts : [])
     .filter((row) => row.priceItemId && getPriceItem(row.priceItemId))
+    .filter((row) => row.id || row.isActive !== false || normalizeNumber(row.rateAmount) !== null || String(row.notes || '').trim())
     .map((row) => ({
       billing_profile_id:profileId,
       price_item_id:row.priceItemId,
@@ -6895,6 +6977,7 @@ window.addEventListener('keydown', (event) => {
 (async function init(){
   await (window.authReadyPromise || Promise.resolve());
   await Promise.all([loadData({ silent:true, force:true }), loadLabTestDefinitions()]);
+  syncLocalTestTypesFromLabDefinitions();
   render();
   startAutoRefresh();
 })();

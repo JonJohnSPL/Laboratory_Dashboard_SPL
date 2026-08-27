@@ -13,6 +13,7 @@ const DEFAULT_TEST_DEFS = [
 ];
 
 let testDefinitions = [];
+let linkedMethods = [];
 let selectedTestTypeId = null;
 let editTestTypeId = null;
 let searchTerm = '';
@@ -76,7 +77,7 @@ function inferTone(definition){
 
 function inferMatrixType(definition){
   const key = String(definition?.key || definition?.label || '').toUpperCase();
-  const explicit = String(definition?.matrixType || '').trim().toLowerCase();
+  const explicit = String(definition?.matrixType || definition?.matrix_type || '').trim().toLowerCase();
   if(explicit === 'gas') return 'Gas';
   if(explicit === 'liquid') return 'Liquid';
   if(explicit === 'calculated') return 'Calculated';
@@ -91,9 +92,9 @@ function normalizeMinutesForMatrixType(matrixType, minutes){
 }
 
 function normalizeTestDefinition(definition, index = 0){
-  const key = normalizeCatalogKey(definition?.key || definition?.code || definition?.label || `TEST_${index + 1}`);
+  const key = normalizeCatalogKey(definition?.key || definition?.testCode || definition?.test_code || definition?.code || definition?.label || definition?.displayLabel || definition?.display_label || `TEST_${index + 1}`);
   if(!key) return null;
-  const label = String(definition?.label || key).trim() || key;
+  const label = String(definition?.label || definition?.displayLabel || definition?.display_label || key).trim() || key;
   const aliasSource = Array.isArray(definition?.aliases)
     ? definition.aliases
     : String(definition?.aliases || '').split(',');
@@ -102,14 +103,16 @@ function normalizeTestDefinition(definition, index = 0){
     id: String(definition?.id || key),
     key,
     label,
-    shortLabel: String(definition?.shortLabel || label).trim() || label,
+    shortLabel: String(definition?.shortLabel || definition?.short_label || label).trim() || label,
     minutes: normalizeMinutesForMatrixType(matrixType, definition?.minutes),
-    countMode: definition?.countMode === 'perRow' ? 'perRow' : 'perSample',
+    countMode: (definition?.countMode || definition?.count_mode) === 'perRow' ? 'perRow' : 'perSample',
     matrixType,
-    groupKey: normalizeCatalogKey(definition?.groupKey || ''),
-    groupRank: Math.max(0, Number(definition?.groupRank || 0)),
+    groupKey: normalizeCatalogKey(definition?.groupKey || definition?.group_key || ''),
+    groupRank: Math.max(0, Number(definition?.groupRank ?? definition?.group_rank ?? 0)),
     aliases: uniqueList([key, label, ...aliasSource]),
-    sortOrder: Number.isFinite(Number(definition?.sortOrder)) ? Number(definition.sortOrder) : index,
+    sortOrder: Number.isFinite(Number(definition?.sortOrder ?? definition?.sort_order)) ? Number(definition.sortOrder ?? definition.sort_order) : index,
+    labWipEnabled:(definition?.labWipEnabled ?? definition?.lab_wip_enabled) !== false,
+    isActive:(definition?.isActive ?? definition?.is_active) !== false,
     tone: inferTone(definition)
   };
 }
@@ -134,7 +137,9 @@ function serializeDefinitions(list){
     groupKey: definition.groupKey,
     groupRank: definition.groupRank,
     aliases: definition.aliases,
-    sortOrder: definition.sortOrder
+    sortOrder: definition.sortOrder,
+    labWipEnabled:definition.labWipEnabled !== false,
+    isActive:definition.isActive !== false
   })));
 }
 
@@ -224,7 +229,7 @@ function renderTable(){
   if(!visible.length){
     tbody.innerHTML = `
       <tr>
-        <td colspan="6">
+        <td colspan="7">
           <div class="empty-state">
             <div class="big">[]</div>
             No test types match the current search.
@@ -234,7 +239,9 @@ function renderTable(){
     `;
     return;
   }
-  tbody.innerHTML = visible.map((definition) => `
+  tbody.innerHTML = visible.map((definition) => {
+    const methodCount = linkedMethods.filter((method) => method.testTypeId === definition.id).length;
+    return `
     <tr class="${selectedTestTypeId === definition.id ? 'selected' : ''}" onclick="selectTestType('${esc(definition.id)}')">
       <td>
         <div class="record-title">${esc(definition.key)}</div>
@@ -248,8 +255,9 @@ function renderTable(){
       <td>${esc(definition.minutes)} min</td>
       <td>${esc(definition.countMode === 'perRow' ? 'Per Row' : 'Per Sample')}</td>
       <td>${esc(definition.groupKey ? `${definition.groupKey} / ${definition.groupRank}` : 'Standalone')}</td>
+      <td>${methodCount ? `${methodCount} method${methodCount === 1 ? '' : 's'}` : '<span class="mapping-warning">Needs Method</span>'}</td>
     </tr>
-  `).join('');
+  `; }).join('');
 }
 
 function renderDetail(){
@@ -317,6 +325,10 @@ function renderDetail(){
         <div class="detail-item-label">Aliases</div>
         <div class="detail-item-value">${esc(aliases.length ? aliases.join(', ') : 'None')}</div>
       </div>
+      <div class="detail-item">
+        <div class="detail-item-label">Lab WIP</div>
+        <div class="detail-item-value">${definition.labWipEnabled !== false ? 'Available' : 'Hidden'}</div>
+      </div>
     </div>
     <div class="component-card">
       <h2>Behavior</h2>
@@ -359,6 +371,7 @@ function openTestTypeModal(id = ''){
   document.getElementById('type-aliases').value = definition
     ? definition.aliases.filter((alias) => alias !== definition.key && alias !== definition.label).join(', ')
     : '';
+  document.getElementById('type-lab-wip-enabled').checked = definition?.labWipEnabled !== false;
   applyTestTypeFormMatrixDefaults(false);
   document.getElementById('test-type-modal-overlay').classList.add('open');
 }
@@ -383,6 +396,7 @@ async function saveTestTypeFromModal(){
   const groupKey = normalizeCatalogKey(document.getElementById('type-group-key').value.trim());
   const groupRank = Math.max(0, Number(document.getElementById('type-group-rank').value || 0));
   const aliasValues = uniqueList(String(document.getElementById('type-aliases').value || '').split(',').map((value) => value.trim()));
+  const labWipEnabled = document.getElementById('type-lab-wip-enabled').checked;
   const nextDefinitions = [...testDefinitions];
   const existingIndex = nextDefinitions.findIndex((definition) => definition.id === editTestTypeId);
   const duplicate = nextDefinitions.find((definition, index) => definition.key === key && index !== existingIndex);
@@ -406,7 +420,9 @@ async function saveTestTypeFromModal(){
     groupKey,
     groupRank,
     aliases,
-    sortOrder: previous?.sortOrder ?? nextDefinitions.length
+    sortOrder: previous?.sortOrder ?? nextDefinitions.length,
+    labWipEnabled,
+    isActive:previous?.isActive !== false
   });
 
   if(existingIndex >= 0){
@@ -420,7 +436,29 @@ async function saveTestTypeFromModal(){
     showSaveStatus('saving', 'SAVING...');
     const normalized = normalizeDefinitions(nextDefinitions);
     const raw = serializeDefinitions(normalized);
-    await getStorageAdapter().set(TEST_DEFINITION_STORAGE_KEY, raw);
+    if(isRemoteMode()){
+      if(!previous?.id){ throw new Error('Create new Test Codes from the Master Methods Catalog.'); }
+      await window.appAuth.requestJson(`/rest/v1/lab_test_types?id=eq.${encodeURIComponent(previous.id)}`, {
+        method:'PATCH',
+        headers:{ 'Content-Type':'application/json', 'Prefer':'return=minimal' },
+        body:JSON.stringify({
+          test_code:nextDefinition.key,
+          display_label:nextDefinition.label,
+          short_label:nextDefinition.shortLabel,
+          minutes:nextDefinition.minutes,
+          count_mode:nextDefinition.countMode,
+          matrix_type:nextDefinition.matrixType,
+          group_key:nextDefinition.groupKey,
+          group_rank:nextDefinition.groupRank,
+          aliases:nextDefinition.aliases,
+          sort_order:nextDefinition.sortOrder,
+          lab_wip_enabled:nextDefinition.labWipEnabled !== false,
+          is_active:previous.isActive !== false
+        })
+      });
+    } else {
+      await getStorageAdapter().set(TEST_DEFINITION_STORAGE_KEY, raw);
+    }
     testDefinitions = normalized;
     lastLoadedSnapshot = raw;
     selectedTestTypeId = nextDefinition.id;
@@ -451,6 +489,23 @@ function applyTestTypeFormMatrixDefaults(forceZero = true){
 
 async function loadTestTypes(options = {}){
   try {
+    if(isRemoteMode()){
+      const [typeRows, methodRows] = await Promise.all([
+        window.appAuth.requestJson('/rest/v1/lab_test_types?select=*&order=sort_order.asc,test_code.asc'),
+        window.appAuth.requestJson('/rest/v1/billing_price_items?select=id,test_type_id,is_active')
+      ]);
+      const raw = JSON.stringify({ typeRows:typeRows || [], methodRows:methodRows || [] });
+      if(!options.force && raw === lastLoadedSnapshot) return false;
+      testDefinitions = normalizeDefinitions(typeRows || []);
+      linkedMethods = (methodRows || []).map((row) => ({ id:String(row.id || ''), testTypeId:String(row.test_type_id || ''), isActive:row.is_active !== false }));
+      lastLoadedSnapshot = raw;
+      const visible = getVisibleTestDefinitions();
+      if(!visible.some((definition) => definition.id === selectedTestTypeId)) selectedTestTypeId = visible[0]?.id || testDefinitions[0]?.id || null;
+      renderAll();
+      setLastUpdateText(`${testDefinitions.length} type(s) | Remote | ${new Date().toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' })}`);
+      if(!options.silent){ showSaveStatus('loaded', 'SYNCED'); hideSaveStatusSoon(); }
+      return true;
+    }
     const result = await getStorageAdapter().get(TEST_DEFINITION_STORAGE_KEY);
     const raw = typeof result?.value === 'string' && result.value ? result.value : serializeDefinitions(normalizeDefinitions(DEFAULT_TEST_DEFS));
     if(!options.force && raw === lastLoadedSnapshot){

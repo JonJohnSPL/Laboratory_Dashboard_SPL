@@ -167,7 +167,7 @@ select
   ps.rate_amount,
   'USD',
   2026,
-  true,
+  false,
   'Seeded from Master SPL Pitt Pricesheet - CONFIDENTIAL.xlsx for ' || pc.workbook_client_name || '.'
 from profile_choice pc
 cross join price_seed ps

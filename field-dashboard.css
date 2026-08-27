@@ -2188,6 +2188,13 @@ textarea.form-input{min-height:86px;resize:vertical;}
   font-size:11px;
   white-space:nowrap;
 }
+.billing-method-picker{margin:14px 0 18px;padding:14px;border:1px solid var(--border);border-radius:10px;background:rgba(7,18,31,.72)}
+.billing-method-picker .toolbar{margin-bottom:10px}
+.billing-method-picker-list{display:grid;gap:7px;max-height:320px;overflow:auto;margin-bottom:12px}
+.billing-method-picker-row{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;align-items:center;padding:10px;border:1px solid rgba(130,160,185,.2);border-radius:8px;background:rgba(255,255,255,.025);cursor:pointer}
+.billing-method-picker-row:hover{border-color:rgba(89,214,125,.42)}
+.billing-method-picker-row input{grid-row:1 / span 2}
+.billing-method-picker-row small{color:var(--muted)}
 .part-catalog-panel{
   grid-column:1 / -1;
 }
