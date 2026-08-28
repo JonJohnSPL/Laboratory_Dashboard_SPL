@@ -224,55 +224,21 @@ test('dispatch date presets default to this week and include the requested perio
   const source = fs.readFileSync('field-dashboard.js', 'utf8');
   const renderDispatchSource = readFunction(source, 'renderDispatch');
   assert.match(source, /dispatchDatePreset:'this_week'/);
-  assert.match(source, /scheduleView:'week'/);
-  assert.match(readFunction(source, 'setDispatchDatePreset'), /syncScheduleToDispatchDatePreset/);
   for(const label of ['This Week', 'Last Week', 'Next Week', 'This Month', 'Last Month', 'Next Month', 'Date Range']){
     assert.match(renderDispatchSource, new RegExp(label));
   }
 });
 
-test('a custom dispatch date range supplies the calendar dates', () => {
+test('Schedule keeps its own calendar period and shows a compact period-linked job board', () => {
   const source = fs.readFileSync('field-dashboard.js', 'utf8');
-  const context = {
-    state:{
-      filters:{ dispatchDatePreset:'date_range', dispatchDateFrom:'2026-08-10', dispatchDateTo:'2026-08-12' },
-      scheduleView:'week',
-      scheduleAnchorDate:'2026-08-10'
-    },
-    parseDateOnly:(value) => value ? new Date(`${value}T00:00:00`) : null,
-    toInputDate:(value) => value.toISOString().slice(0, 10),
-    addDaysISO:(value, days) => {
-      const date = new Date(`${value}T00:00:00`);
-      date.setDate(date.getDate() + days);
-      return date.toISOString().slice(0, 10);
-    },
-    getStartOfMonthISO:() => '',
-    getStartOfWeekISO:() => ''
-  };
-  vm.createContext(context);
-  vm.runInContext(readFunction(source, 'getScheduleDates'), context);
-
-  assert.deepEqual(Array.from(context.getScheduleDates()), ['2026-08-10', '2026-08-11', '2026-08-12']);
-});
-
-test('Schedule calendar uses the same filtered job set as the dispatch board', () => {
-  const source = fs.readFileSync('field-dashboard.js', 'utf8');
-  const context = {
-    getFilteredDispatchRows:() => [{ job:{ id:'visible-job' } }],
-    getJobsForScheduleDates:() => [{ id:'visible-job' }, { id:'filtered-out-job' }]
-  };
-  vm.createContext(context);
-  vm.runInContext(readFunction(source, 'getFilteredScheduleJobs'), context);
-
-  assert.deepEqual(
-    Array.from(context.getFilteredScheduleJobs(['2026-08-12'], {}), (job) => job.id),
-    ['visible-job']
-  );
-});
-
-test('dispatch filters are placed above the weekly schedule calendar', () => {
   const html = fs.readFileSync('field-dashboard.html', 'utf8');
-  assert.ok(html.indexOf('id="dispatch-toolbar"') < html.indexOf('class="schedule-layout"'));
+  const renderScheduleSource = readFunction(source, 'renderSchedule');
+  assert.match(html, /data-view="job-board"/);
+  assert.match(html, /id="job-board-screen"/);
+  assert.match(html, /id="schedule-dispatch-table"/);
+  assert.match(renderScheduleSource, /getJobsForScheduleDates\(scheduleDates, 'all'\)/);
+  assert.match(renderScheduleSource, /renderScheduleDispatch/);
+  assert.doesNotMatch(readFunction(source, 'getScheduleDates'), /dispatchDate/);
 });
 
 test('Field Ops lands on Schedule without an Overview tab', () => {
