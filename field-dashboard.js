@@ -185,7 +185,7 @@ const ENTITY_CONFIG = {
 };
 
 const INITIAL_DISPATCH_WEEK_START = getStartOfWeekISO(new Date());
-let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'schedule', scheduleAnchorDate:getStartOfWeekISO(new Date()), scheduleView:'week', scheduleAddPromptDate:'', scheduleActionJobId:'', scheduleQuickTechJobId:'', scheduleQuickTechTechnicianId:'', scheduleQuickTicketJobId:'', scheduleQuickTicketNumber:'', scheduleQuickTicketUrl:'', scheduleActionSavingJobId:'', filters:{ dispatchSearch:'', dispatchClient:'all', dispatchJobType:'all', dispatchDatePreset:'this_week', dispatchDateFrom:INITIAL_DISPATCH_WEEK_START, dispatchDateTo:addDaysISO(INITIAL_DISPATCH_WEEK_START, 6), dispatchTechnician:'all', dispatchSortKey:'schedule', dispatchSortDirection:'asc', inventorySearch:'', inventoryStatus:'active', partPickerSearch:'', partCatalogType:'category', directoryClient:'all', directorySection:'overview', directoryClientSearch:'', directoryContactSearch:'', directoryContactScope:'all', directoryContactProject:'all', directoryContactSite:'all', directoryContactSortKey:'name', directoryContactSortDirection:'asc' }, data:createEmptyData(), labTestDefinitions:[], sampleLinkModal:createClosedSampleLinkModalState(), partAdjustModal:createClosedPartAdjustModalState(), partPickerOpen:false, sampleTableModalOpen:false, expandedSampleGroups:{}, saveInFlight:false, autoRefreshInFlight:false, geotabSyncInFlight:false, donesafeSyncInFlight:false };
+let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'schedule', scheduleAnchorDate:getStartOfWeekISO(new Date()), scheduleView:'week', scheduleAddPromptDate:'', scheduleActionJobId:'', scheduleQuickTechJobId:'', scheduleQuickTechTechnicianId:'', scheduleQuickTicketJobId:'', scheduleQuickTicketNumber:'', scheduleQuickTicketUrl:'', scheduleActionSavingJobId:'', filters:{ dispatchSearch:'', dispatchClient:'all', dispatchJobType:'all', dispatchDatePreset:'this_week', dispatchDateFrom:INITIAL_DISPATCH_WEEK_START, dispatchDateTo:addDaysISO(INITIAL_DISPATCH_WEEK_START, 6), dispatchTechnician:'all', dispatchSortKey:'schedule', dispatchSortDirection:'asc', scheduleSearch:'', scheduleClient:'all', scheduleJobType:'all', scheduleTechnician:'all', inventorySearch:'', inventoryStatus:'active', partPickerSearch:'', partCatalogType:'category', directoryClient:'all', directorySection:'overview', directoryClientSearch:'', directoryContactSearch:'', directoryContactScope:'all', directoryContactProject:'all', directoryContactSite:'all', directoryContactSortKey:'name', directoryContactSortDirection:'asc' }, data:createEmptyData(), labTestDefinitions:[], sampleLinkModal:createClosedSampleLinkModalState(), partAdjustModal:createClosedPartAdjustModalState(), partPickerOpen:false, sampleTableModalOpen:false, expandedSampleGroups:{}, saveInFlight:false, autoRefreshInFlight:false, geotabSyncInFlight:false, donesafeSyncInFlight:false };
 let modalState = createClosedModalState();
 let lastLoadedSnapshot = '';
 let hideSaveStatusTimer = null;
@@ -2913,6 +2913,10 @@ function setDispatchFilter(key, value){
   state.filters[key] = value;
   render();
 }
+function setScheduleFilter(key, value){
+  state.filters[key] = value;
+  render();
+}
 function getDispatchDateRangeForPreset(preset, referenceDate = todayISO()){
   const weekStart = getStartOfWeekISO(referenceDate);
   if(preset === 'last_week') return { from:addDaysISO(weekStart, -7), to:addDaysISO(weekStart, -1) };
@@ -3479,18 +3483,44 @@ function jobOverlapsDispatchDateRange(job, fromValue, toValue){
   return true;
 }
 
+function jobMatchesJobFilters(row, filters, includeDate = false){
+  const search = String(filters.search || '').trim().toLowerCase();
+  const job = row.job;
+  if(filters.client !== 'all' && job.clientId !== filters.client) return false;
+  if(filters.jobType !== 'all' && resolveJobTypeValue(state.data.jobTypes, job.jobType) !== filters.jobType) return false;
+  if(includeDate && !jobOverlapsDispatchDateRange(job, filters.dateFrom, filters.dateTo)) return false;
+  if(filters.technician !== 'all' && !getTechnicianAssignmentsForJob(job.id).some((assignment) => assignment.resourceId === filters.technician)) return false;
+  if(!search) return true;
+  const haystack = [getJobDisplayTitle(job), getJobTypeDisplayName(job.jobType), job.scopeSummary, job.clientContactForJob, getClientLabel(job.clientId), getProjectLabel(job.projectId), getJobSiteSummary(job), getJobSites(job).map((site) => site.siteName).join(' '), row.techLabels.join(' ')].join(' ').toLowerCase();
+  return haystack.includes(search);
+}
+
 function getFilteredDispatchRows(derived){
-  const search = state.filters.dispatchSearch.trim().toLowerCase();
+  const filters = {
+    search:state.filters.dispatchSearch,
+    client:state.filters.dispatchClient,
+    jobType:state.filters.dispatchJobType,
+    dateFrom:state.filters.dispatchDateFrom,
+    dateTo:state.filters.dispatchDateTo,
+    technician:state.filters.dispatchTechnician
+  };
   return state.data.jobs.map((job) => buildDispatchJobView(job, derived)).filter((row) => {
-    const job = row.job;
-    if(state.filters.dispatchClient !== 'all' && job.clientId !== state.filters.dispatchClient) return false;
-    if(state.filters.dispatchJobType !== 'all' && resolveJobTypeValue(state.data.jobTypes, job.jobType) !== state.filters.dispatchJobType) return false;
-    if(!jobOverlapsDispatchDateRange(job, state.filters.dispatchDateFrom, state.filters.dispatchDateTo)) return false;
-    if(state.filters.dispatchTechnician !== 'all' && !getTechnicianAssignmentsForJob(job.id).some((assignment) => assignment.resourceId === state.filters.dispatchTechnician)) return false;
-    if(!search) return true;
-    const haystack = [getJobDisplayTitle(job), getJobTypeDisplayName(job.jobType), job.scopeSummary, job.clientContactForJob, getClientLabel(job.clientId), getProjectLabel(job.projectId), getJobSiteSummary(job), getJobSites(job).map((site) => site.siteName).join(' '), row.techLabels.join(' ')].join(' ').toLowerCase();
-    return haystack.includes(search);
+    return jobMatchesJobFilters(row, filters, true);
   }).sort(compareDispatchRows);
+}
+
+function getFilteredScheduleJobs(dates, derived){
+  const filters = {
+    search:state.filters.scheduleSearch,
+    client:state.filters.scheduleClient,
+    jobType:state.filters.scheduleJobType,
+    technician:state.filters.scheduleTechnician
+  };
+  const visibleJobIds = new Set(state.data.jobs
+    .map((job) => buildDispatchJobView(job, derived))
+    .filter((row) => jobMatchesJobFilters(row, filters))
+    .map((row) => row.job.id));
+  return getJobsForScheduleDates(dates, 'all').filter((job) => visibleJobIds.has(job.id));
 }
 
 function renderOverview(derived){
@@ -3511,7 +3541,7 @@ function renderDispatchSortHeader(column){
   return `<button class="sort-header-btn ${active ? 'active' : ''}" type="button" onclick="setDispatchSort('${esc(column.key)}')" aria-label="Sort by ${esc(column.label)}">${esc(column.label)}${indicator ? `<span>${esc(indicator)}</span>` : ''}</button>`;
 }
 
-function renderDispatchTable(rows){
+function renderDispatchTable(rows, sortable = true){
   if(!rows.length) return '<div class="empty-state"><strong>No dispatch jobs yet</strong>Use the Add Job button to start building the field schedule.</div>';
   const columns = [
     { key:'jobType', label:'Job Type', sortable:true },
@@ -3522,7 +3552,7 @@ function renderDispatchTable(rows){
     { key:'truck', label:'Truck', sortable:false },
     { key:'equipment', label:'Equipment', sortable:false }
   ];
-  return `<div class="table-wrap"><table class="dispatch-table"><thead><tr>${columns.map((column) => `<th>${column.sortable ? renderDispatchSortHeader(column) : esc(column.label)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => {
+  return `<div class="table-wrap"><table class="dispatch-table"><thead><tr>${columns.map((column) => `<th>${sortable && column.sortable ? renderDispatchSortHeader(column) : esc(column.label)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => {
     const job = row.job;
     const cells = [
       `<div class="inline-stack dispatch-job-cell"><div>${getJobTypeBadge(job.jobType)}${renderJobSalesforceTag(job)}</div><div class="muted">${esc(job.scopeSummary || 'No scope summary')}</div>${job.custodyAllocation ? `<div class="muted">${esc(job.custodyAllocation)}</div>` : ''}</div>`,
@@ -3550,9 +3580,19 @@ function renderDispatch(derived){
 }
 
 function renderScheduleDispatch(derived, jobs){
-  const rows = jobs.map((job) => buildDispatchJobView(job, derived)).sort(compareDispatchRows);
+  const rows = jobs.map((job) => buildDispatchJobView(job, derived)).sort((left, right) => {
+    return compareDispatchValues(left.values.schedule, right.values.schedule, 'asc')
+      || compareDispatchValues(left.values.jobType, right.values.jobType, 'asc')
+      || compareStrings(left.job.id, right.job.id);
+  });
   document.getElementById('schedule-dispatch-summary').textContent = `${rows.length} jobs shown for the calendar period`;
-  document.getElementById('schedule-dispatch-table').innerHTML = renderDispatchTable(rows);
+  document.getElementById('schedule-dispatch-table').innerHTML = renderDispatchTable(rows, false);
+}
+
+function renderScheduleFilterToolbar(){
+  const clients = [...state.data.clients].sort(getEntitySorter('clients'));
+  const technicians = [...state.data.employees].sort((left, right) => compareStrings(getEmployeeListName(left), getEmployeeListName(right)));
+  document.getElementById('schedule-dispatch-toolbar').innerHTML = `<span class="label">Search</span><input type="text" value="${esc(state.filters.scheduleSearch)}" placeholder="Client, job type, site, technician, or scope..." oninput="setScheduleFilter('scheduleSearch', this.value)"><span class="label">Client</span><select onchange="setScheduleFilter('scheduleClient', this.value)"><option value="all">All Clients</option>${clients.map((client) => `<option value="${esc(client.id)}" ${state.filters.scheduleClient === client.id ? 'selected' : ''}>${esc(getClientLabel(client.id))}</option>`).join('')}</select><span class="label">Job Type</span><select onchange="setScheduleFilter('scheduleJobType', this.value)"><option value="all">All Job Types</option>${getActiveJobTypes().map((jobType) => `<option value="${esc(jobType.jobTypeKey)}" ${state.filters.scheduleJobType === jobType.jobTypeKey ? 'selected' : ''}>${esc(jobType.jobTypeName)}</option>`).join('')}</select><span class="label">Technician</span><select onchange="setScheduleFilter('scheduleTechnician', this.value)"><option value="all">All Technicians</option>${technicians.map((technician) => `<option value="${esc(technician.id)}" ${state.filters.scheduleTechnician === technician.id ? 'selected' : ''}>${esc(getEmployeeListName(technician))}</option>`).join('')}</select>`;
 }
 
 function getScheduleViewOptions(){
@@ -3752,10 +3792,11 @@ function renderScheduleCompanyIdentity(job){
 
 function renderSchedule(derived){
   const scheduleDates = getScheduleDates();
-  const scheduleJobs = getJobsForScheduleDates(scheduleDates, 'all');
+  const scheduleJobs = getFilteredScheduleJobs(scheduleDates, derived);
   const totalJobsInRange = getJobsForScheduleDates(scheduleDates, 'all').length;
   document.getElementById('schedule-toolbar').innerHTML = `${renderScheduleSegmentedControl('View', getScheduleViewOptions(), state.scheduleView, 'setScheduleView')}<span class="label">Period</span><button class="act-btn" type="button" onclick="changeScheduleWeek(-1)">Prev</button><button class="act-btn" type="button" onclick="resetScheduleWeek()">Current</button><button class="act-btn" type="button" onclick="changeScheduleWeek(1)">Next</button><button class="act-btn" type="button" onclick="sendTeamsWebhookTest()">Send Teams Test</button><div class="toolbar-summary">${esc(getSchedulePeriodLabel(scheduleDates))}</div>`;
-  document.getElementById('schedule-summary').textContent = `${scheduleJobs.length} visible / ${totalJobsInRange} jobs ${getScheduleViewSummaryLabel(state.scheduleView)} | ${getScheduleViewLabel(state.scheduleView)} | Shared dispatch filters`;
+  renderScheduleFilterToolbar();
+  document.getElementById('schedule-summary').textContent = `${scheduleJobs.length} visible / ${totalJobsInRange} jobs ${getScheduleViewSummaryLabel(state.scheduleView)} | ${getScheduleViewLabel(state.scheduleView)} | Schedule filters`;
   document.getElementById('schedule-board').innerHTML = `
     <div class="schedule-week schedule-${esc(state.scheduleView)}">
       ${scheduleDates.map((dateIso) => {

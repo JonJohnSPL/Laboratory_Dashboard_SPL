@@ -229,16 +229,41 @@ test('dispatch date presets default to this week and include the requested perio
   }
 });
 
-test('Schedule keeps its own calendar period and shows a compact period-linked job board', () => {
+test('Schedule uses non-date filters that are separate from the Job Board', () => {
   const source = fs.readFileSync('field-dashboard.js', 'utf8');
   const html = fs.readFileSync('field-dashboard.html', 'utf8');
   const renderScheduleSource = readFunction(source, 'renderSchedule');
   assert.match(html, /data-view="job-board"/);
   assert.match(html, /id="job-board-screen"/);
+  assert.match(html, /id="schedule-dispatch-toolbar"/);
   assert.match(html, /id="schedule-dispatch-table"/);
-  assert.match(renderScheduleSource, /getJobsForScheduleDates\(scheduleDates, 'all'\)/);
+  assert.match(renderScheduleSource, /getFilteredScheduleJobs/);
   assert.match(renderScheduleSource, /renderScheduleDispatch/);
   assert.doesNotMatch(readFunction(source, 'getScheduleDates'), /dispatchDate/);
+  const scheduleFilterSource = readFunction(source, 'getFilteredScheduleJobs');
+  for(const filter of ['scheduleSearch', 'scheduleClient', 'scheduleJobType', 'scheduleTechnician']){
+    assert.match(scheduleFilterSource, new RegExp(filter));
+  }
+  assert.doesNotMatch(scheduleFilterSource, /dispatchDate/);
+});
+
+test('Schedule and Job Board filters do not mutate one another', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  let renders = 0;
+  const context = {
+    state:{ filters:{ scheduleClient:'all', dispatchClient:'job-board-client' } },
+    render:() => { renders += 1; }
+  };
+  vm.createContext(context);
+  vm.runInContext([readFunction(source, 'setScheduleFilter'), readFunction(source, 'setDispatchFilter')].join('\n'), context);
+
+  context.setScheduleFilter('scheduleClient', 'schedule-client');
+  assert.equal(context.state.filters.scheduleClient, 'schedule-client');
+  assert.equal(context.state.filters.dispatchClient, 'job-board-client');
+  context.setDispatchFilter('dispatchClient', 'updated-job-board-client');
+  assert.equal(context.state.filters.scheduleClient, 'schedule-client');
+  assert.equal(context.state.filters.dispatchClient, 'updated-job-board-client');
+  assert.equal(renders, 2);
 });
 
 test('Field Ops lands on Schedule without an Overview tab', () => {
