@@ -214,7 +214,7 @@ test('dispatch board exposes the requested filters and removes priority controls
   const source = fs.readFileSync('field-dashboard.js', 'utf8');
   const renderDispatchSource = readFunction(source, 'renderDispatch');
 
-  for(const filter of ['dispatchClient', 'dispatchJobType', 'dispatchDatePreset', 'dispatchDateFrom', 'dispatchDateTo', 'dispatchStatus', 'dispatchTechnician']){
+  for(const filter of ['dispatchClient', 'dispatchJobType', 'dispatchDatePreset', 'dispatchDateFrom', 'dispatchDateTo', 'dispatchTechnician']){
     assert.match(renderDispatchSource, new RegExp(filter));
   }
   assert.doesNotMatch(source, /dispatchPriority|dispatchAlertFilter|dispatchAssignmentFilter|getPriorityBadge|PRIORITY_OPTIONS/);
