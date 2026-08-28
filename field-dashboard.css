@@ -287,7 +287,7 @@ header{
   grid-template-columns:minmax(0, 1fr);
   gap:14px;
 }
-.dispatch-toolbar{margin-top:16px;}
+.dispatch-toolbar{margin-top:0;}
 .schedule-dispatch-panel{margin-top:14px;}
 .simple-toolbar{justify-content:space-between;}
 .table-wrap{overflow:auto;}

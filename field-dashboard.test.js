@@ -220,6 +220,26 @@ test('dispatch board exposes the requested filters and removes priority controls
   assert.doesNotMatch(source, /dispatchPriority|dispatchAlertFilter|dispatchAssignmentFilter|getPriorityBadge|PRIORITY_OPTIONS/);
 });
 
+test('Schedule calendar uses the same filtered job set as the dispatch board', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const context = {
+    getFilteredDispatchRows:() => [{ job:{ id:'visible-job' } }],
+    getJobsForScheduleDates:() => [{ id:'visible-job' }, { id:'filtered-out-job' }]
+  };
+  vm.createContext(context);
+  vm.runInContext(readFunction(source, 'getFilteredScheduleJobs'), context);
+
+  assert.deepEqual(
+    Array.from(context.getFilteredScheduleJobs(['2026-08-12'], {}), (job) => job.id),
+    ['visible-job']
+  );
+});
+
+test('dispatch filters are placed above the weekly schedule calendar', () => {
+  const html = fs.readFileSync('field-dashboard.html', 'utf8');
+  assert.ok(html.indexOf('id="dispatch-toolbar"') < html.indexOf('class="schedule-layout"'));
+});
+
 test('Field Ops lands on Schedule without an Overview tab', () => {
   const source = fs.readFileSync('field-dashboard.js', 'utf8');
   const html = fs.readFileSync('field-dashboard.html', 'utf8');
@@ -235,7 +255,6 @@ test('month schedule includes jobs shown on adjacent-month grid days', () => {
   const context = {
     state:{
       scheduleView:'month',
-      scheduleJobFilter:'all',
       data:{
         jobs:[
           { id:'july-job', scheduledStart:'2026-07-31T08:00:00' },

@@ -184,7 +184,7 @@ const ENTITY_CONFIG = {
   maintenanceRecords:{ table:'field_maintenance_records', label:'Maintenance Record', idPrefix:'maint', defaults:{ assetType:'Equipment', assetId:'', maintenanceType:'Preventive', openDate:'', dueDate:'', completedDate:'', status:'Open', issueDescription:'', resolution:'', vendorInternal:'Internal', cost:null, assignedPerson:'', notes:'' }, fieldMap:{ assetType:'asset_type', assetId:'asset_id', maintenanceType:'maintenance_type', openDate:'open_date', dueDate:'due_date', completedDate:'completed_date', status:'status', issueDescription:'issue_description', resolution:'resolution', vendorInternal:'vendor_internal', cost:'cost', assignedPerson:'assigned_person', notes:'notes' }, idFields:['assetId'], numberFields:['cost'], dateFields:['openDate', 'dueDate', 'completedDate'] }
 };
 
-let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'schedule', scheduleAnchorDate:getStartOfWeekISO(new Date()), scheduleView:'work_week', scheduleJobFilter:'all', scheduleAddPromptDate:'', scheduleActionJobId:'', scheduleQuickTechJobId:'', scheduleQuickTechTechnicianId:'', scheduleQuickTicketJobId:'', scheduleQuickTicketNumber:'', scheduleQuickTicketUrl:'', scheduleActionSavingJobId:'', filters:{ dispatchSearch:'', dispatchClient:'all', dispatchJobType:'all', dispatchDateFrom:'', dispatchDateTo:'', dispatchStatus:'open', dispatchTechnician:'all', dispatchSortKey:'schedule', dispatchSortDirection:'asc', inventorySearch:'', inventoryStatus:'active', partPickerSearch:'', partCatalogType:'category', directoryClient:'all', directorySection:'overview', directoryClientSearch:'', directoryContactSearch:'', directoryContactScope:'all', directoryContactProject:'all', directoryContactSite:'all', directoryContactSortKey:'name', directoryContactSortDirection:'asc' }, data:createEmptyData(), labTestDefinitions:[], sampleLinkModal:createClosedSampleLinkModalState(), partAdjustModal:createClosedPartAdjustModalState(), partPickerOpen:false, sampleTableModalOpen:false, expandedSampleGroups:{}, saveInFlight:false, autoRefreshInFlight:false, autoRefreshTimer:null, geotabSyncInFlight:false, donesafeSyncInFlight:false };
+let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'schedule', scheduleAnchorDate:getStartOfWeekISO(new Date()), scheduleView:'work_week', scheduleAddPromptDate:'', scheduleActionJobId:'', scheduleQuickTechJobId:'', scheduleQuickTechTechnicianId:'', scheduleQuickTicketJobId:'', scheduleQuickTicketNumber:'', scheduleQuickTicketUrl:'', scheduleActionSavingJobId:'', filters:{ dispatchSearch:'', dispatchClient:'all', dispatchJobType:'all', dispatchDateFrom:'', dispatchDateTo:'', dispatchStatus:'open', dispatchTechnician:'all', dispatchSortKey:'schedule', dispatchSortDirection:'asc', inventorySearch:'', inventoryStatus:'active', partPickerSearch:'', partCatalogType:'category', directoryClient:'all', directorySection:'overview', directoryClientSearch:'', directoryContactSearch:'', directoryContactScope:'all', directoryContactProject:'all', directoryContactSite:'all', directoryContactSortKey:'name', directoryContactSortDirection:'asc' }, data:createEmptyData(), labTestDefinitions:[], sampleLinkModal:createClosedSampleLinkModalState(), partAdjustModal:createClosedPartAdjustModalState(), partPickerOpen:false, sampleTableModalOpen:false, expandedSampleGroups:{}, saveInFlight:false, autoRefreshInFlight:false, autoRefreshTimer:null, geotabSyncInFlight:false, donesafeSyncInFlight:false };
 let modalState = createClosedModalState();
 let lastLoadedSnapshot = '';
 let hideSaveStatusTimer = null;
@@ -2908,7 +2908,10 @@ function switchView(view){
     void refreshGeotabFleetStatus({ silent:true });
   }
 }
-function setDispatchFilter(key, value){ state.filters[key] = value; renderDispatch(buildDerivedState()); }
+function setDispatchFilter(key, value){
+  state.filters[key] = value;
+  render();
+}
 function setDispatchSort(key){
   if(state.filters.dispatchSortKey === key){
     state.filters.dispatchSortDirection = state.filters.dispatchSortDirection === 'asc' ? 'desc' : 'asc';
@@ -2969,10 +2972,6 @@ function setDirectoryContactSort(key){
 function setScheduleView(value){
   state.scheduleView = ['week', 'work_week', 'month'].includes(value) ? value : 'work_week';
   state.scheduleAnchorDate = state.scheduleView === 'month' ? getStartOfMonthISO(state.scheduleAnchorDate) : getStartOfWeekISO(state.scheduleAnchorDate);
-  renderSchedule(buildDerivedState());
-}
-function setScheduleJobFilter(value){
-  state.scheduleJobFilter = ['all', 'open', 'past'].includes(value) ? value : 'all';
   renderSchedule(buildDerivedState());
 }
 function changeScheduleWeek(offset){
@@ -3470,6 +3469,11 @@ function getFilteredDispatchRows(derived){
   }).sort(compareDispatchRows);
 }
 
+function getFilteredScheduleJobs(dates, derived){
+  const visibleJobIds = new Set(getFilteredDispatchRows(derived).map((row) => row.job.id));
+  return getJobsForScheduleDates(dates, 'all').filter((job) => visibleJobIds.has(job.id));
+}
+
 function renderOverview(derived){
   const todayJobs = state.data.jobs.filter((job) => isSameDay(getJobPrimaryDate(job), todayISO()));
   const nextSevenJobs = state.data.jobs.filter((job) => { const date = parseDateOnly(getJobPrimaryDate(job)); const today = parseDateOnly(todayISO()); const max = parseDateOnly(addDaysISO(todayISO(), 7)); return !!(date && today && max && date > today && date <= max); });
@@ -3528,14 +3532,6 @@ function getScheduleViewOptions(){
     { value:'work_week', label:'Work Week' },
     { value:'week', label:'Weekly' },
     { value:'month', label:'Month' }
-  ];
-}
-
-function getScheduleFilterOptions(){
-  return [
-    { value:'all', label:'All' },
-    { value:'open', label:'Open' },
-    { value:'past', label:'Past' }
   ];
 }
 
@@ -3694,7 +3690,7 @@ function isDateInScheduleMonth(dateIso){
   return !!(date && monthStart && date.getFullYear() === monthStart.getFullYear() && date.getMonth() === monthStart.getMonth());
 }
 
-function getJobsForScheduleDates(dates, jobFilter = state.scheduleJobFilter){
+function getJobsForScheduleDates(dates, jobFilter = 'all'){
   const dateSet = new Set(dates);
   return state.data.jobs.filter((job) => {
     const jobDate = getJobPrimaryDate(job);
@@ -3728,11 +3724,10 @@ function renderScheduleCompanyIdentity(job){
 
 function renderSchedule(derived){
   const scheduleDates = getScheduleDates();
-  const scheduleJobs = getJobsForScheduleDates(scheduleDates);
+  const scheduleJobs = getFilteredScheduleJobs(scheduleDates, derived);
   const totalJobsInRange = getJobsForScheduleDates(scheduleDates, 'all').length;
-  const filterLabel = getScheduleFilterOptions().find((option) => option.value === state.scheduleJobFilter)?.label || 'All';
-  document.getElementById('schedule-toolbar').innerHTML = `${renderScheduleSegmentedControl('View', getScheduleViewOptions(), state.scheduleView, 'setScheduleView')}${renderScheduleSegmentedControl('Jobs', getScheduleFilterOptions(), state.scheduleJobFilter, 'setScheduleJobFilter')}<span class="label">Period</span><button class="act-btn" type="button" onclick="changeScheduleWeek(-1)">Prev</button><button class="act-btn" type="button" onclick="resetScheduleWeek()">Current</button><button class="act-btn" type="button" onclick="changeScheduleWeek(1)">Next</button><button class="act-btn" type="button" onclick="sendTeamsWebhookTest()">Send Teams Test</button><div class="toolbar-summary">${esc(getSchedulePeriodLabel(scheduleDates))}</div>`;
-  document.getElementById('schedule-summary').textContent = `${scheduleJobs.length} visible / ${totalJobsInRange} jobs ${getScheduleViewSummaryLabel(state.scheduleView)} | ${getScheduleViewLabel(state.scheduleView)} | ${filterLabel}`;
+  document.getElementById('schedule-toolbar').innerHTML = `${renderScheduleSegmentedControl('View', getScheduleViewOptions(), state.scheduleView, 'setScheduleView')}<span class="label">Period</span><button class="act-btn" type="button" onclick="changeScheduleWeek(-1)">Prev</button><button class="act-btn" type="button" onclick="resetScheduleWeek()">Current</button><button class="act-btn" type="button" onclick="changeScheduleWeek(1)">Next</button><button class="act-btn" type="button" onclick="sendTeamsWebhookTest()">Send Teams Test</button><div class="toolbar-summary">${esc(getSchedulePeriodLabel(scheduleDates))}</div>`;
+  document.getElementById('schedule-summary').textContent = `${scheduleJobs.length} visible / ${totalJobsInRange} jobs ${getScheduleViewSummaryLabel(state.scheduleView)} | ${getScheduleViewLabel(state.scheduleView)} | Shared dispatch filters`;
   document.getElementById('schedule-board').innerHTML = `
     <div class="schedule-week schedule-${esc(state.scheduleView)}">
       ${scheduleDates.map((dateIso) => {
