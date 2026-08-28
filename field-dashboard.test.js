@@ -281,6 +281,12 @@ test('Schedule and Job Board filters do not mutate one another', () => {
   assert.equal(renders, 2);
 });
 
+test('both filter toolbars provide a Clear Filter action', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  assert.match(readFunction(source, 'renderDispatch'), /clearDispatchFilters\(\)/);
+  assert.match(readFunction(source, 'renderScheduleFilterToolbar'), /clearScheduleFilters\(\)/);
+});
+
 test('Field Ops lands on Schedule without an Overview tab', () => {
   const source = fs.readFileSync('field-dashboard.js', 'utf8');
   const html = fs.readFileSync('field-dashboard.html', 'utf8');
