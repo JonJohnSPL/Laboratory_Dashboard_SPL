@@ -214,10 +214,45 @@ test('dispatch board exposes the requested filters and removes priority controls
   const source = fs.readFileSync('field-dashboard.js', 'utf8');
   const renderDispatchSource = readFunction(source, 'renderDispatch');
 
-  for(const filter of ['dispatchClient', 'dispatchJobType', 'dispatchDateFrom', 'dispatchDateTo', 'dispatchStatus', 'dispatchTechnician']){
+  for(const filter of ['dispatchClient', 'dispatchJobType', 'dispatchDatePreset', 'dispatchDateFrom', 'dispatchDateTo', 'dispatchStatus', 'dispatchTechnician']){
     assert.match(renderDispatchSource, new RegExp(filter));
   }
   assert.doesNotMatch(source, /dispatchPriority|dispatchAlertFilter|dispatchAssignmentFilter|getPriorityBadge|PRIORITY_OPTIONS/);
+});
+
+test('dispatch date presets default to this week and include the requested periods', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const renderDispatchSource = readFunction(source, 'renderDispatch');
+  assert.match(source, /dispatchDatePreset:'this_week'/);
+  assert.match(source, /scheduleView:'week'/);
+  assert.match(readFunction(source, 'setDispatchDatePreset'), /syncScheduleToDispatchDatePreset/);
+  for(const label of ['This Week', 'Last Week', 'Next Week', 'This Month', 'Last Month', 'Next Month', 'Date Range']){
+    assert.match(renderDispatchSource, new RegExp(label));
+  }
+});
+
+test('a custom dispatch date range supplies the calendar dates', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const context = {
+    state:{
+      filters:{ dispatchDatePreset:'date_range', dispatchDateFrom:'2026-08-10', dispatchDateTo:'2026-08-12' },
+      scheduleView:'week',
+      scheduleAnchorDate:'2026-08-10'
+    },
+    parseDateOnly:(value) => value ? new Date(`${value}T00:00:00`) : null,
+    toInputDate:(value) => value.toISOString().slice(0, 10),
+    addDaysISO:(value, days) => {
+      const date = new Date(`${value}T00:00:00`);
+      date.setDate(date.getDate() + days);
+      return date.toISOString().slice(0, 10);
+    },
+    getStartOfMonthISO:() => '',
+    getStartOfWeekISO:() => ''
+  };
+  vm.createContext(context);
+  vm.runInContext(readFunction(source, 'getScheduleDates'), context);
+
+  assert.deepEqual(Array.from(context.getScheduleDates()), ['2026-08-10', '2026-08-11', '2026-08-12']);
 });
 
 test('Schedule calendar uses the same filtered job set as the dispatch board', () => {

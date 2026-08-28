@@ -184,7 +184,8 @@ const ENTITY_CONFIG = {
   maintenanceRecords:{ table:'field_maintenance_records', label:'Maintenance Record', idPrefix:'maint', defaults:{ assetType:'Equipment', assetId:'', maintenanceType:'Preventive', openDate:'', dueDate:'', completedDate:'', status:'Open', issueDescription:'', resolution:'', vendorInternal:'Internal', cost:null, assignedPerson:'', notes:'' }, fieldMap:{ assetType:'asset_type', assetId:'asset_id', maintenanceType:'maintenance_type', openDate:'open_date', dueDate:'due_date', completedDate:'completed_date', status:'status', issueDescription:'issue_description', resolution:'resolution', vendorInternal:'vendor_internal', cost:'cost', assignedPerson:'assigned_person', notes:'notes' }, idFields:['assetId'], numberFields:['cost'], dateFields:['openDate', 'dueDate', 'completedDate'] }
 };
 
-let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'schedule', scheduleAnchorDate:getStartOfWeekISO(new Date()), scheduleView:'work_week', scheduleAddPromptDate:'', scheduleActionJobId:'', scheduleQuickTechJobId:'', scheduleQuickTechTechnicianId:'', scheduleQuickTicketJobId:'', scheduleQuickTicketNumber:'', scheduleQuickTicketUrl:'', scheduleActionSavingJobId:'', filters:{ dispatchSearch:'', dispatchClient:'all', dispatchJobType:'all', dispatchDateFrom:'', dispatchDateTo:'', dispatchStatus:'open', dispatchTechnician:'all', dispatchSortKey:'schedule', dispatchSortDirection:'asc', inventorySearch:'', inventoryStatus:'active', partPickerSearch:'', partCatalogType:'category', directoryClient:'all', directorySection:'overview', directoryClientSearch:'', directoryContactSearch:'', directoryContactScope:'all', directoryContactProject:'all', directoryContactSite:'all', directoryContactSortKey:'name', directoryContactSortDirection:'asc' }, data:createEmptyData(), labTestDefinitions:[], sampleLinkModal:createClosedSampleLinkModalState(), partAdjustModal:createClosedPartAdjustModalState(), partPickerOpen:false, sampleTableModalOpen:false, expandedSampleGroups:{}, saveInFlight:false, autoRefreshInFlight:false, autoRefreshTimer:null, geotabSyncInFlight:false, donesafeSyncInFlight:false };
+const INITIAL_DISPATCH_WEEK_START = getStartOfWeekISO(new Date());
+let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'schedule', scheduleAnchorDate:getStartOfWeekISO(new Date()), scheduleView:'week', scheduleAddPromptDate:'', scheduleActionJobId:'', scheduleQuickTechJobId:'', scheduleQuickTechTechnicianId:'', scheduleQuickTicketJobId:'', scheduleQuickTicketNumber:'', scheduleQuickTicketUrl:'', scheduleActionSavingJobId:'', filters:{ dispatchSearch:'', dispatchClient:'all', dispatchJobType:'all', dispatchDatePreset:'this_week', dispatchDateFrom:INITIAL_DISPATCH_WEEK_START, dispatchDateTo:addDaysISO(INITIAL_DISPATCH_WEEK_START, 6), dispatchStatus:'open', dispatchTechnician:'all', dispatchSortKey:'schedule', dispatchSortDirection:'asc', inventorySearch:'', inventoryStatus:'active', partPickerSearch:'', partCatalogType:'category', directoryClient:'all', directorySection:'overview', directoryClientSearch:'', directoryContactSearch:'', directoryContactScope:'all', directoryContactProject:'all', directoryContactSite:'all', directoryContactSortKey:'name', directoryContactSortDirection:'asc' }, data:createEmptyData(), labTestDefinitions:[], sampleLinkModal:createClosedSampleLinkModalState(), partAdjustModal:createClosedPartAdjustModalState(), partPickerOpen:false, sampleTableModalOpen:false, expandedSampleGroups:{}, saveInFlight:false, autoRefreshInFlight:false, geotabSyncInFlight:false, donesafeSyncInFlight:false };
 let modalState = createClosedModalState();
 let lastLoadedSnapshot = '';
 let hideSaveStatusTimer = null;
@@ -2912,6 +2913,38 @@ function setDispatchFilter(key, value){
   state.filters[key] = value;
   render();
 }
+function getDispatchDateRangeForPreset(preset, referenceDate = todayISO()){
+  const weekStart = getStartOfWeekISO(referenceDate);
+  if(preset === 'last_week') return { from:addDaysISO(weekStart, -7), to:addDaysISO(weekStart, -1) };
+  if(preset === 'next_week') return { from:addDaysISO(weekStart, 7), to:addDaysISO(weekStart, 13) };
+  if(preset === 'this_month' || preset === 'last_month' || preset === 'next_month'){
+    const monthOffset = preset === 'last_month' ? -1 : preset === 'next_month' ? 1 : 0;
+    const from = getStartOfMonthISO(addMonthsISO(referenceDate, monthOffset));
+    return { from, to:addDaysISO(getStartOfMonthISO(addMonthsISO(from, 1)), -1) };
+  }
+  return { from:weekStart, to:addDaysISO(weekStart, 6) };
+}
+function syncScheduleToDispatchDatePreset(preset, range){
+  const isMonthPreset = ['this_month', 'last_month', 'next_month'].includes(preset);
+  state.scheduleView = isMonthPreset ? 'month' : 'week';
+  state.scheduleAnchorDate = isMonthPreset ? getStartOfMonthISO(range.from) : getStartOfWeekISO(range.from);
+}
+function setDispatchDatePreset(value){
+  const preset = ['this_week', 'last_week', 'next_week', 'this_month', 'last_month', 'next_month', 'date_range'].includes(value) ? value : 'this_week';
+  state.filters.dispatchDatePreset = preset;
+  if(preset !== 'date_range'){
+    const range = getDispatchDateRangeForPreset(preset);
+    state.filters.dispatchDateFrom = range.from;
+    state.filters.dispatchDateTo = range.to;
+    syncScheduleToDispatchDatePreset(preset, range);
+  }
+  render();
+}
+function setDispatchDateRangeValue(key, value){
+  state.filters.dispatchDatePreset = 'date_range';
+  state.filters[key] = value;
+  render();
+}
 function setDispatchSort(key){
   if(state.filters.dispatchSortKey === key){
     state.filters.dispatchSortDirection = state.filters.dispatchSortDirection === 'asc' ? 'desc' : 'asc';
@@ -3522,7 +3555,10 @@ function renderDispatch(derived){
   const filteredRows = getFilteredDispatchRows(derived);
   const clients = [...state.data.clients].sort(getEntitySorter('clients'));
   const technicians = [...state.data.employees].sort((left, right) => compareStrings(getEmployeeListName(left), getEmployeeListName(right)));
-  document.getElementById('dispatch-toolbar').innerHTML = `<span class="label">Search</span><input type="text" value="${esc(state.filters.dispatchSearch)}" placeholder="Client, job type, site, technician, or scope..." oninput="setDispatchFilter('dispatchSearch', this.value)"><span class="label">Client</span><select onchange="setDispatchFilter('dispatchClient', this.value)"><option value="all">All Clients</option>${clients.map((client) => `<option value="${esc(client.id)}" ${state.filters.dispatchClient === client.id ? 'selected' : ''}>${esc(getClientLabel(client.id))}</option>`).join('')}</select><span class="label">Job Type</span><select onchange="setDispatchFilter('dispatchJobType', this.value)"><option value="all">All Job Types</option>${getActiveJobTypes().map((jobType) => `<option value="${esc(jobType.jobTypeKey)}" ${state.filters.dispatchJobType === jobType.jobTypeKey ? 'selected' : ''}>${esc(jobType.jobTypeName)}</option>`).join('')}</select><span class="label">From</span><input type="date" value="${esc(state.filters.dispatchDateFrom)}" onchange="setDispatchFilter('dispatchDateFrom', this.value)"><span class="label">To</span><input type="date" value="${esc(state.filters.dispatchDateTo)}" onchange="setDispatchFilter('dispatchDateTo', this.value)"><span class="label">Status</span><select onchange="setDispatchFilter('dispatchStatus', this.value)"><option value="all" ${state.filters.dispatchStatus === 'all' ? 'selected' : ''}>All Jobs</option><option value="open" ${state.filters.dispatchStatus === 'open' ? 'selected' : ''}>Open</option><option value="closed" ${state.filters.dispatchStatus === 'closed' ? 'selected' : ''}>Closed</option></select><span class="label">Technician</span><select onchange="setDispatchFilter('dispatchTechnician', this.value)"><option value="all">All Technicians</option>${technicians.map((technician) => `<option value="${esc(technician.id)}" ${state.filters.dispatchTechnician === technician.id ? 'selected' : ''}>${esc(getEmployeeListName(technician))}</option>`).join('')}</select><div class="toolbar-spacer"></div><button class="act-btn" type="button" onclick="switchView('setup')">Manage Job Types</button><button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button>`;
+  const dateRangeControls = state.filters.dispatchDatePreset === 'date_range'
+    ? `<span class="label">From</span><input type="date" value="${esc(state.filters.dispatchDateFrom)}" onchange="setDispatchDateRangeValue('dispatchDateFrom', this.value)"><span class="label">To</span><input type="date" value="${esc(state.filters.dispatchDateTo)}" onchange="setDispatchDateRangeValue('dispatchDateTo', this.value)">`
+    : '';
+  document.getElementById('dispatch-toolbar').innerHTML = `<span class="label">Search</span><input type="text" value="${esc(state.filters.dispatchSearch)}" placeholder="Client, job type, site, technician, or scope..." oninput="setDispatchFilter('dispatchSearch', this.value)"><span class="label">Client</span><select onchange="setDispatchFilter('dispatchClient', this.value)"><option value="all">All Clients</option>${clients.map((client) => `<option value="${esc(client.id)}" ${state.filters.dispatchClient === client.id ? 'selected' : ''}>${esc(getClientLabel(client.id))}</option>`).join('')}</select><span class="label">Job Type</span><select onchange="setDispatchFilter('dispatchJobType', this.value)"><option value="all">All Job Types</option>${getActiveJobTypes().map((jobType) => `<option value="${esc(jobType.jobTypeKey)}" ${state.filters.dispatchJobType === jobType.jobTypeKey ? 'selected' : ''}>${esc(jobType.jobTypeName)}</option>`).join('')}</select><span class="label">Date</span><select onchange="setDispatchDatePreset(this.value)"><option value="this_week" ${state.filters.dispatchDatePreset === 'this_week' ? 'selected' : ''}>This Week</option><option value="last_week" ${state.filters.dispatchDatePreset === 'last_week' ? 'selected' : ''}>Last Week</option><option value="next_week" ${state.filters.dispatchDatePreset === 'next_week' ? 'selected' : ''}>Next Week</option><option value="this_month" ${state.filters.dispatchDatePreset === 'this_month' ? 'selected' : ''}>This Month</option><option value="last_month" ${state.filters.dispatchDatePreset === 'last_month' ? 'selected' : ''}>Last Month</option><option value="next_month" ${state.filters.dispatchDatePreset === 'next_month' ? 'selected' : ''}>Next Month</option><option value="date_range" ${state.filters.dispatchDatePreset === 'date_range' ? 'selected' : ''}>Date Range</option></select>${dateRangeControls}<span class="label">Status</span><select onchange="setDispatchFilter('dispatchStatus', this.value)"><option value="all" ${state.filters.dispatchStatus === 'all' ? 'selected' : ''}>All Jobs</option><option value="open" ${state.filters.dispatchStatus === 'open' ? 'selected' : ''}>Open</option><option value="closed" ${state.filters.dispatchStatus === 'closed' ? 'selected' : ''}>Closed</option></select><span class="label">Technician</span><select onchange="setDispatchFilter('dispatchTechnician', this.value)"><option value="all">All Technicians</option>${technicians.map((technician) => `<option value="${esc(technician.id)}" ${state.filters.dispatchTechnician === technician.id ? 'selected' : ''}>${esc(getEmployeeListName(technician))}</option>`).join('')}</select><div class="toolbar-spacer"></div><button class="act-btn" type="button" onclick="switchView('setup')">Manage Job Types</button><button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button>`;
   document.getElementById('dispatch-summary').textContent = `${filteredRows.length} visible / ${state.data.jobs.length} total`;
   document.getElementById('dispatch-table').innerHTML = renderDispatchTable(filteredRows);
 }
@@ -3641,10 +3677,12 @@ function renderScheduleSegmentedControl(label, options, activeValue, handlerName
 }
 
 function getScheduleViewLabel(value){
+  if(state.filters.dispatchDatePreset === 'date_range') return 'Date Range';
   return getScheduleViewOptions().find((option) => option.value === value)?.label || 'Work Week';
 }
 
 function getScheduleViewSummaryLabel(value){
+  if(state.filters.dispatchDatePreset === 'date_range') return 'selected date range';
   const isCurrentPeriod = value === 'month'
     ? state.scheduleAnchorDate === getStartOfMonthISO(new Date())
     : state.scheduleAnchorDate === getStartOfWeekISO(new Date());
@@ -3657,6 +3695,7 @@ function getScheduleViewSummaryLabel(value){
 function getSchedulePeriodLabel(dates){
   const first = dates[0];
   const last = dates[dates.length - 1];
+  if(state.filters.dispatchDatePreset === 'date_range') return `${fmtDate(first)} - ${fmtDate(last)}`;
   if(state.scheduleView === 'month'){
     const monthDate = parseDateOnly(state.scheduleAnchorDate);
     return monthDate ? monthDate.toLocaleDateString('en-US', { month:'long', year:'numeric' }) : 'Month';
@@ -3665,6 +3704,15 @@ function getSchedulePeriodLabel(dates){
 }
 
 function getScheduleDates(){
+  if(state.filters.dispatchDatePreset === 'date_range'){
+    const from = parseDateOnly(state.filters.dispatchDateFrom);
+    const to = parseDateOnly(state.filters.dispatchDateTo);
+    if(from && to && from <= to){
+      const dates = [];
+      for(let cursor = toInputDate(from); parseDateOnly(cursor) <= to; cursor = addDaysISO(cursor, 1)) dates.push(cursor);
+      return dates;
+    }
+  }
   if(state.scheduleView === 'month'){
     const monthStart = parseDateOnly(getStartOfMonthISO(state.scheduleAnchorDate));
     const gridStartIso = getStartOfWeekISO(monthStart);
