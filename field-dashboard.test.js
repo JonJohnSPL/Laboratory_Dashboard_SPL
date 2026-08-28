@@ -220,6 +220,21 @@ test('dispatch board exposes the requested filters and removes priority controls
   assert.doesNotMatch(source, /dispatchPriority|dispatchAlertFilter|dispatchAssignmentFilter|getPriorityBadge|PRIORITY_OPTIONS/);
 });
 
+test('custody or allocation is displayed only for proving job types', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const renderDispatchTableSource = readFunction(source, 'renderDispatchTable');
+  assert.match(renderDispatchTableSource, /jobTypeHasDetailGroup\(job\.jobType, 'proving'\) && job\.custodyAllocation/);
+});
+
+test('job tables use a dedicated Salesforce Ticket column and omit Scope Summary', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const renderDispatchTableSource = readFunction(source, 'renderDispatchTable');
+  assert.match(renderDispatchTableSource, /label:'Salesforce Ticket'/);
+  assert.match(renderDispatchTableSource, /renderJobSalesforceTicket\(job\)/);
+  assert.doesNotMatch(renderDispatchTableSource, /scopeSummary/);
+  assert.match(readFunction(source, 'renderJobSalesforceTicket'), /renderJobNeedsTicketTag/);
+});
+
 test('dispatch date presets default to this week and include the requested periods', () => {
   const source = fs.readFileSync('field-dashboard.js', 'utf8');
   const renderDispatchSource = readFunction(source, 'renderDispatch');

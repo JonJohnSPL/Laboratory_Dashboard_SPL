@@ -2108,8 +2108,13 @@ function renderJobSalesforceTag(job){
 }
 
 function renderJobNeedsTicketTag(job){
-  const fieldfxTicketId = String(job?.fieldfxTicketId || '').trim();
-  return fieldfxTicketId || job?.noTicketRequired ? '' : '<span class="status-badge warn">Needs Ticket</span>';
+  return getSalesforceCaseLabel(job) || job?.noTicketRequired ? '' : '<span class="status-badge warn">Needs Ticket</span>';
+}
+
+function renderJobSalesforceTicket(job){
+  const salesforceTag = renderJobSalesforceTag(job);
+  if(salesforceTag) return salesforceTag;
+  return renderJobNeedsTicketTag(job) || '<span class="muted">Not required</span>';
 }
 
 function getRoutedJobIds(){
@@ -3547,6 +3552,7 @@ function renderDispatchTable(rows, sortable = true){
     { key:'jobType', label:'Job Type', sortable:true },
     { key:'client', label:'Client / Project / Site', sortable:true },
     { key:'schedule', label:'Date', sortable:true },
+    { key:'salesforceTicket', label:'Salesforce Ticket', sortable:false },
     { key:'status', label:'Job Status', sortable:true },
     { key:'technician', label:'Technician', sortable:true },
     { key:'truck', label:'Truck', sortable:false },
@@ -3555,9 +3561,10 @@ function renderDispatchTable(rows, sortable = true){
   return `<div class="table-wrap"><table class="dispatch-table"><thead><tr>${columns.map((column) => `<th>${sortable && column.sortable ? renderDispatchSortHeader(column) : esc(column.label)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => {
     const job = row.job;
     const cells = [
-      `<div class="inline-stack dispatch-job-cell"><div>${getJobTypeBadge(job.jobType)}${renderJobSalesforceTag(job)}</div><div class="muted">${esc(job.scopeSummary || 'No scope summary')}</div>${job.custodyAllocation ? `<div class="muted">${esc(job.custodyAllocation)}</div>` : ''}</div>`,
+      `<div class="inline-stack dispatch-job-cell"><div>${getJobTypeBadge(job.jobType)}</div>${jobTypeHasDetailGroup(job.jobType, 'proving') && job.custodyAllocation ? `<div class="muted">${esc(job.custodyAllocation)}</div>` : ''}</div>`,
       `<div class="inline-stack"><div class="item-title">${esc(getClientLabel(job.clientId))}</div><div class="muted">${esc(getProjectLabel(job.projectId))} | ${esc(getJobSiteSummary(job))}</div></div>`,
       `<div class="inline-stack"><div>${esc(getJobScheduleLabel(job))}</div></div>`,
+      renderJobSalesforceTicket(job),
       getStatusBadge(row.values.status),
       renderDispatchAssignmentCell(row.techLabels),
       renderDispatchAssignmentCell(row.truckLabels),
