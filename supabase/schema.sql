@@ -4314,6 +4314,15 @@ from public.lab_test_types t
 join public.field_spl_sites s on s.site_code = 'PITTSBURGH'
 on conflict do nothing;
 
+update public.lab_test_setups setup
+set setup_kind = 'no_instrument',
+    instrument_id = null,
+    is_migration_placeholder = false
+from public.lab_test_types test_type
+where setup.test_type_id = test_type.id
+  and test_type.matrix_type = 'Calculated'
+  and (setup.setup_kind <> 'no_instrument' or setup.instrument_id is not null or setup.is_migration_placeholder);
+
 create table if not exists public.billing_services (
   id uuid primary key default gen_random_uuid(),
   service_code text not null,
@@ -4522,13 +4531,36 @@ language plpgsql
 as $$
 declare
   instrument_site_id uuid;
+  test_matrix_type text;
 begin
   new.workload_bundle := public.lab_test_code_key(new.workload_bundle);
-  if new.setup_kind = 'instrument' then
+  select matrix_type into test_matrix_type from public.lab_test_types where id = new.test_type_id;
+  if test_matrix_type = 'Calculated' then
+    new.setup_kind := 'no_instrument';
+    new.instrument_id := null;
+    new.is_migration_placeholder := false;
+  elsif new.setup_kind = 'instrument' then
     select spl_site_id into instrument_site_id from public.lab_instruments where id = new.instrument_id;
     if instrument_site_id is null or instrument_site_id <> new.spl_site_id then
       raise exception 'The selected instrument must belong to the selected SPL lab.';
     end if;
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.normalize_calculated_test_setups()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.matrix_type = 'Calculated' then
+    update public.lab_test_setups
+    set setup_kind = 'no_instrument',
+        instrument_id = null,
+        is_migration_placeholder = false
+    where test_type_id = new.id
+      and (setup_kind <> 'no_instrument' or instrument_id is not null or is_migration_placeholder);
   end if;
   return new;
 end;
@@ -4602,6 +4634,9 @@ for each row execute function public.capture_lab_test_type_alias();
 drop trigger if exists lab_test_types_billing_entry on public.lab_test_types;
 create trigger lab_test_types_billing_entry after insert or update of is_active on public.lab_test_types
 for each row execute function public.ensure_test_billing_entry();
+drop trigger if exists lab_test_types_normalize_calculated_setups on public.lab_test_types;
+create trigger lab_test_types_normalize_calculated_setups after insert or update of matrix_type on public.lab_test_types
+for each row execute function public.normalize_calculated_test_setups();
 
 drop trigger if exists lab_test_type_aliases_normalize on public.lab_test_type_aliases;
 create trigger lab_test_type_aliases_normalize before insert or update on public.lab_test_type_aliases
