@@ -408,6 +408,8 @@ test('calendar print output includes job details without duplicating its title a
   assert.match(source, /openScheduleCalendarPrintModal\(\)/);
   assert.match(source, /getScheduleCalendarPrintTechnicianLabel/);
   assert.match(source, /getScheduleCalendarPrintTimeLabel/);
+  assert.match(readFunction(source, 'getScheduleCalendarPrintJobStyle'), /getJobTypeColor/);
+  assert.match(readFunction(source, 'renderScheduleCalendarPrintJob'), /getScheduleCalendarPrintJobStyle/);
   assert.doesNotMatch(readFunction(source, 'renderScheduleCalendarPrintJob'), /getJobTypeDisplayName\(job\.jobType\)/);
   assert.doesNotMatch(readFunction(source, 'getScheduleCalendarPrintJobs'), /technicianTravel/);
   assert.match(html, /id="schedule-calendar-print-modal-overlay"/);

@@ -3144,8 +3144,13 @@ function getScheduleCalendarPrintTimeLabel(job){
   return job?.scheduledStart ? fmtTime(job.scheduledStart) : 'Time TBD';
 }
 
+function getScheduleCalendarPrintJobStyle(job){
+  const color = getJobTypeColor(job?.jobType);
+  return `--calendar-job-color:${color};--calendar-job-bg:${rgbaFromHex(color, .12)};`;
+}
+
 function renderScheduleCalendarPrintJob(job){
-  return `<article class="calendar-job"><div class="calendar-job-time">${esc(getScheduleCalendarPrintTimeLabel(job))}</div><strong>${esc(getJobDisplayTitle(job))}</strong><span>${esc(getClientLabel(job.clientId))}</span><span>${esc(getJobSiteSummary(job))}</span><span>${esc(getScheduleCalendarPrintTechnicianLabel(job))}</span></article>`;
+  return `<article class="calendar-job" style="${esc(getScheduleCalendarPrintJobStyle(job))}"><div class="calendar-job-time">${esc(getScheduleCalendarPrintTimeLabel(job))}</div><strong>${esc(getJobDisplayTitle(job))}</strong><span>${esc(getClientLabel(job.clientId))}</span><span>${esc(getJobSiteSummary(job))}</span><span>${esc(getScheduleCalendarPrintTechnicianLabel(job))}</span></article>`;
 }
 
 function buildScheduleCalendarPrintDocument(from, to, gridDates, jobs){
@@ -3183,9 +3188,9 @@ function buildScheduleCalendarPrintDocument(from, to, gridDates, jobs){
     .calendar-day header { display:flex; justify-content:space-between; gap:5px; margin-bottom:6px; color:#34483a; font-size:10px; }
     .calendar-day header span { color:#657368; font-size:9px; }
     .calendar-day.outside-range { background:#f3f5f3; color:#9ba69d; }
-    .calendar-job { display:grid; gap:2px; margin:0 0 5px; padding:5px; border-left:3px solid #2f7c47; border-radius:2px; background:#eef7ef; font-size:8.5px; line-height:1.18; break-inside:avoid; }
-    .calendar-job-time { color:#216237; font-size:8px; font-weight:700; }
-    .calendar-job strong { font-size:9px; }
+    .calendar-job { display:grid; gap:2px; margin:0 0 5px; padding:5px; border-left:3px solid var(--calendar-job-color); border-radius:2px; background:var(--calendar-job-bg); font-size:8.5px; line-height:1.18; break-inside:avoid; }
+    .calendar-job-time { color:var(--calendar-job-color); font-size:8px; font-weight:700; }
+    .calendar-job strong { color:var(--calendar-job-color); font-size:9px; }
     @media print { .calendar-day { min-height:1.25in; } }
   </style></head><body><h1>Field Schedule Calendar</h1><div class="print-meta">${esc(fmtDate(from))} – ${esc(fmtDate(to))} | Generated ${esc(new Date().toLocaleString('en-US'))}</div><div class="calendar-weekdays">${weekdays.map((day) => `<div>${day}</div>`).join('')}</div><main class="calendar-grid">${calendarCells}</main></body></html>`;
 }
