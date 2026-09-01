@@ -1,6 +1,6 @@
 const STORAGE_KEY = 'field-ops-dashboard-data';
 const AUTO_REFRESH_MS = 15000;
-const ENTITY_ORDER = ['clients', 'projects', 'contacts', 'contactProjects', 'contactSites', 'billingProfiles', 'labMethods', 'testTypes', 'billingServices', 'priceItems', 'billingProfilePrices', 'siteTypes', 'sites', 'siteProjects', 'jobTypes', 'siteTypeJobTypes', 'jobs', 'jobSites', 'jobAssignments', 'partCatalogs', 'parts', 'jobParts', 'partActivity', 'fieldRoutes', 'routePlaceLists', 'routePlaces', 'restrictedRoads', 'fieldRouteStops', 'fieldRouteStopJobs', 'employees', 'splSites', 'technicianTravel', 'trucks', 'trailers', 'equipment', 'donesafeEquipment', 'samples', 'maintenanceRecords'];
+const ENTITY_ORDER = ['clients', 'projects', 'contacts', 'contactProjects', 'contactSites', 'billingProfiles', 'labMethods', 'testTypes', 'billingServices', 'priceItems', 'billingProfilePrices', 'siteTypes', 'sites', 'siteProjects', 'jobTypes', 'siteTypeJobTypes', 'jobs', 'jobSites', 'jobAssignments', 'partCatalogs', 'parts', 'jobParts', 'partActivity', 'fieldRoutes', 'routePlaceLists', 'routePlaces', 'restrictedRoads', 'fieldRouteStops', 'fieldRouteStopJobs', 'employees', 'splSites', 'technicianTravel', 'trucks', 'trailers', 'equipment', 'donesafeEquipment', 'salesforceSettings', 'salesforceAccounts', 'salesforceTickets', 'salesforceTicketLinks', 'salesforceSyncRuns', 'samples', 'maintenanceRecords'];
 const FIELD_ASSET_BUCKET = 'field-assets';
 const ASSET_PHOTO_ENTITY_KEYS = ['clients', 'trucks', 'trailers', 'equipment'];
 const DEFAULT_ASSET_ICON_PATHS = {
@@ -180,22 +180,29 @@ const ENTITY_CONFIG = {
   trailers:{ table:'field_trailers', label:'Trailer', idPrefix:'trailer', defaults:{ trailerNumber:'', vin:'', trailerType:'', capacityConfiguration:'', serviceStatus:'Available', isProver:false, assignedTruckId:'', geotabDeviceId:'', geotabDeviceName:'', geotabSerialNumber:'', geotabIsCommunicating:null, geotabLastContactAt:'', geotabStatusCheckedAt:'', geotabLinkStatus:'Unlinked', geotabLinkMethod:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ trailerNumber:'trailer_number', vin:'vin', trailerType:'trailer_type', capacityConfiguration:'capacity_configuration', serviceStatus:'service_status', isProver:'is_prover', assignedTruckId:'assigned_truck_id', geotabDeviceId:'geotab_device_id', geotabDeviceName:'geotab_device_name', geotabSerialNumber:'geotab_serial_number', geotabIsCommunicating:'geotab_is_communicating', geotabLastContactAt:'geotab_last_contact_at', geotabStatusCheckedAt:'geotab_status_checked_at', geotabLinkStatus:'geotab_link_status', geotabLinkMethod:'geotab_link_method', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTruckId'], booleanFields:['isProver', 'geotabIsCommunicating'], dateTimeFields:['geotabLastContactAt', 'geotabStatusCheckedAt'], serverManagedFields:['geotabDeviceName', 'geotabSerialNumber', 'geotabIsCommunicating', 'geotabLastContactAt', 'geotabStatusCheckedAt', 'geotabLinkStatus', 'geotabLinkMethod'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
   equipment:{ table:'field_equipment', label:'Equipment', idPrefix:'equip', defaults:{ equipmentName:'', equipmentType:'Small Volume Prover', model:'', manufacturer:'', splInventoryBarcode:'', serialNumber:'', calibrationStatus:'Current', lastCalibrationDate:'', nextCalibrationDue:'', maintenanceStatus:'Available', storageLocation:'', assignedTrailerTruck:'', assignedTruckId:'', assignedTrailerId:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ equipmentName:'equipment_name', equipmentType:'equipment_type', model:'model', manufacturer:'manufacturer', splInventoryBarcode:'spl_inventory_barcode', serialNumber:'serial_number', calibrationStatus:'calibration_status', lastCalibrationDate:'last_calibration_date', nextCalibrationDue:'next_calibration_due', maintenanceStatus:'maintenance_status', storageLocation:'storage_location', assignedTrailerTruck:'assigned_trailer_truck', assignedTruckId:'assigned_truck_id', assignedTrailerId:'assigned_trailer_id', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTruckId', 'assignedTrailerId'], dateFields:['lastCalibrationDate', 'nextCalibrationDue'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
   donesafeEquipment:{ table:'donesafe_equipment_assets', label:'DoneSafe Equipment', idPrefix:'donesafeequip', optional:true, defaults:{ donesafeRecordId:'', donesafeModuleId:'', donesafeModuleName:'Equipment Tracker', recordTitle:'', assetName:'', assetType:'', manufacturer:'', model:'', serialNumber:'', inventoryBarcode:'', assetStatus:'', assetLocation:'', lastInspectionDate:'', nextInspectionDue:'', sourceCreatedAt:'', sourceUpdatedAt:'', sourceUrl:'', fieldValues:{}, rawRecord:{}, isActive:true, syncToken:'', firstSyncedAt:'', lastSyncedAt:'' }, fieldMap:{ donesafeRecordId:'donesafe_record_id', donesafeModuleId:'donesafe_module_id', donesafeModuleName:'donesafe_module_name', recordTitle:'record_title', assetName:'asset_name', assetType:'asset_type', manufacturer:'manufacturer', model:'model', serialNumber:'serial_number', inventoryBarcode:'inventory_barcode', assetStatus:'asset_status', assetLocation:'asset_location', lastInspectionDate:'last_inspection_date', nextInspectionDue:'next_inspection_due', sourceCreatedAt:'source_created_at', sourceUpdatedAt:'source_updated_at', sourceUrl:'source_url', fieldValues:'field_values', rawRecord:'raw_record', isActive:'is_active', syncToken:'sync_token', firstSyncedAt:'first_synced_at', lastSyncedAt:'last_synced_at' }, booleanFields:['isActive'], jsonFields:['fieldValues', 'rawRecord'], dateFields:['lastInspectionDate', 'nextInspectionDue'], dateTimeFields:['sourceCreatedAt', 'sourceUpdatedAt', 'firstSyncedAt', 'lastSyncedAt'] },
+  salesforceSettings:{ table:'salesforce_integration_settings', label:'Salesforce Configuration', idPrefix:'sfconfig', optional:true, defaults:{ enabled:false, objectApiName:'', objectLabel:'', listViewId:'', listViewName:'', fieldMapping:{}, configuredAt:'', configuredBy:'', lastDiscoveredAt:'' }, fieldMap:{ enabled:'enabled', objectApiName:'object_api_name', objectLabel:'object_label', listViewId:'list_view_id', listViewName:'list_view_name', fieldMapping:'field_mapping', configuredAt:'configured_at', configuredBy:'configured_by', lastDiscoveredAt:'last_discovered_at' }, booleanFields:['enabled'], jsonFields:['fieldMapping'], dateTimeFields:['configuredAt', 'lastDiscoveredAt'], idFields:['configuredBy'], serverManagedFields:['enabled', 'objectApiName', 'objectLabel', 'listViewId', 'listViewName', 'fieldMapping', 'configuredAt', 'configuredBy', 'lastDiscoveredAt'] },
+  salesforceAccounts:{ table:'salesforce_accounts', label:'Salesforce Account', idPrefix:'sfaccount', optional:true, defaults:{ salesforceRecordId:'', accountName:'', sourceUrl:'', lastSyncedAt:'' }, fieldMap:{ salesforceRecordId:'salesforce_record_id', accountName:'account_name', sourceUrl:'source_url', lastSyncedAt:'last_synced_at' }, dateTimeFields:['lastSyncedAt'], serverManagedFields:['salesforceRecordId', 'accountName', 'sourceUrl', 'lastSyncedAt'] },
+  salesforceTickets:{ table:'salesforce_tickets', label:'Salesforce Ticket', idPrefix:'sfticket', optional:true, defaults:{ objectApiName:'', salesforceRecordId:'', ticketNumber:'', subject:'', ticketStatus:'', accountRecordId:'', accountName:'', ownerName:'', recordTypeName:'', sourceUrl:'', sourceCreatedAt:'', sourceModifiedAt:'', isActive:true, isLinkable:true, firstSyncedAt:'', lastSyncedAt:'' }, fieldMap:{ objectApiName:'object_api_name', salesforceRecordId:'salesforce_record_id', ticketNumber:'ticket_number', subject:'subject', ticketStatus:'ticket_status', accountRecordId:'account_record_id', accountName:'account_name', ownerName:'owner_name', recordTypeName:'record_type_name', sourceUrl:'source_url', sourceCreatedAt:'source_created_at', sourceModifiedAt:'source_modified_at', isActive:'is_active', isLinkable:'is_linkable', firstSyncedAt:'first_synced_at', lastSyncedAt:'last_synced_at' }, booleanFields:['isActive', 'isLinkable'], dateTimeFields:['sourceCreatedAt', 'sourceModifiedAt', 'firstSyncedAt', 'lastSyncedAt'], serverManagedFields:['objectApiName', 'salesforceRecordId', 'ticketNumber', 'subject', 'ticketStatus', 'accountRecordId', 'accountName', 'ownerName', 'recordTypeName', 'sourceUrl', 'sourceCreatedAt', 'sourceModifiedAt', 'isActive', 'isLinkable', 'firstSyncedAt', 'lastSyncedAt'] },
+  salesforceTicketLinks:{ table:'salesforce_job_ticket_links', label:'Salesforce Ticket Link', idPrefix:'sflink', optional:true, defaults:{ jobId:'', ticketId:'', linkedAt:'', linkedBy:'' }, fieldMap:{ jobId:'job_id', ticketId:'ticket_id', linkedAt:'linked_at', linkedBy:'linked_by' }, idFields:['jobId', 'ticketId', 'linkedBy'], dateTimeFields:['linkedAt'], serverManagedFields:['jobId', 'ticketId', 'linkedAt', 'linkedBy'] },
+  salesforceSyncRuns:{ table:'salesforce_sync_runs', label:'Salesforce Sync Run', idPrefix:'sfrun', optional:true, defaults:{ action:'sync', status:'running', requestedBy:'', startedAt:'', completedAt:'', recordsReceived:0, recordsSaved:0, errorMessage:'', details:{} }, fieldMap:{ action:'action', status:'status', requestedBy:'requested_by', startedAt:'started_at', completedAt:'completed_at', recordsReceived:'records_received', recordsSaved:'records_saved', errorMessage:'error_message', details:'details' }, idFields:['requestedBy'], numberFields:['recordsReceived', 'recordsSaved'], jsonFields:['details'], dateTimeFields:['startedAt', 'completedAt'], serverManagedFields:['action', 'status', 'requestedBy', 'startedAt', 'completedAt', 'recordsReceived', 'recordsSaved', 'errorMessage', 'details'] },
   samples:{ table:'field_samples', label:'Sample', idPrefix:'sample', defaults:{ jobId:'', clientId:'', siteId:'', sampleType:'Gas', containerType:'Cylinder', collectionDateTime:'', sampleDate:'', sampleTime:'', pickedUpBy:'', dropOffLocation:'', chainOfCustodyStatus:'Requested', labReceiptStatus:'Requested', sampleStatus:'Needs Pulled', sampleName:'', samplePoint:'', isDuplicate:false, sampleCollectionMode:'', cylinderNumber:'', testCodes:[], sampleTempF:null, samplePressurePsig:null, linkedWorkOrderId:'', linkedWorkOrderNumber:'', labReceivedAt:'', sampleSequence:null, priorityTat:'', notes:'' }, fieldMap:{ jobId:'job_id', clientId:'client_id', siteId:'site_id', sampleType:'sample_type', containerType:'container_type', collectionDateTime:'collection_date_time', sampleDate:'sample_date', sampleTime:'sample_time', pickedUpBy:'picked_up_by', dropOffLocation:'drop_off_location', chainOfCustodyStatus:'chain_of_custody_status', labReceiptStatus:'lab_receipt_status', sampleStatus:'sample_status', sampleName:'sample_name', samplePoint:'sample_point', isDuplicate:'is_duplicate', sampleCollectionMode:'sample_collection_mode', cylinderNumber:'cylinder_number', testCodes:'test_codes', sampleTempF:'sample_temp_f', samplePressurePsig:'sample_pressure_psig', linkedWorkOrderId:'linked_work_order_id', linkedWorkOrderNumber:'linked_work_order_number', labReceivedAt:'lab_received_at', sampleSequence:'sample_sequence', priorityTat:'priority_tat', notes:'notes' }, idFields:['jobId', 'clientId', 'siteId'], booleanFields:['isDuplicate'], arrayFields:['testCodes'], numberFields:['sampleSequence', 'sampleTempF', 'samplePressurePsig'], dateFields:['sampleDate'], timeFields:['sampleTime'], dateTimeFields:['collectionDateTime', 'labReceivedAt'] },
   maintenanceRecords:{ table:'field_maintenance_records', label:'Maintenance Record', idPrefix:'maint', defaults:{ assetType:'Equipment', assetId:'', maintenanceType:'Preventive', openDate:'', dueDate:'', completedDate:'', status:'Open', issueDescription:'', resolution:'', vendorInternal:'Internal', cost:null, assignedPerson:'', notes:'' }, fieldMap:{ assetType:'asset_type', assetId:'asset_id', maintenanceType:'maintenance_type', openDate:'open_date', dueDate:'due_date', completedDate:'completed_date', status:'status', issueDescription:'issue_description', resolution:'resolution', vendorInternal:'vendor_internal', cost:'cost', assignedPerson:'assigned_person', notes:'notes' }, idFields:['assetId'], numberFields:['cost'], dateFields:['openDate', 'dueDate', 'completedDate'] }
 };
 
 const INITIAL_DISPATCH_WEEK_START = getStartOfWeekISO(new Date());
-let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'schedule', scheduleAnchorDate:getStartOfWeekISO(new Date()), scheduleView:'week', scheduleAddPromptDate:'', scheduleActionJobId:'', scheduleQuickTechJobId:'', scheduleQuickTechTechnicianId:'', scheduleQuickTicketJobId:'', scheduleQuickTicketNumber:'', scheduleQuickTicketUrl:'', scheduleActionSavingJobId:'', filters:{ dispatchSearch:'', dispatchClient:'all', dispatchJobType:'all', dispatchDatePreset:'this_week', dispatchDateFrom:INITIAL_DISPATCH_WEEK_START, dispatchDateTo:addDaysISO(INITIAL_DISPATCH_WEEK_START, 6), dispatchTechnician:'all', dispatchSortKey:'schedule', dispatchSortDirection:'asc', scheduleSearch:'', scheduleClient:'all', scheduleJobType:'all', scheduleTechnician:'all', inventorySearch:'', inventoryStatus:'active', partPickerSearch:'', partCatalogType:'category', directoryClient:'all', directorySection:'overview', directoryClientSearch:'', directoryContactSearch:'', directoryContactScope:'all', directoryContactProject:'all', directoryContactSite:'all', directoryContactSortKey:'name', directoryContactSortDirection:'asc' }, data:createEmptyData(), labTestDefinitions:[], sampleLinkModal:createClosedSampleLinkModalState(), partAdjustModal:createClosedPartAdjustModalState(), partPickerOpen:false, sampleTableModalOpen:false, expandedSampleGroups:{}, saveInFlight:false, autoRefreshInFlight:false, geotabSyncInFlight:false, donesafeSyncInFlight:false };
+let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'schedule', scheduleAnchorDate:getStartOfWeekISO(new Date()), scheduleView:'week', scheduleAddPromptDate:'', scheduleActionJobId:'', scheduleQuickTechJobId:'', scheduleQuickTechTechnicianId:'', scheduleQuickTicketJobId:'', scheduleQuickTicketNumber:'', scheduleQuickTicketUrl:'', scheduleActionSavingJobId:'', filters:{ dispatchSearch:'', dispatchClient:'all', dispatchJobType:'all', dispatchDatePreset:'this_week', dispatchDateFrom:INITIAL_DISPATCH_WEEK_START, dispatchDateTo:addDaysISO(INITIAL_DISPATCH_WEEK_START, 6), dispatchStatus:'open', dispatchTechnician:'all', dispatchSortKey:'schedule', dispatchSortDirection:'asc', scheduleSearch:'', scheduleClient:'all', scheduleJobType:'all', scheduleTechnician:'all', inventorySearch:'', inventoryStatus:'active', partPickerSearch:'', partCatalogType:'category', directoryClient:'all', directorySection:'overview', directoryClientSearch:'', directoryContactSearch:'', directoryContactScope:'all', directoryContactProject:'all', directoryContactSite:'all', directoryContactSortKey:'name', directoryContactSortDirection:'asc' }, data:createEmptyData(), labTestDefinitions:[], sampleLinkModal:createClosedSampleLinkModalState(), partAdjustModal:createClosedPartAdjustModalState(), salesforceConfigModal:createClosedSalesforceConfigModalState(), salesforceTicketModal:createClosedSalesforceTicketModalState(), salesforceAccountSearchResults:[], salesforceAccountSearchBusy:false, partPickerOpen:false, sampleTableModalOpen:false, expandedSampleGroups:{}, saveInFlight:false, autoRefreshInFlight:false, geotabSyncInFlight:false, donesafeSyncInFlight:false, salesforceSyncInFlight:false };
 let modalState = createClosedModalState();
 let lastLoadedSnapshot = '';
 let hideSaveStatusTimer = null;
 const remoteAssetPhotoUrlCache = new Map();
 const remoteAssetPhotoLoadPromises = new Map();
 
-function createEmptyData(){ return { clients:[], projects:[], contacts:[], contactProjects:[], contactSites:[], billingProfiles:[], labMethods:[], testTypes:[], billingServices:[], priceItems:[], billingProfilePrices:[], siteTypes:[], sites:[], siteProjects:[], jobTypes:[], siteTypeJobTypes:[], jobs:[], jobSites:[], jobAssignments:[], partCatalogs:[], parts:[], jobParts:[], partActivity:[], fieldRoutes:[], routePlaceLists:[], routePlaces:[], restrictedRoads:[], fieldRouteStops:[], fieldRouteStopJobs:[], employees:[], splSites:[], technicianTravel:[], trucks:[], trailers:[], equipment:[], donesafeEquipment:[], samples:[], maintenanceRecords:[], technicians:[] }; }
+function createEmptyData(){ return { clients:[], projects:[], contacts:[], contactProjects:[], contactSites:[], billingProfiles:[], labMethods:[], testTypes:[], billingServices:[], priceItems:[], billingProfilePrices:[], siteTypes:[], sites:[], siteProjects:[], jobTypes:[], siteTypeJobTypes:[], jobs:[], jobSites:[], jobAssignments:[], partCatalogs:[], parts:[], jobParts:[], partActivity:[], fieldRoutes:[], routePlaceLists:[], routePlaces:[], restrictedRoads:[], fieldRouteStops:[], fieldRouteStopJobs:[], employees:[], splSites:[], technicianTravel:[], trucks:[], trailers:[], equipment:[], donesafeEquipment:[], salesforceSettings:[], salesforceAccounts:[], salesforceTickets:[], salesforceTicketLinks:[], salesforceSyncRuns:[], samples:[], maintenanceRecords:[], technicians:[] }; }
 function createClosedModalState(){ return { open:false, entity:'', id:'', formData:{}, assignments:[], baselineSnapshot:'', openMultiSelectKey:'', openSampleTestDraftId:'', sampleDraftExpanded:{} }; }
 function createClosedSampleLinkModalState(){ return { open:false, mode:'single', sampleId:'', sampleIds:[], selectedWorkOrderId:'', search:'', workOrders:[] }; }
 function createClosedPartAdjustModalState(){ return { open:false, partId:'', mode:'receive' }; }
+function createClosedSalesforceConfigModalState(){ return { open:false, busy:false, message:'', error:'', objects:[], fields:[], listViews:[], draft:{ objectApiName:'', listViewId:'', enabled:true, fieldMapping:{} } }; }
+function createClosedSalesforceTicketModalState(){ return { open:false, jobId:'', search:'', showAll:false, saving:false, error:'' }; }
 function uid(prefix = 'fld'){ return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
 function clone(value){ return JSON.parse(JSON.stringify(value)); }
 function firstRow(payload){ return Array.isArray(payload) ? payload[0] || null : payload; }
@@ -2134,12 +2141,17 @@ function renderJobNeedsRouteTag(job, derived){
 function renderSalesforceCaseEditor(){
   if(modalState.entity !== 'jobs') return '';
   const job = modalState.formData || {};
+  const importedTicket = modalState.id ? getSalesforceTicketForJob(modalState.id) : null;
   const caseLabel = getSalesforceCaseLabel(job);
   const caseUrl = getSalesforceCaseUrl(job);
   const openButton = caseUrl
     ? `<a class="act-btn salesforce-open-link" href="${esc(caseUrl)}" target="_blank" rel="noopener">Open Salesforce Ticket</a>`
     : '';
-  return `<div id="salesforce-ticket-link-section" class="salesforce-editor" tabindex="-1"><div class="assignment-head"><div><h4>Salesforce Ticket Link</h4><div class="section-copy">Paste the Salesforce ticket URL here after the ticket exists in Salesforce. No API authorization is required for this manual link.</div></div><div class="table-actions">${openButton}</div></div><div class="salesforce-sync-card"><div class="form-group"><label class="form-label">Ticket / Case Number</label><input class="form-input" type="text" value="${esc(caseLabel)}" placeholder="Case number or ticket number" data-salesforce-ticket-input="number" oninput="setModalField('salesforceCaseNumber', this.value)"></div><div class="form-group"><label class="form-label">Ticket URL</label><input class="form-input" type="url" value="${esc(caseUrl)}" placeholder="https://..." data-salesforce-ticket-input="url" oninput="setModalField('salesforceCaseUrl', this.value)"></div><div class="form-group"><label class="form-label">No Ticket</label><label class="toggle-card"><input type="checkbox" ${job.noTicketRequired ? 'checked' : ''} onchange="toggleModalField('noTicketRequired', this.checked)"><span>No Ticket</span></label></div></div><div class="form-hint">The ticket number is shown as the SF badge on job cards. The URL powers the Open Salesforce Ticket link after save/reopen. Use No Ticket for scheduled work that should not raise a Needs Ticket alert.</div></div>`;
+  const importedMarkup = importedTicket
+    ? `<div class="salesforce-summary-item"><span class="summary-label">Imported Ticket</span><strong>${esc(importedTicket.ticketNumber || importedTicket.salesforceRecordId)}</strong><div class="muted">${esc(importedTicket.subject || 'No subject')}</div><div class="mini-tags">${getStatusBadge(importedTicket.ticketStatus)}${importedTicket.accountName ? `<span class="tag-chip">${esc(importedTicket.accountName)}</span>` : ''}</div></div>`
+    : `<div class="salesforce-summary-item"><span class="summary-label">Imported Ticket</span><strong>Not linked</strong><div class="muted">Choose an active ticket from the Pittsburgh Field Ops list.</div></div>`;
+  const chooserButton = modalState.id && isRemoteMode() ? `<button class="btn-save" type="button" onclick="openSalesforceTicketPicker('${esc(modalState.id)}')">${importedTicket ? 'Change / Unlink Ticket' : 'Choose Imported Ticket'}</button>` : `<button class="btn-save" type="button" disabled>Save Job Before Linking</button>`;
+  return `<div id="salesforce-ticket-link-section" class="salesforce-editor" tabindex="-1"><div class="assignment-head"><div><h4>Salesforce Ticket Link</h4><div class="section-copy">Salesforce is authoritative for synchronized ticket details. The dashboard owns only the job-to-ticket link.</div></div><div class="table-actions">${openButton}${chooserButton}</div></div><div class="salesforce-integration-summary">${importedMarkup}<div class="salesforce-summary-item"><span class="summary-label">Link Type</span><strong>${importedTicket ? 'Synchronized' : (caseLabel || caseUrl ? 'Manual fallback' : 'None')}</strong><div class="muted">${importedTicket?.sourceModifiedAt ? `Updated ${esc(fmtDateTime(importedTicket.sourceModifiedAt))}` : 'No imported update time'}</div></div></div><details class="salesforce-manual-fallback" ${!importedTicket && (caseLabel || caseUrl) ? 'open' : ''}><summary>Manual number/URL fallback</summary><div class="salesforce-sync-card"><div class="form-group"><label class="form-label">Ticket / Case Number</label><input class="form-input" type="text" value="${esc(caseLabel)}" placeholder="Case number or ticket number" data-salesforce-ticket-input="number" oninput="setModalField('salesforceCaseNumber', this.value)" ${importedTicket ? 'disabled' : ''}></div><div class="form-group"><label class="form-label">Ticket URL</label><input class="form-input" type="url" value="${esc(caseUrl)}" placeholder="https://..." data-salesforce-ticket-input="url" oninput="setModalField('salesforceCaseUrl', this.value)" ${importedTicket ? 'disabled' : ''}></div><div class="form-group"><label class="form-label">No Ticket</label><label class="toggle-card"><input type="checkbox" ${job.noTicketRequired ? 'checked' : ''} onchange="toggleModalField('noTicketRequired', this.checked)" ${importedTicket ? 'disabled' : ''}><span>No Ticket</span></label></div></div><div class="form-hint">Manual links remain supported for legacy exceptions but do not reserve an imported ticket. Synchronized links are protected by the one-to-one constraint.</div></details></div>`;
 }
 
 function getJobPastComparisonDate(job){
@@ -2440,6 +2452,7 @@ const FORM_DEFINITIONS = {
     { key:'contactPhone', label:'Contact Phone', type:'text' },
     { key:'contactEmail', label:'Contact Email', type:'email' },
     { key:'defaultServiceArea', label:'Default Service Area / Region', type:'text' },
+    { key:'salesforceAccountId', label:'Salesforce Account', type:'salesforce-account', full:true },
     { kind:'section', label:'HQ / Mapping' },
     { key:'hqStreet', label:'HQ Street', type:'text', full:true },
     { key:'hqCity', label:'HQ City', type:'text' },
@@ -2963,6 +2976,7 @@ function clearDispatchFilters(){
   state.filters.dispatchDatePreset = 'this_week';
   state.filters.dispatchDateFrom = range.from;
   state.filters.dispatchDateTo = range.to;
+  state.filters.dispatchStatus = 'open';
   state.filters.dispatchTechnician = 'all';
   render();
 }
@@ -3323,7 +3337,8 @@ function renderScheduleJobActions(job){
   const quickOpen = state.scheduleQuickTechJobId === job.id;
   const quickTicketOpen = state.scheduleQuickTicketJobId === job.id;
   const saving = state.scheduleActionSavingJobId === job.id;
-  const ticketActionLabel = getSalesforceCaseLabel(job) || getSalesforceCaseUrl(job) ? 'Edit Salesforce Ticket' : 'Add Salesforce Ticket';
+  const importedTicket = getSalesforceTicketForJob(job.id);
+  const ticketActionLabel = importedTicket ? 'Change / Unlink Salesforce Ticket' : 'Choose Salesforce Ticket';
   const selectedTechnicianId = String(state.scheduleQuickTechTechnicianId || getScheduleQuickTechDefault(job.id));
   const technicianOptions = buildTechnicianOptions(job.jobType, selectedTechnicianId);
   const ticketNumber = quickTicketOpen ? state.scheduleQuickTicketNumber : getSalesforceCaseLabel(job);
@@ -3354,7 +3369,8 @@ function renderScheduleJobActions(job){
     <div class="schedule-job-action-popover" role="dialog" aria-label="Job actions for ${esc(getJobDisplayTitle(job))}" onclick="event.stopPropagation()">
       <button class="schedule-job-action-btn" type="button" onclick="openScheduleJobEdit('${esc(job.id)}')" ${saving ? 'disabled' : ''}>Edit Job</button>
       <button class="schedule-job-action-btn" type="button" onclick="openScheduleJobRoute('${esc(job.id)}')" ${saving ? 'disabled' : ''}>Edit/Add Route</button>
-      <button class="schedule-job-action-btn ${quickTicketOpen ? 'active' : ''}" type="button" onclick="toggleScheduleQuickTicket('${esc(job.id)}')" ${saving ? 'disabled' : ''}>${esc(ticketActionLabel)}</button>
+      <button class="schedule-job-action-btn" type="button" onclick="${isRemoteMode() ? `openSalesforceTicketPicker('${esc(job.id)}')` : `toggleScheduleQuickTicket('${esc(job.id)}')`}" ${saving ? 'disabled' : ''}>${esc(ticketActionLabel)}</button>
+      <button class="schedule-job-action-btn ${quickTicketOpen ? 'active' : ''}" type="button" onclick="toggleScheduleQuickTicket('${esc(job.id)}')" ${saving || importedTicket ? 'disabled' : ''}>Manual Ticket Fallback</button>
       ${quickTicketMarkup}
       <button class="schedule-job-action-btn ${quickOpen ? 'active' : ''}" type="button" onclick="toggleScheduleQuickTech('${esc(job.id)}')" ${saving ? 'disabled' : ''}>Quick Change Tech</button>
       ${quickTechMarkup}
@@ -3525,9 +3541,12 @@ function getFilteredDispatchRows(derived){
     jobType:state.filters.dispatchJobType,
     dateFrom:state.filters.dispatchDateFrom,
     dateTo:state.filters.dispatchDateTo,
+    status:state.filters.dispatchStatus,
     technician:state.filters.dispatchTechnician
   };
   return state.data.jobs.map((job) => buildDispatchJobView(job, derived)).filter((row) => {
+    if(filters.status === 'open' && isJobClosed(row.job)) return false;
+    if(filters.status === 'closed' && !isJobClosed(row.job)) return false;
     return jobMatchesJobFilters(row, filters, true);
   }).sort(compareDispatchRows);
 }
@@ -3599,7 +3618,7 @@ function renderDispatch(derived){
   const dateRangeControls = state.filters.dispatchDatePreset === 'date_range'
     ? `<span class="label">From</span><input type="date" value="${esc(state.filters.dispatchDateFrom)}" onchange="setDispatchDateRangeValue('dispatchDateFrom', this.value)"><span class="label">To</span><input type="date" value="${esc(state.filters.dispatchDateTo)}" onchange="setDispatchDateRangeValue('dispatchDateTo', this.value)">`
     : '';
-  document.getElementById('dispatch-toolbar').innerHTML = `<span class="label">Search</span><input type="text" value="${esc(state.filters.dispatchSearch)}" placeholder="Client, job type, site, technician, or scope..." oninput="setDispatchFilter('dispatchSearch', this.value)"><span class="label">Client</span><select onchange="setDispatchFilter('dispatchClient', this.value)"><option value="all">All Clients</option>${clients.map((client) => `<option value="${esc(client.id)}" ${state.filters.dispatchClient === client.id ? 'selected' : ''}>${esc(getClientLabel(client.id))}</option>`).join('')}</select><span class="label">Job Type</span><select onchange="setDispatchFilter('dispatchJobType', this.value)"><option value="all">All Job Types</option>${getActiveJobTypes().map((jobType) => `<option value="${esc(jobType.jobTypeKey)}" ${state.filters.dispatchJobType === jobType.jobTypeKey ? 'selected' : ''}>${esc(jobType.jobTypeName)}</option>`).join('')}</select><span class="label">Date</span><select onchange="setDispatchDatePreset(this.value)"><option value="this_week" ${state.filters.dispatchDatePreset === 'this_week' ? 'selected' : ''}>This Week</option><option value="last_week" ${state.filters.dispatchDatePreset === 'last_week' ? 'selected' : ''}>Last Week</option><option value="next_week" ${state.filters.dispatchDatePreset === 'next_week' ? 'selected' : ''}>Next Week</option><option value="this_month" ${state.filters.dispatchDatePreset === 'this_month' ? 'selected' : ''}>This Month</option><option value="last_month" ${state.filters.dispatchDatePreset === 'last_month' ? 'selected' : ''}>Last Month</option><option value="next_month" ${state.filters.dispatchDatePreset === 'next_month' ? 'selected' : ''}>Next Month</option><option value="date_range" ${state.filters.dispatchDatePreset === 'date_range' ? 'selected' : ''}>Date Range</option></select>${dateRangeControls}<span class="label">Technician</span><select onchange="setDispatchFilter('dispatchTechnician', this.value)"><option value="all">All Technicians</option>${technicians.map((technician) => `<option value="${esc(technician.id)}" ${state.filters.dispatchTechnician === technician.id ? 'selected' : ''}>${esc(getEmployeeListName(technician))}</option>`).join('')}</select><button class="sec-btn" type="button" onclick="clearDispatchFilters()">Clear Filter</button><div class="toolbar-spacer"></div><button class="act-btn" type="button" onclick="switchView('setup')">Manage Job Types</button><button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button>`;
+  document.getElementById('dispatch-toolbar').innerHTML = `<span class="label">Search</span><input type="text" value="${esc(state.filters.dispatchSearch)}" placeholder="Client, job type, site, technician, or scope..." oninput="setDispatchFilter('dispatchSearch', this.value)"><span class="label">Client</span><select onchange="setDispatchFilter('dispatchClient', this.value)"><option value="all">All Clients</option>${clients.map((client) => `<option value="${esc(client.id)}" ${state.filters.dispatchClient === client.id ? 'selected' : ''}>${esc(getClientLabel(client.id))}</option>`).join('')}</select><span class="label">Job Type</span><select onchange="setDispatchFilter('dispatchJobType', this.value)"><option value="all">All Job Types</option>${getActiveJobTypes().map((jobType) => `<option value="${esc(jobType.jobTypeKey)}" ${state.filters.dispatchJobType === jobType.jobTypeKey ? 'selected' : ''}>${esc(jobType.jobTypeName)}</option>`).join('')}</select><span class="label">Date</span><select onchange="setDispatchDatePreset(this.value)"><option value="this_week" ${state.filters.dispatchDatePreset === 'this_week' ? 'selected' : ''}>This Week</option><option value="last_week" ${state.filters.dispatchDatePreset === 'last_week' ? 'selected' : ''}>Last Week</option><option value="next_week" ${state.filters.dispatchDatePreset === 'next_week' ? 'selected' : ''}>Next Week</option><option value="this_month" ${state.filters.dispatchDatePreset === 'this_month' ? 'selected' : ''}>This Month</option><option value="last_month" ${state.filters.dispatchDatePreset === 'last_month' ? 'selected' : ''}>Last Month</option><option value="next_month" ${state.filters.dispatchDatePreset === 'next_month' ? 'selected' : ''}>Next Month</option><option value="date_range" ${state.filters.dispatchDatePreset === 'date_range' ? 'selected' : ''}>Date Range</option></select>${dateRangeControls}<span class="label">Job Status</span><select onchange="setDispatchFilter('dispatchStatus', this.value)"><option value="open" ${state.filters.dispatchStatus === 'open' ? 'selected' : ''}>Open Jobs</option><option value="closed" ${state.filters.dispatchStatus === 'closed' ? 'selected' : ''}>Closed Jobs</option><option value="all" ${state.filters.dispatchStatus === 'all' ? 'selected' : ''}>All Jobs</option></select><span class="label">Technician</span><select onchange="setDispatchFilter('dispatchTechnician', this.value)"><option value="all">All Technicians</option>${technicians.map((technician) => `<option value="${esc(technician.id)}" ${state.filters.dispatchTechnician === technician.id ? 'selected' : ''}>${esc(getEmployeeListName(technician))}</option>`).join('')}</select><button class="sec-btn" type="button" onclick="clearDispatchFilters()">Clear Filter</button><div class="toolbar-spacer"></div><button class="act-btn" type="button" onclick="switchView('setup')">Manage Job Types</button><button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button>`;
   document.getElementById('dispatch-summary').textContent = `${filteredRows.length} visible / ${state.data.jobs.length} total`;
   document.getElementById('dispatch-table').innerHTML = renderDispatchTable(filteredRows);
 }
@@ -4258,6 +4277,7 @@ function renderResources(){
   document.getElementById('equipment-panel').innerHTML = `<div class="resource-source-heading">DoneSafe Equipment Tracker</div>${donesafeEquipment}<div class="resource-source-heading">Dashboard Equipment</div>${localEquipment}`;
   renderGeotabSyncSummary();
   renderDonesafeSyncSummary();
+  renderSalesforceIntegrationSummary();
 }
 
 function setInventoryFilter(key, value){
@@ -5051,11 +5071,60 @@ function renderColorField(field){
   return `<div class="form-group${field.full ? ' full' : ''}"><label class="form-label">${esc(field.label)}</label><div class="color-control"><div class="color-swatch-row">${JOB_TYPE_COLOR_OPTIONS.map((option) => `<button class="color-swatch ${selectedValue === option.value ? 'is-selected' : ''}" type="button" title="${esc(option.label)}" style="--swatch-color:${esc(option.value)}" onclick="setJobTypeColor('${esc(option.value)}')"><span class="sr-only">${esc(option.label)}</span></button>`).join('')}</div><div class="color-input-row"><input class="form-input color-picker" type="color" value="${esc(selectedValue)}" oninput="setJobTypeColor(this.value)"><input class="form-input" type="text" value="${esc(modalState.formData[field.key] || selectedValue)}" maxlength="7" placeholder="${esc(DEFAULT_JOB_TYPE_COLOR)}" oninput="setModalField('${field.key}', this.value)" onchange="setJobTypeColor(this.value)"><span class="color-preview" style="--swatch-color:${esc(selectedValue)}">${esc(selectedValue)}</span></div></div></div>`;
 }
 
+function getSalesforceAccountByRecordId(recordId){
+  return state.data.salesforceAccounts.find((account) => account.salesforceRecordId === String(recordId || '')) || state.salesforceAccountSearchResults.find((account) => account.salesforceRecordId === String(recordId || '')) || null;
+}
+
+function renderSalesforceAccountField(field, disabled = false){
+  const recordId = String(modalState.formData[field.key] || '').trim();
+  const selected = getSalesforceAccountByRecordId(recordId);
+  const selectedMarkup = recordId
+    ? `<div class="salesforce-account-selection"><strong>${esc(selected?.accountName || 'Mapped Salesforce Account')}</strong><div class="muted">${esc(recordId)}</div></div>`
+    : '<div class="form-hint">No Salesforce Account mapped. Ticket choices will not be client-filtered until one is selected.</div>';
+  const results = state.salesforceAccountSearchResults.length
+    ? `<div class="salesforce-account-results">${state.salesforceAccountSearchResults.map((account) => `<button class="salesforce-account-option" type="button" onclick="selectSalesforceAccount('${esc(account.salesforceRecordId)}')"><span><strong>${esc(account.accountName || 'Unnamed account')}</strong><span class="muted">${esc(account.salesforceRecordId)}</span></span><span>Select</span></button>`).join('')}</div>`
+    : '';
+  return `<div class="form-group full"><label class="form-label">${esc(field.label)}</label>${selectedMarkup}<div class="salesforce-account-actions"><input id="salesforce-account-search" class="form-input" type="search" placeholder="Search Salesforce Accounts" onkeydown="if(event.key === 'Enter'){ event.preventDefault(); searchSalesforceAccounts(); }" ${disabled || !isRemoteMode() ? 'disabled' : ''}><button class="act-btn" type="button" onclick="searchSalesforceAccounts()" ${disabled || !isRemoteMode() || state.salesforceAccountSearchBusy ? 'disabled' : ''}>${state.salesforceAccountSearchBusy ? 'Searching...' : 'Search'}</button><button class="act-btn danger" type="button" onclick="clearSalesforceAccountSelection()" ${disabled || !recordId ? 'disabled' : ''}>Clear Mapping</button></div>${results}<div class="form-hint">Mappings use the stable Salesforce Account ID. Names are displayed from the read-only Account cache; no automatic name matching is performed.</div></div>`;
+}
+
+async function searchSalesforceAccounts(){
+  if(!modalState.open || modalState.entity !== 'clients' || state.salesforceAccountSearchBusy) return;
+  const query = String(document.getElementById('salesforce-account-search')?.value || '').trim();
+  if(query.length < 2){ alert('Enter at least two characters to search Salesforce Accounts.'); return; }
+  state.salesforceAccountSearchBusy = true;
+  renderModal();
+  try {
+    const result = await invokeSalesforceTicketAction('search_accounts', { query });
+    state.salesforceAccountSearchResults = (result?.accounts || []).map((account) => ({ salesforceRecordId:String(account.salesforce_record_id || ''), accountName:String(account.account_name || ''), sourceUrl:String(account.source_url || '') }));
+  } catch (error){
+    console.error('Unable to search Salesforce Accounts:', error);
+    alert(error.message || 'Unable to search Salesforce Accounts.');
+  } finally {
+    state.salesforceAccountSearchBusy = false;
+    renderModal();
+  }
+}
+
+function selectSalesforceAccount(recordId){
+  if(!modalState.open || modalState.entity !== 'clients') return;
+  modalState.formData.salesforceAccountId = String(recordId || '');
+  state.salesforceAccountSearchResults = [];
+  renderModal();
+}
+
+function clearSalesforceAccountSelection(){
+  if(!modalState.open || modalState.entity !== 'clients') return;
+  modalState.formData.salesforceAccountId = '';
+  state.salesforceAccountSearchResults = [];
+  renderModal();
+}
+
 function renderFormField(field){
   if(!shouldRenderField(field)) return '';
   if(field.kind === 'section') return `<div class="form-section"><h4>${esc(field.label)}</h4></div>`;
   const fullClass = field.full ? ' full' : '';
   const disabled = isFieldDisabled(field);
+  if(field.type === 'salesforce-account') return renderSalesforceAccountField(field, disabled);
   if(field.type === 'checkbox') return `<div class="form-group${fullClass}"><label class="form-label">${esc(field.label)}</label><label class="toggle-card ${disabled ? 'is-disabled' : ''}"><input type="checkbox" ${modalState.formData[field.key] ? 'checked' : ''} ${disabled ? 'disabled' : ''} onchange="toggleModalField('${field.key}', this.checked)"><span>${esc(field.label)}</span></label></div>`;
   if(field.type === 'checkbox-group'){
     const options = normalizeOptionsList(field.options || []);
@@ -5213,6 +5282,267 @@ async function refreshDonesafeEquipment(options = {}){
     state.donesafeSyncInFlight = false;
     renderDonesafeSyncSummary();
   }
+}
+
+async function invokeSalesforceTicketAction(action, payload = {}){
+  if(!isRemoteMode()) throw new Error('Salesforce ticket integration requires the shared Supabase connection.');
+  if(!window.appAuth?.isAdmin?.()) throw new Error('Administrator access is required to manage Salesforce tickets.');
+  return window.appAuth.requestJson('/functions/v1/salesforce-ticket-sync', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body:JSON.stringify({ action, ...payload })
+  });
+}
+
+function getSalesforceConfig(){ return state.data.salesforceSettings.find((row) => row.id === 'default') || state.data.salesforceSettings[0] || null; }
+function getLatestSalesforceSyncRun(){ return [...state.data.salesforceSyncRuns].sort((a, b) => String(b.startedAt || '').localeCompare(String(a.startedAt || '')))[0] || null; }
+function getSalesforceTicketLinkForJob(jobId){ return state.data.salesforceTicketLinks.find((link) => link.jobId === jobId) || null; }
+function getSalesforceTicketForJob(jobId){ const link = getSalesforceTicketLinkForJob(jobId); return link ? state.data.salesforceTickets.find((ticket) => ticket.id === link.ticketId) || null : null; }
+
+function renderSalesforceIntegrationSummary(){
+  const panel = document.getElementById('salesforce-integration-summary');
+  const syncButton = document.getElementById('salesforce-sync-btn');
+  const previewButton = document.getElementById('salesforce-preview-btn');
+  const config = getSalesforceConfig();
+  const lastRun = getLatestSalesforceSyncRun();
+  const activeTickets = state.data.salesforceTickets.filter((ticket) => ticket.isActive !== false).length;
+  const linkedTickets = state.data.salesforceTicketLinks.length;
+  const configured = !!(config?.enabled && config.objectApiName && config.listViewId);
+  if(syncButton){ syncButton.disabled = state.salesforceSyncInFlight || !configured; syncButton.textContent = state.salesforceSyncInFlight ? 'Syncing...' : 'Sync Tickets'; }
+  if(previewButton) previewButton.disabled = state.salesforceSyncInFlight || !configured;
+  if(!panel) return;
+  const runLabel = lastRun ? `${lastRun.status === 'complete' ? 'Completed' : lastRun.status === 'error' ? 'Failed' : 'Running'} ${fmtDateTime(lastRun.completedAt || lastRun.startedAt)}` : 'No sync has run';
+  const message = state.salesforceLastMessage || lastRun?.errorMessage || (configured ? 'Salesforce is authoritative for ticket details. Sync never writes to Salesforce.' : 'Test the connection, discover metadata, and select the shared Pittsburgh Field Ops list view.');
+  panel.className = 'panel-body salesforce-integration-summary';
+  panel.innerHTML = `<div class="salesforce-summary-item"><span class="summary-label">Connection</span><strong>${configured ? 'Configured' : 'Not configured'}</strong></div><div class="salesforce-summary-item"><span class="summary-label">Source</span><strong>${esc(configured ? `${config.objectLabel || config.objectApiName} / ${config.listViewName}` : 'Not selected')}</strong></div><div class="salesforce-summary-item"><span class="summary-label">Cached Tickets</span><strong>${activeTickets} active / ${linkedTickets} linked</strong></div><div class="salesforce-summary-item"><span class="summary-label">Last Run</span><strong>${esc(runLabel)}</strong></div><p class="form-hint salesforce-summary-message">${esc(message)}</p>`;
+}
+
+function getSalesforceMappingEntry(mapping, key){
+  const raw = mapping?.[key];
+  return typeof raw === 'string' ? { field:raw } : (raw && typeof raw === 'object' ? raw : { field:'' });
+}
+
+function getSalesforceMappingField(mapping, key){ return String(getSalesforceMappingEntry(mapping, key).field || ''); }
+
+function guessSalesforceField(fields, names, predicate = null){
+  const lowered = names.map((name) => name.toLowerCase());
+  const exact = fields.find((field) => lowered.includes(String(field.name || '').toLowerCase()) && (!predicate || predicate(field)));
+  if(exact) return exact.name;
+  const partial = fields.find((field) => lowered.some((name) => String(field.name || '').toLowerCase().includes(name)) && (!predicate || predicate(field)));
+  return partial?.name || '';
+}
+
+function applySalesforceMappingDefaults(){
+  const modal = state.salesforceConfigModal;
+  const fields = modal.fields || [];
+  const mapping = { ...(modal.draft.fieldMapping || {}) };
+  const setDefault = (key, names, predicate = null) => { if(!getSalesforceMappingField(mapping, key)){ const field = guessSalesforceField(fields, names, predicate); if(field) mapping[key] = { field }; } };
+  setDefault('number', ['CaseNumber', 'Ticket_Number__c', 'Name']);
+  setDefault('subject', ['Subject', 'Description', 'Name']);
+  setDefault('status', ['Status', 'Ticket_Status__c']);
+  setDefault('account', ['AccountId', 'Account__c'], (field) => (field.referenceTo || []).includes('Account'));
+  setDefault('modified', ['SystemModstamp', 'LastModifiedDate']);
+  setDefault('created', ['CreatedDate']);
+  setDefault('owner', ['OwnerId']);
+  setDefault('recordType', ['RecordTypeId']);
+  modal.draft.fieldMapping = mapping;
+}
+
+async function openSalesforceConfigModal(){
+  const config = getSalesforceConfig();
+  state.salesforceConfigModal = {
+    ...createClosedSalesforceConfigModalState(), open:true, busy:true,
+    draft:{ objectApiName:config?.objectApiName || '', listViewId:config?.listViewId || '', enabled:config?.enabled !== false, fieldMapping:clone(config?.fieldMapping || {}) }
+  };
+  renderSalesforceConfigModal();
+  try {
+    const result = await invokeSalesforceTicketAction('discover', config?.objectApiName ? { objectApiName:config.objectApiName } : {});
+    state.salesforceConfigModal.objects = result?.objects || [];
+    if(config?.objectApiName && !state.salesforceConfigModal.objects.some((item) => item.name === config.objectApiName)) state.salesforceConfigModal.objects.unshift({ name:config.objectApiName, label:config.objectLabel || config.objectApiName });
+    state.salesforceConfigModal.fields = result?.fields || [];
+    state.salesforceConfigModal.listViews = result?.listViews || [];
+    if(config?.objectApiName) applySalesforceMappingDefaults();
+  } catch (error){ state.salesforceConfigModal.error = error.message || 'Unable to discover Salesforce metadata.'; }
+  finally { state.salesforceConfigModal.busy = false; renderSalesforceConfigModal(); }
+}
+
+function closeSalesforceConfigModal(){ state.salesforceConfigModal = createClosedSalesforceConfigModalState(); renderSalesforceConfigModal(); }
+
+function setSalesforceConfigMapping(key, value){
+  const mapping = { ...(state.salesforceConfigModal.draft.fieldMapping || {}) };
+  mapping[key] = { field:String(value || '') };
+  state.salesforceConfigModal.draft.fieldMapping = mapping;
+}
+
+async function selectSalesforceObject(objectApiName){
+  const modal = state.salesforceConfigModal;
+  modal.draft.objectApiName = String(objectApiName || '');
+  modal.draft.listViewId = '';
+  modal.draft.fieldMapping = {};
+  modal.fields = [];
+  modal.listViews = [];
+  modal.error = '';
+  if(!objectApiName){ renderSalesforceConfigModal(); return; }
+  modal.busy = true;
+  renderSalesforceConfigModal();
+  try {
+    const result = await invokeSalesforceTicketAction('discover', { objectApiName });
+    modal.fields = result?.fields || [];
+    modal.listViews = result?.listViews || [];
+    const preferredView = modal.listViews.find((view) => /pittsburgh.*field.*ops/i.test(`${view.label} ${view.developerName}`));
+    modal.draft.listViewId = preferredView?.id || '';
+    applySalesforceMappingDefaults();
+  } catch (error){ modal.error = error.message || 'Unable to describe the selected Salesforce object.'; }
+  finally { modal.busy = false; renderSalesforceConfigModal(); }
+}
+
+function renderSalesforceFieldSelect(key, label, predicate = null, optional = false){
+  const modal = state.salesforceConfigModal;
+  const value = getSalesforceMappingField(modal.draft.fieldMapping, key);
+  const fields = modal.fields.filter((field) => !predicate || predicate(field));
+  return `<div class="form-group"><label class="form-label">${esc(label)}</label><select class="form-input" onchange="setSalesforceConfigMapping('${esc(key)}', this.value)" ${modal.busy ? 'disabled' : ''}><option value="">${optional ? 'Not mapped' : 'Select field...'}</option>${fields.map((field) => `<option value="${esc(field.name)}" ${field.name === value ? 'selected' : ''}>${esc(field.label)} (${esc(field.name)})</option>`).join('')}</select></div>`;
+}
+
+function renderSalesforceConfigModal(){
+  const modal = state.salesforceConfigModal;
+  const overlay = document.getElementById('salesforce-config-modal-overlay');
+  const body = document.getElementById('salesforce-config-modal-body');
+  if(!overlay || !body) return;
+  overlay.classList.toggle('open', !!modal.open);
+  if(!modal.open){ body.innerHTML = ''; return; }
+  const accountPredicate = (field) => (field.referenceTo || []).includes('Account');
+  const datePredicate = (field) => ['datetime', 'date'].includes(String(field.type || '').toLowerCase());
+  body.innerHTML = `${modal.error ? `<div class="error-text">${esc(modal.error)}</div>` : ''}${modal.message ? `<div class="form-hint">${esc(modal.message)}</div>` : ''}<div class="salesforce-config-grid"><div class="form-group"><label class="form-label">Ticket Object</label><select class="form-input" onchange="selectSalesforceObject(this.value)" ${modal.busy ? 'disabled' : ''}><option value="">Select object...</option>${modal.objects.map((item) => `<option value="${esc(item.name)}" ${item.name === modal.draft.objectApiName ? 'selected' : ''}>${esc(item.label || item.name)} (${esc(item.name)})</option>`).join('')}</select></div><div class="form-group"><label class="form-label">Pittsburgh Field Ops List View</label><select class="form-input" onchange="state.salesforceConfigModal.draft.listViewId=this.value" ${modal.busy || !modal.draft.objectApiName ? 'disabled' : ''}><option value="">Select list view...</option>${modal.listViews.map((view) => `<option value="${esc(view.id)}" ${view.id === modal.draft.listViewId ? 'selected' : ''}>${esc(view.label)}</option>`).join('')}</select></div>${renderSalesforceFieldSelect('number', 'Ticket Number')}${renderSalesforceFieldSelect('subject', 'Subject')}${renderSalesforceFieldSelect('status', 'Status')}${renderSalesforceFieldSelect('account', 'Account Relationship', accountPredicate)}${renderSalesforceFieldSelect('modified', 'Modified Time', datePredicate)}${renderSalesforceFieldSelect('created', 'Created Time', datePredicate, true)}${renderSalesforceFieldSelect('owner', 'Owner', null, true)}${renderSalesforceFieldSelect('recordType', 'Record Type', null, true)}<div class="form-group full"><label class="toggle-card"><input type="checkbox" ${modal.draft.enabled ? 'checked' : ''} onchange="state.salesforceConfigModal.draft.enabled=this.checked"><span>Enable Salesforce ticket import</span></label><div class="form-hint">Only records in the shared list view are linkable. The integration user must have read-only access to the selected object, Accounts, metadata, and list view.</div></div></div>${modal.busy ? '<div class="form-hint">Reading Salesforce metadata...</div>' : ''}`;
+}
+
+async function testSalesforceConnection(){
+  if(state.salesforceConfigModal.busy) return;
+  state.salesforceConfigModal.busy = true; state.salesforceConfigModal.error = ''; state.salesforceConfigModal.message = ''; renderSalesforceConfigModal();
+  try { await invokeSalesforceTicketAction('test'); state.salesforceConfigModal.message = 'Connection succeeded. No Salesforce data was changed.'; }
+  catch (error){ state.salesforceConfigModal.error = error.message || 'Salesforce connection failed.'; }
+  finally { state.salesforceConfigModal.busy = false; renderSalesforceConfigModal(); }
+}
+
+async function saveSalesforceConfig(){
+  const modal = state.salesforceConfigModal;
+  if(modal.busy) return;
+  modal.busy = true; modal.error = ''; renderSalesforceConfigModal();
+  try {
+    await invokeSalesforceTicketAction('save_config', modal.draft);
+    await loadData({ silent:true, force:true });
+    closeSalesforceConfigModal();
+    state.salesforceLastMessage = 'Salesforce configuration saved and validated.';
+    renderSalesforceIntegrationSummary();
+  } catch (error){ modal.error = error.message || 'Unable to save Salesforce configuration.'; modal.busy = false; renderSalesforceConfigModal(); }
+}
+
+async function previewSalesforceTickets(){
+  if(state.salesforceSyncInFlight) return;
+  state.salesforceSyncInFlight = true; renderSalesforceIntegrationSummary(); showSaveStatus('saving', 'PREVIEWING SALESFORCE');
+  try {
+    const result = await invokeSalesforceTicketAction('preview');
+    const sample = (result?.sample || []).slice(0, 5).map((ticket) => `${ticket.ticket_number || ticket.salesforce_record_id}: ${ticket.subject || '(no subject)'}`).join('\n');
+    state.salesforceLastMessage = `Preview found ${Number(result?.eligibleCount || 0)} eligible Pittsburgh tickets. No records were imported.`;
+    showSaveStatus('saved', 'SALESFORCE PREVIEW READY'); hideSaveStatusSoon(2800); renderSalesforceIntegrationSummary();
+    alert(`${state.salesforceLastMessage}${sample ? `\n\nSample:\n${sample}` : ''}`);
+  } catch (error){ showSaveStatus('error', 'SALESFORCE PREVIEW FAILED'); hideSaveStatusSoon(4200); alert(error.message || 'Unable to preview Salesforce tickets.'); }
+  finally { state.salesforceSyncInFlight = false; renderSalesforceIntegrationSummary(); }
+}
+
+async function syncSalesforceTickets(){
+  if(state.salesforceSyncInFlight) return;
+  state.salesforceSyncInFlight = true; renderSalesforceIntegrationSummary(); showSaveStatus('saving', 'SYNCING SALESFORCE');
+  try {
+    const result = await invokeSalesforceTicketAction('sync');
+    await loadData({ silent:true, force:true });
+    state.salesforceLastMessage = `Imported ${Number(result?.saved || 0)} tickets; ${Number(result?.linkedRefreshed || 0)} linked records were refreshed.`;
+    showSaveStatus('saved', `${Number(result?.saved || 0)} SALESFORCE TICKETS`); hideSaveStatusSoon(3200);
+  } catch (error){ state.salesforceLastMessage = error.message || 'Salesforce synchronization failed.'; showSaveStatus('error', 'SALESFORCE SYNC FAILED'); hideSaveStatusSoon(4800); alert(state.salesforceLastMessage); }
+  finally { state.salesforceSyncInFlight = false; renderSalesforceIntegrationSummary(); }
+}
+
+function getAvailableSalesforceTickets(jobId, options){
+  options = options || {};
+  const job = getJob(jobId);
+  const client = job ? getClient(job.clientId) : null;
+  const accountId = String(client?.salesforceAccountId || '').trim();
+  const search = String(options.search || '').trim().toLowerCase();
+  const showAll = options.showAll === true;
+  const currentLink = getSalesforceTicketLinkForJob(jobId);
+  const occupied = new Map(state.data.salesforceTicketLinks.map((link) => [link.ticketId, link.jobId]));
+  return state.data.salesforceTickets.filter((ticket) => {
+    const isCurrent = currentLink?.ticketId === ticket.id;
+    if(!isCurrent && (ticket.isActive === false || ticket.isLinkable === false)) return false;
+    if(!isCurrent && occupied.has(ticket.id)) return false;
+    if(!showAll && (!accountId || ticket.accountRecordId !== accountId)) return false;
+    if(search && ![ticket.ticketNumber, ticket.subject, ticket.ticketStatus, ticket.accountName].some((value) => String(value || '').toLowerCase().includes(search))) return false;
+    return true;
+  }).sort((a, b) => String(b.sourceModifiedAt || '').localeCompare(String(a.sourceModifiedAt || '')) || String(a.ticketNumber || '').localeCompare(String(b.ticketNumber || '')));
+}
+
+function openSalesforceTicketPicker(jobId){
+  if(!getJob(jobId)){ alert('Save the job before linking an imported Salesforce ticket.'); return; }
+  if(!isRemoteMode()){ toggleScheduleQuickTicket(jobId); return; }
+  state.salesforceTicketModal = { ...createClosedSalesforceTicketModalState(), open:true, jobId };
+  renderSalesforceTicketModal();
+}
+
+function closeSalesforceTicketModal(){ state.salesforceTicketModal = createClosedSalesforceTicketModalState(); renderSalesforceTicketModal(); }
+function setSalesforceTicketSearch(value){ state.salesforceTicketModal.search = String(value || ''); renderSalesforceTicketModal(); }
+function setSalesforceTicketShowAll(checked){ state.salesforceTicketModal.showAll = !!checked; renderSalesforceTicketModal(); }
+
+function renderSalesforceTicketModal(){
+  const modal = state.salesforceTicketModal;
+  const overlay = document.getElementById('salesforce-ticket-modal-overlay');
+  const body = document.getElementById('salesforce-ticket-modal-body');
+  if(!overlay || !body) return;
+  overlay.classList.toggle('open', !!modal.open);
+  if(!modal.open){ body.innerHTML = ''; return; }
+  const job = getJob(modal.jobId);
+  const client = job ? getClient(job.clientId) : null;
+  const account = getSalesforceAccountByRecordId(client?.salesforceAccountId);
+  const currentLink = getSalesforceTicketLinkForJob(modal.jobId);
+  const tickets = getAvailableSalesforceTickets(modal.jobId, modal);
+  const mappingMessage = client?.salesforceAccountId ? `Filtered to ${account?.accountName || client.salesforceAccountId}.` : 'This job client does not have a Salesforce Account mapping. Map the client or explicitly show all Pittsburgh tickets.';
+  body.innerHTML = `${modal.error ? `<div class="error-text">${esc(modal.error)}</div>` : ''}<div class="salesforce-picker-toolbar"><div class="form-group"><label class="form-label">Search Tickets</label><input class="form-input" type="search" value="${esc(modal.search)}" placeholder="Number, subject, status, or account" oninput="setSalesforceTicketSearch(this.value)" ${modal.saving ? 'disabled' : ''}></div><label class="toggle-card"><input type="checkbox" ${modal.showAll ? 'checked' : ''} onchange="setSalesforceTicketShowAll(this.checked)" ${modal.saving ? 'disabled' : ''}><span>Show all Pittsburgh tickets</span></label></div><div class="form-hint">${esc(mappingMessage)}</div>${currentLink ? `<div class="table-actions"><button class="act-btn danger" type="button" onclick="unlinkSalesforceTicket('${esc(modal.jobId)}')" ${modal.saving ? 'disabled' : ''}>Unlink Current Ticket</button></div>` : ''}<div class="salesforce-ticket-list">${tickets.length ? tickets.map((ticket) => `<button class="salesforce-ticket-option ${currentLink?.ticketId === ticket.id ? 'current' : ''}" type="button" onclick="linkSalesforceTicket('${esc(modal.jobId)}','${esc(ticket.id)}')" ${modal.saving ? 'disabled' : ''}><span class="salesforce-ticket-main"><span class="salesforce-ticket-title">${esc(ticket.ticketNumber || ticket.salesforceRecordId)}</span><span class="salesforce-ticket-subject">${esc(ticket.subject || 'No subject')}</span><span class="salesforce-ticket-meta">${esc([ticket.ticketStatus, ticket.accountName, ticket.sourceModifiedAt ? `Modified ${fmtDateTime(ticket.sourceModifiedAt)}` : ''].filter(Boolean).join(' | '))}</span></span><span>${currentLink?.ticketId === ticket.id ? 'Linked' : 'Link'}</span></button>`).join('') : `<div class="empty-state">${!client?.salesforceAccountId && !modal.showAll ? 'Map the client to a Salesforce Account or enable Show all Pittsburgh tickets.' : 'No active, unlinked tickets match this filter.'}</div>`}</div><details class="salesforce-manual-fallback"><summary>Manual number/URL fallback</summary><p class="form-hint">Close this chooser and use the manual fields in the job editor. Manual links remain compatibility exceptions and are not reserved in the imported-ticket list.</p></details>`;
+}
+
+function refreshOpenJobSalesforceProjection(jobId){
+  if(!modalState.open || modalState.entity !== 'jobs' || modalState.id !== jobId) return;
+  const refreshed = getJob(jobId);
+  if(!refreshed) return;
+  const keys = ['fieldfxTicketId', 'salesforceCaseId', 'salesforceCaseNumber', 'salesforceCaseUrl', 'salesforceSyncedAt', 'salesforceSyncStatus', 'salesforceSyncError', 'noTicketRequired'];
+  keys.forEach((key) => { modalState.formData[key] = refreshed[key]; });
+  try {
+    const baseline = JSON.parse(modalState.baselineSnapshot || '{}');
+    if(baseline.formData) keys.forEach((key) => { baseline.formData[key] = refreshed[key]; });
+    modalState.baselineSnapshot = JSON.stringify(baseline);
+  } catch {}
+  renderModal();
+}
+
+async function linkSalesforceTicket(jobId, ticketId){
+  const modal = state.salesforceTicketModal;
+  if(modal.saving) return;
+  modal.saving = true; modal.error = ''; renderSalesforceTicketModal(); showSaveStatus('saving', 'LINKING TICKET');
+  try {
+    await window.appAuth.requestJson('/rest/v1/rpc/link_salesforce_ticket', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ target_job_id:jobId, target_ticket_id:ticketId }) });
+    await loadData({ silent:true, force:true });
+    closeSalesforceTicketModal(); refreshOpenJobSalesforceProjection(jobId); render();
+    showSaveStatus('saved', 'TICKET LINKED'); hideSaveStatusSoon();
+  } catch (error){ modal.error = error.message || 'Unable to link the Salesforce ticket. It may already be linked to another job.'; modal.saving = false; renderSalesforceTicketModal(); showSaveStatus('error', 'LINK FAILED'); hideSaveStatusSoon(4200); }
+}
+
+async function unlinkSalesforceTicket(jobId){
+  const modal = state.salesforceTicketModal;
+  if(modal.saving || !window.confirm('Unlink this imported Salesforce ticket from the job?')) return;
+  modal.saving = true; modal.error = ''; renderSalesforceTicketModal(); showSaveStatus('saving', 'UNLINKING TICKET');
+  try {
+    await window.appAuth.requestJson('/rest/v1/rpc/unlink_salesforce_ticket', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ target_job_id:jobId }) });
+    await loadData({ silent:true, force:true });
+    closeSalesforceTicketModal(); refreshOpenJobSalesforceProjection(jobId); render();
+    showSaveStatus('saved', 'TICKET UNLINKED'); hideSaveStatusSoon();
+  } catch (error){ modal.error = error.message || 'Unable to unlink the Salesforce ticket.'; modal.saving = false; renderSalesforceTicketModal(); showSaveStatus('error', 'UNLINK FAILED'); hideSaveStatusSoon(4200); }
 }
 
 function getBillingRateSectionClass(section){
@@ -5696,6 +6026,7 @@ function openEntityModal(entityKey, id = '', options = {}){
     const existingBillingProfile = getBillingProfileForClient(directoryClientId);
     if(existingBillingProfile) id = existingBillingProfile.id;
   }
+  if(entityKey === 'clients') state.salesforceAccountSearchResults = [];
   const existing = id ? state.data[entityKey].find((row) => row.id === id) : null;
   let draft = existing ? clone(existing) : getNewRecordDraft(entityKey);
   if(!existing){
@@ -7048,7 +7379,7 @@ async function deleteEntityRecord(entityKey, id){
 
 async function deleteCurrentModalEntity(){ if(modalState.id) await deleteEntityRecord(modalState.entity, modalState.id); }
 
-function isInteractionOverlayOpen(){ return !!state.scheduleActionJobId || !!document.getElementById('entity-modal-overlay')?.classList.contains('open') || !!document.getElementById('job-part-modal-overlay')?.classList.contains('open') || !!document.getElementById('part-adjust-modal-overlay')?.classList.contains('open') || !!document.getElementById('sample-link-modal-overlay')?.classList.contains('open') || !!document.getElementById('sample-table-modal-overlay')?.classList.contains('open') || !!document.getElementById('site-editor-overlay')?.classList.contains('open') || !!document.getElementById('site-editor-address-overlay')?.classList.contains('open'); }
+function isInteractionOverlayOpen(){ return !!state.scheduleActionJobId || !!document.getElementById('entity-modal-overlay')?.classList.contains('open') || !!document.getElementById('job-part-modal-overlay')?.classList.contains('open') || !!document.getElementById('part-adjust-modal-overlay')?.classList.contains('open') || !!document.getElementById('sample-link-modal-overlay')?.classList.contains('open') || !!document.getElementById('sample-table-modal-overlay')?.classList.contains('open') || !!document.getElementById('salesforce-config-modal-overlay')?.classList.contains('open') || !!document.getElementById('salesforce-ticket-modal-overlay')?.classList.contains('open') || !!document.getElementById('site-editor-overlay')?.classList.contains('open') || !!document.getElementById('site-editor-address-overlay')?.classList.contains('open'); }
 
 async function loadData(options = {}){
   try {
@@ -7086,11 +7417,15 @@ document.getElementById('job-part-modal-overlay')?.addEventListener('click', (ev
 document.getElementById('part-adjust-modal-overlay')?.addEventListener('click', (event) => { if(event.target === event.currentTarget) event.stopPropagation(); });
 document.getElementById('sample-link-modal-overlay')?.addEventListener('click', (event) => { if(event.target === event.currentTarget) event.stopPropagation(); });
 document.getElementById('sample-table-modal-overlay')?.addEventListener('click', (event) => { if(event.target === event.currentTarget) event.stopPropagation(); });
+document.getElementById('salesforce-config-modal-overlay')?.addEventListener('click', (event) => { if(event.target === event.currentTarget) event.stopPropagation(); });
+document.getElementById('salesforce-ticket-modal-overlay')?.addEventListener('click', (event) => { if(event.target === event.currentTarget) event.stopPropagation(); });
 document.addEventListener('click', (event) => { if(state.scheduleActionJobId && !event.target.closest?.('.schedule-card')) closeScheduleActionPopover(); });
 document.addEventListener('visibilitychange', () => { if(!document.hidden) refreshFromRemote(); });
 window.addEventListener('keydown', (event) => {
   if(event.key !== 'Escape' || !isInteractionOverlayOpen()) return;
-  if(state.scheduleActionJobId) closeScheduleActionPopover();
+  if(document.getElementById('salesforce-ticket-modal-overlay')?.classList.contains('open')) closeSalesforceTicketModal();
+  else if(document.getElementById('salesforce-config-modal-overlay')?.classList.contains('open')) closeSalesforceConfigModal();
+  else if(state.scheduleActionJobId) closeScheduleActionPopover();
   else if(document.getElementById('job-part-modal-overlay')?.classList.contains('open')) closeJobPartPicker();
   else if(document.getElementById('part-adjust-modal-overlay')?.classList.contains('open')) closePartAdjustModal();
   else if(document.getElementById('sample-table-modal-overlay')?.classList.contains('open')) closeSampleTableModal();

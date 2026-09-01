@@ -4921,3 +4921,270 @@ alter table public.lab_test_types drop column if exists group_rank;
 alter table public.lab_test_types drop column if exists aliases;
 alter table public.lab_test_types drop column if exists sort_order;
 alter table public.lab_test_types drop column if exists lab_wip_enabled;
+
+-- Salesforce ticket import -------------------------------------------------
+-- Salesforce is a read-only upstream system. These tables cache the selected
+-- Pittsburgh list view and preserve an atomic one-ticket-per-job relationship.
+
+create table if not exists public.salesforce_integration_settings (
+  id text primary key default 'default',
+  enabled boolean not null default false,
+  object_api_name text not null default '',
+  object_label text not null default '',
+  list_view_id text not null default '',
+  list_view_name text not null default '',
+  field_mapping jsonb not null default '{}'::jsonb,
+  configured_at timestamptz,
+  configured_by uuid,
+  last_discovered_at timestamptz,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid,
+  constraint salesforce_integration_settings_singleton check (id = 'default')
+);
+
+create table if not exists public.salesforce_accounts (
+  id uuid primary key default gen_random_uuid(),
+  salesforce_record_id text not null unique,
+  account_name text not null default '',
+  source_url text not null default '',
+  last_synced_at timestamptz not null default timezone('utc', now()),
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+
+create table if not exists public.salesforce_tickets (
+  id uuid primary key default gen_random_uuid(),
+  object_api_name text not null,
+  salesforce_record_id text not null,
+  ticket_number text not null default '',
+  subject text not null default '',
+  ticket_status text not null default '',
+  account_record_id text not null default '',
+  account_name text not null default '',
+  owner_name text not null default '',
+  record_type_name text not null default '',
+  source_url text not null default '',
+  source_created_at timestamptz,
+  source_modified_at timestamptz,
+  is_active boolean not null default true,
+  is_linkable boolean not null default true,
+  first_synced_at timestamptz not null default timezone('utc', now()),
+  last_synced_at timestamptz not null default timezone('utc', now()),
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid,
+  unique (object_api_name, salesforce_record_id)
+);
+
+create table if not exists public.salesforce_job_ticket_links (
+  id uuid primary key default gen_random_uuid(),
+  job_id uuid not null unique references public.field_jobs(id) on delete cascade,
+  ticket_id uuid not null unique references public.salesforce_tickets(id) on delete restrict,
+  linked_at timestamptz not null default timezone('utc', now()),
+  linked_by uuid,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+
+create table if not exists public.salesforce_sync_runs (
+  id uuid primary key default gen_random_uuid(),
+  action text not null default 'sync',
+  status text not null default 'running' check (status in ('running', 'complete', 'error')),
+  requested_by uuid,
+  started_at timestamptz not null default timezone('utc', now()),
+  completed_at timestamptz,
+  records_received integer not null default 0,
+  records_saved integer not null default 0,
+  error_message text not null default '',
+  details jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  created_by uuid,
+  updated_by uuid
+);
+
+create index if not exists field_clients_salesforce_account_id_idx
+  on public.field_clients (salesforce_account_id)
+  where btrim(salesforce_account_id) <> '';
+create index if not exists salesforce_tickets_account_active_idx
+  on public.salesforce_tickets (account_record_id, is_active, is_linkable);
+create index if not exists salesforce_tickets_number_idx
+  on public.salesforce_tickets (ticket_number);
+create index if not exists salesforce_sync_runs_started_idx
+  on public.salesforce_sync_runs (started_at desc);
+
+drop trigger if exists touch_salesforce_integration_settings on public.salesforce_integration_settings;
+create trigger touch_salesforce_integration_settings before insert or update on public.salesforce_integration_settings
+for each row execute function public.touch_field_ops_row();
+drop trigger if exists touch_salesforce_accounts on public.salesforce_accounts;
+create trigger touch_salesforce_accounts before insert or update on public.salesforce_accounts
+for each row execute function public.touch_field_ops_row();
+drop trigger if exists touch_salesforce_tickets on public.salesforce_tickets;
+create trigger touch_salesforce_tickets before insert or update on public.salesforce_tickets
+for each row execute function public.touch_field_ops_row();
+drop trigger if exists touch_salesforce_job_ticket_links on public.salesforce_job_ticket_links;
+create trigger touch_salesforce_job_ticket_links before insert or update on public.salesforce_job_ticket_links
+for each row execute function public.touch_field_ops_row();
+drop trigger if exists touch_salesforce_sync_runs on public.salesforce_sync_runs;
+create trigger touch_salesforce_sync_runs before insert or update on public.salesforce_sync_runs
+for each row execute function public.touch_field_ops_row();
+
+create or replace function public.project_salesforce_ticket_to_job()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  update public.field_jobs job
+  set fieldfx_ticket_id = new.ticket_number,
+      salesforce_case_id = new.salesforce_record_id,
+      salesforce_case_number = new.ticket_number,
+      salesforce_case_url = new.source_url,
+      salesforce_synced_at = new.last_synced_at,
+      salesforce_sync_status = 'Linked',
+      salesforce_sync_error = ''
+  from public.salesforce_job_ticket_links link
+  where link.ticket_id = new.id and job.id = link.job_id;
+  return new;
+end;
+$$;
+
+drop trigger if exists project_salesforce_ticket_to_job on public.salesforce_tickets;
+create trigger project_salesforce_ticket_to_job
+after update of ticket_number, salesforce_record_id, source_url, last_synced_at on public.salesforce_tickets
+for each row execute function public.project_salesforce_ticket_to_job();
+
+create or replace function public.link_salesforce_ticket(target_job_id uuid, target_ticket_id uuid)
+returns public.salesforce_job_ticket_links
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  selected_ticket public.salesforce_tickets%rowtype;
+  saved_link public.salesforce_job_ticket_links%rowtype;
+begin
+  if not public.is_app_admin() then
+    raise exception 'Administrator access is required.' using errcode = '42501';
+  end if;
+
+  select * into selected_ticket
+  from public.salesforce_tickets
+  where id = target_ticket_id and (is_linkable or exists (
+    select 1 from public.salesforce_job_ticket_links current_link
+    where current_link.ticket_id = target_ticket_id and current_link.job_id = target_job_id
+  ))
+  for update;
+
+  if not found then
+    raise exception 'The selected Salesforce ticket is not available.' using errcode = 'P0002';
+  end if;
+
+  perform 1 from public.field_jobs where id = target_job_id for update;
+  if not found then
+    raise exception 'The selected job does not exist.' using errcode = 'P0002';
+  end if;
+
+  insert into public.salesforce_job_ticket_links (job_id, ticket_id, linked_by)
+  values (target_job_id, target_ticket_id, auth.uid())
+  on conflict (job_id) do update
+  set ticket_id = excluded.ticket_id,
+      linked_at = timezone('utc', now()),
+      linked_by = auth.uid()
+  returning * into saved_link;
+
+  update public.field_jobs
+  set fieldfx_ticket_id = selected_ticket.ticket_number,
+      salesforce_case_id = selected_ticket.salesforce_record_id,
+      salesforce_case_number = selected_ticket.ticket_number,
+      salesforce_case_url = selected_ticket.source_url,
+      salesforce_synced_at = selected_ticket.last_synced_at,
+      salesforce_sync_status = 'Linked',
+      salesforce_sync_error = '',
+      no_ticket_required = false
+  where id = target_job_id;
+
+  return saved_link;
+end;
+$$;
+
+create or replace function public.unlink_salesforce_ticket(target_job_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  removed_count integer;
+begin
+  if not public.is_app_admin() then
+    raise exception 'Administrator access is required.' using errcode = '42501';
+  end if;
+
+  delete from public.salesforce_job_ticket_links where job_id = target_job_id;
+  get diagnostics removed_count = row_count;
+
+  if removed_count > 0 then
+    update public.field_jobs
+    set fieldfx_ticket_id = '',
+        salesforce_case_id = '',
+        salesforce_case_number = '',
+        salesforce_case_url = '',
+        salesforce_synced_at = null,
+        salesforce_sync_status = '',
+        salesforce_sync_error = '',
+        no_ticket_required = false
+    where id = target_job_id;
+  end if;
+
+  return removed_count > 0;
+end;
+$$;
+
+alter table public.salesforce_integration_settings enable row level security;
+alter table public.salesforce_accounts enable row level security;
+alter table public.salesforce_tickets enable row level security;
+alter table public.salesforce_job_ticket_links enable row level security;
+alter table public.salesforce_sync_runs enable row level security;
+
+drop policy if exists "Administrators can read Salesforce settings" on public.salesforce_integration_settings;
+create policy "Administrators can read Salesforce settings" on public.salesforce_integration_settings
+for select to authenticated using (public.is_app_admin());
+drop policy if exists "Administrators can read Salesforce sync runs" on public.salesforce_sync_runs;
+create policy "Administrators can read Salesforce sync runs" on public.salesforce_sync_runs
+for select to authenticated using (public.is_app_admin());
+drop policy if exists "Field users can read Salesforce accounts" on public.salesforce_accounts;
+create policy "Field users can read Salesforce accounts" on public.salesforce_accounts
+for select to authenticated using (public.is_app_admin() or public.has_any_employee_feature(array['field.jobs.view']));
+drop policy if exists "Field users can read Salesforce tickets" on public.salesforce_tickets;
+create policy "Field users can read Salesforce tickets" on public.salesforce_tickets
+for select to authenticated using (public.is_app_admin() or public.has_any_employee_feature(array['field.jobs.view']));
+drop policy if exists "Field users can read Salesforce links" on public.salesforce_job_ticket_links;
+create policy "Field users can read Salesforce links" on public.salesforce_job_ticket_links
+for select to authenticated using (public.is_app_admin() or public.has_any_employee_feature(array['field.jobs.view']));
+drop policy if exists "Administrators can insert Salesforce links" on public.salesforce_job_ticket_links;
+create policy "Administrators can insert Salesforce links" on public.salesforce_job_ticket_links
+for insert to authenticated with check (public.is_app_admin());
+drop policy if exists "Administrators can update Salesforce links" on public.salesforce_job_ticket_links;
+create policy "Administrators can update Salesforce links" on public.salesforce_job_ticket_links
+for update to authenticated using (public.is_app_admin()) with check (public.is_app_admin());
+drop policy if exists "Administrators can delete Salesforce links" on public.salesforce_job_ticket_links;
+create policy "Administrators can delete Salesforce links" on public.salesforce_job_ticket_links
+for delete to authenticated using (public.is_app_admin());
+
+grant select on public.salesforce_integration_settings, public.salesforce_accounts,
+  public.salesforce_tickets, public.salesforce_job_ticket_links, public.salesforce_sync_runs to authenticated;
+revoke insert, update, delete on public.salesforce_job_ticket_links from authenticated;
+revoke insert, update, delete on public.salesforce_integration_settings, public.salesforce_accounts,
+  public.salesforce_tickets, public.salesforce_sync_runs from authenticated;
+revoke all on function public.link_salesforce_ticket(uuid, uuid) from public;
+revoke all on function public.unlink_salesforce_ticket(uuid) from public;
+grant execute on function public.link_salesforce_ticket(uuid, uuid) to authenticated;
+grant execute on function public.unlink_salesforce_ticket(uuid) to authenticated;

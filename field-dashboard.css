@@ -2463,6 +2463,76 @@ textarea.form-input{min-height:86px;resize:vertical;}
   border-color:var(--danger);
   box-shadow:0 0 0 1px rgba(255,107,107,.28);
 }
+.salesforce-integration-panel{grid-column:1 / -1;}
+.salesforce-integration-summary{
+  display:grid;
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+  gap:12px;
+}
+.salesforce-summary-item{
+  padding:12px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:var(--surface2);
+}
+.salesforce-summary-item .summary-label{
+  display:block;
+  margin-bottom:5px;
+  color:var(--muted);
+  font-family:var(--mono);
+  font-size:11px;
+  text-transform:uppercase;
+}
+.salesforce-summary-message{grid-column:1 / -1;margin:0;}
+.salesforce-config-modal{width:min(980px, 96vw);}
+.salesforce-ticket-modal{width:min(860px, 96vw);}
+.salesforce-config-actions,.salesforce-picker-toolbar,.salesforce-account-actions{
+  display:flex;
+  gap:8px;
+  align-items:flex-end;
+  flex-wrap:wrap;
+}
+.salesforce-config-grid{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:12px;
+  margin-top:14px;
+}
+.salesforce-config-grid .full{grid-column:1 / -1;}
+.salesforce-ticket-list,.salesforce-account-results{
+  display:grid;
+  gap:8px;
+  margin-top:14px;
+}
+.salesforce-ticket-option,.salesforce-account-option{
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) auto;
+  gap:12px;
+  align-items:center;
+  width:100%;
+  padding:12px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  color:var(--text);
+  background:var(--surface2);
+  text-align:left;
+}
+.salesforce-ticket-option:hover,.salesforce-account-option:hover{border-color:var(--accent);}
+.salesforce-ticket-option.current{border-color:var(--ok);}
+.salesforce-ticket-main{min-width:0;}
+.salesforce-ticket-title{font-weight:800;}
+.salesforce-ticket-subject,.salesforce-ticket-meta{
+  margin-top:4px;
+  color:var(--muted);
+  font-size:12px;
+}
+.salesforce-account-selection{
+  padding:10px 12px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--surface2);
+}
+.salesforce-manual-fallback{margin-top:12px;}
 @media (min-width: 1201px){
   #schedule-board > .schedule-week.schedule-month .day-column,
   #schedule-board > .schedule-week:not(.schedule-work_week):not(.schedule-month) .day-column{
@@ -2520,6 +2590,8 @@ textarea.form-input{min-height:86px;resize:vertical;}
   .part-catalog-toolbar{align-items:stretch;flex-direction:column;}
   .part-catalog-toolbar .form-group{width:100%;}
   .salesforce-sync-card{grid-template-columns:1fr;}
+  .salesforce-integration-summary,.salesforce-config-grid{grid-template-columns:1fr;}
+  .salesforce-config-grid .full{grid-column:auto;}
   .asset-photo-field{grid-template-columns:1fr;}
   .directory-summary-grid{grid-template-columns:1fr;}
   table{min-width:640px;}

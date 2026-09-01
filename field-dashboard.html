@@ -157,6 +157,20 @@
         </div>
         <div class="panel-body" id="equipment-panel"></div>
       </section>
+      <section class="panel salesforce-integration-panel">
+        <div class="panel-header">
+          <div>
+            <h2>Salesforce Tickets</h2>
+            <div class="panel-meta">Read-only Pittsburgh Field Ops import</div>
+          </div>
+          <div class="panel-actions">
+            <button class="act-btn" type="button" onclick="openSalesforceConfigModal()">Configure</button>
+            <button class="act-btn" id="salesforce-preview-btn" type="button" onclick="previewSalesforceTickets()">Preview</button>
+            <button class="act-btn" id="salesforce-sync-btn" type="button" onclick="syncSalesforceTickets()">Sync Tickets</button>
+          </div>
+        </div>
+        <div class="panel-body" id="salesforce-integration-summary"></div>
+      </section>
     </div>
   </div>
 
@@ -279,6 +293,34 @@
       <div class="modal-body" id="sample-table-modal-body"></div>
       <div class="modal-footer">
         <button class="btn-save" type="button" onclick="closeSampleTableModal()">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="salesforce-config-modal-overlay">
+    <div class="modal salesforce-config-modal">
+      <div class="modal-header">
+        <h3>Configure Salesforce Ticket Import</h3>
+        <button class="modal-close" type="button" onclick="closeSalesforceConfigModal()">X</button>
+      </div>
+      <div class="modal-body" id="salesforce-config-modal-body"></div>
+      <div class="modal-footer">
+        <button class="btn-cancel" type="button" onclick="closeSalesforceConfigModal()">Cancel</button>
+        <button class="act-btn" type="button" onclick="testSalesforceConnection()">Test Connection</button>
+        <button class="btn-save" type="button" onclick="saveSalesforceConfig()">Save Configuration</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="salesforce-ticket-modal-overlay">
+    <div class="modal salesforce-ticket-modal">
+      <div class="modal-header">
+        <h3>Choose Salesforce Ticket</h3>
+        <button class="modal-close" type="button" onclick="closeSalesforceTicketModal()">X</button>
+      </div>
+      <div class="modal-body" id="salesforce-ticket-modal-body"></div>
+      <div class="modal-footer">
+        <button class="btn-cancel" type="button" onclick="closeSalesforceTicketModal()">Close</button>
       </div>
     </div>
   </div>

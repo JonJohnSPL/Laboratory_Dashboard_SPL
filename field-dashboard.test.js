@@ -169,7 +169,7 @@ test('opening Resources automatically starts one silent Geotab sync for admins',
   context.switchView('resources');
 
   assert.equal(calls.filter((call) => call.type === 'render').length, 2);
-  assert.deepEqual(calls.filter((call) => call.type === 'sync'), [
+  assert.deepEqual(JSON.parse(JSON.stringify(calls.filter((call) => call.type === 'sync'))), [
     { type:'sync', options:{ silent:true } }
   ]);
 });
@@ -214,7 +214,7 @@ test('dispatch board exposes the requested filters and removes priority controls
   const source = fs.readFileSync('field-dashboard.js', 'utf8');
   const renderDispatchSource = readFunction(source, 'renderDispatch');
 
-  for(const filter of ['dispatchClient', 'dispatchJobType', 'dispatchDatePreset', 'dispatchDateFrom', 'dispatchDateTo', 'dispatchTechnician']){
+  for(const filter of ['dispatchClient', 'dispatchJobType', 'dispatchDatePreset', 'dispatchDateFrom', 'dispatchDateTo', 'dispatchStatus', 'dispatchTechnician']){
     assert.match(renderDispatchSource, new RegExp(filter));
   }
   assert.doesNotMatch(source, /dispatchPriority|dispatchAlertFilter|dispatchAssignmentFilter|getPriorityBadge|PRIORITY_OPTIONS/);
@@ -321,4 +321,53 @@ test('month schedule includes jobs shown on adjacent-month grid days', () => {
 
   const jobs = context.getJobsForScheduleDates(['2026-07-31', '2026-08-05', '2026-09-01']);
   assert.deepEqual(Array.from(jobs, (job) => job.id), ['august-job', 'july-job', 'september-job']);
+});
+
+test('Salesforce ticket choices default to the job client Account and exclude occupied tickets', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const context = {
+    state:{ data:{
+      salesforceTicketLinks:[{ jobId:'job-2', ticketId:'ticket-occupied' }],
+      salesforceTickets:[
+        { id:'ticket-match', ticketNumber:'100', subject:'Meter proving', accountRecordId:'account-1', isActive:true, isLinkable:true, sourceModifiedAt:'2026-08-30' },
+        { id:'ticket-other', ticketNumber:'200', subject:'Pickup', accountRecordId:'account-2', isActive:true, isLinkable:true, sourceModifiedAt:'2026-08-31' },
+        { id:'ticket-occupied', ticketNumber:'300', subject:'Assigned', accountRecordId:'account-1', isActive:true, isLinkable:true, sourceModifiedAt:'2026-08-29' }
+      ]
+    } },
+    getJob:() => ({ id:'job-1', clientId:'client-1' }),
+    getClient:() => ({ id:'client-1', salesforceAccountId:'account-1' })
+  };
+  vm.createContext(context);
+  vm.runInContext([readFunction(source, 'getSalesforceTicketLinkForJob'), readFunction(source, 'getAvailableSalesforceTickets')].join('\n'), context);
+
+  assert.deepEqual(Array.from(context.getAvailableSalesforceTickets('job-1'), (ticket) => ticket.id), ['ticket-match']);
+  assert.deepEqual(Array.from(context.getAvailableSalesforceTickets('job-1', { showAll:true }), (ticket) => ticket.id), ['ticket-other', 'ticket-match']);
+});
+
+test('Salesforce integration is read-only upstream and the old writer is retired', () => {
+  const syncSource = fs.readFileSync('supabase/functions/salesforce-ticket-sync/index.ts', 'utf8');
+  const retiredSource = fs.readFileSync('supabase/functions/salesforce-case/index.ts', 'utf8');
+  assert.match(syncSource, /function salesforceGet/);
+  assert.match(syncSource, /method: "GET"/);
+  assert.doesNotMatch(syncSource, /salesforce(?:Request|Get)[\s\S]{0,200}method: "(?:PATCH|DELETE)"/);
+  assert.match(retiredSource, /status: 410/);
+  assert.doesNotMatch(retiredSource, /fetch\(/);
+});
+
+test('Salesforce schema enforces RLS, admin RPCs, and one-to-one links', () => {
+  const schema = fs.readFileSync('supabase/schema.sql', 'utf8');
+  assert.match(schema, /job_id uuid not null unique references public\.field_jobs/);
+  assert.match(schema, /ticket_id uuid not null unique references public\.salesforce_tickets/);
+  assert.match(schema, /alter table public\.salesforce_tickets enable row level security/);
+  assert.match(schema, /create or replace function public\.link_salesforce_ticket/);
+  assert.match(schema, /create or replace function public\.unlink_salesforce_ticket/);
+  assert.match(schema, /if not public\.is_app_admin\(\)/);
+});
+
+test('Resources includes Salesforce configuration, preview, and synchronization controls', () => {
+  const html = fs.readFileSync('field-dashboard.html', 'utf8');
+  assert.match(html, /openSalesforceConfigModal\(\)/);
+  assert.match(html, /previewSalesforceTickets\(\)/);
+  assert.match(html, /syncSalesforceTickets\(\)/);
+  assert.match(html, /id="salesforce-ticket-modal-overlay"/);
 });

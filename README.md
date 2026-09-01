@@ -116,7 +116,7 @@ If the DoneSafe account uses mandatory SSO or MFA, request a dedicated API/integ
 - The current behavior is last-write-wins. If two users edit the same data at the same time, the most recent save will replace the older one.
 - Column visibility still uses local browser storage because it is a personal UI preference, not shared lab data.
 - The Field Ops `field-assets` storage bucket is used for uploaded asset photos and client logos.
-- Field Ops Salesforce ticket linking is currently manual. Paste the Salesforce ticket URL and ticket/case number into the saved job's Salesforce Ticket Link section.
+- Field Ops imports read-only Salesforce tickets through Supabase. Manual number/URL links remain available as a compatibility fallback.
 
 ## Test Catalog and lab-specific Test Setup
 
@@ -126,17 +126,29 @@ Existing Lab WIP definitions become Pittsburgh migration-placeholder setups so h
 
 Administrators manage the global Test Catalog. Employees with `lab.tests.view` can read it, while `lab.tests.manage` permits instrument and Test Setup changes only for the employee's relational Home SPL Site. The former `master-methods.html` and `test-types.html` paths remain compatibility redirects.
 
-## Salesforce ticket linking
+## Salesforce ticket import and linking
 
-- No Salesforce API authorization is required for the current workflow.
-- No Salesforce Connected App credentials are required for the current workflow.
-- Create or find the ticket in Salesforce, copy its URL, then paste it into the Field Job modal.
-- The optional ticket/case number is displayed as the `SF` badge on job cards.
+Salesforce remains authoritative for ticket fields. The dashboard caches only records selected by the shared Pittsburgh Field Ops list view and owns the one-to-one job link. The integration performs no Salesforce create, update, or delete requests.
 
-## Future API sync
+Ask a Salesforce administrator to create an External Client App with OAuth client-credentials flow and a designated, preferably API-only integration user. Give that user read access only to Accounts, the chosen ticket object and its mapped fields, metadata, and the shared Pittsburgh Field Ops list view.
 
-- The `salesforce-case` Supabase Edge Function is parked for future IT-approved API sync.
-- When API sync is approved, configure the function with `SALESFORCE_LOGIN_URL`, `SALESFORCE_INSTANCE_URL`, `SALESFORCE_CONNECTED_APP_CONSUMER_KEY`, and `SALESFORCE_CONNECTED_APP_CONSUMER_SECRET`; keep these values out of `app-config.js`.
-- `SALESFORCE_CONNECTED_APP_CONSUMER_KEY` is the Consumer Key from the Salesforce Connected App / External Client App. Salesforce may call this the client ID in OAuth docs, but it is not a dashboard client/customer ID.
-- `SALESFORCE_CONNECTED_APP_CONSUMER_SECRET` is the Consumer Secret from that same Salesforce app.
-- `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL`, and `SUPABASE_ANON_KEY` are default Supabase Edge Function secrets. Do not set them manually with `supabase secrets set`.
+Store the credentials as Supabase Edge Function secrets; never add them to `app-config.js`:
+
+```text
+SALESFORCE_MY_DOMAIN_URL=https://spl.my.salesforce.com
+SALESFORCE_CONNECTED_APP_CONSUMER_KEY=replace-with-consumer-key
+SALESFORCE_CONNECTED_APP_CONSUMER_SECRET=replace-with-consumer-secret
+```
+
+`SALESFORCE_API_VERSION` is optional and defaults to `v68.0`. The Edge Function accepts a current `SUPABASE_SECRET_KEY`/`SUPABASE_SECRET_KEYS` value and temporarily falls back to the legacy `SUPABASE_SERVICE_ROLE_KEY` during migration.
+
+Apply the latest schema and deploy both functions:
+
+```text
+supabase functions deploy salesforce-ticket-sync
+supabase functions deploy salesforce-case
+```
+
+The second deployment replaces the former write-capable endpoint with a non-writing HTTP 410 retirement response. Then open **Field Ops > Resources > Salesforce Tickets** and run **Configure**, **Test Connection**, select the ticket object and Pittsburgh Field Ops list view, validate the field mappings, **Preview**, and **Sync Tickets**.
+
+In the client editor, search Salesforce Accounts and save an explicit Account mapping. Job ticket choices then default to active, unlinked tickets with that exact Account ID; administrators can explicitly show all Pittsburgh tickets. Link and unlink operations run through database RPCs so concurrent users cannot assign the same imported ticket to two jobs. Existing manual ticket links continue to work as compatibility exceptions.
