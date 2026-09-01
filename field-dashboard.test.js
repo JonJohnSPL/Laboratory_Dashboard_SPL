@@ -369,7 +369,7 @@ test('calendar print defaults follow the selected schedule view', () => {
   assert.deepEqual(context.getScheduleCalendarPrintDefaultRange(), { from:'2026-08-01', to:'2026-08-31' });
 });
 
-test('calendar print range is inclusive and its grid begins on Monday', () => {
+test('calendar print range is inclusive and its grid begins on Sunday', () => {
   const source = fs.readFileSync('field-dashboard.js', 'utf8');
   const context = {
     parseDateOnly:(value) => value ? new Date(`${value}T12:00:00`) : null,
@@ -379,13 +379,13 @@ test('calendar print range is inclusive and its grid begins on Monday', () => {
   vm.createContext(context);
   vm.runInContext([
     readFunction(source, 'getScheduleCalendarPrintDateRange'),
-    readFunction(source, 'getMondayWeekStartISO'),
+    readFunction(source, 'getSundayWeekStartISO'),
     readFunction(source, 'getScheduleCalendarPrintGridDates')
   ].join('\n'), context);
 
   const selected = context.getScheduleCalendarPrintDateRange('2026-08-19', '2026-08-25');
   assert.deepEqual(Array.from(selected), ['2026-08-19', '2026-08-20', '2026-08-21', '2026-08-22', '2026-08-23', '2026-08-24', '2026-08-25']);
-  assert.deepEqual(Array.from(context.getScheduleCalendarPrintGridDates(selected)), ['2026-08-17', '2026-08-18', '2026-08-19', '2026-08-20', '2026-08-21', '2026-08-22', '2026-08-23', '2026-08-24', '2026-08-25', '2026-08-26', '2026-08-27', '2026-08-28', '2026-08-29', '2026-08-30']);
+  assert.deepEqual(Array.from(context.getScheduleCalendarPrintGridDates(selected)), ['2026-08-16', '2026-08-17', '2026-08-18', '2026-08-19', '2026-08-20', '2026-08-21', '2026-08-22', '2026-08-23', '2026-08-24', '2026-08-25', '2026-08-26', '2026-08-27', '2026-08-28', '2026-08-29']);
   assert.deepEqual(Array.from(context.getScheduleCalendarPrintDateRange('2026-08-25', '2026-08-19')), []);
 });
 

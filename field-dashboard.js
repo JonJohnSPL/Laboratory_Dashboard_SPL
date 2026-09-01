@@ -3077,17 +3077,17 @@ function getScheduleCalendarPrintDateRange(fromValue, toValue){
   return dates;
 }
 
-function getMondayWeekStartISO(input){
+function getSundayWeekStartISO(input){
   const date = parseDateOnly(input || new Date());
   if(!date) return '';
-  date.setDate(date.getDate() - ((date.getDay() + 6) % 7));
+  date.setDate(date.getDate() - date.getDay());
   return toInputDate(date);
 }
 
 function getScheduleCalendarPrintGridDates(dates){
   if(!dates.length) return [];
-  const gridStart = getMondayWeekStartISO(dates[0]);
-  const gridEnd = addDaysISO(getMondayWeekStartISO(dates[dates.length - 1]), 6);
+  const gridStart = getSundayWeekStartISO(dates[0]);
+  const gridEnd = addDaysISO(getSundayWeekStartISO(dates[dates.length - 1]), 6);
   return getScheduleCalendarPrintDateRange(gridStart, gridEnd);
 }
 
@@ -3160,7 +3160,7 @@ function buildScheduleCalendarPrintDocument(from, to, gridDates, jobs){
     const rightStart = getJobPrimaryDate(right)?.getTime() || Number.MAX_SAFE_INTEGER;
     return leftStart - rightStart || compareStrings(getJobDisplayTitle(left), getJobDisplayTitle(right));
   }));
-  const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const calendarCells = gridDates.map((dateIso) => {
     const date = parseDateOnly(dateIso);
     const inRange = selectedDates.has(dateIso);
