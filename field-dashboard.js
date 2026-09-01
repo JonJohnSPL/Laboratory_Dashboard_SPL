@@ -3145,7 +3145,7 @@ function getScheduleCalendarPrintTimeLabel(job){
 }
 
 function renderScheduleCalendarPrintJob(job){
-  return `<article class="calendar-job"><div class="calendar-job-time">${esc(getScheduleCalendarPrintTimeLabel(job))}</div><strong>${esc(getJobDisplayTitle(job))}</strong><span>${esc(getClientLabel(job.clientId))}</span><span>${esc(getJobSiteSummary(job))}</span><span>${esc(getScheduleCalendarPrintTechnicianLabel(job))}</span><span>${esc(getJobTypeDisplayName(job.jobType))}</span></article>`;
+  return `<article class="calendar-job"><div class="calendar-job-time">${esc(getScheduleCalendarPrintTimeLabel(job))}</div><strong>${esc(getJobDisplayTitle(job))}</strong><span>${esc(getClientLabel(job.clientId))}</span><span>${esc(getJobSiteSummary(job))}</span><span>${esc(getScheduleCalendarPrintTechnicianLabel(job))}</span></article>`;
 }
 
 function buildScheduleCalendarPrintDocument(from, to, gridDates, jobs){

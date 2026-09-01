@@ -402,13 +402,13 @@ test('calendar print selects filtered or all schedule jobs as requested', () => 
   assert.equal(context.getScheduleCalendarPrintJobs(['2026-08-19'], 'all', 'derived')[0].id, 'all');
 });
 
-test('calendar print output includes the requested field job details and excludes travel', () => {
+test('calendar print output includes job details without duplicating its title as a job type', () => {
   const source = fs.readFileSync('field-dashboard.js', 'utf8');
   const html = fs.readFileSync('field-dashboard.html', 'utf8');
   assert.match(source, /openScheduleCalendarPrintModal\(\)/);
   assert.match(source, /getScheduleCalendarPrintTechnicianLabel/);
   assert.match(source, /getScheduleCalendarPrintTimeLabel/);
-  assert.match(source, /getJobTypeDisplayName\(job\.jobType\)/);
+  assert.doesNotMatch(readFunction(source, 'renderScheduleCalendarPrintJob'), /getJobTypeDisplayName\(job\.jobType\)/);
   assert.doesNotMatch(readFunction(source, 'getScheduleCalendarPrintJobs'), /technicianTravel/);
   assert.match(html, /id="schedule-calendar-print-modal-overlay"/);
 });
