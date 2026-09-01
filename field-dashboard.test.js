@@ -323,6 +323,96 @@ test('month schedule includes jobs shown on adjacent-month grid days', () => {
   assert.deepEqual(Array.from(jobs, (job) => job.id), ['august-job', 'july-job', 'september-job']);
 });
 
+function isoDate(value){
+  const date = new Date(`${value}T12:00:00`);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function addIsoDays(value, amount){
+  const date = new Date(`${value}T12:00:00`);
+  date.setDate(date.getDate() + amount);
+  return isoDate(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`);
+}
+
+function startOfSundayWeek(value){
+  const date = new Date(`${value}T12:00:00`);
+  date.setDate(date.getDate() - date.getDay());
+  return isoDate(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`);
+}
+
+function startOfMonth(value){
+  const date = new Date(`${value}T12:00:00`);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
+test('calendar print defaults follow the selected schedule view', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const context = {
+    state:{ scheduleView:'week', scheduleAnchorDate:'2026-08-19' },
+    getStartOfMonthISO:startOfMonth,
+    getStartOfWeekISO:startOfSundayWeek,
+    getStartOfWorkWeekISO:(value) => addIsoDays(startOfSundayWeek(value), 1),
+    addMonthsISO:(value, amount) => {
+      const date = new Date(`${value}T12:00:00`);
+      date.setMonth(date.getMonth() + amount);
+      return isoDate(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`);
+    },
+    addDaysISO:addIsoDays
+  };
+  vm.createContext(context);
+  vm.runInContext(readFunction(source, 'getScheduleCalendarPrintDefaultRange'), context);
+
+  assert.deepEqual(context.getScheduleCalendarPrintDefaultRange(), { from:'2026-08-16', to:'2026-08-22' });
+  context.state.scheduleView = 'work_week';
+  assert.deepEqual(context.getScheduleCalendarPrintDefaultRange(), { from:'2026-08-17', to:'2026-08-21' });
+  context.state.scheduleView = 'month';
+  assert.deepEqual(context.getScheduleCalendarPrintDefaultRange(), { from:'2026-08-01', to:'2026-08-31' });
+});
+
+test('calendar print range is inclusive and its grid begins on Monday', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const context = {
+    parseDateOnly:(value) => value ? new Date(`${value}T12:00:00`) : null,
+    toInputDate:(value) => value instanceof Date ? `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}` : String(value || ''),
+    addDaysISO:addIsoDays
+  };
+  vm.createContext(context);
+  vm.runInContext([
+    readFunction(source, 'getScheduleCalendarPrintDateRange'),
+    readFunction(source, 'getMondayWeekStartISO'),
+    readFunction(source, 'getScheduleCalendarPrintGridDates')
+  ].join('\n'), context);
+
+  const selected = context.getScheduleCalendarPrintDateRange('2026-08-19', '2026-08-25');
+  assert.deepEqual(Array.from(selected), ['2026-08-19', '2026-08-20', '2026-08-21', '2026-08-22', '2026-08-23', '2026-08-24', '2026-08-25']);
+  assert.deepEqual(Array.from(context.getScheduleCalendarPrintGridDates(selected)), ['2026-08-17', '2026-08-18', '2026-08-19', '2026-08-20', '2026-08-21', '2026-08-22', '2026-08-23', '2026-08-24', '2026-08-25', '2026-08-26', '2026-08-27', '2026-08-28', '2026-08-29', '2026-08-30']);
+  assert.deepEqual(Array.from(context.getScheduleCalendarPrintDateRange('2026-08-25', '2026-08-19')), []);
+});
+
+test('calendar print selects filtered or all schedule jobs as requested', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const context = {
+    getFilteredScheduleJobs:(dates, derived) => [{ id:'filtered', dates, derived }],
+    getJobsForScheduleDates:(dates, filter) => [{ id:'all', dates, filter }]
+  };
+  vm.createContext(context);
+  vm.runInContext(readFunction(source, 'getScheduleCalendarPrintJobs'), context);
+
+  assert.equal(context.getScheduleCalendarPrintJobs(['2026-08-19'], 'active', 'derived')[0].id, 'filtered');
+  assert.equal(context.getScheduleCalendarPrintJobs(['2026-08-19'], 'all', 'derived')[0].id, 'all');
+});
+
+test('calendar print output includes the requested field job details and excludes travel', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const html = fs.readFileSync('field-dashboard.html', 'utf8');
+  assert.match(source, /openScheduleCalendarPrintModal\(\)/);
+  assert.match(source, /getScheduleCalendarPrintTechnicianLabel/);
+  assert.match(source, /getScheduleCalendarPrintTimeLabel/);
+  assert.match(source, /getJobTypeDisplayName\(job\.jobType\)/);
+  assert.doesNotMatch(readFunction(source, 'getScheduleCalendarPrintJobs'), /technicianTravel/);
+  assert.match(html, /id="schedule-calendar-print-modal-overlay"/);
+});
+
 test('Salesforce ticket choices default to the job client Account and exclude occupied tickets', () => {
   const source = fs.readFileSync('field-dashboard.js', 'utf8');
   const context = {

@@ -1148,6 +1148,32 @@ tbody tr.clickable-table-row:focus-visible{
 .sample-table-modal{
   width:min(1520px, 98vw);
 }
+.schedule-calendar-print-modal{
+  width:min(620px, 100%);
+}
+.schedule-calendar-print-options{
+  display:grid;
+  gap:10px;
+  margin-top:18px;
+}
+.schedule-calendar-print-options label{
+  display:flex;
+  align-items:flex-start;
+  gap:9px;
+  color:var(--text);
+  cursor:pointer;
+}
+.schedule-calendar-print-options input{
+  margin-top:3px;
+}
+.schedule-calendar-print-error{
+  margin-top:16px;
+  padding:10px 12px;
+  border:1px solid rgba(255,93,115,.42);
+  border-radius:8px;
+  background:rgba(255,93,115,.1);
+  color:#ffb3bf;
+}
 .modal-header{
   display:flex;
   justify-content:space-between;

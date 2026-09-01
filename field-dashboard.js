@@ -190,7 +190,7 @@ const ENTITY_CONFIG = {
 };
 
 const INITIAL_DISPATCH_WEEK_START = getStartOfWeekISO(new Date());
-let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'schedule', scheduleAnchorDate:getStartOfWeekISO(new Date()), scheduleView:'week', scheduleAddPromptDate:'', scheduleActionJobId:'', scheduleQuickTechJobId:'', scheduleQuickTechTechnicianId:'', scheduleQuickTicketJobId:'', scheduleQuickTicketNumber:'', scheduleQuickTicketUrl:'', scheduleActionSavingJobId:'', filters:{ dispatchSearch:'', dispatchClient:'all', dispatchJobType:'all', dispatchDatePreset:'this_week', dispatchDateFrom:INITIAL_DISPATCH_WEEK_START, dispatchDateTo:addDaysISO(INITIAL_DISPATCH_WEEK_START, 6), dispatchStatus:'open', dispatchTechnician:'all', dispatchSortKey:'schedule', dispatchSortDirection:'asc', scheduleSearch:'', scheduleClient:'all', scheduleJobType:'all', scheduleTechnician:'all', inventorySearch:'', inventoryStatus:'active', partPickerSearch:'', partCatalogType:'category', directoryClient:'all', directorySection:'overview', directoryClientSearch:'', directoryContactSearch:'', directoryContactScope:'all', directoryContactProject:'all', directoryContactSite:'all', directoryContactSortKey:'name', directoryContactSortDirection:'asc' }, data:createEmptyData(), labTestDefinitions:[], sampleLinkModal:createClosedSampleLinkModalState(), partAdjustModal:createClosedPartAdjustModalState(), salesforceConfigModal:createClosedSalesforceConfigModalState(), salesforceTicketModal:createClosedSalesforceTicketModalState(), salesforceAccountSearchResults:[], salesforceAccountSearchBusy:false, partPickerOpen:false, sampleTableModalOpen:false, expandedSampleGroups:{}, saveInFlight:false, autoRefreshInFlight:false, geotabSyncInFlight:false, donesafeSyncInFlight:false, salesforceSyncInFlight:false };
+let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'schedule', scheduleAnchorDate:getStartOfWeekISO(new Date()), scheduleView:'week', scheduleAddPromptDate:'', scheduleActionJobId:'', scheduleQuickTechJobId:'', scheduleQuickTechTechnicianId:'', scheduleQuickTicketJobId:'', scheduleQuickTicketNumber:'', scheduleQuickTicketUrl:'', scheduleActionSavingJobId:'', filters:{ dispatchSearch:'', dispatchClient:'all', dispatchJobType:'all', dispatchDatePreset:'this_week', dispatchDateFrom:INITIAL_DISPATCH_WEEK_START, dispatchDateTo:addDaysISO(INITIAL_DISPATCH_WEEK_START, 6), dispatchStatus:'open', dispatchTechnician:'all', dispatchSortKey:'schedule', dispatchSortDirection:'asc', scheduleSearch:'', scheduleClient:'all', scheduleJobType:'all', scheduleTechnician:'all', inventorySearch:'', inventoryStatus:'active', partPickerSearch:'', partCatalogType:'category', directoryClient:'all', directorySection:'overview', directoryClientSearch:'', directoryContactSearch:'', directoryContactScope:'all', directoryContactProject:'all', directoryContactSite:'all', directoryContactSortKey:'name', directoryContactSortDirection:'asc' }, data:createEmptyData(), labTestDefinitions:[], sampleLinkModal:createClosedSampleLinkModalState(), partAdjustModal:createClosedPartAdjustModalState(), salesforceConfigModal:createClosedSalesforceConfigModalState(), salesforceTicketModal:createClosedSalesforceTicketModalState(), scheduleCalendarPrintModal:createClosedScheduleCalendarPrintModalState(), salesforceAccountSearchResults:[], salesforceAccountSearchBusy:false, partPickerOpen:false, sampleTableModalOpen:false, expandedSampleGroups:{}, saveInFlight:false, autoRefreshInFlight:false, geotabSyncInFlight:false, donesafeSyncInFlight:false, salesforceSyncInFlight:false };
 let modalState = createClosedModalState();
 let lastLoadedSnapshot = '';
 let hideSaveStatusTimer = null;
@@ -203,6 +203,7 @@ function createClosedSampleLinkModalState(){ return { open:false, mode:'single',
 function createClosedPartAdjustModalState(){ return { open:false, partId:'', mode:'receive' }; }
 function createClosedSalesforceConfigModalState(){ return { open:false, busy:false, message:'', error:'', objects:[], fields:[], listViews:[], draft:{ objectApiName:'', listViewId:'', enabled:true, fieldMapping:{} } }; }
 function createClosedSalesforceTicketModalState(){ return { open:false, jobId:'', search:'', showAll:false, saving:false, error:'' }; }
+function createClosedScheduleCalendarPrintModalState(){ return { open:false, from:'', to:'', filterMode:'active', error:'' }; }
 function uid(prefix = 'fld'){ return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
 function clone(value){ return JSON.parse(JSON.stringify(value)); }
 function firstRow(payload){ return Array.isArray(payload) ? payload[0] || null : payload; }
@@ -3052,6 +3053,177 @@ function resetScheduleWeek(){
   renderSchedule(buildDerivedState());
 }
 
+function getScheduleCalendarPrintDefaultRange(){
+  if(state.scheduleView === 'month'){
+    const from = getStartOfMonthISO(state.scheduleAnchorDate);
+    return { from, to:addDaysISO(getStartOfMonthISO(addMonthsISO(from, 1)), -1) };
+  }
+  if(state.scheduleView === 'work_week'){
+    const from = getStartOfWorkWeekISO(state.scheduleAnchorDate);
+    return { from, to:addDaysISO(from, 4) };
+  }
+  const from = getStartOfWeekISO(state.scheduleAnchorDate);
+  return { from, to:addDaysISO(from, 6) };
+}
+
+function getScheduleCalendarPrintDateRange(fromValue, toValue){
+  const from = toInputDate(fromValue);
+  const to = toInputDate(toValue);
+  const fromDate = parseDateOnly(from);
+  const toDate = parseDateOnly(to);
+  if(!fromDate || !toDate || fromDate > toDate) return [];
+  const dates = [];
+  for(let dateIso = from; dateIso <= to; dateIso = addDaysISO(dateIso, 1)) dates.push(dateIso);
+  return dates;
+}
+
+function getMondayWeekStartISO(input){
+  const date = parseDateOnly(input || new Date());
+  if(!date) return '';
+  date.setDate(date.getDate() - ((date.getDay() + 6) % 7));
+  return toInputDate(date);
+}
+
+function getScheduleCalendarPrintGridDates(dates){
+  if(!dates.length) return [];
+  const gridStart = getMondayWeekStartISO(dates[0]);
+  const gridEnd = addDaysISO(getMondayWeekStartISO(dates[dates.length - 1]), 6);
+  return getScheduleCalendarPrintDateRange(gridStart, gridEnd);
+}
+
+function getScheduleCalendarPrintJobs(dates, filterMode, derived){
+  if(filterMode === 'active') return getFilteredScheduleJobs(dates, derived);
+  return getJobsForScheduleDates(dates, 'all');
+}
+
+function openScheduleCalendarPrintModal(){
+  const range = getScheduleCalendarPrintDefaultRange();
+  state.scheduleCalendarPrintModal = { open:true, from:range.from, to:range.to, filterMode:'active', error:'' };
+  renderScheduleCalendarPrintModal();
+}
+
+function closeScheduleCalendarPrintModal(){
+  state.scheduleCalendarPrintModal = createClosedScheduleCalendarPrintModalState();
+  renderScheduleCalendarPrintModal();
+}
+
+function setScheduleCalendarPrintModalField(key, value){
+  if(!['from', 'to', 'filterMode'].includes(key)) return;
+  state.scheduleCalendarPrintModal[key] = key === 'filterMode' ? (value === 'all' ? 'all' : 'active') : String(value || '');
+  state.scheduleCalendarPrintModal.error = '';
+  renderScheduleCalendarPrintModal();
+}
+
+function renderScheduleCalendarPrintModal(){
+  const modal = state.scheduleCalendarPrintModal;
+  const overlay = document.getElementById('schedule-calendar-print-modal-overlay');
+  const body = document.getElementById('schedule-calendar-print-modal-body');
+  if(!overlay || !body) return;
+  if(!modal.open){ overlay.classList.remove('open'); return; }
+  overlay.classList.add('open');
+  body.innerHTML = `
+    <p class="muted">Choose the inclusive date range for a printer-friendly Field Ops calendar. Your browser’s print dialog can save it as a PDF.</p>
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label" for="schedule-calendar-print-from">From</label><input id="schedule-calendar-print-from" class="form-input" type="date" value="${esc(modal.from)}" onchange="setScheduleCalendarPrintModalField('from', this.value)"></div>
+      <div class="form-group"><label class="form-label" for="schedule-calendar-print-to">To</label><input id="schedule-calendar-print-to" class="form-input" type="date" value="${esc(modal.to)}" onchange="setScheduleCalendarPrintModalField('to', this.value)"></div>
+    </div>
+    <div class="schedule-calendar-print-options" role="radiogroup" aria-label="Jobs to include">
+      <label><input type="radio" name="schedule-calendar-print-filter" value="active" ${modal.filterMode === 'active' ? 'checked' : ''} onchange="setScheduleCalendarPrintModalField('filterMode', this.value)"><span><strong>Apply active schedule filters</strong><br><span class="muted">Include only jobs matching the current search, client, job type, and technician filters.</span></span></label>
+      <label><input type="radio" name="schedule-calendar-print-filter" value="all" ${modal.filterMode === 'all' ? 'checked' : ''} onchange="setScheduleCalendarPrintModalField('filterMode', this.value)"><span><strong>Include all scheduled jobs</strong><br><span class="muted">Ignore schedule filters and include every job in the selected date range.</span></span></label>
+    </div>
+    ${modal.error ? `<div class="schedule-calendar-print-error" role="alert">${esc(modal.error)}</div>` : ''}
+  `;
+}
+
+function getScheduleCalendarPrintTechnicianLabel(job){
+  const labels = getTechnicianAssignmentsForJob(job.id).map((assignment) => getTechnicianLabel(assignment.resourceId));
+  return labels.length ? labels.join(', ') : 'Unassigned';
+}
+
+function getScheduleCalendarPrintTimeLabel(job){
+  return job?.scheduledStart ? fmtTime(job.scheduledStart) : 'Time TBD';
+}
+
+function renderScheduleCalendarPrintJob(job){
+  return `<article class="calendar-job"><div class="calendar-job-time">${esc(getScheduleCalendarPrintTimeLabel(job))}</div><strong>${esc(getJobDisplayTitle(job))}</strong><span>${esc(getClientLabel(job.clientId))}</span><span>${esc(getJobSiteSummary(job))}</span><span>${esc(getScheduleCalendarPrintTechnicianLabel(job))}</span><span>${esc(getJobTypeDisplayName(job.jobType))}</span></article>`;
+}
+
+function buildScheduleCalendarPrintDocument(from, to, gridDates, jobs){
+  const selectedDates = new Set(getScheduleCalendarPrintDateRange(from, to));
+  const jobsByDate = new Map(gridDates.map((dateIso) => [dateIso, []]));
+  jobs.forEach((job) => {
+    const dateIso = toInputDate(getJobPrimaryDate(job));
+    if(jobsByDate.has(dateIso)) jobsByDate.get(dateIso).push(job);
+  });
+  jobsByDate.forEach((dayJobs) => dayJobs.sort((left, right) => {
+    const leftStart = getJobPrimaryDate(left)?.getTime() || Number.MAX_SAFE_INTEGER;
+    const rightStart = getJobPrimaryDate(right)?.getTime() || Number.MAX_SAFE_INTEGER;
+    return leftStart - rightStart || compareStrings(getJobDisplayTitle(left), getJobDisplayTitle(right));
+  }));
+  const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const calendarCells = gridDates.map((dateIso) => {
+    const date = parseDateOnly(dateIso);
+    const inRange = selectedDates.has(dateIso);
+    const jobsForDay = inRange ? jobsByDate.get(dateIso) || [] : [];
+    return `<section class="calendar-day ${inRange ? '' : 'outside-range'}"><header><strong>${esc(date?.toLocaleDateString('en-US', { month:'short', day:'numeric' }) || '')}</strong><span>${esc(date?.toLocaleDateString('en-US', { weekday:'short' }) || '')}</span></header>${jobsForDay.map(renderScheduleCalendarPrintJob).join('')}</section>`;
+  }).join('');
+  const title = `Field Schedule Calendar | ${fmtDate(from)} - ${fmtDate(to)}`;
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${esc(title)}</title><style>
+    @page { size:landscape; margin:.35in; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:#18251d; font-family:Arial, Helvetica, sans-serif; }
+    h1 { margin:0; font-size:20px; }
+    .print-meta { margin:4px 0 16px; color:#536259; font-size:11px; }
+    .calendar-weekdays, .calendar-grid { display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); }
+    .calendar-weekdays { border:1px solid #9dac9f; border-bottom:0; background:#e9f0e9; }
+    .calendar-weekdays div { padding:6px 4px; border-right:1px solid #b8c4ba; font-size:10px; font-weight:700; text-align:center; text-transform:uppercase; }
+    .calendar-weekdays div:last-child { border-right:0; }
+    .calendar-grid { border-top:1px solid #9dac9f; border-left:1px solid #9dac9f; }
+    .calendar-day { min-height:1.42in; padding:6px; border-right:1px solid #9dac9f; border-bottom:1px solid #9dac9f; overflow:hidden; }
+    .calendar-day header { display:flex; justify-content:space-between; gap:5px; margin-bottom:6px; color:#34483a; font-size:10px; }
+    .calendar-day header span { color:#657368; font-size:9px; }
+    .calendar-day.outside-range { background:#f3f5f3; color:#9ba69d; }
+    .calendar-job { display:grid; gap:2px; margin:0 0 5px; padding:5px; border-left:3px solid #2f7c47; border-radius:2px; background:#eef7ef; font-size:8.5px; line-height:1.18; break-inside:avoid; }
+    .calendar-job-time { color:#216237; font-size:8px; font-weight:700; }
+    .calendar-job strong { font-size:9px; }
+    @media print { .calendar-day { min-height:1.25in; } }
+  </style></head><body><h1>Field Schedule Calendar</h1><div class="print-meta">${esc(fmtDate(from))} – ${esc(fmtDate(to))} | Generated ${esc(new Date().toLocaleString('en-US'))}</div><div class="calendar-weekdays">${weekdays.map((day) => `<div>${day}</div>`).join('')}</div><main class="calendar-grid">${calendarCells}</main></body></html>`;
+}
+
+function printScheduleCalendar(){
+  const modal = state.scheduleCalendarPrintModal;
+  const dates = getScheduleCalendarPrintDateRange(modal.from, modal.to);
+  if(!dates.length){
+    modal.error = 'Enter a valid date range with a From date on or before the To date.';
+    renderScheduleCalendarPrintModal();
+    return;
+  }
+  const jobs = getScheduleCalendarPrintJobs(dates, modal.filterMode, buildDerivedState());
+  if(!jobs.length){
+    modal.error = 'No scheduled field jobs match this date range and selection.';
+    renderScheduleCalendarPrintModal();
+    return;
+  }
+  const printWindow = window.open('', '_blank');
+  if(!printWindow){
+    modal.error = 'Unable to open the print window. Please allow pop-ups for this dashboard and try again.';
+    renderScheduleCalendarPrintModal();
+    return;
+  }
+  try {
+    printWindow.document.open();
+    printWindow.document.write(buildScheduleCalendarPrintDocument(modal.from, modal.to, getScheduleCalendarPrintGridDates(dates), jobs));
+    printWindow.document.close();
+    closeScheduleCalendarPrintModal();
+    window.setTimeout(() => { if(!printWindow.closed){ printWindow.focus(); printWindow.print(); } }, 200);
+  } catch (error){
+    console.error('Unable to prepare the field schedule calendar:', error);
+    printWindow.close();
+    modal.error = 'Unable to prepare the calendar for printing. Please try again.';
+    renderScheduleCalendarPrintModal();
+  }
+}
+
 function openScheduleDayPrompt(dateIso, event){
   if(event?.target?.closest?.('.schedule-card, .schedule-add-popover')) return;
   state.scheduleAddPromptDate = state.scheduleAddPromptDate === dateIso ? '' : dateIso;
@@ -3838,7 +4010,7 @@ function renderSchedule(derived){
   const scheduleDates = getScheduleDates();
   const scheduleJobs = getFilteredScheduleJobs(scheduleDates, derived);
   const totalJobsInRange = getJobsForScheduleDates(scheduleDates, 'all').length;
-  document.getElementById('schedule-toolbar').innerHTML = `${renderScheduleSegmentedControl('View', getScheduleViewOptions(), state.scheduleView, 'setScheduleView')}<span class="label">Period</span><button class="act-btn" type="button" onclick="changeScheduleWeek(-1)">Prev</button><button class="act-btn" type="button" onclick="resetScheduleWeek()">Current</button><button class="act-btn" type="button" onclick="changeScheduleWeek(1)">Next</button><button class="act-btn" type="button" onclick="sendTeamsWebhookTest()">Send Teams Test</button><div class="toolbar-summary">${esc(getSchedulePeriodLabel(scheduleDates))}</div>`;
+  document.getElementById('schedule-toolbar').innerHTML = `${renderScheduleSegmentedControl('View', getScheduleViewOptions(), state.scheduleView, 'setScheduleView')}<span class="label">Period</span><button class="act-btn" type="button" onclick="changeScheduleWeek(-1)">Prev</button><button class="act-btn" type="button" onclick="resetScheduleWeek()">Current</button><button class="act-btn" type="button" onclick="changeScheduleWeek(1)">Next</button><button class="act-btn" type="button" onclick="openScheduleCalendarPrintModal()">Print Calendar</button><button class="act-btn" type="button" onclick="sendTeamsWebhookTest()">Send Teams Test</button><div class="toolbar-summary">${esc(getSchedulePeriodLabel(scheduleDates))}</div>`;
   renderScheduleFilterToolbar();
   document.getElementById('schedule-summary').textContent = `${scheduleJobs.length} visible / ${totalJobsInRange} jobs ${getScheduleViewSummaryLabel(state.scheduleView)} | ${getScheduleViewLabel(state.scheduleView)} | Schedule filters`;
   document.getElementById('schedule-board').innerHTML = `
@@ -7379,7 +7551,7 @@ async function deleteEntityRecord(entityKey, id){
 
 async function deleteCurrentModalEntity(){ if(modalState.id) await deleteEntityRecord(modalState.entity, modalState.id); }
 
-function isInteractionOverlayOpen(){ return !!state.scheduleActionJobId || !!document.getElementById('entity-modal-overlay')?.classList.contains('open') || !!document.getElementById('job-part-modal-overlay')?.classList.contains('open') || !!document.getElementById('part-adjust-modal-overlay')?.classList.contains('open') || !!document.getElementById('sample-link-modal-overlay')?.classList.contains('open') || !!document.getElementById('sample-table-modal-overlay')?.classList.contains('open') || !!document.getElementById('salesforce-config-modal-overlay')?.classList.contains('open') || !!document.getElementById('salesforce-ticket-modal-overlay')?.classList.contains('open') || !!document.getElementById('site-editor-overlay')?.classList.contains('open') || !!document.getElementById('site-editor-address-overlay')?.classList.contains('open'); }
+function isInteractionOverlayOpen(){ return !!state.scheduleActionJobId || !!document.getElementById('entity-modal-overlay')?.classList.contains('open') || !!document.getElementById('job-part-modal-overlay')?.classList.contains('open') || !!document.getElementById('part-adjust-modal-overlay')?.classList.contains('open') || !!document.getElementById('sample-link-modal-overlay')?.classList.contains('open') || !!document.getElementById('sample-table-modal-overlay')?.classList.contains('open') || !!document.getElementById('salesforce-config-modal-overlay')?.classList.contains('open') || !!document.getElementById('salesforce-ticket-modal-overlay')?.classList.contains('open') || !!document.getElementById('schedule-calendar-print-modal-overlay')?.classList.contains('open') || !!document.getElementById('site-editor-overlay')?.classList.contains('open') || !!document.getElementById('site-editor-address-overlay')?.classList.contains('open'); }
 
 async function loadData(options = {}){
   try {
@@ -7419,11 +7591,13 @@ document.getElementById('sample-link-modal-overlay')?.addEventListener('click', 
 document.getElementById('sample-table-modal-overlay')?.addEventListener('click', (event) => { if(event.target === event.currentTarget) event.stopPropagation(); });
 document.getElementById('salesforce-config-modal-overlay')?.addEventListener('click', (event) => { if(event.target === event.currentTarget) event.stopPropagation(); });
 document.getElementById('salesforce-ticket-modal-overlay')?.addEventListener('click', (event) => { if(event.target === event.currentTarget) event.stopPropagation(); });
+document.getElementById('schedule-calendar-print-modal-overlay')?.addEventListener('click', (event) => { if(event.target === event.currentTarget) closeScheduleCalendarPrintModal(); });
 document.addEventListener('click', (event) => { if(state.scheduleActionJobId && !event.target.closest?.('.schedule-card')) closeScheduleActionPopover(); });
 document.addEventListener('visibilitychange', () => { if(!document.hidden) refreshFromRemote(); });
 window.addEventListener('keydown', (event) => {
   if(event.key !== 'Escape' || !isInteractionOverlayOpen()) return;
-  if(document.getElementById('salesforce-ticket-modal-overlay')?.classList.contains('open')) closeSalesforceTicketModal();
+  if(document.getElementById('schedule-calendar-print-modal-overlay')?.classList.contains('open')) closeScheduleCalendarPrintModal();
+  else if(document.getElementById('salesforce-ticket-modal-overlay')?.classList.contains('open')) closeSalesforceTicketModal();
   else if(document.getElementById('salesforce-config-modal-overlay')?.classList.contains('open')) closeSalesforceConfigModal();
   else if(state.scheduleActionJobId) closeScheduleActionPopover();
   else if(document.getElementById('job-part-modal-overlay')?.classList.contains('open')) closeJobPartPicker();
