@@ -133,14 +133,36 @@ function normalizeCatalogKey(raw){ return String(raw || '').trim().toUpperCase()
 function normalizeAliasToken(raw){ return String(raw || '').trim().toUpperCase().replace(/[^A-Z0-9]/g,''); }
 function uniqueList(list){ return [...new Set((Array.isArray(list) ? list : []).map(v => String(v || '').trim()).filter(Boolean))]; }
 function normalizeTestDefinition(def, index = 0){ const key = normalizeCatalogKey(def?.testCode || def?.test_code || def?.key || def?.label || `TEST_${index + 1}`); if(!key) return null; const aliasSource = Array.isArray(def?.aliases) ? def.aliases : String(def?.aliases || '').split(','); return { id:String(def?.id || key), key, testName:String(def?.testName || def?.test_name || def?.label || key), aliases:uniqueList([key, ...aliasSource]), matrixType:String(def?.matrixType || def?.matrix_type || '').trim() || 'Unspecified', isActive:def?.isActive !== false && def?.is_active !== false }; }
-async function loadTestDefinitions(){
+function normalizeImportSite(row){ return { id:String(row?.id || ''), siteCode:String(row?.siteCode || row?.site_code || ''), siteName:String(row?.siteName || row?.site_name || ''), isActive:row?.isActive !== false && row?.is_active !== false }; }
+function normalizeImportInstrument(row){ return { id:String(row?.id || ''), splSiteId:String(row?.splSiteId || row?.spl_site_id || ''), instrumentCode:String(row?.instrumentCode || row?.instrument_code || ''), instrumentName:String(row?.instrumentName || row?.instrument_name || ''), isActive:row?.isActive !== false && row?.is_active !== false }; }
+function normalizeImportSetup(row){ return { id:String(row?.id || ''), testTypeId:String(row?.testTypeId || row?.test_type_id || ''), splSiteId:String(row?.splSiteId || row?.spl_site_id || ''), setupKind:String(row?.setupKind || row?.setup_kind || 'instrument'), instrumentId:String(row?.instrumentId || row?.instrument_id || ''), estimatedMinutes:Math.max(0,Number(row?.estimatedMinutes ?? row?.estimated_minutes ?? 0)), isMigrationPlaceholder:row?.isMigrationPlaceholder === true || row?.is_migration_placeholder === true, isActive:row?.isActive !== false && row?.is_active !== false }; }
+function resolveImportSite(sites){
+  const profileSiteId=String(window.appAuth?.getProfile?.()?.employee?.homeSplSiteId || '');
+  return sites.find(site=>site.id===profileSiteId&&site.isActive)
+    || sites.find(site=>site.siteCode.toUpperCase()==='PITTSBURGH'&&site.isActive)
+    || sites.find(site=>site.isActive)
+    || null;
+}
+function getAssignableImportSetups(testTypeId, siteId, setups, instruments){
+  return setups.filter(setup=>{
+    if(setup.testTypeId!==String(testTypeId||'')||setup.splSiteId!==String(siteId||'')||!setup.isActive||setup.isMigrationPlaceholder)return false;
+    if(setup.setupKind==='no_instrument')return !setup.instrumentId;
+    if(setup.setupKind!=='instrument'||!setup.instrumentId)return false;
+    const instrument=instruments.find(item=>item.id===setup.instrumentId);
+    return !!instrument&&instrument.isActive&&instrument.splSiteId===setup.splSiteId;
+  });
+}
+async function loadTestCatalog(){
   const storageAdapter = getStorageAdapter();
   try {
-    let types=[], aliases=[];
+    let types=[], aliases=[], setups=[], instruments=[], sites=[];
     if(window.appAuth?.getMode?.()==='remote'){
-      [types,aliases]=await Promise.all([
+      [types,aliases,setups,instruments,sites]=await Promise.all([
         window.appAuth.requestJson('/rest/v1/lab_test_types?select=*&is_active=eq.true&order=test_code.asc'),
-        window.appAuth.requestJson('/rest/v1/lab_test_type_aliases?select=*')
+        window.appAuth.requestJson('/rest/v1/lab_test_type_aliases?select=*'),
+        window.appAuth.requestJson('/rest/v1/lab_test_setups?select=*'),
+        window.appAuth.requestJson('/rest/v1/lab_instruments?select=*'),
+        window.appAuth.requestJson('/rest/v1/field_spl_sites?select=*&order=site_name.asc')
       ]);
     }else{
       const [fieldRaw,legacyRaw]=await Promise.all([storageAdapter.get(FIELD_DIRECTORY_STORAGE_KEY),storageAdapter.get(TEST_DEFINITION_STORAGE_KEY)]);
@@ -148,13 +170,23 @@ async function loadTestDefinitions(){
       const legacy=legacyRaw?.value?JSON.parse(legacyRaw.value):DEFAULT_TEST_DEFS;
       types=(field.testTypes&&field.testTypes.length)?field.testTypes:legacy;
       aliases=field.labTestTypeAliases||field.testTypeAliases||[];
+      setups=field.labTestSetups||[];
+      instruments=field.labInstruments||[];
+      sites=(field.splSites&&field.splSites.length)?field.splSites:[{id:'pittsburgh',siteCode:'PITTSBURGH',siteName:'SPL Pittsburgh',isActive:true}];
     }
     const defs=(types||[]).map((def,index)=>normalizeTestDefinition(def,index)).filter(def=>def&&def.isActive);
     defs.forEach(def=>{def.aliases=uniqueList([def.key,...def.aliases,...(aliases||[]).filter(alias=>String(alias.testTypeId||alias.test_type_id)===def.id).map(alias=>alias.aliasCode||alias.alias_code||alias.alias)]);});
-    return defs.length?defs:DEFAULT_TEST_DEFS.map((def,index)=>normalizeTestDefinition(def,index)).filter(Boolean);
+    const normalizedSites=(sites||[]).map(normalizeImportSite).filter(site=>site.id);
+    const normalizedInstruments=(instruments||[]).map(normalizeImportInstrument).filter(instrument=>instrument.id);
+    const normalizedSetups=(setups||[]).map(normalizeImportSetup).filter(setup=>setup.id);
+    const site=resolveImportSite(normalizedSites);
+    if(window.appAuth?.getMode?.()==='remote'&&!site)throw new Error('No active SPL Site is available for this import.');
+    return { defs:defs.length?defs:DEFAULT_TEST_DEFS.map((def,index)=>normalizeTestDefinition(def,index)).filter(Boolean), setups:normalizedSetups, instruments:normalizedInstruments, sites:normalizedSites, site };
   } catch(error){
     console.warn('Unable to load Test Catalog:',error);
-    return DEFAULT_TEST_DEFS.map((def,index)=>normalizeTestDefinition(def,index)).filter(Boolean);
+    if(window.appAuth?.getMode?.()==='remote')throw new Error(`Unable to load Test Catalog and Test Setups: ${error.message||error}`);
+    const sites=[normalizeImportSite({id:'pittsburgh',siteCode:'PITTSBURGH',siteName:'SPL Pittsburgh',isActive:true})];
+    return { defs:DEFAULT_TEST_DEFS.map((def,index)=>normalizeTestDefinition(def,index)).filter(Boolean), setups:[], instruments:[], sites, site:sites[0] };
   }
 }
 function resolveImportedTestCode(rawCode, defs){ const raw = String(rawCode || '').trim(); if(!raw) return ''; const normalizedKey = normalizeCatalogKey(raw); if(defs.some(def => def.key === normalizedKey)) return normalizedKey; const token = normalizeAliasToken(raw); if(!token) return ''; for(const def of defs){ for(const alias of def.aliases){ if(normalizeAliasToken(alias) === token) return def.key; } } return ''; }
@@ -219,12 +251,18 @@ async function buildWOsFromSureChemCSV(text){
   const required = ['Work Order','Test Code','Sample'];
   const missing = required.filter(h=>!parsed.headers.includes(h));
   if(missing.length) throw new Error(`Missing required CSV columns: ${missing.join(', ')}`);
-  const defs = await loadTestDefinitions();
+  const catalog = await loadTestCatalog();
+  const defs = catalog.defs;
+  const importSiteId = catalog.site?.id || '';
+  const importLocation = String(catalog.site?.siteName || catalog.site?.siteCode || 'Pittsburgh').replace(/^SPL\s+/i,'');
 
   const woMap = new Map();
   const sampleMapByWO = new Map();
   const unmappedCodes = new Set();
   let unmappedRowCount = 0;
+  let automaticallyAssignedRowCount = 0;
+  let ambiguousSetupRowCount = 0;
+  let unconfiguredSetupRowCount = 0;
 
   for(const row of parsed.rows){
     const woNum = (row['Work Order'] || '').trim();
@@ -238,7 +276,7 @@ async function buildWOsFromSureChemCSV(text){
     if(!woMap.has(woNum)){
       woMap.set(woNum,{
         id:uid(),
-        location:'Pittsburgh',
+        location:importLocation,
         number:woNum,
         client:clientCode,
         clientCode:clientCode,
@@ -260,6 +298,9 @@ async function buildWOsFromSureChemCSV(text){
     if((PRI[pri] ?? 99) < (PRI[wo.priority] ?? 99)) wo.priority = pri;
 
     const canonicalType = resolveImportedTestCode(testCode, defs);
+    const definition = getDefinitionByKey(defs,canonicalType);
+    const setupCandidates = definition ? getAssignableImportSetups(definition.id,importSiteId,catalog.setups,catalog.instruments) : [];
+    const assignedSetup = setupCandidates.length===1 ? setupCandidates[0] : null;
     const mappingStatus = !testCode ? 'missing' : canonicalType ? (normalizeCatalogKey(testCode) === canonicalType ? 'mapped' : 'alias') : 'unmapped';
     const bucket = canonicalType ? getLegacyBucketForCanonical(defs, canonicalType) : '';
     if(bucket) wo[bucket] += 1;
@@ -267,10 +308,10 @@ async function buildWOsFromSureChemCSV(text){
     wo.testRows.push({
       id:uid(),
       type:canonicalType || '',
-      testTypeId:getDefinitionByKey(defs,canonicalType)?.id || '',
-      testSetupId:'',
-      instrumentId:'',
-      setupAssignmentStatus:'unassigned',
+      testTypeId:definition?.id || '',
+      testSetupId:assignedSetup?.id || '',
+      instrumentId:assignedSetup?.instrumentId || '',
+      setupAssignmentStatus:assignedSetup?'assigned':'unassigned',
       testCode:testCode || '',
       mappingStatus,
       mappingError: mappingStatus === 'unmapped' ? `Unknown test code: ${testCode}` : mappingStatus === 'missing' ? 'Missing test code' : '',
@@ -285,6 +326,10 @@ async function buildWOsFromSureChemCSV(text){
     if(mappingStatus === 'unmapped' && testCode){
       unmappedCodes.add(testCode);
       unmappedRowCount += 1;
+    }else if(definition){
+      if(assignedSetup)automaticallyAssignedRowCount += 1;
+      else if(setupCandidates.length>1)ambiguousSetupRowCount += 1;
+      else unconfiguredSetupRowCount += 1;
     }
 
     if(sampleId){
@@ -314,7 +359,7 @@ async function buildWOsFromSureChemCSV(text){
     wo.samples = [...sm.values()].sort((a,b)=>a.sampleId.localeCompare(b.sampleId));
     imported.push(wo);
   }
-  return { workOrders:imported, unmappedCodes:[...unmappedCodes].sort(), unmappedRowCount };
+  return { workOrders:imported, unmappedCodes:[...unmappedCodes].sort(), unmappedRowCount, automaticallyAssignedRowCount, ambiguousSetupRowCount, unconfiguredSetupRowCount, importSiteName:catalog.site?.siteName || catalog.site?.siteCode || 'Pittsburgh' };
 }
 
 function appendWithoutDuplicates(existingWOs, importedWOs){
@@ -388,7 +433,11 @@ Skipped Duplicates: ${skippedCount}
 Dashboard Total Work Orders: ${finalWOs.length}
 Samples: ${sampleCount}
 Mapped Test Rows: ${mappedTestCount}
+Automatically Assigned Setups: ${importResult.automaticallyAssignedRowCount}
+Ambiguous Setup Rows: ${importResult.ambiguousSetupRowCount}
+Unconfigured Setup Rows: ${importResult.unconfiguredSetupRowCount}
 Unmapped Test Rows: ${importResult.unmappedRowCount}
+Import Lab: ${importResult.importSiteName}
 ${importResult.unmappedCodes.length ? `Unmapped Test Codes: ${importResult.unmappedCodes.join(', ')}` : 'Unmapped Test Codes: None'}
 
 Top Imported WOs:

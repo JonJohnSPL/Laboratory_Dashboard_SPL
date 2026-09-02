@@ -78,10 +78,11 @@ test('schema implements normalized catalog, setup migration, RPC, and scoped acc
   assert.doesNotMatch(schema,/billing-method-selection-v1-migrated/);
 });
 
-test('new import rows carry stable catalog IDs and remain explicitly unassigned', () => {
+test('new import rows carry stable catalog IDs and use unique valid setups', () => {
   const source = fs.readFileSync('import.html','utf8');
-  assert.match(source,/testTypeId:getDefinitionByKey\(defs,canonicalType\)\?\.id/);
-  assert.match(source,/testSetupId:''/);
-  assert.match(source,/instrumentId:''/);
-  assert.match(source,/setupAssignmentStatus:'unassigned'/);
+  assert.match(source,/testTypeId:definition\?\.id/);
+  assert.match(source,/getAssignableImportSetups\(definition\.id,importSiteId,catalog\.setups,catalog\.instruments\)/);
+  assert.match(source,/testSetupId:assignedSetup\?\.id/);
+  assert.match(source,/instrumentId:assignedSetup\?\.instrumentId/);
+  assert.match(source,/setupAssignmentStatus:assignedSetup\?'assigned':'unassigned'/);
 });

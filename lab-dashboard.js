@@ -34,7 +34,6 @@ let WOs = [];
 let editId = null;
 let sortState = {field:'priority',dir:'asc'};
 let modalDraftTestRows = [];
-let selectedTestRowId = null;
 let modalSampleGroupKeys = [];
 let expandedSampleGroups = new Set();
 let modalPdfAttachment = null;
@@ -82,6 +81,14 @@ function normalizeSetupRow(row){ const counting = String(row?.workloadCounting |
 function getTestSetupById(id){ return labTestSetups.find(row => row.id === String(id || '')) || null; }
 function getInstrumentById(id){ return labInstruments.find(row => row.id === String(id || '')) || null; }
 function getSetupLabel(setup){ if(!setup) return 'Unassigned'; if(setup.setupKind === 'no_instrument') return 'No instrument required'; if(setup.setupKind === 'migration_pending') return 'Needs instrument'; return getInstrumentById(setup.instrumentId)?.instrumentName || 'Instrument setup'; }
+function isSetupAssignable(setup, siteId=selectedLabSiteId){
+  if(!setup||setup.splSiteId!==String(siteId||'')||setup.isActive===false||setup.isMigrationPlaceholder)return false;
+  if(setup.setupKind==='no_instrument')return !setup.instrumentId;
+  if(setup.setupKind!=='instrument'||!setup.instrumentId)return false;
+  const instrument=getInstrumentById(setup.instrumentId);
+  return !!instrument&&instrument.isActive!==false&&instrument.splSiteId===setup.splSiteId;
+}
+function getAssignableSetupsForTest(testTypeId, siteId=selectedLabSiteId){ return labTestSetups.filter(setup=>setup.testTypeId===String(testTypeId||'')&&isSetupAssignable(setup,siteId)); }
 function rebuildVisibleTestDefinitions(){ const configuredIds = new Set(labTestSetups.filter(setup => setup.splSiteId === selectedLabSiteId && setup.isActive !== false).map(setup => setup.testTypeId)); const visible = getCatalogTestDefinitions().filter(def => def.isActive !== false && configuredIds.has(def.id)); setTestDefinitions(visible); }
 function getTestRowDiagnostics(row){ const rawCode = String(row?.testCode || '').trim(); const storedType = String(row?.type || '').trim(); const canonicalFromCode = normalizeTestCode(rawCode); const canonicalFromType = normalizeTestCode(storedType); const canonicalType = canonicalFromCode || canonicalFromType || ''; const codeLooksCanonical = !!rawCode && normalizeCatalogKey(rawCode) === canonicalType; const usedAlias = !!rawCode && !!canonicalFromCode && !codeLooksCanonical; const unmapped = !!rawCode && !canonicalFromCode; const mismatch = !!canonicalFromCode && !!canonicalFromType && canonicalFromCode !== canonicalFromType; const missing = !rawCode && !canonicalFromType; const statusLabel = unmapped ? `Unmapped code: ${rawCode}` : mismatch ? `Mismatch: code maps to ${canonicalFromCode}, stored type is ${canonicalFromType}` : usedAlias ? `Legacy alias mapped to ${canonicalType}` : missing ? 'No test code mapped' : canonicalType ? `Mapped to ${canonicalType}` : 'No mapped test type'; return { rawCode, storedType, canonicalFromCode, canonicalFromType, canonicalType, usedAlias, unmapped, mismatch, missing, isMapped:!!canonicalType && !unmapped, statusLabel }; }
 function normalizeHydrocarbonCode(code){ const raw = String(code || '').trim().toUpperCase().replace(/\s+/g,''); if(raw === 'UNKNOWN' || raw === 'UNK') return 'UNKNOWN'; if(/^C(?:10|[1-9])$/.test(raw)) return raw; const numeric = raw.replace(/^C/i,''); return /^(?:10|[1-9])$/.test(numeric) ? `C${numeric}` : ''; }
@@ -562,7 +569,7 @@ select.value = [...baseOptions, ...testOptions, ...trailingOptions].some(option 
 sortState.field = select.value;
 }
 function renderWorkOrderTableHeaders(){ const buildHeader = () => COLUMN_DEFS.map(col => { if(FIXED_COLUMN_KEYS.includes(col.key) || TRAILING_COLUMN_KEYS.includes(col.key)){ return `<th class="sortable col-${col.key}" onclick="clickSort('${col.key}')">${esc(col.label)}</th>`; } const def = getTestDefinitionByKey(col.key); const meta = def ? getTestHeaderMeta(def) : ''; return `<th class="num sortable col-${col.key}" onclick="clickSort('${col.key}')">${esc(col.label)}<br><span style="font-size:9px;font-weight:400;color:#4a5568">${esc(meta)}</span></th>`; }).join(''); const queueHead = document.getElementById('wo-table-head'); const pendingHead = document.getElementById('pending-wo-table-head'); if(queueHead) queueHead.innerHTML = `<tr>${buildHeader()}</tr>`; if(pendingHead) pendingHead.innerHTML = `<tr>${buildHeader()}</tr>`; }
-function renderTestTypeOptions(){ const options = getTestDefinitions().map(def => `<option value="${esc(def.key)}">${esc(def.label)}</option>`).join(''); ['f-test-type','e-test-type'].forEach(id => { const select = document.getElementById(id); if(!select) return; const current = select.value; const normalizedCurrent = normalizeTestCode(current); select.innerHTML = options; select.value = getTestDefinitionByKey(current)?.key || getTestDefinitionByKey(normalizedCurrent)?.key || getDefaultTestKey(); }); }
+function renderTestTypeOptions(){ const options = getTestDefinitions().map(def => `<option value="${esc(def.key)}">${esc(def.label)}</option>`).join(''); ['f-test-type'].forEach(id => { const select = document.getElementById(id); if(!select) return; const current = select.value; const normalizedCurrent = normalizeTestCode(current); select.innerHTML = options; select.value = getTestDefinitionByKey(current)?.key || getTestDefinitionByKey(normalizedCurrent)?.key || getDefaultTestKey(); }); }
 function renderTestCatalogList(){ const container = document.getElementById('test-catalog-list');
 if(!container) return;
 container.innerHTML = getTestDefinitions().map(def => { const detail = [`${def.minutes} min`, def.countMode === 'perRow' ? 'per row' : 'per sample', def.groupKey ? `group ${def.groupKey} rank ${def.groupRank}` : 'standalone'].join(' | '); return `<div style="border:1px solid var(--border);border-radius:6px;padding:8px;background:var(--surface);"> <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;"> <div> <div style="color:var(--text);font-family:var(--sans);font-size:14px;">${esc(def.label)}</div> <div style="color:var(--muted);font-family:var(--mono);font-size:11px;">${esc(def.key)} | ${esc(detail)}</div> </div> <button type="button" class="act-btn" onclick="editTestCatalogEntry('${esc(def.id)}')">Edit</button> </div> </div>`; }).join('');
@@ -1011,12 +1018,69 @@ Object.entries(defaults).forEach(([id, value]) => { const el = document.getEleme
 function showImportOnlyTestRowsAlert(){ alert('Sample and test rows are import-only. Re-import the CSV to change sample/test detail, or update Test Types separately.'); }
 function getDraftTestRowFromForm(){ showImportOnlyTestRowsAlert(); return null; }
 function upsertDraftTestRow(){ showImportOnlyTestRowsAlert(); }
-function openTestSelectorModal(){ if(!editId)return; const w=WOs.find(row=>row.id===editId); modalDraftTestRows=getDraftRowsFromWO(w||{}); if(!modalDraftTestRows.length){ alert('No imported test rows are attached to this work order.'); return; } const select=document.getElementById('test-select-list'); select.innerHTML=modalDraftTestRows.map((row,index)=>{const def=getTestDefinitionById(row.testTypeId)||getTestDefinitionByKey(getCanonicalTestTypeForRow(row));const setup=getTestSetupById(row.testSetupId);return `<option value="${esc(row.id)}">${esc(row.sampleId||`Row ${index+1}`)} | ${esc(def?.key||row.testCode||'Unmapped')} | ${esc(getSetupLabel(setup))}</option>`;}).join(''); document.getElementById('test-select-overlay').classList.add('open'); }
+function getBulkAssignmentRows(testTypeId){ return modalDraftTestRows.filter(row=>{const def=getTestDefinitionById(row.testTypeId)||getTestDefinitionByKey(getCanonicalTestTypeForRow(row));return def?.id===String(testTypeId||'');}); }
+function getBulkAssignmentSiteId(){ return resolveWorkOrderSiteId(WOs.find(row=>row.id===editId)); }
+function updateBulkSelectionSummary(){ const boxes=[...document.querySelectorAll('.bulk-assignment-check')]; const selected=boxes.filter(box=>box.checked).length; const summary=document.getElementById('bulk-selection-summary'); if(summary)summary.textContent=`${selected} of ${boxes.length} selected`; }
+function renderBulkSetupAssignment(){
+  const testTypeId=document.getElementById('bulk-test-type')?.value||'';
+  const def=getTestDefinitionById(testTypeId);
+  const candidates=getAssignableSetupsForTest(testTypeId,getBulkAssignmentSiteId()).sort((a,b)=>getSetupLabel(a).localeCompare(getSetupLabel(b)));
+  const setupSelect=document.getElementById('bulk-test-setup');
+  setupSelect.innerHTML=candidates.length?candidates.map(setup=>`<option value="${esc(setup.id)}">${esc(getSetupLabel(setup))} | ${setup.estimatedMinutes} min</option>`).join(''):'<option value="">No active setup available</option>';
+  setupSelect.disabled=!candidates.length;
+  const hint=document.getElementById('bulk-setup-hint');
+  hint.textContent=!def?'Select a mapped Test Code.':candidates.length===1?'One valid setup is available.':candidates.length>1?`${candidates.length} valid setups are available. Choose one before assigning.`:'Configure an active setup in Test Setup before assigning these rows.';
+  const rows=getBulkAssignmentRows(testTypeId);
+  const tbody=document.getElementById('bulk-assignment-tbody');
+  tbody.innerHTML=rows.length?rows.map((row,index)=>{
+    const current=getTestSetupById(row.testSetupId);
+    const historical=current&&!isSetupAssignable(current,current.splSiteId);
+    const status=current?(historical?'Historical / unavailable':'Assigned'):'Unassigned';
+    return `<tr><td><input class="bulk-assignment-check" type="checkbox" value="${esc(row.id)}" onchange="updateBulkSelectionSummary()"></td><td>${esc(row.sampleId||`Row ${index+1}`)}</td><td>${esc(def?.key||row.testCode||'Unmapped')}</td><td>${esc(row.matrix||def?.matrixType||'Unspecified')}</td><td>${esc(getSetupLabel(current))}${current?` | ${current.estimatedMinutes} min`:''}</td><td><span class="bulk-assignment-status ${current?(historical?'warning':'assigned'):''}">${esc(status)}</span></td></tr>`;
+  }).join(''):'<tr><td colspan="6" class="bulk-assignment-status">No imported rows match this Test Code.</td></tr>';
+  updateBulkSelectionSummary();
+}
+function setAllBulkAssignmentRows(checked){ document.querySelectorAll('.bulk-assignment-check').forEach(box=>{box.checked=!!checked;}); updateBulkSelectionSummary(); }
+function openTestSelectorModal(){
+  if(!editId)return;
+  const w=WOs.find(row=>row.id===editId);
+  if(!Array.isArray(w?.testRows)||!w.testRows.length){alert('No imported test rows are attached to this work order.');return;}
+  modalDraftTestRows=getDraftRowsFromWO(w);
+  const definitions=[...new Map(modalDraftTestRows.map(row=>{const def=getTestDefinitionById(row.testTypeId)||getTestDefinitionByKey(getCanonicalTestTypeForRow(row));return def?[def.id,def]:null;}).filter(Boolean)).values()].sort((a,b)=>a.key.localeCompare(b.key));
+  if(!definitions.length){alert('None of this work order’s test rows map to the Test Catalog.');return;}
+  const siteId=resolveWorkOrderSiteId(w);
+  const preferred=definitions.find(def=>getBulkAssignmentRows(def.id).some(row=>!row.testSetupId)&&getAssignableSetupsForTest(def.id,siteId).length>1)||definitions.find(def=>getBulkAssignmentRows(def.id).some(row=>!row.testSetupId))||definitions[0];
+  const select=document.getElementById('bulk-test-type');
+  select.innerHTML=definitions.map(def=>`<option value="${esc(def.id)}" ${def.id===preferred.id?'selected':''}>${esc(def.key)} | ${esc(def.label)}</option>`).join('');
+  renderBulkSetupAssignment();
+  document.getElementById('test-select-overlay').classList.add('open');
+}
 function closeTestSelectorModal(){ document.getElementById('test-select-overlay').classList.remove('open'); }
 function deleteSelectedTestRow(){ showImportOnlyTestRowsAlert(); closeTestSelectorModal(); }
-function openEditTestModalFromSelector(){ const rowId=document.getElementById('test-select-list')?.value||''; const row=modalDraftTestRows.find(item=>item.id===rowId); if(!row)return; selectedTestRowId=rowId; const def=getTestDefinitionById(row.testTypeId)||getTestDefinitionByKey(getCanonicalTestTypeForRow(row)); const fieldValues={'e-test-type':def?.key||'','e-test-code':row.testCode||'','e-test-sample':row.sampleId||'','e-test-cylinder':row.cylinderNumber||'','e-test-matrix':row.matrix||def?.matrixType||'','e-test-container':row.containerType||'','e-test-hydrocarbon':normalizeHydrocarbonCode(row.hydrocarbon),'e-test-received':row.received||'','e-test-log-date':row.logDate||''}; Object.entries(fieldValues).forEach(([id,value])=>{const node=document.getElementById(id);if(node)node.value=value;}); const setupSelect=document.getElementById('e-test-setup'); const current=getTestSetupById(row.testSetupId); const candidates=labTestSetups.filter(setup=>setup.testTypeId===def?.id&&setup.splSiteId===selectedLabSiteId&&setup.isActive&&(!setup.instrumentId||getInstrumentById(setup.instrumentId)?.isActive)); if(current&&!candidates.some(setup=>setup.id===current.id))candidates.push(current); setupSelect.innerHTML=`<option value="">Unassigned — no estimated time</option>${candidates.map(setup=>`<option value="${esc(setup.id)}" ${setup.id===row.testSetupId?'selected':''}>${esc(getSetupLabel(setup))} | ${setup.estimatedMinutes} min${setup.isMigrationPlaceholder?' | Needs instrument':''}${setup.isActive===false?' | Archived':''}</option>`).join('')}`; closeTestSelectorModal(); document.getElementById('test-edit-overlay').classList.add('open'); }
-function closeTestEditModal(){ document.getElementById('test-edit-overlay').classList.remove('open'); selectedTestRowId = null; }
-function saveEditedTestRow(){ if(!editId||!selectedTestRowId)return; const wo=WOs.find(row=>row.id===editId); const stored=wo?.testRows?.find(row=>String(row.id||'')===selectedTestRowId); const draft=modalDraftTestRows.find(row=>row.id===selectedTestRowId); if(!stored||!draft){alert('Unable to find the imported test row.');return;} const setup=getTestSetupById(document.getElementById('e-test-setup')?.value||''); const def=setup?getTestDefinitionById(setup.testTypeId):(getTestDefinitionById(draft.testTypeId)||getTestDefinitionByKey(getCanonicalTestTypeForRow(draft))); Object.assign(stored,{testTypeId:def?.id||'',testSetupId:setup?.id||'',instrumentId:setup?.instrumentId||'',setupAssignmentStatus:setup?(setup.isMigrationPlaceholder?'migration_placeholder':'assigned'):'unassigned'}); Object.assign(draft,{testTypeId:stored.testTypeId,testSetupId:stored.testSetupId,instrumentId:stored.instrumentId,setupAssignmentStatus:stored.setupAssignmentStatus}); closeTestEditModal(); render(); renderSchedule(); scheduleSave(); }
+function saveBulkSetupAssignments(){
+  if(!editId)return;
+  const testTypeId=document.getElementById('bulk-test-type')?.value||'';
+  const setup=getTestSetupById(document.getElementById('bulk-test-setup')?.value||'');
+  if(!setup||setup.testTypeId!==testTypeId||!isSetupAssignable(setup,getBulkAssignmentSiteId())){alert('Choose an active Test Setup for this lab.');return;}
+  const selectedIds=new Set([...document.querySelectorAll('.bulk-assignment-check:checked')].map(box=>box.value));
+  if(!selectedIds.size){alert('Select at least one sample row.');return;}
+  const wo=WOs.find(row=>row.id===editId);
+  const def=getTestDefinitionById(testTypeId);
+  let updated=0;
+  (wo?.testRows||[]).forEach(row=>{
+    if(!selectedIds.has(String(row.id||'')))return;
+    const rowDef=getTestDefinitionById(row.testTypeId)||getTestDefinitionByKey(getCanonicalTestTypeForRow(row));
+    if(rowDef?.id!==testTypeId)return;
+    Object.assign(row,{type:def?.key||row.type,testTypeId,testSetupId:setup.id,instrumentId:setup.instrumentId||'',setupAssignmentStatus:'assigned'});
+    updated+=1;
+  });
+  if(!updated){alert('No matching imported rows were selected.');return;}
+  modalDraftTestRows=getDraftRowsFromWO(wo);
+  closeTestSelectorModal();
+  render();
+  renderSchedule();
+  scheduleSave();
+}
 function deriveCountsAndSamplesFromRows(rows){ const counts = blankCounts();
 const normalizedRows = rows.map(row => { const diag = getTestRowDiagnostics(row); return { ...row, type:diag.canonicalType || '', testCode:String(row?.testCode || '').trim(), mappingStatus:diag.unmapped ? 'unmapped' : diag.mismatch ? 'mismatch' : diag.usedAlias ? 'alias' : diag.isMapped ? 'mapped' : '', mappingError:diag.unmapped || diag.mismatch ? diag.statusLabel : '' }; });
 const sampleMap = new Map();
@@ -1078,8 +1142,7 @@ closeModal();render();
 return true; }
 function deleteWO(){/* overridden by storage wrapper below */}
 function selPri(el){ document.querySelectorAll('#pri-grid .pri-opt').forEach(e=>e.classList.remove('sel')); el.classList.add('sel'); }
-function selPriVal(v){ document.querySelectorAll('#pri-grid .pri-opt').forEach(e=>e.classList.toggle('sel',e.dataset.p===v)); } document.getElementById('modal-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('modal-overlay'))closeModal(); }); document.getElementById('samples-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('samples-overlay'))closeSamplesModal(); }); document.getElementById('subcontract-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('subcontract-overlay'))closeSubcontractModal(); }); document.getElementById('test-select-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('test-select-overlay'))closeTestSelectorModal(); }); document.getElementById('test-edit-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('test-edit-overlay'))closeTestEditModal();
-});
+function selPriVal(v){ document.querySelectorAll('#pri-grid .pri-opt').forEach(e=>e.classList.toggle('sel',e.dataset.p===v)); } document.getElementById('modal-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('modal-overlay'))closeModal(); }); document.getElementById('samples-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('samples-overlay'))closeSamplesModal(); }); document.getElementById('subcontract-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('subcontract-overlay'))closeSubcontractModal(); }); document.getElementById('test-select-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('test-select-overlay'))closeTestSelectorModal(); });
 document.getElementById('employee-input').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); addEmployee(); }
 });
 document.getElementById('task-name-input').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); addEmployeeTask(); } });
@@ -1104,7 +1167,7 @@ function getStorageAdapter() { return ( window.storage && typeof window.storage.
 function showSaveStatus(state, msg) { const el = document.getElementById('save-indicator'); el.style.visibility = 'visible'; el.className = 'save-indicator ' + state; el.textContent = msg; }
 function hideSaveStatusSoon(delay = 3000) { setTimeout(() => { const el = document.getElementById('save-indicator'); if(el) el.style.visibility = 'hidden'; }, delay); }
 function isRemoteStorageMode(){ return !!(window.appAuth && typeof window.appAuth.getMode === 'function' && window.appAuth.getMode() === 'remote'); }
-function isInteractionOverlayOpen(){ return ['modal-overlay','samples-overlay','subcontract-overlay','test-select-overlay','test-edit-overlay'].some(id => document.getElementById(id)?.classList.contains('open')); }
+function isInteractionOverlayOpen(){ return ['modal-overlay','samples-overlay','subcontract-overlay','test-select-overlay'].some(id => document.getElementById(id)?.classList.contains('open')); }
 function rememberLoadedState(woRaw, scheduleRaw, testDefinitionsRaw, subcontractLabsRaw){ lastLoadedWorkOrdersRaw = typeof woRaw === 'string' ? woRaw : ''; lastLoadedScheduleRaw = typeof scheduleRaw === 'string' ? scheduleRaw : ''; lastLoadedTestDefinitionsRaw = typeof testDefinitionsRaw === 'string' ? testDefinitionsRaw : ''; lastLoadedSubcontractLabsRaw = typeof subcontractLabsRaw === 'string' ? subcontractLabsRaw : ''; }
 async function saveData() { const storageAdapter = getStorageAdapter(); clearTimeout(saveTimer); saveTimer = null; showSaveStatus('saving', 'SAVING...'); try { WOs.forEach(syncWorkOrderStageAfterSubcontract); normalizeScheduleState(); setSubcontractLabs(subcontractLabs); const woRaw = JSON.stringify(WOs); const scheduleRaw = JSON.stringify(scheduleState); const catalogRaw = lastLoadedTestDefinitionsRaw || JSON.stringify({types:catalogTestDefinitions,aliases:testTypeAliases,setups:labTestSetups,instruments:labInstruments,sites:labSites}); const subcontractLabsRaw = JSON.stringify(subcontractLabs); await Promise.all([storageAdapter.set(STORAGE_KEY, woRaw), storageAdapter.set(SCHEDULE_STORAGE_KEY, scheduleRaw), storageAdapter.set(SUBCONTRACT_LABS_STORAGE_KEY, subcontractLabsRaw)]); rememberLoadedState(woRaw, scheduleRaw, catalogRaw, subcontractLabsRaw); showSaveStatus('saved', 'SAVED'); hideSaveStatusSoon(); } catch (e) { showSaveStatus('error', 'SAVE FAILED'); console.error('Storage save error:', e); } }
 function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(saveData, 600); }
@@ -1125,6 +1188,38 @@ function applyCatalogBundle(bundle){
 function renderLabSiteSelector(){ const select=document.getElementById('lab-site-select'); if(!select)return; select.innerHTML=labSites.filter(site=>site.isActive||site.id===selectedLabSiteId).map(site=>`<option value="${esc(site.id)}" ${site.id===selectedLabSiteId?'selected':''}>${esc(site.siteName||site.siteCode)}</option>`).join(''); }
 function selectLabSite(siteId){ selectedLabSiteId=String(siteId||''); localStorage.setItem(LAB_SITE_SELECTION_KEY,selectedLabSiteId); rebuildVisibleTestDefinitions(); renderDynamicTestUI(); render(); renderSchedule(); }
 function migrateLegacySetupAssignments(){ let changed=false; const pittsburghId=(labSites.find(site=>site.siteCode==='PITTSBURGH')||labSites[0])?.id||''; WOs.forEach(wo=>(wo.testRows||[]).forEach(row=>{ if(Object.prototype.hasOwnProperty.call(row,'setupAssignmentStatus'))return; const def=getTestDefinitionById(row.testTypeId)||getTestDefinitionByKey(normalizeTestCode(row.testCode||row.type)); const placeholder=def&&labTestSetups.find(setup=>setup.testTypeId===def.id&&setup.splSiteId===pittsburghId&&setup.isActive&&setup.isMigrationPlaceholder); row.testTypeId=def?.id||''; row.testSetupId=placeholder?.id||''; row.instrumentId=placeholder?.instrumentId||''; row.setupAssignmentStatus=placeholder?'migration_placeholder':'unassigned'; changed=true; })); return changed; }
+function resolveWorkOrderSiteId(wo){
+  const locationToken=normalizeAliasToken(wo?.location);
+  const locationMatch=labSites.find(site=>{
+    const siteName=normalizeAliasToken(site.siteName).replace(/^SPL/,'');
+    const siteCode=normalizeAliasToken(site.siteCode).replace(/^SPL/,'');
+    return !!locationToken&&(locationToken===siteName||locationToken===siteCode||locationToken===`SPL${siteName}`);
+  });
+  if(locationMatch)return locationMatch.id;
+  const profileSiteId=String(window.appAuth?.getProfile?.()?.employee?.homeSplSiteId||'');
+  return labSites.find(site=>site.id===profileSiteId)?.id||(labSites.find(site=>site.siteCode==='PITTSBURGH')||labSites[0])?.id||selectedLabSiteId;
+}
+function reconcileUnassignedTestSetups(){
+  let repairedCount=0;
+  WOs.forEach(wo=>{
+    const siteId=resolveWorkOrderSiteId(wo);
+    (wo.testRows||[]).forEach(row=>{
+      if(row.testSetupId||String(row.setupAssignmentStatus||'unassigned')!=='unassigned')return;
+      const def=getTestDefinitionById(row.testTypeId)||getTestDefinitionByKey(normalizeTestCode(row.testCode||row.type));
+      if(!def)return;
+      const candidates=getAssignableSetupsForTest(def.id,siteId);
+      if(candidates.length!==1)return;
+      const setup=candidates[0];
+      row.type=def.key;
+      row.testTypeId=def.id;
+      row.testSetupId=setup.id;
+      row.instrumentId=setup.instrumentId||'';
+      row.setupAssignmentStatus='assigned';
+      repairedCount+=1;
+    });
+  });
+  return repairedCount;
+}
 async function loadCatalogBundle(storageAdapter){
   if(isRemoteStorageMode()){
     const [types,aliases,setups,instruments,sites]=await Promise.all([
@@ -1160,7 +1255,9 @@ if(woRaw === lastLoadedWorkOrdersRaw && scheduleRaw === lastLoadedScheduleRaw &&
 if(testDefinitionsRaw) { applyCatalogBundle(catalogBundle); loadedTestDefinitions = true; changed = true; }
 if(subcontractLabsRaw) { const parsedLabs = JSON.parse(subcontractLabsRaw); if(Array.isArray(parsedLabs)) { setSubcontractLabs(parsedLabs); loadedSubcontractLabs = true; changed = true; } } else if(lastLoadedSubcontractLabsRaw !== '') { setSubcontractLabs([]); changed = true; }
 if(woRaw) { const parsed = JSON.parse(woRaw); if (Array.isArray(parsed)) { WOs = normalizeWorkOrders(parsed); loadedWOs = true; changed = true; } else if(parsed && Array.isArray(parsed.workOrders)) { WOs = normalizeWorkOrders(parsed.workOrders); loadedWOs = true; changed = true; } } else if(lastLoadedWorkOrdersRaw !== '') { WOs = []; changed = true; }
-if(migrateLegacySetupAssignments()){ changed=true; scheduleSave(); }
+const migratedLegacySetups=migrateLegacySetupAssignments();
+const repairedSetupCount=reconcileUnassignedTestSetups();
+if(migratedLegacySetups||repairedSetupCount){ changed=true; scheduleSave(); }
 if (scheduleRaw) { const parsedSchedule = JSON.parse(scheduleRaw); if(parsedSchedule && typeof parsedSchedule === 'object') { scheduleState = { date: parsedSchedule.date || todayISO(), rosterEmployeeIds: Array.isArray(parsedSchedule.rosterEmployeeIds) ? parsedSchedule.rosterEmployeeIds : (Array.isArray(parsedSchedule.employees) ? parsedSchedule.employees : []), entries: Array.isArray(parsedSchedule.entries) ? parsedSchedule.entries : [], tasks: Array.isArray(parsedSchedule.tasks) ? parsedSchedule.tasks : [] }; loadedSchedule = true; changed = true; } } else if(lastLoadedScheduleRaw !== '') { scheduleState = {date:todayISO(),rosterEmployeeIds:[],entries:[],tasks:[]}; changed = true; }
 WOs.forEach(syncWorkOrderStageAfterSubcontract);
 normalizeScheduleState();
