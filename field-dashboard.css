@@ -205,6 +205,8 @@ header{
 }
 .toolbar input[type=text]:focus,.toolbar select:focus,.toolbar input[type=date]:focus{border-color:var(--accent);}
 .toolbar-spacer{margin-left:auto;}
+.toolbar-checkbox{display:inline-flex;align-items:center;gap:7px;min-height:40px;white-space:nowrap;}
+.toolbar-checkbox input{accent-color:var(--accent);}
 .segmented-control{
   display:inline-flex;
   align-items:center;

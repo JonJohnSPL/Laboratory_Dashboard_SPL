@@ -287,6 +287,13 @@ test('both filter toolbars provide a Clear Filter action', () => {
   assert.match(readFunction(source, 'renderScheduleFilterToolbar'), /clearScheduleFilters\(\)/);
 });
 
+test('both filter toolbars provide an independent Needs Ticket checkbox', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  assert.match(readFunction(source, 'renderDispatch'), /dispatchNeedsTicket/);
+  assert.match(readFunction(source, 'renderScheduleFilterToolbar'), /scheduleNeedsTicket/);
+  assert.match(readFunction(source, 'jobMatchesJobFilters'), /jobNeedsSalesforceTicket/);
+});
+
 test('Field Ops lands on Schedule without an Overview tab', () => {
   const source = fs.readFileSync('field-dashboard.js', 'utf8');
   const html = fs.readFileSync('field-dashboard.html', 'utf8');
