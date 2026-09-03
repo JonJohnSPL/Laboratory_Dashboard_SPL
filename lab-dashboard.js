@@ -126,27 +126,30 @@ function getSubcontractLabSummaryForWO(w){ const labs = [...new Set(getSubcontra
 function blankCounts(){ return TEST_CODES.reduce((acc,code)=>{acc[code]=0;
 return acc;},{});
 }
-function calculateCountsFromRows(rows){ const counts = blankCounts(); let minutes = 0; let totalTests = 0; const sampleMap = new Map();
+function calculateCountsFromRows(rows){ const counts = blankCounts(); const taskMinutes = blankCounts(); let minutes = 0; let totalTests = 0; const sampleMap = new Map();
 rows.forEach((row, idx) => { const setup = getTestSetupById(row?.testSetupId); if(!setup || setup.isActive === false || setup.splSiteId !== selectedLabSiteId) return; const def = getTestDefinitionById(setup.testTypeId); if(!def) return; const sampleKey = String(row?.sampleId || `ROW_${idx}`).trim() || `ROW_${idx}`; if(!sampleMap.has(sampleKey)) sampleMap.set(sampleKey, []); sampleMap.get(sampleKey).push({ row, setup, def }); });
 for(const sampleRows of sampleMap.values()){
   const bundled = new Map(); const standalone = new Map();
   sampleRows.forEach((entry) => { const bundle = String(entry.setup.workloadBundle || '').trim(); if(bundle){ if(!bundled.has(bundle)) bundled.set(bundle, []); bundled.get(bundle).push(entry); } else { const key = `${entry.setup.id}:${entry.def.id}`; if(!standalone.has(key)) standalone.set(key, []); standalone.get(key).push(entry); } });
-  bundled.forEach((entries) => { const selected = [...entries].sort((a,b) => b.setup.bundlePriority - a.setup.bundlePriority)[0]; const quantity = selected.setup.workloadCounting === 'perRow' ? entries.filter(entry => entry.setup.id === selected.setup.id).length : 1; counts[selected.def.key] = (counts[selected.def.key] || 0) + quantity; totalTests += quantity; minutes += quantity * selected.setup.estimatedMinutes; });
-  standalone.forEach((entries) => { const selected = entries[0]; const quantity = selected.setup.workloadCounting === 'perRow' ? entries.length : 1; counts[selected.def.key] = (counts[selected.def.key] || 0) + quantity; totalTests += quantity; minutes += quantity * selected.setup.estimatedMinutes; });
+  bundled.forEach((entries) => { const selected = [...entries].sort((a,b) => b.setup.bundlePriority - a.setup.bundlePriority)[0]; const quantity = selected.setup.workloadCounting === 'perRow' ? entries.filter(entry => entry.setup.id === selected.setup.id).length : 1; const workloadMinutes = quantity * selected.setup.estimatedMinutes; counts[selected.def.key] = (counts[selected.def.key] || 0) + quantity; taskMinutes[selected.def.key] = (taskMinutes[selected.def.key] || 0) + workloadMinutes; totalTests += quantity; minutes += workloadMinutes; });
+  standalone.forEach((entries) => { const selected = entries[0]; const quantity = selected.setup.workloadCounting === 'perRow' ? entries.length : 1; const workloadMinutes = quantity * selected.setup.estimatedMinutes; counts[selected.def.key] = (counts[selected.def.key] || 0) + quantity; taskMinutes[selected.def.key] = (taskMinutes[selected.def.key] || 0) + workloadMinutes; totalTests += quantity; minutes += workloadMinutes; });
 }
-return {counts,minutes,totalTests}; }
+return {counts,taskMinutes,minutes,totalTests}; }
 function getWOMetrics(w){ const rows = getActiveTestRowsForWO(w);
 if(rows.length) return calculateCountsFromRows(rows);
-if(getAllTestRowsForWO(w).length) return {counts:blankCounts(),minutes:0,totalTests:0};
+if(getAllTestRowsForWO(w).length) return {counts:blankCounts(),taskMinutes:blankCounts(),minutes:0,totalTests:0};
 const counts = blankCounts();
+const taskMinutes = blankCounts();
 let minutes = 0;
 let totalTests = 0;
 const legacyMap = { C6GAS:Number(w.gas || 0), C6LIQ:Number(w.liq || 0), 'GC-BFVC10MZ':Number(w.gc || 0) };
 Object.entries(legacyMap).forEach(([key, count]) => { if(!count || !TEST_MINS[key]) return;
 counts[key] += count;
 totalTests += count;
-minutes += count * TEST_MINS[key]; });
-return {counts,minutes,totalTests};
+const workloadMinutes=count * TEST_MINS[key];
+taskMinutes[key] += workloadMinutes;
+minutes += workloadMinutes; });
+return {counts,taskMinutes,minutes,totalTests};
 }
 const WO_FALLBACK_ASSIGNMENT_KEY = '__WO_TASK__';
 function buildScheduleAssignmentKey(testType){ return testType ? String(testType || '') : WO_FALLBACK_ASSIGNMENT_KEY; }
@@ -165,8 +168,8 @@ return rows;
 return [];
 }
 function getSchedulableTasksForWO(w){
-const counts = getWOCounts(w);
-const assignments = getTestDefinitions().map(def => { const quantity = Number(counts[def.key] || 0); if(!quantity) return null; const isAutoCalculated = def.matrixType === 'Calculated'; return { assignmentKey:buildScheduleAssignmentKey(def.key), testType:def.key, label:def.label, quantity, taskMinutes:quantity * Number(def.minutes || 0), matrixType:def.matrixType || '', sortOrder:Number(def.sortOrder || 0), isFallback:false, assignable:!isAutoCalculated, isAutoCalculated }; }).filter(Boolean).sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label));
+const metrics = getWOMetrics(w);
+const assignments = getTestDefinitions().map(def => { const quantity = Number(metrics.counts[def.key] || 0); if(!quantity) return null; const isAutoCalculated = def.matrixType === 'Calculated'; return { assignmentKey:buildScheduleAssignmentKey(def.key), testType:def.key, label:def.label, quantity, taskMinutes:Number(metrics.taskMinutes?.[def.key] || 0), matrixType:def.matrixType || '', sortOrder:Number(def.sortOrder || 0), isFallback:false, assignable:!isAutoCalculated, isAutoCalculated }; }).filter(Boolean).sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label));
 if(assignments.length) return assignments;
 return [{ assignmentKey:WO_FALLBACK_ASSIGNMENT_KEY, testType:'', label:'WO Task', quantity:1, taskMinutes:calcM(w), matrixType:getPrimaryMatrixGroup(w), sortOrder:99999, isFallback:true, assignable:true, isAutoCalculated:false }];
 }

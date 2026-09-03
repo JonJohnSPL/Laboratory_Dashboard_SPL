@@ -156,3 +156,30 @@ test('bulk assignment UI exposes Test Code filtering and Select All', () => {
   assert.match(html,/saveBulkSetupAssignments\(\)/);
   assert.doesNotMatch(html,/id="test-edit-overlay"/);
 });
+
+test('scheduler uses Test Setup minutes instead of the global Test Type timing field', () => {
+  const source = fs.readFileSync('lab-dashboard.js', 'utf8');
+  const setup = {id:'setup-c6',testTypeId:'type-c6',splSiteId:'pit',isActive:true,estimatedMinutes:15,workloadCounting:'perRow',workloadBundle:'',bundlePriority:0};
+  const definition = {id:'type-c6',key:'C6GAS',label:'GC-C6GAS',matrixType:'Gas',sortOrder:0,minutes:0};
+  const rows = Array.from({length:13}, (_, index) => ({testSetupId:'setup-c6',sampleId:`sample-${index + 1}`}));
+  const context = {
+    blankCounts:() => ({C6GAS:0}),
+    selectedLabSiteId:'pit',
+    getTestSetupById:(id) => id === setup.id ? setup : null,
+    getTestDefinitionById:(id) => id === definition.id ? definition : null
+  };
+  vm.createContext(context);
+  vm.runInContext(readFunction(source, 'calculateCountsFromRows'), context);
+  const metrics = context.calculateCountsFromRows(rows);
+  assert.deepEqual({count:metrics.counts.C6GAS,taskMinutes:metrics.taskMinutes.C6GAS,minutes:metrics.minutes},{count:13,taskMinutes:195,minutes:195});
+
+  Object.assign(context, {
+    getWOMetrics:() => metrics,
+    getTestDefinitions:() => [definition],
+    buildScheduleAssignmentKey:(type) => type,
+    calcM:() => metrics.minutes,
+    getPrimaryMatrixGroup:() => 'Gas'
+  });
+  vm.runInContext(readFunction(source, 'getSchedulableTasksForWO'), context);
+  assert.equal(context.getSchedulableTasksForWO({})[0].taskMinutes, 195);
+});
