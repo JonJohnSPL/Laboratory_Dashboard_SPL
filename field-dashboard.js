@@ -29,6 +29,12 @@ const TRUCK_TYPE_OPTIONS = ['Pickup', 'Service Truck', 'Other'];
 const FUEL_TYPE_OPTIONS = ['Gasoline', 'Diesel', 'Hybrid', 'Electric', 'Other'];
 const VEHICLE_STATUS_OPTIONS = ['Available', 'In Use', 'Maintenance', 'Out of Service'];
 const TRUCK_INSPECTION_WARNING_DAYS = 30;
+const OPERATIONAL_ALERT_GROUPS = [
+  { key:'schedule', label:'Schedule', description:'Conflicts, missing resources, and jobs that still need routes.' },
+  { key:'fleet', label:'Fleet & Equipment', description:'Inspection, readiness, availability, and calibration issues.' },
+  { key:'maintenance', label:'Maintenance', description:'Open maintenance work that is past its due date.' },
+  { key:'samples', label:'Samples', description:'Samples whose chain of custody still needs attention.' }
+];
 const TRAILER_STATUS_OPTIONS = ['Available', 'Assigned', 'In Use', 'Maintenance', 'Out of Service'];
 const EQUIPMENT_TYPE_OPTIONS = ['Small Volume Prover', 'Master Meter', 'Regulator', 'Hose Set', 'Sampling Equipment', 'Tooling', 'Other'];
 const CALIBRATION_STATUS_OPTIONS = ['Current', 'Due Soon', 'Overdue'];
@@ -2370,8 +2376,6 @@ function getAssignedResourceWarnings(job){
     const isTrailerResource = !!resource.trailerNumber;
     if(assignment.assignmentType === 'Truck' || (assignment.assignmentType === 'Prover' && isTruckResource)){
       if(['Maintenance', 'Out of Service'].includes(resource.serviceStatus)) warnings.push(`${resource.unitNumber || 'Truck'} ${resource.serviceStatus.toLowerCase()}`);
-      const inspectionAlert = getTruckInspectionAlert(resource);
-      if(inspectionAlert) warnings.push(inspectionAlert);
     }
     if((assignment.assignmentType === 'Trailer' || (assignment.assignmentType === 'Prover' && isTrailerResource)) && ['Maintenance', 'Out of Service'].includes(resource.serviceStatus)) warnings.push(`${resource.trailerNumber || 'Trailer'} ${resource.serviceStatus.toLowerCase()}`);
     if(assignment.assignmentType === 'Equipment'){
@@ -2433,6 +2437,139 @@ function buildDerivedState(){
     downAssets:[...state.data.trucks.filter((item) => ['Maintenance', 'Out of Service'].includes(item.serviceStatus)), ...state.data.trailers.filter((item) => ['Maintenance', 'Out of Service'].includes(item.serviceStatus)), ...state.data.equipment.filter((item) => ['Needs Repair', 'Out of Service'].includes(item.maintenanceStatus))],
     missingCocSamples:state.data.samples.filter((sample) => ['Requested', 'Collected'].includes(sample.chainOfCustodyStatus))
   };
+}
+
+function compareOperationalAlerts(left, right){
+  const severityOrder = { critical:0, warning:1 };
+  return (severityOrder[left.severity] ?? 2) - (severityOrder[right.severity] ?? 2)
+    || compareOptionalDates(parseDateOnly(left.relevantDate), parseDateOnly(right.relevantDate))
+    || compareStrings(left.title, right.title)
+    || compareStrings(left.id, right.id);
+}
+
+function getOperationalAlertCounts(alerts){
+  return alerts.reduce((counts, alert) => {
+    counts.total += 1;
+    if(alert.severity === 'critical') counts.critical += 1;
+    else counts.warning += 1;
+    return counts;
+  }, { total:0, critical:0, warning:0 });
+}
+
+function buildOperationalAlerts(derived){
+  const alerts = [];
+  const addAlert = (alert) => alerts.push({ relevantDate:'', actions:[], ...alert });
+
+  derived.conflicts.forEach((conflict) => {
+    const jobs = [conflict.jobA, conflict.jobB].filter(Boolean);
+    addAlert({
+      id:`schedule-conflict:${conflict.id}`,
+      group:'schedule',
+      severity:'critical',
+      title:`Resource conflict: ${conflict.resourceLabel}`,
+      details:jobs.length === 2
+        ? `${getJobDisplayTitle(jobs[0])} overlaps ${getJobDisplayTitle(jobs[1])}.`
+        : 'This resource is assigned to overlapping jobs.',
+      relevantDate:toInputDate(conflict.start),
+      actions:jobs.map((job, index) => ({ entityKey:'jobs', entityId:job.id, label:`Open Job ${index + 1}` }))
+    });
+  });
+
+  derived.missingJobs.forEach((job) => {
+    const missing = getJobMissingRequirements(job);
+    addAlert({
+      id:`missing-resources:${job.id}`,
+      group:'schedule',
+      severity:'warning',
+      title:`${getJobDisplayTitle(job)} is missing required resources`,
+      details:`Missing: ${missing.join(', ')} | ${getJobScheduleLabel(job)}`,
+      relevantDate:toInputDate(getJobPrimaryDate(job)),
+      actions:[{ entityKey:'jobs', entityId:job.id, label:'Open Job' }]
+    });
+  });
+
+  state.data.jobs.filter((job) => derived.needsRouteJobIds.has(job.id)).forEach((job) => {
+    addAlert({
+      id:`needs-route:${job.id}`,
+      group:'schedule',
+      severity:'warning',
+      title:`${getJobDisplayTitle(job)} needs a route`,
+      details:`${getJobScheduleLabel(job)} | Scheduled job is not assigned to a route.`,
+      relevantDate:toInputDate(getJobPrimaryDate(job)),
+      actions:[{ entityKey:'jobs', entityId:job.id, label:'Open Job' }]
+    });
+  });
+
+  derived.inspectionDueTrucks.forEach((truck) => {
+    const inspectionStatus = getTruckInspectionStatus(truck);
+    addAlert({
+      id:`truck-inspection:${truck.id}`,
+      group:'fleet',
+      severity:inspectionStatus === 'Inspection Overdue' ? 'critical' : 'warning',
+      title:getTruckInspectionAlert(truck),
+      details:`Inspection due ${fmtDate(truck.nextInspectionDue)}${truck.assignedTechnicianId ? ` | Assigned to ${getTechnicianLabel(truck.assignedTechnicianId)}` : ''}`,
+      relevantDate:truck.nextInspectionDue,
+      actions:[{ entityKey:'trucks', entityId:truck.id, label:'Open Truck' }]
+    });
+  });
+
+  derived.downAssets.forEach((asset) => {
+    const isTruck = Object.prototype.hasOwnProperty.call(asset, 'unitNumber');
+    const isTrailer = Object.prototype.hasOwnProperty.call(asset, 'trailerNumber');
+    const entityKey = isTruck ? 'trucks' : (isTrailer ? 'trailers' : 'equipment');
+    const entityLabel = isTruck ? 'Truck' : (isTrailer ? 'Trailer' : 'Equipment');
+    const assetLabel = isTruck ? (asset.unitNumber || 'Unnamed truck') : (isTrailer ? (asset.trailerNumber || 'Unnamed trailer') : (asset.equipmentName || 'Unnamed equipment'));
+    const status = asset.serviceStatus || asset.maintenanceStatus || 'Unavailable';
+    addAlert({
+      id:`down-asset:${entityKey}:${asset.id}`,
+      group:'fleet',
+      severity:status === 'Maintenance' ? 'warning' : 'critical',
+      title:`${assetLabel} is ${status.toLowerCase()}`,
+      details:`${entityLabel} status: ${status}. Review readiness before dispatch.`,
+      actions:[{ entityKey, entityId:asset.id, label:`Open ${entityLabel}` }]
+    });
+  });
+
+  derived.overdueCalibration.forEach((item) => {
+    addAlert({
+      id:`calibration-overdue:${item.id}`,
+      group:'fleet',
+      severity:'critical',
+      title:`${item.equipmentName || 'Equipment'} calibration overdue`,
+      details:item.nextCalibrationDue ? `Calibration due ${fmtDate(item.nextCalibrationDue)}.` : 'Calibration status is overdue.',
+      relevantDate:item.nextCalibrationDue,
+      actions:[{ entityKey:'equipment', entityId:item.id, label:'Open Equipment' }]
+    });
+  });
+
+  derived.overdueMaintenance.forEach((record) => {
+    addAlert({
+      id:`maintenance-overdue:${record.id}`,
+      group:'maintenance',
+      severity:'critical',
+      title:`${getAssetLabel(record.assetType, record.assetId)} maintenance overdue`,
+      details:`${record.maintenanceType || 'Maintenance'} | Due ${fmtDate(record.dueDate)} | ${record.status || 'Open'}`,
+      relevantDate:record.dueDate,
+      actions:[{ entityKey:'maintenanceRecords', entityId:record.id, label:'Open Maintenance' }]
+    });
+  });
+
+  derived.missingCocSamples.forEach((sample) => {
+    addAlert({
+      id:`sample-coc:${sample.id}`,
+      group:'samples',
+      severity:'warning',
+      title:`${sample.sampleName || getSampleDisplayId(sample)} needs COC attention`,
+      details:`${sample.chainOfCustodyStatus || 'Requested'} | ${getClientLabel(sample.clientId)} | ${sample.sampleType || 'Sample'}`,
+      relevantDate:sample.collectionDateTime || sample.sampleDate,
+      actions:[{ entityKey:'samples', entityId:sample.id, label:'Open Sample' }]
+    });
+  });
+
+  const groupOrder = new Map(OPERATIONAL_ALERT_GROUPS.map((group, index) => [group.key, index]));
+  return [...new Map(alerts.map((alert) => [alert.id, alert])).values()].sort((left, right) =>
+    (groupOrder.get(left.group) ?? 99) - (groupOrder.get(right.group) ?? 99)
+      || compareOperationalAlerts(left, right));
 }
 
 (function tickClock(){
@@ -5112,6 +5249,58 @@ function renderMaintenance(){
   document.getElementById('maintenance-table').innerHTML = renderTable(['Asset', 'Type', 'Status', 'Dates', 'Assigned', 'Vendor / Cost'], state.data.maintenanceRecords.map((record) => buildTableRow('maintenanceRecords', record.id, [ `<div class="inline-stack"><div class="item-title">${esc(getAssetLabel(record.assetType, record.assetId))}</div><div class="muted">${esc(record.assetType)}</div></div>`, getStatusBadge(record.maintenanceType), getStatusBadge(record.status), `<div class="inline-stack"><div>${esc(fmtDate(record.dueDate))}</div><div class="muted">${esc(record.openDate ? `Opened ${fmtDate(record.openDate)}` : 'No open date')}</div></div>`, esc(record.assignedPerson || 'Unassigned'), `<div class="inline-stack"><div>${esc(record.vendorInternal || 'Internal')}</div><div class="muted">${esc(fmtCurrency(record.cost))}</div></div>` ])), '<strong>No maintenance records yet</strong>Capture inspections, repairs, and calibration readiness here.');
 }
 
+function renderOperationalAlertAction(action){
+  return `<button class="act-btn" type="button" onclick="event.stopPropagation(); openEntityModal('${esc(action.entityKey)}','${esc(action.entityId)}')">${esc(action.label)}</button>`;
+}
+
+function renderOperationalAlert(alert){
+  const singleAction = alert.actions.length === 1 ? alert.actions[0] : null;
+  const openAttrs = singleAction
+    ? `role="button" tabindex="0" title="${esc(singleAction.label)}" onclick="openEntityModal('${esc(singleAction.entityKey)}','${esc(singleAction.entityId)}')" onkeydown="if(event.target === this && (event.key === 'Enter' || event.key === ' ')){ event.preventDefault(); openEntityModal('${esc(singleAction.entityKey)}','${esc(singleAction.entityId)}'); }"`
+    : '';
+  const tone = alert.severity === 'critical' ? 'danger' : 'warn';
+  return `<div class="alert-row ${esc(alert.severity)} ${singleAction ? 'clickable-alert-row' : ''}" ${openAttrs}>
+    <div class="alert-row-main">
+      <div class="alert-row-heading">
+        <div class="item-title">${esc(alert.title)}</div>
+        <span class="status-badge ${tone}">${esc(alert.severity)}</span>
+      </div>
+      <div class="muted">${esc(alert.details)}</div>
+      ${alert.relevantDate ? `<div class="alert-date">${esc(fmtDate(alert.relevantDate))}</div>` : ''}
+    </div>
+    <div class="alert-actions">${alert.actions.map(renderOperationalAlertAction).join('')}</div>
+  </div>`;
+}
+
+function renderOperationalAlertGroup(group, alerts){
+  const groupAlerts = alerts.filter((alert) => alert.group === group.key).sort(compareOperationalAlerts);
+  const groupTone = groupAlerts.some((alert) => alert.severity === 'critical') ? 'danger' : (groupAlerts.length ? 'warn' : 'ok');
+  const body = groupAlerts.length
+    ? `<div class="alert-list">${groupAlerts.map(renderOperationalAlert).join('')}</div>`
+    : `<div class="empty-state alert-group-empty">No active ${esc(group.label.toLowerCase())} alerts.</div>`;
+  return `<section class="panel alert-group-panel">
+    <div class="panel-header">
+      <div><h2>${esc(group.label)}</h2><div class="panel-meta alert-group-description">${esc(group.description)}</div></div>
+      <span class="status-badge ${groupTone}">${esc(groupAlerts.length)} active</span>
+    </div>
+    <div class="panel-body">${body}</div>
+  </section>`;
+}
+
+function renderAlerts(derived){
+  const alerts = buildOperationalAlerts(derived);
+  const counts = getOperationalAlertCounts(alerts);
+  document.getElementById('alerts-summary').textContent = `${counts.total} active alert${counts.total === 1 ? '' : 's'}`;
+  document.getElementById('alerts-stats').innerHTML = [
+    { label:'Total Alerts', value:counts.total, cls:'' },
+    { label:'Critical', value:counts.critical, cls:'danger' },
+    { label:'Warning', value:counts.warning, cls:'warn' }
+  ].map((card) => `<div class="stat-card ${card.cls}"><div class="stat-label">${esc(card.label)}</div><div class="stat-value ${card.cls}">${esc(card.value)}</div></div>`).join('');
+  document.getElementById('alerts-groups').innerHTML = alerts.length
+    ? OPERATIONAL_ALERT_GROUPS.map((group) => renderOperationalAlertGroup(group, alerts)).join('')
+    : '<section class="panel alerts-all-clear"><div class="empty-state"><strong>All clear</strong>No active operational alerts.</div></section>';
+}
+
 function renderViewState(){
   document.querySelectorAll('.view-btn').forEach((button) => button.classList.toggle('active', button.dataset.view === state.activeView));
   document.querySelectorAll('.screen').forEach((screen) => screen.classList.toggle('active', screen.id === `${state.activeView}-screen`));
@@ -5121,6 +5310,7 @@ function render(){
   renderViewState();
   const derived = buildDerivedState();
   if(document.getElementById('overview-stats')) renderOverview(derived);
+  if(document.getElementById('alerts-groups')) renderAlerts(derived);
   if(document.getElementById('dispatch-table')) renderDispatch(derived);
   if(document.getElementById('schedule-board')) renderSchedule(derived);
   if(document.getElementById('directory-toolbar')) renderDirectory();

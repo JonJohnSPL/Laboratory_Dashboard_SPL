@@ -304,6 +304,146 @@ test('Field Ops lands on Schedule without an Overview tab', () => {
   assert.match(html, /id="schedule-screen" class="screen active"/);
 });
 
+test('Field Ops exposes a centralized Alerts view after Job Board', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const html = fs.readFileSync('field-dashboard.html', 'utf8');
+  const jobBoardIndex = html.indexOf('data-view="job-board"');
+  const alertsIndex = html.indexOf('data-view="alerts"');
+
+  assert.ok(jobBoardIndex >= 0);
+  assert.ok(alertsIndex > jobBoardIndex);
+  assert.match(html, /id="alerts-screen"/);
+  assert.match(html, /id="alerts-stats"/);
+  assert.match(html, /id="alerts-groups"/);
+  assert.match(readFunction(source, 'render'), /renderAlerts\(derived\)/);
+  for(const label of ['Schedule', 'Fleet & Equipment', 'Maintenance', 'Samples']){
+    assert.match(source, new RegExp(`label:'${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'`));
+  }
+});
+
+test('truck inspection status keeps the existing 30-day boundaries', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const context = { todayISO:() => '2026-09-28' };
+  vm.createContext(context);
+  vm.runInContext([
+    'const TRUCK_INSPECTION_WARNING_DAYS = 30;',
+    readFunction(source, 'parseDateOnly'),
+    readFunction(source, 'toInputDate'),
+    readFunction(source, 'addDaysISO'),
+    readFunction(source, 'getTruckInspectionStatus')
+  ].join('\n'), context);
+
+  assert.equal(context.getTruckInspectionStatus({ nextInspectionDue:'2026-09-27' }), 'Inspection Overdue');
+  assert.equal(context.getTruckInspectionStatus({ nextInspectionDue:'2026-09-28' }), 'Inspection Due Soon');
+  assert.equal(context.getTruckInspectionStatus({ nextInspectionDue:'2026-10-28' }), 'Inspection Due Soon');
+  assert.equal(context.getTruckInspectionStatus({ nextInspectionDue:'2026-10-29' }), 'Inspection Current');
+  assert.equal(context.getTruckInspectionStatus({ nextInspectionDue:'' }), '');
+});
+
+test('inspection alerts leave job cards but remain on truck resource cards', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const assignedWarnings = readFunction(source, 'getAssignedResourceWarnings');
+  const resources = readFunction(source, 'renderResources');
+
+  assert.doesNotMatch(assignedWarnings, /getTruckInspectionAlert/);
+  assert.match(assignedWarnings, /resource\.serviceStatus/);
+  assert.match(assignedWarnings, /resource\.calibrationStatus/);
+  assert.match(resources, /getTruckInspectionBadge\(truck\)/);
+});
+
+test('operational alert model classifies, deduplicates, counts, and maps actions', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const jobA = { id:'job-a', title:'Job A', date:'2026-10-01' };
+  const jobB = { id:'job-b', title:'Job B', date:'2026-10-02' };
+  const conflict = { id:'conflict-1', resourceLabel:'Truck 10', jobA, jobB, start:'2026-10-01' };
+  const context = {
+    state:{ data:{ jobs:[jobA, jobB] } },
+    compareStrings:(left, right) => String(left || '').localeCompare(String(right || '')),
+    compareOptionalDates:(left, right) => {
+      if(!left && !right) return 0;
+      if(!left) return 1;
+      if(!right) return -1;
+      return left - right;
+    },
+    parseDateOnly:(value) => value ? new Date(`${String(value).slice(0, 10)}T12:00:00`) : null,
+    toInputDate:(value) => String(value || '').slice(0, 10),
+    getJobDisplayTitle:(job) => job.title,
+    getJobScheduleLabel:(job) => `Scheduled ${job.date}`,
+    getJobPrimaryDate:(job) => job.date,
+    getJobMissingRequirements:() => ['Technician'],
+    getTruckInspectionStatus:(truck) => truck.inspectionStatus,
+    getTruckInspectionAlert:(truck) => `${truck.unitNumber} ${truck.inspectionStatus === 'Inspection Overdue' ? 'inspection overdue' : 'inspection due soon'}`,
+    getTechnicianLabel:() => 'Technician',
+    fmtDate:(value) => value || 'Not set',
+    getAssetLabel:(type, id) => `${type} ${id}`,
+    getSampleDisplayId:(sample) => `FIELD-${sample.id}`,
+    getClientLabel:() => 'Client'
+  };
+  vm.createContext(context);
+  vm.runInContext([
+    `const OPERATIONAL_ALERT_GROUPS = [
+      { key:'schedule' },
+      { key:'fleet' },
+      { key:'maintenance' },
+      { key:'samples' }
+    ];`,
+    readFunction(source, 'compareOperationalAlerts'),
+    readFunction(source, 'getOperationalAlertCounts'),
+    readFunction(source, 'buildOperationalAlerts')
+  ].join('\n'), context);
+
+  const alerts = context.buildOperationalAlerts({
+    conflicts:[conflict, conflict],
+    missingJobs:[jobA],
+    needsRouteJobIds:new Set(['job-b']),
+    inspectionDueTrucks:[
+      { id:'truck-overdue', unitNumber:'Truck 1', nextInspectionDue:'2026-09-20', inspectionStatus:'Inspection Overdue' },
+      { id:'truck-soon', unitNumber:'Truck 2', nextInspectionDue:'2026-10-10', inspectionStatus:'Inspection Due Soon' }
+    ],
+    downAssets:[
+      { id:'truck-maintenance', unitNumber:'Truck 3', serviceStatus:'Maintenance' },
+      { id:'equipment-repair', equipmentName:'Meter 4', maintenanceStatus:'Needs Repair' }
+    ],
+    overdueCalibration:[{ id:'equipment-calibration', equipmentName:'Meter 5', nextCalibrationDue:'2026-09-15' }],
+    overdueMaintenance:[{ id:'maintenance-1', assetType:'Truck', assetId:'truck-overdue', maintenanceType:'Inspection', dueDate:'2026-09-18', status:'Open' }],
+    missingCocSamples:[{ id:'sample-1', sampleName:'Sample 1', chainOfCustodyStatus:'Collected', clientId:'client-1', sampleType:'Gas', sampleDate:'2026-09-22' }]
+  });
+  const counts = context.getOperationalAlertCounts(alerts);
+
+  assert.deepEqual(JSON.parse(JSON.stringify(counts)), { total:10, critical:5, warning:5 });
+  assert.equal(new Set(Array.from(alerts, (alert) => alert.id)).size, alerts.length);
+  assert.equal(alerts[0].id, 'schedule-conflict:conflict-1');
+  assert.deepEqual(Array.from(alerts[0].actions, (action) => action.entityId), ['job-a', 'job-b']);
+  const truckAlert = Array.from(alerts).find((alert) => alert.id === 'truck-inspection:truck-overdue');
+  assert.equal(truckAlert.severity, 'critical');
+  assert.equal(truckAlert.actions[0].entityKey, 'trucks');
+  const maintenanceAsset = Array.from(alerts).find((alert) => alert.id === 'down-asset:trucks:truck-maintenance');
+  assert.equal(maintenanceAsset.severity, 'warning');
+});
+
+test('Alerts renders an all-clear state when no issues exist', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const nodes = {
+    'alerts-summary':{ textContent:'' },
+    'alerts-stats':{ innerHTML:'' },
+    'alerts-groups':{ innerHTML:'' }
+  };
+  const context = {
+    document:{ getElementById:(id) => nodes[id] },
+    buildOperationalAlerts:() => [],
+    getOperationalAlertCounts:() => ({ total:0, critical:0, warning:0 }),
+    esc:(value) => String(value)
+  };
+  vm.createContext(context);
+  vm.runInContext('const OPERATIONAL_ALERT_GROUPS = [];\n' + readFunction(source, 'renderAlerts'), context);
+
+  context.renderAlerts({});
+
+  assert.equal(nodes['alerts-summary'].textContent, '0 active alerts');
+  assert.match(nodes['alerts-groups'].innerHTML, /All clear/);
+  assert.match(nodes['alerts-stats'].innerHTML, /Critical/);
+});
+
 test('month schedule includes jobs shown on adjacent-month grid days', () => {
   const source = fs.readFileSync('field-dashboard.js', 'utf8');
   const context = {
@@ -369,11 +509,11 @@ test('calendar print defaults follow the selected schedule view', () => {
   vm.createContext(context);
   vm.runInContext(readFunction(source, 'getScheduleCalendarPrintDefaultRange'), context);
 
-  assert.deepEqual(context.getScheduleCalendarPrintDefaultRange(), { from:'2026-08-16', to:'2026-08-22' });
+  assert.deepEqual(JSON.parse(JSON.stringify(context.getScheduleCalendarPrintDefaultRange())), { from:'2026-08-16', to:'2026-08-22' });
   context.state.scheduleView = 'work_week';
-  assert.deepEqual(context.getScheduleCalendarPrintDefaultRange(), { from:'2026-08-17', to:'2026-08-21' });
+  assert.deepEqual(JSON.parse(JSON.stringify(context.getScheduleCalendarPrintDefaultRange())), { from:'2026-08-17', to:'2026-08-21' });
   context.state.scheduleView = 'month';
-  assert.deepEqual(context.getScheduleCalendarPrintDefaultRange(), { from:'2026-08-01', to:'2026-08-31' });
+  assert.deepEqual(JSON.parse(JSON.stringify(context.getScheduleCalendarPrintDefaultRange())), { from:'2026-08-01', to:'2026-08-31' });
 });
 
 test('calendar print range is inclusive and its grid begins on Sunday', () => {
