@@ -67,6 +67,61 @@ test('a multi-site job cannot remove its final selected site', () => {
   assert.deepEqual(context.alerts, ['Job Type cannot have less than 1 selected site']);
 });
 
+test('repeated modal save clicks create only one record while the first save is pending', async () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  let resolveSave;
+  let saveCalls = 0;
+  let closeCalls = 0;
+  const context = {
+    state:{ saveInFlight:false },
+    modalState:{ entity:'equipment', formData:{}, assignments:[] },
+    renderEntityModalSaveState:() => {},
+    validateModal:() => '',
+    showSaveStatus:() => {},
+    isRemoteMode:() => false,
+    saveLocalRecord:() => {
+      saveCalls += 1;
+      return new Promise((resolve) => { resolveSave = resolve; });
+    },
+    closeEntityModal:() => { closeCalls += 1; },
+    hideSaveStatusSoon:() => {},
+    console:{ error:() => {} },
+    alert:() => {}
+  };
+  vm.createContext(context);
+  const saveEntitySource = readFunction(source, 'saveEntityFromModal').replace(/^function /, 'async function ');
+  vm.runInContext([readFunction(source, 'beginEntityModalSave'), saveEntitySource].join('\n'), context);
+
+  const firstSave = context.saveEntityFromModal();
+  const repeatedSave = context.saveEntityFromModal();
+
+  assert.equal(saveCalls, 1);
+  assert.equal(context.state.saveInFlight, true);
+  resolveSave();
+  await Promise.all([firstSave, repeatedSave]);
+  assert.equal(saveCalls, 1);
+  assert.equal(closeCalls, 1);
+  assert.equal(context.state.saveInFlight, false);
+});
+
+test('entity modal Save button displays and disables its pending state', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const html = fs.readFileSync('field-dashboard.html', 'utf8');
+  const saveButton = { disabled:false, textContent:'Save' };
+  const context = {
+    state:{ saveInFlight:true },
+    document:{ getElementById:(id) => id === 'entity-modal-save' ? saveButton : null }
+  };
+  vm.createContext(context);
+  vm.runInContext(readFunction(source, 'renderEntityModalSaveState'), context);
+
+  context.renderEntityModalSaveState();
+
+  assert.match(html, /id="entity-modal-save"/);
+  assert.equal(saveButton.disabled, true);
+  assert.equal(saveButton.textContent, 'Saving...');
+});
+
 function createAssignmentContext(){
   const source = fs.readFileSync('field-dashboard.js', 'utf8');
   const context = {

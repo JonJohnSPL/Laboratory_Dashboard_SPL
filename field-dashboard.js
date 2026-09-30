@@ -6375,6 +6375,21 @@ function renderModal(){
       : `<div class="form-grid">${(FORM_DEFINITIONS[modalState.entity] || []).map((field) => renderFormField(field)).join('')}</div>${modalState.entity === 'jobs' ? `${renderJobSampleLogisticsEditor()}${renderJobPartsEditor()}${renderAssignmentEditor()}${renderSalesforceCaseEditor()}` : ''}`;
   document.getElementById('entity-modal-body').innerHTML = bodyMarkup;
   hydrateAssetPhotoPreviews(document.getElementById('entity-modal-body'));
+  renderEntityModalSaveState();
+}
+
+function renderEntityModalSaveState(){
+  const saveButton = document.getElementById('entity-modal-save');
+  if(!saveButton) return;
+  saveButton.disabled = !!state.saveInFlight;
+  saveButton.textContent = state.saveInFlight ? 'Saving...' : 'Save';
+}
+
+function beginEntityModalSave(){
+  if(state.saveInFlight) return false;
+  state.saveInFlight = true;
+  renderEntityModalSaveState();
+  return true;
 }
 
 function openSharedSiteEditor(siteId = ''){
@@ -7567,6 +7582,7 @@ async function saveRemoteAssetRecord(entityKey, draft){
 }
 
 async function saveEntityFromModal(){
+  if(state.saveInFlight) return;
   if(modalState.entity === 'clients') modalState.formData.clientCode = normalizeClientCode(modalState.formData.clientCode);
   if(modalState.entity === 'samples'){
     modalState.formData.sampleType = normalizeSampleTypeForWorkflow(modalState.formData.sampleType);
@@ -7609,7 +7625,7 @@ async function saveEntityFromModal(){
   }
   const validationMessage = validateModal();
   if(validationMessage){ alert(validationMessage); return; }
-  state.saveInFlight = true;
+  if(!beginEntityModalSave()) return;
   showSaveStatus('saving', 'SAVING');
   try {
     if(modalState.entity === 'jobs'){
@@ -7649,6 +7665,7 @@ async function saveEntityFromModal(){
     alert(error.message || 'Unable to save the Field Ops record.');
   } finally {
     state.saveInFlight = false;
+    renderEntityModalSaveState();
   }
 }
 
