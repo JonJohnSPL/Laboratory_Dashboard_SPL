@@ -5361,12 +5361,44 @@ function shouldRenderField(field){
   return true;
 }
 
+function getNextMultiSiteJobSelection(selectedSiteIds, primarySiteId, optionValue, checked){
+  const values = normalizeStringArray(selectedSiteIds);
+  const option = String(optionValue || '').trim();
+  if(!checked && values.includes(option) && values.length === 1){
+    return { siteIds:values, primarySiteId:String(primarySiteId || '').trim(), error:'Job Type cannot have less than 1 selected site' };
+  }
+  const nextValues = checked
+    ? [...new Set([...values, option].filter(Boolean))]
+    : values.filter((value) => value !== option);
+  let nextPrimarySiteId = String(primarySiteId || '').trim();
+  if(!nextValues.includes(nextPrimarySiteId)) nextPrimarySiteId = nextValues[nextValues.length - 1] || '';
+  return {
+    siteIds:nextPrimarySiteId ? [nextPrimarySiteId, ...nextValues.filter((value) => value !== nextPrimarySiteId)] : nextValues,
+    primarySiteId:nextPrimarySiteId,
+    error:''
+  };
+}
+
 function toggleModalArrayValue(key, optionValue, checked){
   if(!modalState.open) return;
   const openMenu = document.querySelector(`.multi-select[data-multi-select-key="${cssEscape(key)}"] .multi-select-menu`);
   const previousScrollTop = openMenu ? openMenu.scrollTop : null;
   const values = normalizeStringArray(modalState.formData[key]);
   let nextValues = checked ? [...new Set([...values, optionValue])] : values.filter((value) => value !== optionValue);
+  if(modalState.entity === 'jobs' && key === 'siteIds'){
+    const selection = getNextMultiSiteJobSelection(values, modalState.formData.siteId, optionValue, checked);
+    if(selection.error){
+      alert(selection.error);
+      renderModal();
+      if(previousScrollTop !== null){
+        const nextMenu = document.querySelector(`.multi-select[data-multi-select-key="${cssEscape(key)}"] .multi-select-menu`);
+        if(nextMenu) nextMenu.scrollTop = previousScrollTop;
+      }
+      return;
+    }
+    nextValues = selection.siteIds;
+    modalState.formData.siteId = selection.primarySiteId;
+  }
   if(modalState.entity === 'jobTypes' && key === 'detailGroups' && optionValue === JOB_PARTS_DETAIL_GROUP){
     nextValues = checked
       ? nextValues.filter((value) => value !== JOB_PARTS_DISABLED_DETAIL_GROUP)

@@ -17,6 +17,56 @@ function readFunction(source, name){
   throw new Error(`Could not parse ${name}`);
 }
 
+function createMultiSiteSelectionContext(){
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const alerts = [];
+  const context = {
+    modalState:{
+      open:true,
+      entity:'jobs',
+      formData:{ clientId:'client-1', jobType:'multi-site', siteId:'site-1', siteIds:['site-1', 'site-2', 'site-3'] }
+    },
+    document:{ querySelector:() => null },
+    alert:(message) => alerts.push(message),
+    renderModal:() => {},
+    normalizeModalSampleSiteIds:() => {},
+    normalizeStringArray:(value) => [...new Set((Array.isArray(value) ? value : [value]).map((item) => String(item || '').trim()).filter(Boolean))],
+    cssEscape:(value) => String(value || ''),
+    getSite:(siteId) => ({ id:siteId, clientId:'client-1' }),
+    jobTypeAllowsMultipleSites:() => true
+  };
+  vm.createContext(context);
+  vm.runInContext([
+    readFunction(source, 'getNextMultiSiteJobSelection'),
+    readFunction(source, 'toggleModalArrayValue'),
+    readFunction(source, 'normalizeModalJobSiteIds')
+  ].join('\n'), context);
+  context.alerts = alerts;
+  return context;
+}
+
+test('removing the first site promotes the most recently selected remaining site', () => {
+  const context = createMultiSiteSelectionContext();
+
+  context.toggleModalArrayValue('siteIds', 'site-1', false);
+
+  assert.equal(context.modalState.formData.siteId, 'site-3');
+  assert.deepEqual(Array.from(context.modalState.formData.siteIds), ['site-3', 'site-2']);
+  assert.deepEqual(context.alerts, []);
+});
+
+test('a multi-site job cannot remove its final selected site', () => {
+  const context = createMultiSiteSelectionContext();
+  context.modalState.formData.siteId = 'site-1';
+  context.modalState.formData.siteIds = ['site-1'];
+
+  context.toggleModalArrayValue('siteIds', 'site-1', false);
+
+  assert.equal(context.modalState.formData.siteId, 'site-1');
+  assert.deepEqual(Array.from(context.modalState.formData.siteIds), ['site-1']);
+  assert.deepEqual(context.alerts, ['Job Type cannot have less than 1 selected site']);
+});
+
 function createAssignmentContext(){
   const source = fs.readFileSync('field-dashboard.js', 'utf8');
   const context = {
