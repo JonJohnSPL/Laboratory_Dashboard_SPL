@@ -126,6 +126,10 @@ Existing Lab WIP definitions become Pittsburgh migration-placeholder setups so h
 
 Administrators manage the global Test Catalog. Employees with `lab.tests.view` can read it, while `lab.tests.manage` permits instrument and Test Setup changes only for the employee's relational Home SPL Site. The former `master-methods.html` and `test-types.html` paths remain compatibility redirects.
 
+## Toolbox Workload Forecast
+
+The Pittsburgh Workload Forecast is available from the Toolbox to employees granted `lab.toolbox.workload_forecast`. Run the latest `supabase/schema.sql` or, on an existing database, [`supabase/seed_workload_forecast_feature.sql`](./supabase/seed_workload_forecast_feature.sql), then enable the feature for the appropriate employee profiles in Employees. Forecast data and backups are kept in that employee's browser storage.
+
 ## Salesforce ticket import and linking
 
 Salesforce remains authoritative for ticket fields. The dashboard caches only records selected by the shared Pittsburgh Field Ops list view and owns the one-to-one job link. The integration performs no Salesforce create, update, or delete requests.
