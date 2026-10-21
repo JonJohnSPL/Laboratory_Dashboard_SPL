@@ -71,6 +71,8 @@ test('schema implements normalized catalog, setup migration, RPC, and scoped acc
   assert.match(schema,/from public\.lab_test_types canonical\s+where canonical\.id <> t\.id\s+and lower\(canonical\.test_code\) = lower\(public\.lab_test_code_key\(alias_value\)\)/);
   assert.match(schema,/create table if not exists public\.lab_instruments/);
   assert.match(schema,/create table if not exists public\.lab_test_setups/);
+  assert.match(schema,/ranked_calculated_setups[\s\S]+?delete from public\.lab_test_setups setup[\s\S]+?ranked\.setup_rank > 1/);
+  assert.match(schema,/case when t\.matrix_type = 'Calculated' then 'no_instrument' else 'migration_pending' end/);
   assert.match(schema,/create table if not exists public\.billing_services/);
   assert.match(schema,/admin_resolve_legacy_billing_item/);
   assert.match(schema,/is_migration_placeholder/);

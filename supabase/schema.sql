@@ -4301,6 +4301,33 @@ create unique index if not exists lab_test_setups_non_instrument_unique_idx
 create index if not exists lab_test_setups_site_active_test_idx
   on public.lab_test_setups(spl_site_id, is_active, test_type_id);
 
+with ranked_calculated_setups as (
+  select
+    setup.id,
+    row_number() over (
+      partition by setup.test_type_id, setup.spl_site_id
+      order by (setup.setup_kind = 'no_instrument' and setup.instrument_id is null) desc,
+        setup.created_at asc,
+        setup.id asc
+    ) as setup_rank
+  from public.lab_test_setups setup
+  join public.lab_test_types test_type on test_type.id = setup.test_type_id
+  where test_type.matrix_type = 'Calculated'
+)
+delete from public.lab_test_setups setup
+using ranked_calculated_setups ranked
+where setup.id = ranked.id
+  and ranked.setup_rank > 1;
+
+update public.lab_test_setups setup
+set setup_kind = 'no_instrument',
+    instrument_id = null,
+    is_migration_placeholder = false
+from public.lab_test_types test_type
+where setup.test_type_id = test_type.id
+  and test_type.matrix_type = 'Calculated'
+  and (setup.setup_kind <> 'no_instrument' or setup.instrument_id is not null or setup.is_migration_placeholder);
+
 insert into public.lab_test_setups (
   test_type_id, spl_site_id, setup_kind, instrument_id, estimated_minutes,
   workload_counting, workload_bundle, bundle_priority, is_migration_placeholder,
@@ -4309,15 +4336,18 @@ insert into public.lab_test_setups (
 select
   t.id,
   s.id,
-  'migration_pending',
+  case when t.matrix_type = 'Calculated' then 'no_instrument' else 'migration_pending' end,
   null,
   greatest(0, coalesce(t.minutes, 0)),
   case when t.count_mode = 'perRow' then 'per_import_row' else 'per_sample' end,
   coalesce(t.group_key, ''),
   greatest(0, coalesce(t.group_rank, 0)),
-  true,
+  t.matrix_type <> 'Calculated',
   coalesce(t.lab_wip_enabled, true) and t.is_active,
-  'Migrated from the original Lab WIP Test Type definition. Assign an instrument or mark No instrument required.'
+  case when t.matrix_type = 'Calculated'
+    then 'Migrated from the original Calculated Test Type definition; no instrument is required.'
+    else 'Migrated from the original Lab WIP Test Type definition. Assign an instrument or mark No instrument required.'
+  end
 from public.lab_test_types t
 join public.field_spl_sites s on s.site_code = 'PITTSBURGH'
 on conflict do nothing;
