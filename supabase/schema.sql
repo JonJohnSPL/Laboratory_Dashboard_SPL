@@ -4240,6 +4240,13 @@ select t.id, public.lab_test_code_key(alias_value), case when public.lab_test_co
 from public.lab_test_types t
 cross join lateral unnest(coalesce(t.aliases, array[]::text[]) || array[t.test_code]) alias_rows(alias_value)
 where btrim(alias_value) <> ''
+  -- Canonical test codes take precedence over conflicting legacy aliases.
+  and not exists (
+    select 1
+    from public.lab_test_types canonical
+    where canonical.id <> t.id
+      and lower(canonical.test_code) = lower(public.lab_test_code_key(alias_value))
+  )
 on conflict do nothing;
 
 create table if not exists public.lab_instruments (

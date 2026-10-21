@@ -68,6 +68,7 @@ test('schema implements normalized catalog, setup migration, RPC, and scoped acc
   const schema = fs.readFileSync('supabase/schema.sql','utf8');
   assert.match(schema,/create table if not exists public\.lab_methods/);
   assert.match(schema,/create table if not exists public\.lab_test_type_aliases/);
+  assert.match(schema,/from public\.lab_test_types canonical\s+where canonical\.id <> t\.id\s+and lower\(canonical\.test_code\) = lower\(public\.lab_test_code_key\(alias_value\)\)/);
   assert.match(schema,/create table if not exists public\.lab_instruments/);
   assert.match(schema,/create table if not exists public\.lab_test_setups/);
   assert.match(schema,/create table if not exists public\.billing_services/);
