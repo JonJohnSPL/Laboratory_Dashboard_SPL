@@ -4404,10 +4404,10 @@ function renderDirectoryBillingSection(clientId, activeProjectId){
 
 function renderDirectorySitesSection(clientId, activeProjectId){
   const sites = getDirectorySites(clientId, activeProjectId);
-  return renderTable(['Site/Location', 'Linked Projects', 'Type / Status', 'Location', 'Default Job Types', 'Jobs'], sites.map((site) => buildTableRow('sites', site.id, [
+  return renderTable(['Site/Location', 'Linked Projects', 'Type', 'Location', 'Default Job Types', 'Jobs'], sites.map((site) => buildTableRow('sites', site.id, [
     `<div class="inline-stack"><div class="item-title">${esc(site.siteName || 'Unnamed site')}</div><div class="muted">${esc(site.clientSiteContact || 'No site contact')}</div></div>`,
     esc(getLinkedProjectsForSite(site.id).map((project) => project.projectName || 'Unnamed project').join(', ') || 'No linked project'),
-    `<div class="inline-stack">${getStatusBadge(getSiteTypeDisplayName(site.siteType))}${getStatusBadge(site.siteStatus || 'Active')}</div>`,
+    `<div class="inline-stack">${getStatusBadge(getSiteTypeDisplayName(site.siteType))}</div>`,
     `<div class="inline-stack"><div>${esc(getSiteLocationPrimary(site))}</div><div class="muted">${esc(getSiteLocationSecondary(site))}</div></div>`,
     renderTags(getDefaultJobTypeLabelsForSiteType(site.siteType)),
     `<div class="inline-stack"><div>${esc(getJobsForSite(site.id).length)} job${getJobsForSite(site.id).length === 1 ? '' : 's'}</div><div class="muted">${esc(getSamplesForSite(site.id).length)} sample${getSamplesForSite(site.id).length === 1 ? '' : 's'}</div></div>`
