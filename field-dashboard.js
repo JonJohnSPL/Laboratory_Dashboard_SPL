@@ -3800,6 +3800,7 @@ function buildDispatchJobView(job, derived){
       jobType:getJobTypeDisplayName(job.jobType),
       client:[getClientLabel(job.clientId), getProjectLabel(job.projectId), getJobSiteSummary(job)].join(' '),
       schedule:getJobPrimaryDate(job)?.getTime() ?? null,
+      salesforceTicket:getSalesforceCaseLabel(job),
       status:isJobClosed(job) ? 'Closed' : 'Open',
       technician:techLabels.join(' | ')
     }
@@ -3912,7 +3913,7 @@ function renderDispatchTable(rows, sortable = true){
     { key:'jobType', label:'Job Type', sortable:true },
     { key:'client', label:'Client / Project / Site', sortable:true },
     { key:'schedule', label:'Date', sortable:true },
-    { key:'salesforceTicket', label:'Salesforce Ticket', sortable:false },
+    { key:'salesforceTicket', label:'Salesforce Ticket', sortable:true },
     { key:'status', label:'Job Status', sortable:true },
     { key:'technician', label:'Technician', sortable:true },
     { key:'truck', label:'Truck', sortable:false },

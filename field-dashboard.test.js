@@ -340,6 +340,26 @@ test('job tables use a dedicated Salesforce Ticket column and omit Scope Summary
   assert.match(readFunction(source, 'renderJobSalesforceTicket'), /renderJobNeedsTicketTag/);
 });
 
+test('dispatch board sorts ticket numbers naturally in either direction, with missing numbers last', () => {
+  const source = fs.readFileSync('field-dashboard.js', 'utf8');
+  const context = {
+    state:{ filters:{ dispatchSortKey:'salesforceTicket', dispatchSortDirection:'asc' } },
+    getJobWarnings:() => [], getDispatchAssignmentLabels:() => [], getJobMissingRequirements:() => [],
+    getJobTypeDisplayName:() => '', getClientLabel:() => '', getProjectLabel:() => '',
+    getJobSiteSummary:() => '', getJobPrimaryDate:() => null, isJobClosed:() => false
+  };
+  vm.createContext(context);
+  vm.runInContext(['getSalesforceCaseLabel', 'buildDispatchJobView', 'compareDispatchValues', 'compareStrings', 'compareDispatchRows'].map((name) => readFunction(source, name)).join('\n'), context);
+  const rows = [
+    { id:'missing' }, { id:'ten', salesforceCaseNumber:'10' },
+    { id:'two', fieldfxTicketId:'2' }
+  ].map((job) => context.buildDispatchJobView(job, {}));
+  assert.deepEqual(rows.sort(context.compareDispatchRows).map((row) => row.job.id), ['two', 'ten', 'missing']);
+  context.state.filters.dispatchSortDirection = 'desc';
+  assert.deepEqual(rows.sort(context.compareDispatchRows).map((row) => row.job.id), ['ten', 'two', 'missing']);
+  assert.match(readFunction(source, 'renderDispatchTable'), /key:'salesforceTicket', label:'Salesforce Ticket', sortable:true/);
+});
+
 test('dispatch date presets default to this week and include the requested periods', () => {
   const source = fs.readFileSync('field-dashboard.js', 'utf8');
   const renderDispatchSource = readFunction(source, 'renderDispatch');
