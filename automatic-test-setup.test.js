@@ -16,6 +16,21 @@ function readFunction(source, name){
   throw new Error(`Could not parse ${name}`);
 }
 
+test('dashboard header counts usable setups even when a migration placeholder remains', () => {
+  const source = fs.readFileSync('lab-dashboard.js', 'utf8');
+  const context = {selectedLabSiteId:'pit', labTestSetups:[], labInstruments:[{id:'gc',splSiteId:'pit',isActive:true}]};
+  vm.createContext(context);
+  for(const name of ['getActiveSetupsForTest','getTestHeaderMeta','getInstrumentById','isSetupAssignable','getAssignableSetupsForTest']) vm.runInContext(readFunction(source, name), context);
+  const placeholder = {testTypeId:'gas',splSiteId:'pit',isActive:true,isMigrationPlaceholder:true,setupKind:'migration_pending'};
+  const valid = {testTypeId:'gas',splSiteId:'pit',isActive:true,setupKind:'instrument',instrumentId:'gc'};
+  context.labTestSetups = [placeholder];
+  assert.equal(context.getTestHeaderMeta({id:'gas'}), 'Needs instrument');
+  context.labTestSetups = [placeholder, valid];
+  assert.equal(context.getTestHeaderMeta({id:'gas'}), '1 active setup');
+  context.labInstruments[0].isActive = false;
+  assert.equal(context.getTestHeaderMeta({id:'gas'}), 'Needs instrument');
+});
+
 test('import setup matching accepts only valid setups at the selected site', () => {
   const source = fs.readFileSync('import.html', 'utf8');
   const context = {};
