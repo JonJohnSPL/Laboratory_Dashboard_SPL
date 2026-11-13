@@ -45,8 +45,30 @@
 </header>
 <div class="view-tabs">
 <button id="view-queue-btn" class="view-btn active" onclick="switchView('queue')">Queue</button>
+<button id="view-calendar-btn" class="view-btn" onclick="switchView('calendar')">Calendar</button>
 <button id="view-pending-btn" class="view-btn" onclick="switchView('pending')">Results Pending</button>
 <button id="view-schedule-btn" class="view-btn" onclick="switchView('schedule')">Daily Scheduling</button>
+</div>
+<div id="calendar-screen" class="screen">
+<div class="toolbar lab-calendar-toolbar">
+<div role="group" aria-label="Calendar view">
+<button id="lab-calendar-month" class="view-btn active" type="button" aria-pressed="true" onclick="setLabCalendarView('month')">Month</button>
+<button id="lab-calendar-work_week" class="view-btn" type="button" aria-pressed="false" onclick="setLabCalendarView('work_week')">Work Week</button>
+</div>
+<button class="sec-btn" type="button" aria-label="Previous calendar period" onclick="moveLabCalendar(-1)">Previous</button>
+<button class="sec-btn" type="button" onclick="resetLabCalendar()">Today</button>
+<button class="sec-btn" type="button" aria-label="Next calendar period" onclick="moveLabCalendar(1)">Next</button>
+<h2 id="lab-calendar-period" aria-live="polite"></h2>
+<input id="lab-calendar-search" type="search" aria-label="Search calendar work orders or clients" placeholder="Search WO / client..." oninput="renderLabCalendar()">
+<select id="lab-calendar-priority" aria-label="Filter calendar by priority" onchange="renderLabCalendar()">
+<option value="all">All priorities</option><option>CRITICAL</option><option>HIGH</option><option>MEDIUM</option><option>LOW</option><option>NONE</option>
+</select>
+</div>
+<p id="lab-calendar-summary" class="lab-calendar-summary" aria-live="polite"></p>
+<p id="lab-calendar-warning" class="lab-calendar-warning" hidden></p>
+<div class="lab-calendar-scroll"><div id="lab-calendar-board" class="lab-calendar-board"></div></div>
+<details id="lab-calendar-overdue-section" class="lab-calendar-extras" hidden><summary>All overdue work orders</summary><div id="lab-calendar-overdue" class="lab-calendar-extra-cards"></div></details>
+<section id="lab-calendar-undated-section" class="lab-calendar-extras" hidden><h3>No valid due date</h3><div id="lab-calendar-undated" class="lab-calendar-extra-cards"></div></section>
 </div>
 <div id="queue-screen" class="screen active">
 <!-- STATS -->
@@ -623,6 +645,8 @@ window.APP_CONFIG = Object.assign({}, window.APP_CONFIG || {}, {
 });
 </script>
 <script src="cloud-auth.js"></script>
+<script src="lab-wip-dates.js"></script>
+<script src="lab-calendar.js"></script>
 <script src="lab-dashboard.js"></script>
 </body>
 </html> 

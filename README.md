@@ -61,6 +61,10 @@ supabase functions deploy field-ops-teams
 
 ## Operational notes
 
+- Lab WIP's Calendar tab shows running work orders by their recorded WO due date, with Month and Monday–Friday Work Week views. Cards open the same details modal as the queue table. Results Pending, completed work, and fully subcontracted work orders are excluded.
+- Each WO has one deadline shared by all samples and test rows. CSV imports stop before saving if rows for a WO contain conflicting or invalid due dates. Existing conflicts are flagged in the calendar without changing saved dates; correct the source CSV and reimport.
+- Run `python lab-calendar-smoke.py` on Windows with Chrome installed to check the calendar, existing WO modal, and import validation using local fixture data without cloud writes.
+
 - Shared data is stored in the `app_state` table by key.
 - The current behavior is last-write-wins. If two users edit the same data at the same time, the most recent save will replace the older one.
 - Column visibility still uses local browser storage because it is a personal UI preference, not shared lab data.

@@ -39,6 +39,5 @@ pnpm-debug.log*
 
 Thumbs.db
 .DS_Store
-Pittsburgh WIP Data/WIP Data Import 260710A.csv
-Pittsburgh WIP Data/WIP Data Import 260630A.csv
-Pittsburgh WIP Data/WIP Data Import 260630A.csv
+# Local work order exports.
+/Pittsburgh WIP Data/

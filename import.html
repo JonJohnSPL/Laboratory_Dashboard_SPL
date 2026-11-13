@@ -97,6 +97,7 @@ window.APP_CONFIG = Object.assign({}, window.APP_CONFIG || {}, {
 });
 </script>
 <script src="cloud-auth.js"></script>
+<script src="lab-wip-dates.js"></script>
 <script>
 const STORAGE_KEY = 'lab-wip-workorders';
 const TEST_DEFINITION_STORAGE_KEY = 'lab-wip-test-definitions';
@@ -207,7 +208,9 @@ async function buildWOsFromSureChemCSV(text){
     if(!woNum) continue;
     const testCode = (row['Test Code'] || '').trim();
     const sampleId = (row['Sample'] || '').trim();
-    const dueDate = toInputDate(row['Due Date']);
+    const rawDueDate = String(row['Due Date'] || '').trim();
+    const dueDate = window.LabWipDates.iso(rawDueDate) || null;
+    if(rawDueDate && !dueDate) throw new Error(`Import stopped: WO ${woNum}, sample ${sampleId || 'not specified'} has an invalid due date: ${rawDueDate}. Correct the source CSV and retry. No data was saved.`);
     const clientCode = (row['Client Code'] || '').trim();
     const pri = mapPriority(row['Priority']);
 
@@ -281,11 +284,19 @@ async function buildWOsFromSureChemCSV(text){
   }
 
   const imported = [];
+  const dueDateConflicts = [];
   for(const [woNum, wo] of woMap.entries()){
     const sm = sampleMapByWO.get(woNum);
     wo.samples = [...sm.values()].sort((a,b)=>a.sampleId.localeCompare(b.sampleId));
+    const dueDates = window.LabWipDates.datesForWorkOrder(wo);
+    if(dueDates.length > 1) dueDateConflicts.push(`WO ${woNum}: ${dueDates.join(', ')}`);
+    // One WO deadline applies to every sample and test row.
+    wo.dueDate = dueDates[0] || null;
+    wo.samples.forEach(sample => { sample.dueDate = wo.dueDate || ''; });
+    wo.testRows.forEach(row => { row.dueDate = wo.dueDate || ''; });
     imported.push(wo);
   }
+  if(dueDateConflicts.length) throw new Error(`Import stopped: each work order must have exactly one due date. Correct these conflicting dates in the source CSV and retry. ${dueDateConflicts.join('; ')}. No data was saved.`);
   return { workOrders:imported, unmappedCodes:[...unmappedCodes].sort(), unmappedRowCount };
 }
 
