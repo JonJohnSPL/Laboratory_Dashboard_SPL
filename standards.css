@@ -503,3 +503,5 @@ tbody td{
   tbody tr{padding:10px 0;}
   tbody td{padding:6px 11px;border:none;}
 }
+.mapping-warning{color:var(--warning,#ffc857);font-weight:700}
+.check-row{display:flex;align-items:center;gap:8px;min-height:38px;color:var(--text)}

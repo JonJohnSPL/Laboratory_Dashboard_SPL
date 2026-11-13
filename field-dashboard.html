@@ -37,8 +37,9 @@
   </header>
 
   <div class="view-tabs">
-    <button class="view-btn active" data-view="overview" onclick="switchView('overview')">Overview</button>
-    <button class="view-btn" data-view="schedule" onclick="switchView('schedule')">Schedule</button>
+    <button class="view-btn active" data-view="schedule" onclick="switchView('schedule')">Schedule</button>
+    <button class="view-btn" data-view="job-board" onclick="switchView('job-board')">Job Board</button>
+    <button class="view-btn" data-view="alerts" onclick="switchView('alerts')">Alerts</button>
     <button class="view-btn" data-view="inventory" onclick="switchView('inventory')">Inventory</button>
     <button class="view-btn" data-view="resources" onclick="switchView('resources')">Resources</button>
     <button class="view-btn" data-view="samples" onclick="switchView('samples')">Samples</button>
@@ -46,29 +47,9 @@
     <button class="view-btn" data-view="setup" onclick="switchView('setup')">Setup</button>
   </div>
 
-  <div id="overview-screen" class="screen active">
-    <div class="stats-bar" id="overview-stats"></div>
-    <div class="quick-actions" id="overview-actions"></div>
-    <div class="overview-grid">
-      <section class="panel">
-        <div class="panel-header">
-          <h2>Today's Dispatch</h2>
-          <button class="act-btn" type="button" onclick="switchView('schedule')">Open Schedule</button>
-        </div>
-        <div class="panel-body" id="today-jobs-panel"></div>
-      </section>
-      <section class="panel">
-        <div class="panel-header">
-          <h2>Next 7 Days</h2>
-          <button class="act-btn" type="button" onclick="switchView('schedule')">Open Week</button>
-        </div>
-        <div class="panel-body" id="next-seven-panel"></div>
-      </section>
-    </div>
-  </div>
-
-  <div id="schedule-screen" class="screen">
+  <div id="schedule-screen" class="screen active">
     <div class="toolbar schedule-toolbar" id="schedule-toolbar"></div>
+    <div class="toolbar schedule-dispatch-toolbar" id="schedule-dispatch-toolbar"></div>
     <div class="schedule-layout">
       <section class="panel">
         <div class="panel-header">
@@ -88,14 +69,33 @@
       </div>
       <div class="panel-body" id="travel-board"></div>
     </section>
-    <div class="toolbar dispatch-toolbar" id="dispatch-toolbar"></div>
     <section class="panel table-panel schedule-dispatch-panel">
+      <div class="panel-header">
+        <h2>Jobs This Period</h2>
+        <div class="panel-meta" id="schedule-dispatch-summary"></div>
+      </div>
+      <div class="panel-body" id="schedule-dispatch-table"></div>
+    </section>
+  </div>
+
+  <div id="job-board-screen" class="screen">
+    <div class="toolbar dispatch-toolbar" id="dispatch-toolbar"></div>
+    <section class="panel table-panel">
       <div class="panel-header">
         <h2>Jobs / Dispatch Board</h2>
         <div class="panel-meta" id="dispatch-summary"></div>
       </div>
       <div class="panel-body" id="dispatch-table"></div>
     </section>
+  </div>
+
+  <div id="alerts-screen" class="screen">
+    <div class="toolbar simple-toolbar alerts-toolbar">
+      <div class="toolbar-summary">Review active scheduling, fleet, maintenance, and sample issues in one place.</div>
+      <div class="panel-meta" id="alerts-summary">0 active alerts</div>
+    </div>
+    <div class="stats-bar alerts-stats" id="alerts-stats"></div>
+    <div class="alerts-groups" id="alerts-groups"></div>
   </div>
 
   <div id="inventory-screen" class="screen">
@@ -141,7 +141,11 @@
       <section class="panel">
         <div class="panel-header">
           <h2>Trucks</h2>
-          <button class="act-btn" type="button" onclick="openEntityModal('trucks')">+ Add Truck</button>
+          <div class="panel-actions">
+            <span class="panel-meta" id="geotab-sync-summary">GPS not refreshed</span>
+            <button class="act-btn" id="geotab-refresh-btn" type="button" onclick="refreshGeotabFleetStatus()">Refresh GPS</button>
+            <button class="act-btn" type="button" onclick="openEntityModal('trucks')">+ Add Truck</button>
+          </div>
         </div>
         <div class="panel-body" id="trucks-panel"></div>
       </section>
@@ -155,9 +159,27 @@
       <section class="panel">
         <div class="panel-header">
           <h2>Equipment</h2>
-          <button class="act-btn" type="button" onclick="openEntityModal('equipment')">+ Add Equipment</button>
+          <div class="panel-actions">
+            <span class="panel-meta" id="donesafe-sync-summary">DoneSafe not synchronized</span>
+            <button class="act-btn" id="donesafe-refresh-btn" type="button" onclick="refreshDonesafeEquipment()">Sync DoneSafe</button>
+            <button class="act-btn" type="button" onclick="openEntityModal('equipment')">+ Add Equipment</button>
+          </div>
         </div>
         <div class="panel-body" id="equipment-panel"></div>
+      </section>
+      <section class="panel salesforce-integration-panel">
+        <div class="panel-header">
+          <div>
+            <h2>Salesforce Tickets</h2>
+            <div class="panel-meta">Read-only Pittsburgh Field Ops import</div>
+          </div>
+          <div class="panel-actions">
+            <button class="act-btn" type="button" onclick="openSalesforceConfigModal()">Configure</button>
+            <button class="act-btn" id="salesforce-preview-btn" type="button" onclick="previewSalesforceTickets()">Preview</button>
+            <button class="act-btn" id="salesforce-sync-btn" type="button" onclick="syncSalesforceTickets()">Sync Tickets</button>
+          </div>
+        </div>
+        <div class="panel-body" id="salesforce-integration-summary"></div>
       </section>
     </div>
   </div>
@@ -226,7 +248,7 @@
         <button class="btn-del" id="entity-modal-delete" type="button" onclick="deleteCurrentModalEntity()" style="display:none;">Delete</button>
         <button class="act-btn" id="entity-modal-duplicate" type="button" onclick="duplicateCurrentModalJob()" style="display:none;">Duplicate</button>
         <button class="btn-cancel" type="button" onclick="closeEntityModal()">Cancel</button>
-        <button class="btn-save" type="button" onclick="saveEntityFromModal()">Save</button>
+        <button class="btn-save" id="entity-modal-save" type="button" onclick="saveEntityFromModal()">Save</button>
       </div>
     </div>
   </div>
@@ -281,6 +303,48 @@
       <div class="modal-body" id="sample-table-modal-body"></div>
       <div class="modal-footer">
         <button class="btn-save" type="button" onclick="closeSampleTableModal()">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="salesforce-config-modal-overlay">
+    <div class="modal salesforce-config-modal">
+      <div class="modal-header">
+        <h3>Configure Salesforce Ticket Import</h3>
+        <button class="modal-close" type="button" onclick="closeSalesforceConfigModal()">X</button>
+      </div>
+      <div class="modal-body" id="salesforce-config-modal-body"></div>
+      <div class="modal-footer">
+        <button class="btn-cancel" type="button" onclick="closeSalesforceConfigModal()">Cancel</button>
+        <button class="act-btn" type="button" onclick="testSalesforceConnection()">Test Connection</button>
+        <button class="btn-save" type="button" onclick="saveSalesforceConfig()">Save Configuration</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="salesforce-ticket-modal-overlay">
+    <div class="modal salesforce-ticket-modal">
+      <div class="modal-header">
+        <h3>Choose Salesforce Ticket</h3>
+        <button class="modal-close" type="button" onclick="closeSalesforceTicketModal()">X</button>
+      </div>
+      <div class="modal-body" id="salesforce-ticket-modal-body"></div>
+      <div class="modal-footer">
+        <button class="btn-cancel" type="button" onclick="closeSalesforceTicketModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="schedule-calendar-print-modal-overlay">
+    <div class="modal schedule-calendar-print-modal">
+      <div class="modal-header">
+        <h3>Print Field Schedule Calendar</h3>
+        <button class="modal-close" type="button" onclick="closeScheduleCalendarPrintModal()">X</button>
+      </div>
+      <div class="modal-body" id="schedule-calendar-print-modal-body"></div>
+      <div class="modal-footer">
+        <button class="btn-cancel" type="button" onclick="closeScheduleCalendarPrintModal()">Cancel</button>
+        <button class="btn-save" type="button" onclick="printScheduleCalendar()">Print Calendar</button>
       </div>
     </div>
   </div>

@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pittsburgh Workload Forecast | SPL Toolbox</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="workload-forecast.css">
+</head>
+<body>
+<div class="shell">
+  <header class="app-header">
+    <div class="header-left">
+      <img class="spl-logo" src="assets/spl-logo.svg" alt="SPL">
+      <div>
+        <div class="kicker">Toolbox / Workload Planning</div>
+        <h1 id="title">Workload Forecast</h1>
+        <p>Forecast Pittsburgh workload, technician capacity, and anticipated revenue.</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="clock">
+        <span>Current Time</span>
+        <strong id="clock">--:--:--</strong>
+        <em id="datedisp"></em>
+      </div>
+      <div data-session-slot></div>
+      <nav class="nav-row" aria-label="Forecast navigation">
+        <button class="nav-btn" type="button" onclick="window.location.href='index.html'">Home</button>
+        <button class="nav-btn" type="button" onclick="window.location.href='toolbox.html'">Toolbox</button>
+      </nav>
+    </div>
+  </header>
+
+  <section id="access-message" class="access-message" aria-live="polite">Verifying Workload Forecast access...</section>
+
+  <main id="forecast-app" hidden>
+  <div class="toolbar">
+    <button class="secondary-btn" onclick="exportCSV()">Export CSV</button>
+    <button class="secondary-btn" onclick="exportJSON()">Save Backup</button>
+    <button class="secondary-btn" onclick="document.getElementById('fileIn').click()">Load Backup</button>
+    <button class="secondary-btn" onclick="window.print()">Print</button>
+    <button class="secondary-btn" onclick="resetData()">Reset</button>
+    <input type="file" id="fileIn" accept=".json" hidden onchange="importJSON(event)">
+  </div>
+  <div class="grid top">
+    <div class="card">
+      <h2>Forecast</h2>
+      <div class="kv">
+        <label>Forecast Month</label><input type="month" id="month">
+        <label>Working Days in Month (Mon–Fri)</label><div class="val" id="workDays"></div>
+        <label>Number of Clients</label><div class="val" id="numClients"></div>
+        <label>Total Anticipated Days</label><div class="val" id="totDays"></div>
+        <label>Total Anticipated Revenue</label><div class="val" id="totRev"></div>
+        <label>Average Revenue per Day</label><div class="val" id="avgRev"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Utilization Settings &amp; Checks</h2>
+      <div class="kv">
+        <label>Under-utilized if below</label><input type="number" id="under" step="5" min="0"> 
+        <label>Over-utilized if above</label><input type="number" id="over" step="5" min="0">
+        <label>Unassigned Jobs</label><div class="val" id="unJobs"></div>
+        <label>Unassigned Days</label><div class="val" id="unDays"></div>
+        <label>Unassigned Revenue</label><div class="val" id="unRev"></div>
+      </div>
+      <div class="hint">Thresholds are entered as percentages (80 = 80%).</div>
+    </div>
+    <div class="card">
+      <h2>Technician List <button class="btn-primary" id="addTech" onclick="addTech()">+ Add</button></h2>
+      <table>
+        <thead><tr><th>Technician</th><th style="text-align:right">Available Days</th><th></th></tr></thead>
+        <tbody id="techBody"></tbody>
+      </table>
+      <div class="hint">Available days = working days in the forecast month.</div>
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="l">Anticipated Revenue</div><div class="v" id="kRev"></div></div>
+    <div class="kpi"><div class="l">Anticipated Days</div><div class="v" id="kDays"></div></div>
+    <div class="kpi"><div class="l">Team Capacity (days)</div><div class="v" id="kCap"></div></div>
+    <div class="kpi"><div class="l">Team Utilization</div><div class="v" id="kUtil"></div></div>
+  </div>
+
+  <div class="card">
+    <h2>Anticipated Work <button class="btn-primary" id="addJob" onclick="addJob()">+ Add Job</button></h2>
+    <div class="scroll">
+      <table>
+        <thead><tr>
+          <th style="min-width:140px">Client</th><th style="min-width:220px">Project / Description</th><th>Planned Start</th>
+          <th>Anticipated Days</th><th>Day Rate ($)</th><th style="text-align:right">Anticipated Revenue ($)</th>
+          <th style="min-width:160px">Notes</th><th style="min-width:150px">Technician</th><th></th>
+        </tr></thead>
+        <tbody id="jobBody"></tbody>
+        <tfoot><tr><td colspan="3">Total</td><td class="num" id="fDays"></td><td></td><td class="num" id="fRev"></td><td colspan="3"></td></tr></tfoot>
+      </table>
+    </div>
+    <div class="legend"><span><span class="sw" style="background:var(--input)"></span>Input</span><span><span class="sw" style="background:var(--calc)"></span>Calculated</span></div>
+  </div>
+
+  <div class="grid bottom" style="margin-top:18px">
+    <div class="card">
+      <h2>Client Summary</h2>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Client</th><th style="text-align:right">Anticipated Days</th><th style="text-align:right">Anticipated Revenue ($)</th><th style="text-align:right">% of Revenue</th></tr></thead>
+          <tbody id="clientBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Technician Workload</h2>
+      <div class="scroll">
+      <table>
+        <thead><tr><th>Technician</th><th style="text-align:right">Jobs</th><th style="text-align:right">Days</th><th style="text-align:right">Revenue ($)</th><th style="text-align:right">Avail.</th><th style="min-width:130px">Utilization</th><th>Status</th></tr></thead>
+        <tbody id="wlBody"></tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+  </main>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="app-config.js"></script>
+<script>
+  window.APP_CONFIG = Object.assign({}, window.APP_CONFIG || {}, {
+    authTitle: 'Pittsburgh Workload Forecast',
+    authHelpText: 'Sign in with an enabled SPL employee account to use the Workload Forecast.'
+  });
+</script>
+<script src="cloud-auth.js"></script>
+
+<script>
+const KEY = 'pgh_workload_forecast_v1';
+let storageKey = KEY;
+const DEFAULT = {
+  month: '2026-11', under: 80, over: 100,
+  techs: ['Trenton Sweet'],
+  jobs: [
+    {client:'Gulfport',project:'Gas Calibrations',start:'2026-11-01',days:15,rate:1000,notes:'',tech:'Trenton Sweet'},
+    {client:'Marathon (MPC)',project:'Witnessing',start:'',days:5,rate:1550,notes:'',tech:'Trenton Sweet'},
+    {client:'EOG',project:'Sampling for GPA 2103 + sample pickups',start:'',days:4,rate:1200,notes:'',tech:'Trenton Sweet'},
+    {client:'ETC',project:'Sample pickups',start:'',days:2,rate:500,notes:'',tech:'Trenton Sweet'},
+    {client:'Anterro',project:'Shop proving',start:'',days:5,rate:1700,notes:'',tech:'Trenton Sweet'}
+  ]
+};
+let S;
+
+function load(){ try{ const d = JSON.parse(localStorage.getItem(storageKey)); if(d && d.jobs) return d; }catch(e){} return structuredClone(DEFAULT); }
+function save(){ localStorage.setItem(storageKey, JSON.stringify(S)); }
+const $ = id => document.getElementById(id);
+const money = n => '$' + Math.round(n).toLocaleString('en-US');
+const money2 = n => '$' + n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const num = v => (v===''||v===null||isNaN(+v)) ? null : +v;
+const esc = s => String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// Equivalent of =NETWORKDAYS(first, EOMONTH(first,0))
+function networkDays(ym){
+  if(!ym) return 0;
+  const [y,m] = ym.split('-').map(Number);
+  const last = new Date(y, m, 0).getDate(); let c = 0;
+  for(let d=1; d<=last; d++){ const w = new Date(y, m-1, d).getDay(); if(w!==0 && w!==6) c++; }
+  return c;
+}
+const rev = j => (num(j.days)===null || num(j.rate)===null) ? null : num(j.days)*num(j.rate);
+
+function renderInputs(){
+  $('month').value = S.month; $('under').value = S.under; $('over').value = S.over;
+  renderJobs(); renderTechs();
+}
+
+function renderJobs(){
+  const opts = t => ['<option value="">— Unassigned —</option>', ...S.techs.filter(x=>x).map(x=>`<option ${x===t?'selected':''}>${esc(x)}</option>`)].join('');
+  $('jobBody').innerHTML = S.jobs.map((j,i)=>`
+    <tr>
+      <td><input data-i="${i}" data-f="client" value="${esc(j.client)}" list="clientList"></td>
+      <td><input data-i="${i}" data-f="project" value="${esc(j.project)}"></td>
+      <td><input type="date" data-i="${i}" data-f="start" value="${esc(j.start)}"></td>
+      <td><input type="number" min="0" step="0.5" data-i="${i}" data-f="days" value="${esc(j.days)}" style="width:80px;text-align:right"></td>
+      <td><input type="number" min="0" step="50" data-i="${i}" data-f="rate" value="${esc(j.rate)}" style="width:95px;text-align:right"></td>
+      <td class="calc" id="rev${i}"></td>
+      <td><input data-i="${i}" data-f="notes" value="${esc(j.notes)}"></td>
+      <td><select data-i="${i}" data-f="tech">${opts(j.tech)}</select></td>
+      <td><button class="btn-del" title="Delete" onclick="delJob(${i})">✕</button></td>
+    </tr>`).join('') + `<datalist id="clientList">${[...new Set(S.jobs.map(j=>j.client).filter(Boolean))].map(c=>`<option value="${esc(c)}">`).join('')}</datalist>`;
+  $('jobBody').querySelectorAll('[data-f]').forEach(el=>{
+    el.addEventListener(el.tagName==='SELECT'?'change':'input', e=>{
+      S.jobs[+e.target.dataset.i][e.target.dataset.f] = e.target.value; save(); calc();
+    });
+  });
+}
+
+function renderTechs(){
+  $('techBody').innerHTML = S.techs.map((t,i)=>`
+    <tr><td><input data-t="${i}" value="${esc(t)}"></td><td class="calc" id="av${i}"></td>
+    <td><button class="btn-del" title="Delete" onclick="delTech(${i})">✕</button></td></tr>`).join('');
+  $('techBody').querySelectorAll('[data-t]').forEach(el=>{
+    el.addEventListener('change', e=>{
+      const i = +e.target.dataset.t, old = S.techs[i], nw = e.target.value.trim();
+      S.techs[i] = nw; S.jobs.forEach(j=>{ if(j.tech===old) j.tech = nw; });
+      save(); renderJobs(); calc();
+    });
+  });
+}
+
+function calc(){
+  const wd = networkDays(S.month);
+  if(S.month){ const [y,m]=S.month.split('-').map(Number);
+    $('title').textContent = 'Workload Forecast – ' + new Date(y,m-1,1).toLocaleString('en-US',{month:'short',year:'numeric'}); }
+  const active = S.jobs.filter(j=>j.client.trim()!=='');
+  const totDays = S.jobs.reduce((a,j)=>a+(num(j.days)||0),0);
+  const totRev = S.jobs.reduce((a,j)=>a+(rev(j)||0),0);
+  const clients = [...new Set(active.map(j=>j.client.trim()))].sort((a,b)=>a.localeCompare(b));
+
+  S.jobs.forEach((j,i)=>{ const r=rev(j); $('rev'+i).textContent = r===null?'':money(r); });
+  $('workDays').textContent = wd;
+  $('numClients').textContent = clients.length;
+  $('totDays').textContent = totDays;
+  $('totRev').textContent = money(totRev);
+  $('avgRev').textContent = totDays ? money2(totRev/totDays) : '$0.00';
+  $('fDays').textContent = totDays; $('fRev').textContent = money(totRev);
+
+  const un = S.jobs.filter(j=>!j.tech);
+  const unJobs = active.filter(j=>!j.tech).length;
+  const unDays = un.reduce((a,j)=>a+(num(j.days)||0),0);
+  const unRev = un.reduce((a,j)=>a+(rev(j)||0),0);
+  $('unJobs').innerHTML = unJobs ? `<span class="warn">${unJobs}</span>` : 0;
+  $('unDays').innerHTML = unDays ? `<span class="warn">${unDays}</span>` : 0;
+  $('unRev').innerHTML = unRev ? `<span class="warn">${money(unRev)}</span>` : '$0';
+
+  S.techs.forEach((t,i)=>{ $('av'+i).textContent = t ? wd : ''; });
+
+  // Client summary
+  $('clientBody').innerHTML = clients.map(c=>{
+    const js = active.filter(j=>j.client.trim()===c);
+    const d = js.reduce((a,j)=>a+(num(j.days)||0),0), r = js.reduce((a,j)=>a+(rev(j)||0),0);
+    return `<tr><td>${esc(c)}</td><td class="num">${d}</td><td class="num">${money(r)}</td><td class="num">${totRev?(r/totRev*100).toFixed(1)+'%':'—'}</td></tr>`;
+  }).join('') || '<tr><td colspan="4" class="hint">No jobs entered.</td></tr>';
+
+  // Technician workload
+  const under = (+S.under||0)/100, over = (+S.over||0)/100;
+  const techs = S.techs.filter(Boolean); let assignedDaysAll = 0;
+  $('wlBody').innerHTML = techs.map(t=>{
+    const js = S.jobs.filter(j=>j.tech===t);
+    const d = js.reduce((a,j)=>a+(num(j.days)||0),0), r = js.reduce((a,j)=>a+(rev(j)||0),0);
+    assignedDaysAll += d;
+    const u = wd ? d/wd : 0;
+    const st = u>over ? 'Over' : (u<under ? 'Under' : 'OK');
+    const col = st==='Over'?'var(--red)':st==='Under'?'var(--amber)':'var(--green)';
+    return `<tr><td>${esc(t)}</td><td class="num">${js.length}</td><td class="num">${d}</td><td class="num">${money(r)}</td><td class="num">${wd}</td>
+      <td>${(u*100).toFixed(1)}%<div class="bar"><div style="width:${Math.min(u*100,100)}%;background:${col}"></div></div></td>
+      <td><span class="status s-${st}">${st}</span></td></tr>`;
+  }).join('') || '<tr><td colspan="7" class="hint">Add a technician.</td></tr>';
+
+  const cap = techs.length*wd, teamU = cap ? totDays/cap : 0;
+  $('kRev').textContent = money(totRev); $('kDays').textContent = totDays; $('kCap').textContent = cap;
+  $('kUtil').textContent = cap ? (teamU*100).toFixed(1)+'%' : '—';
+  $('kUtil').style.color = teamU>over ? 'var(--red)' : teamU<under ? 'var(--amber)' : 'var(--green)';
+}
+
+function addJob(){ S.jobs.push({client:'',project:'',start:'',days:'',rate:'',notes:'',tech:''}); save(); renderJobs(); calc();
+  const r=$('jobBody').querySelectorAll('tr'); r[r.length-1]?.querySelector('input')?.focus(); }
+function delJob(i){ if(confirm('Delete this job?')){ S.jobs.splice(i,1); save(); renderJobs(); calc(); } }
+function addTech(){ S.techs.push(''); save(); renderTechs(); renderJobs(); calc(); const r=$('techBody').querySelectorAll('input'); r[r.length-1].focus(); }
+function delTech(i){ const t=S.techs[i]; if(!confirm(`Remove ${t||'this technician'}? Their jobs become unassigned.`)) return;
+  S.techs.splice(i,1); S.jobs.forEach(j=>{ if(j.tech===t) j.tech=''; }); save(); renderTechs(); renderJobs(); calc(); }
+
+$('month').addEventListener('change', e=>{ S.month=e.target.value; save(); calc(); });
+$('under').addEventListener('input', e=>{ S.under=e.target.value; save(); calc(); });
+$('over').addEventListener('input', e=>{ S.over=e.target.value; save(); calc(); });
+
+function download(name, text, type){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type})); a.download=name; a.click(); }
+function exportCSV(){
+  const q = v => `"${String(v??'').replace(/"/g,'""')}"`;
+  const rows = [['Client','Project / Description','Planned Start','Anticipated Days','Day Rate ($)','Anticipated Revenue ($)','Notes','Technician']];
+  S.jobs.forEach(j=>rows.push([j.client,j.project,j.start,j.days,j.rate,rev(j)??'',j.notes,j.tech]));
+  download(`Pittsburgh_Workload_${S.month}.csv`, rows.map(r=>r.map(q).join(',')).join('\n'), 'text/csv');
+  toast('CSV exported');
+}
+function exportJSON(){ download(`Pittsburgh_Workload_${S.month}.json`, JSON.stringify(S,null,2), 'application/json'); toast('Backup saved'); }
+function importJSON(e){
+  const f=e.target.files[0]; if(!f) return; const r=new FileReader();
+  r.onload=()=>{ try{ const d=JSON.parse(r.result); if(!d.jobs||!d.techs) throw 0; S=d; save(); renderInputs(); calc(); toast('Backup loaded'); }catch(x){ alert('Invalid backup file.'); } };
+  r.readAsText(f); e.target.value='';
+}
+function resetData(){ if(confirm('Reset to the original November 2026 forecast? Current entries will be lost.')){ S=structuredClone(DEFAULT); save(); renderInputs(); calc(); toast('Reset complete'); } }
+function toast(m){ const t=$('toast'); t.textContent=m; t.style.opacity=1; setTimeout(()=>t.style.opacity=0,1800); }
+
+function tickClock(){
+  const now = new Date();
+  $('clock').textContent = now.toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  $('datedisp').textContent = now.toLocaleDateString('en-US', {weekday:'short',month:'short',day:'numeric',year:'numeric'});
+  window.setTimeout(tickClock, 1000);
+}
+
+function isEnabledEmployee(){
+  if(window.appAuth?.isAdmin?.()) return true;
+  const profile = window.appAuth?.getProfile?.();
+  const employee = window.appAuth?.getEmployee?.();
+  return !!(profile && employee && profile.accessRole === 'employee' &&
+    profile.isActive !== false && profile.portalEnabled === true && employee.isActive !== false);
+}
+
+function deny(message){
+  const node = $('access-message');
+  node.className = 'access-message error';
+  node.textContent = message;
+}
+
+async function init(){
+  tickClock();
+  await (window.authReadyPromise || Promise.resolve());
+  const remote = window.appAuth?.getMode?.() === 'remote';
+  const user = window.appAuth?.getUser?.();
+  if(!remote || !user){
+    deny('Workload Forecast requires an authenticated SPL employee account. Remote sign-in is not available.');
+    return;
+  }
+  if(!isEnabledEmployee()){
+    deny('This login is not linked to an active SPL employee profile. Contact a dashboard administrator.');
+    return;
+  }
+  if(!window.appAuth?.hasFeature?.('lab.toolbox.workload_forecast')){
+    deny('Workload Forecast has not been enabled for your employee profile. Ask a dashboard administrator for access.');
+    return;
+  }
+  storageKey = KEY + ':' + user.id;
+  S = load();
+  renderInputs();
+  calc();
+  $('access-message').hidden = true;
+  $('forecast-app').hidden = false;
+}
+
+init();
+</script>
+</body>
+</html>

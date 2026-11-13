@@ -165,3 +165,16 @@ thead th{background:var(--surface2);padding:9px 11px;font-size:10px;font-weight:
 .lab-calendar-extras summary{cursor:pointer;font-family:var(--mono);font-size:12px;color:var(--warn);}
 .lab-calendar-extra-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:10px;}
 @media(max-width:700px){.lab-calendar-toolbar h2{order:-1;flex-basis:100%;}.lab-calendar-toolbar input{max-width:100%;}.view-tabs{gap:6px;}.view-btn{padding:8px 10px;}}
+.bulk-setup-hint{margin-top:6px;text-transform:none;letter-spacing:.5px;}
+.bulk-setup-note{margin-top:10px;text-transform:none;letter-spacing:.5px;}
+.bulk-assignment-toolbar{display:flex;align-items:center;gap:8px;margin:14px 0 8px;}
+.bulk-assignment-toolbar #bulk-selection-summary{margin-left:auto;}
+.bulk-assignment-table-wrap{border:1px solid var(--border);border-radius:8px;overflow:auto;max-height:48vh;}
+.bulk-assignment-table{width:100%;border-collapse:collapse;}
+.bulk-assignment-table th,.bulk-assignment-table td{padding:8px 10px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11px;text-align:left;vertical-align:middle;}
+.bulk-assignment-table th{position:sticky;top:0;background:var(--surface2);color:var(--muted);font-size:10px;letter-spacing:1px;text-transform:uppercase;z-index:1;}
+.bulk-assignment-table tr:last-child td{border-bottom:none;}
+.bulk-assignment-table input{accent-color:var(--accent);}
+.bulk-assignment-status{color:var(--muted);}
+.bulk-assignment-status.assigned{color:var(--ok);}
+.bulk-assignment-status.warning{color:var(--warn);}

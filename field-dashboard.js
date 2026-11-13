@@ -1,6 +1,6 @@
 const STORAGE_KEY = 'field-ops-dashboard-data';
 const AUTO_REFRESH_MS = 15000;
-const ENTITY_ORDER = ['clients', 'projects', 'contacts', 'contactProjects', 'contactSites', 'billingProfiles', 'priceItems', 'billingProfilePrices', 'siteTypes', 'sites', 'siteProjects', 'jobTypes', 'siteTypeJobTypes', 'jobs', 'jobSites', 'jobAssignments', 'partCatalogs', 'parts', 'jobParts', 'partActivity', 'fieldRoutes', 'routePlaceLists', 'routePlaces', 'restrictedRoads', 'fieldRouteStops', 'fieldRouteStopJobs', 'employees', 'splSites', 'technicianTravel', 'trucks', 'trailers', 'equipment', 'samples', 'maintenanceRecords'];
+const ENTITY_ORDER = ['clients', 'projects', 'contacts', 'contactProjects', 'contactSites', 'billingProfiles', 'labMethods', 'testTypes', 'billingServices', 'priceItems', 'billingProfilePrices', 'siteTypes', 'sites', 'siteProjects', 'jobTypes', 'siteTypeJobTypes', 'jobs', 'jobSites', 'jobAssignments', 'partCatalogs', 'parts', 'jobParts', 'partActivity', 'fieldRoutes', 'routePlaceLists', 'routePlaces', 'restrictedRoads', 'fieldRouteStops', 'fieldRouteStopJobs', 'employees', 'splSites', 'technicianTravel', 'trucks', 'trailers', 'equipment', 'donesafeEquipment', 'salesforceSettings', 'salesforceAccounts', 'salesforceTickets', 'salesforceTicketLinks', 'salesforceSyncRuns', 'samples', 'maintenanceRecords'];
 const FIELD_ASSET_BUCKET = 'field-assets';
 const ASSET_PHOTO_ENTITY_KEYS = ['clients', 'trucks', 'trailers', 'equipment'];
 const DEFAULT_ASSET_ICON_PATHS = {
@@ -20,7 +20,6 @@ const PROJECT_STATUS_OPTIONS = ['Planning', 'Active', 'On Hold', 'Complete', 'In
 const CONTACT_SCOPE_OPTIONS = ['Operations', 'Billing', 'Site', 'Field', 'Lab'];
 const SITE_STATUS_OPTIONS = ['Active', 'Restricted', 'Inactive'];
 const JOB_STATUS_OPTIONS = ['New', 'Scheduled', 'Dispatched', 'In Progress', 'Waiting', 'Complete', 'Closed', 'Canceled'];
-const PRIORITY_OPTIONS = ['Low', 'Normal', 'High', 'Urgent'];
 const CUSTODY_OPTIONS = ['Allocation', 'Custody', 'Both'];
 const ASSIGNMENT_TYPE_OPTIONS = ['Technician', 'Truck', 'Prover', 'Trailer', 'Equipment'];
 const WORK_SCOPE_OPTIONS = ['Lab', 'Field', 'Both'];
@@ -30,6 +29,12 @@ const TRUCK_TYPE_OPTIONS = ['Pickup', 'Service Truck', 'Other'];
 const FUEL_TYPE_OPTIONS = ['Gasoline', 'Diesel', 'Hybrid', 'Electric', 'Other'];
 const VEHICLE_STATUS_OPTIONS = ['Available', 'In Use', 'Maintenance', 'Out of Service'];
 const TRUCK_INSPECTION_WARNING_DAYS = 30;
+const OPERATIONAL_ALERT_GROUPS = [
+  { key:'schedule', label:'Schedule', description:'Conflicts, missing resources, and jobs that still need routes.' },
+  { key:'fleet', label:'Fleet & Equipment', description:'Inspection, readiness, availability, and calibration issues.' },
+  { key:'maintenance', label:'Maintenance', description:'Open maintenance work that is past its due date.' },
+  { key:'samples', label:'Samples', description:'Samples whose chain of custody still needs attention.' }
+];
 const TRAILER_STATUS_OPTIONS = ['Available', 'Assigned', 'In Use', 'Maintenance', 'Out of Service'];
 const EQUIPMENT_TYPE_OPTIONS = ['Small Volume Prover', 'Master Meter', 'Regulator', 'Hose Set', 'Sampling Equipment', 'Tooling', 'Other'];
 const CALIBRATION_STATUS_OPTIONS = ['Current', 'Due Soon', 'Overdue'];
@@ -142,7 +147,6 @@ const DEFAULT_BILLING_PRICE_ITEMS = [
   { itemKey:'FIELD_SAMPLING_TECHNICIAN_OVERTIME', priceSection:'Field & Labor', category:'Field', method:'', description:'Sampling Technician - Overtime', unitName:'Per Hour', sortOrder:250 }
 ];
 
-const PRIORITY_RANK = { Urgent:0, High:1, Normal:2, Low:3 };
 const RESOURCE_ENTITY_BY_TYPE = { Technician:'employees', Truck:'trucks', Trailer:'trailers', Equipment:'equipment' };
 
 const ENTITY_CONFIG = {
@@ -152,14 +156,17 @@ const ENTITY_CONFIG = {
   contactProjects:{ table:'field_contact_projects', label:'Contact Project Link', idPrefix:'contactproj', defaults:{ contactId:'', projectId:'' }, fieldMap:{ contactId:'contact_id', projectId:'project_id' }, idFields:['contactId', 'projectId'] },
   contactSites:{ table:'field_contact_sites', label:'Contact Site Link', idPrefix:'contactsite', defaults:{ contactId:'', siteId:'' }, fieldMap:{ contactId:'contact_id', siteId:'site_id' }, idFields:['contactId', 'siteId'] },
   billingProfiles:{ table:'field_billing_profiles', label:'Billing Profile', idPrefix:'bill', defaults:{ clientId:'', projectId:'', billingContactId:'', billingName:'', billingAddress:'', billingEmail:'', billingPhone:'', poNumber:'', referenceNumber:'', invoiceNotes:'', fieldBillingNotes:'', labBillingNotes:'', isDefault:false }, fieldMap:{ clientId:'client_id', projectId:'project_id', billingContactId:'billing_contact_id', billingName:'billing_name', billingAddress:'billing_address', billingEmail:'billing_email', billingPhone:'billing_phone', poNumber:'po_number', referenceNumber:'reference_number', invoiceNotes:'invoice_notes', fieldBillingNotes:'field_billing_notes', labBillingNotes:'lab_billing_notes', isDefault:'is_default' }, idFields:['clientId', 'projectId', 'billingContactId'], booleanFields:['isDefault'] },
-  priceItems:{ table:'billing_price_items', label:'Price Item', idPrefix:'priceitem', defaults:{ itemKey:'', priceSection:'', category:'', method:'', description:'', unitName:'Per Sample', sortOrder:0, isActive:true, notes:'' }, fieldMap:{ itemKey:'item_key', priceSection:'price_section', category:'category', method:'method', description:'description', unitName:'unit_name', sortOrder:'sort_order', isActive:'is_active', notes:'notes' }, numberFields:['sortOrder'], booleanFields:['isActive'] },
+  labMethods:{ table:'lab_methods', label:'Method', idPrefix:'method', defaults:{ organization:'', designation:'', title:'', revision:'', effectiveDate:'', documentReference:'', notes:'', isActive:true }, fieldMap:{ organization:'organization', designation:'standard_designation', title:'method_title', revision:'revision', effectiveDate:'effective_date', documentReference:'document_reference', notes:'notes', isActive:'is_active' }, dateFields:['effectiveDate'], booleanFields:['isActive'] },
+  testTypes:{ table:'lab_test_types', label:'Test Type', idPrefix:'testtype', defaults:{ testCode:'', testName:'', matrixType:'Unspecified', methodId:'', isActive:true }, fieldMap:{ testCode:'test_code', testName:'test_name', matrixType:'matrix_type', methodId:'method_id', isActive:'is_active' }, idFields:['methodId'], booleanFields:['isActive'] },
+  billingServices:{ table:'billing_services', label:'Billing Service', idPrefix:'service', defaults:{ serviceCode:'', serviceName:'', category:'Services', unitName:'Each', notes:'', isActive:true }, fieldMap:{ serviceCode:'service_code', serviceName:'service_name', category:'category', unitName:'unit_name', notes:'notes', isActive:'is_active' }, booleanFields:['isActive'] },
+  priceItems:{ table:'billing_price_items', label:'Price Item', idPrefix:'priceitem', defaults:{ testTypeId:'', serviceId:'', itemKind:'legacy', legacyStatus:'needs_mapping', itemKey:'', priceSection:'', category:'', method:'', description:'', unitName:'Per Sample', sortOrder:0, isActive:true, notes:'' }, fieldMap:{ testTypeId:'test_type_id', serviceId:'service_id', itemKind:'item_kind', legacyStatus:'legacy_status', itemKey:'item_key', priceSection:'price_section', category:'category', method:'method', description:'description', unitName:'unit_name', sortOrder:'sort_order', isActive:'is_active', notes:'notes' }, idFields:['testTypeId','serviceId'], numberFields:['sortOrder'], booleanFields:['isActive'] },
   billingProfilePrices:{ table:'field_billing_profile_prices', label:'Billing Profile Price', idPrefix:'billprice', defaults:{ billingProfileId:'', priceItemId:'', rateAmount:null, currencyCode:'USD', effectiveYear:BILLING_RATE_EFFECTIVE_YEAR, isActive:true, notes:'' }, fieldMap:{ billingProfileId:'billing_profile_id', priceItemId:'price_item_id', rateAmount:'rate_amount', currencyCode:'currency_code', effectiveYear:'effective_year', isActive:'is_active', notes:'notes' }, idFields:['billingProfileId', 'priceItemId'], numberFields:['rateAmount', 'effectiveYear'], booleanFields:['isActive'] },
   siteTypes:{ table:'field_site_types', label:'Site Type', idPrefix:'sitetype', defaults:{ siteTypeKey:'', siteTypeName:'', isActive:true, siteTypeStatus:'active', defaultJobTypes:[], notes:'' }, fieldMap:{ siteTypeKey:'site_type_key', siteTypeName:'site_type_name', isActive:'is_active', notes:'notes' }, booleanFields:['isActive'], arrayFields:['defaultJobTypes'], localOnlyFields:['siteTypeStatus', 'defaultJobTypes'] },
   sites:{ table:'field_sites', label:'Site/Location', idPrefix:'site', defaults:{ clientId:'', projectId:'', projectIds:[], siteName:'', siteType:'OTHER', physicalAddress:'', countyState:'', gpsCoordinates:'', accessInstructions:'', safetyPpeNotes:'', gateCodeEntryRequirements:'', clientSiteContact:'', accessRequired:false, approvedAccessLabel:'', approvedAccessLatitude:null, approvedAccessLongitude:null, approvedAccessNotes:'', siteStatus:'Active', standardJobTypes:'', notes:'' }, fieldMap:{ clientId:'client_id', projectId:'project_id', siteName:'site_name', siteType:'site_type', physicalAddress:'physical_address', countyState:'county_state', gpsCoordinates:'gps_coordinates', accessInstructions:'access_instructions', safetyPpeNotes:'safety_ppe_notes', gateCodeEntryRequirements:'gate_code_entry_requirements', clientSiteContact:'client_site_contact', accessRequired:'access_required', approvedAccessLabel:'approved_access_label', approvedAccessLatitude:'approved_access_latitude', approvedAccessLongitude:'approved_access_longitude', approvedAccessNotes:'approved_access_notes', siteStatus:'site_status', standardJobTypes:'standard_job_types', notes:'notes' }, idFields:['clientId', 'projectId'], arrayFields:['projectIds'], localOnlyFields:['projectIds'], numberFields:['approvedAccessLatitude', 'approvedAccessLongitude'], booleanFields:['accessRequired'] },
   siteProjects:{ table:'field_site_projects', label:'Site Project Link', idPrefix:'siteproj', defaults:{ siteId:'', projectId:'' }, fieldMap:{ siteId:'site_id', projectId:'project_id' }, idFields:['siteId', 'projectId'] },
   jobTypes:{ table:'field_job_types', label:'Job Type', idPrefix:'jobtype', defaults:{ jobTypeKey:'', jobTypeName:'', jobTypeColor:DEFAULT_JOB_TYPE_COLOR, isActive:true, jobTypeStatus:'active', labEmployeeEligible:false, allowMultipleSites:false, scheduleMode:'range', requiredAssignmentTypes:[], detailGroups:[] }, fieldMap:{ jobTypeKey:'job_type_key', jobTypeName:'job_type_name', jobTypeColor:'job_type_color', isActive:'is_active', labEmployeeEligible:'lab_employee_eligible', allowMultipleSites:'allow_multiple_sites', scheduleMode:'schedule_mode', requiredAssignmentTypes:'required_assignment_types', detailGroups:'detail_groups' }, booleanFields:['isActive', 'labEmployeeEligible', 'allowMultipleSites'], arrayFields:['requiredAssignmentTypes', 'detailGroups'], localOnlyFields:['jobTypeStatus'] },
   siteTypeJobTypes:{ table:'field_site_type_job_types', label:'Site Type Job Type Link', idPrefix:'sitetypejob', defaults:{ siteTypeKey:'', jobTypeKey:'' }, fieldMap:{ siteTypeKey:'site_type_key', jobTypeKey:'job_type_key' } },
-  jobs:{ table:'field_jobs', label:'Job', idPrefix:'job', defaults:{ fieldfxTicketId:'', salesforceCaseId:'', salesforceCaseNumber:'', salesforceCaseUrl:'', salesforceSyncedAt:'', salesforceSyncStatus:'', salesforceSyncError:'', noTicketRequired:false, clientId:'', projectId:'', siteId:'', siteIds:[], jobType:'', priority:'Normal', requestedDate:'', scheduledStart:'', scheduledEnd:'', actualStart:'', actualEnd:'', durationPlanned:null, durationActual:null, scopeSummary:'', workInstructions:'', apiStandardReference:'', custodyAllocation:'Allocation', samplesRequired:false, meterUnitId:'', provingRequired:false, maintenanceRequired:false, clientContactForJob:'', dispatchNotes:'', completionNotes:'', followUpRequired:false, followUpNotes:'' }, fieldMap:{ fieldfxTicketId:'fieldfx_ticket_id', salesforceCaseId:'salesforce_case_id', salesforceCaseNumber:'salesforce_case_number', salesforceCaseUrl:'salesforce_case_url', salesforceSyncedAt:'salesforce_synced_at', salesforceSyncStatus:'salesforce_sync_status', salesforceSyncError:'salesforce_sync_error', noTicketRequired:'no_ticket_required', clientId:'client_id', projectId:'project_id', siteId:'site_id', jobType:'job_type', priority:'priority', requestedDate:'requested_date', scheduledStart:'scheduled_start', scheduledEnd:'scheduled_end', actualStart:'actual_start', actualEnd:'actual_end', durationPlanned:'duration_planned_minutes', durationActual:'duration_actual_minutes', scopeSummary:'scope_summary', workInstructions:'work_instructions', apiStandardReference:'api_standard_reference', custodyAllocation:'custody_allocation', samplesRequired:'samples_required', meterUnitId:'meter_unit_id', provingRequired:'proving_required', maintenanceRequired:'maintenance_required', clientContactForJob:'client_contact_for_job', dispatchNotes:'dispatch_notes', completionNotes:'completion_notes', followUpRequired:'follow_up_required', followUpNotes:'follow_up_notes' }, idFields:['clientId', 'projectId', 'siteId'], arrayFields:['siteIds'], localOnlyFields:['siteIds'], numberFields:['durationPlanned', 'durationActual'], booleanFields:['noTicketRequired', 'samplesRequired', 'provingRequired', 'maintenanceRequired', 'followUpRequired'], dateFields:['requestedDate'], dateTimeFields:['salesforceSyncedAt', 'scheduledStart', 'scheduledEnd', 'actualStart', 'actualEnd'] },
+  jobs:{ table:'field_jobs', label:'Job', idPrefix:'job', defaults:{ fieldfxTicketId:'', salesforceCaseId:'', salesforceCaseNumber:'', salesforceCaseUrl:'', salesforceSyncedAt:'', salesforceSyncStatus:'', salesforceSyncError:'', noTicketRequired:false, clientId:'', projectId:'', siteId:'', siteIds:[], jobType:'', requestedDate:'', scheduledStart:'', scheduledEnd:'', actualStart:'', actualEnd:'', durationPlanned:null, durationActual:null, scopeSummary:'', workInstructions:'', apiStandardReference:'', custodyAllocation:'Allocation', samplesRequired:false, meterUnitId:'', provingRequired:false, maintenanceRequired:false, clientContactForJob:'', dispatchNotes:'', completionNotes:'', followUpRequired:false, followUpNotes:'' }, fieldMap:{ fieldfxTicketId:'fieldfx_ticket_id', salesforceCaseId:'salesforce_case_id', salesforceCaseNumber:'salesforce_case_number', salesforceCaseUrl:'salesforce_case_url', salesforceSyncedAt:'salesforce_synced_at', salesforceSyncStatus:'salesforce_sync_status', salesforceSyncError:'salesforce_sync_error', noTicketRequired:'no_ticket_required', clientId:'client_id', projectId:'project_id', siteId:'site_id', jobType:'job_type', requestedDate:'requested_date', scheduledStart:'scheduled_start', scheduledEnd:'scheduled_end', actualStart:'actual_start', actualEnd:'actual_end', durationPlanned:'duration_planned_minutes', durationActual:'duration_actual_minutes', scopeSummary:'scope_summary', workInstructions:'work_instructions', apiStandardReference:'api_standard_reference', custodyAllocation:'custody_allocation', samplesRequired:'samples_required', meterUnitId:'meter_unit_id', provingRequired:'proving_required', maintenanceRequired:'maintenance_required', clientContactForJob:'client_contact_for_job', dispatchNotes:'dispatch_notes', completionNotes:'completion_notes', followUpRequired:'follow_up_required', followUpNotes:'follow_up_notes' }, idFields:['clientId', 'projectId', 'siteId'], arrayFields:['siteIds'], localOnlyFields:['siteIds'], numberFields:['durationPlanned', 'durationActual'], booleanFields:['noTicketRequired', 'samplesRequired', 'provingRequired', 'maintenanceRequired', 'followUpRequired'], dateFields:['requestedDate'], dateTimeFields:['salesforceSyncedAt', 'scheduledStart', 'scheduledEnd', 'actualStart', 'actualEnd'] },
   jobSites:{ table:'field_job_sites', label:'Job Site Link', idPrefix:'jobsite', defaults:{ jobId:'', siteId:'', sortOrder:0 }, fieldMap:{ jobId:'job_id', siteId:'site_id', sortOrder:'sort_order' }, idFields:['jobId', 'siteId'], numberFields:['sortOrder'] },
   jobAssignments:{ table:'field_job_assignments', label:'Assignment', idPrefix:'asg', defaults:{ jobId:'', assignmentType:'Technician', resourceId:'' }, fieldMap:{ jobId:'job_id', assignmentType:'assignment_type', resourceId:'resource_id' }, idFields:['jobId', 'resourceId'] },
   partCatalogs:{ table:'field_part_catalogs', label:'Part List Value', idPrefix:'partcat', defaults:{ catalogType:'category', catalogValue:'', sortOrder:0, isActive:true, notes:'' }, fieldMap:{ catalogType:'catalog_type', catalogValue:'catalog_value', sortOrder:'sort_order', isActive:'is_active', notes:'notes' }, numberFields:['sortOrder'], booleanFields:['isActive'] },
@@ -172,27 +179,37 @@ const ENTITY_CONFIG = {
   restrictedRoads:{ table:'field_restricted_roads', label:'Restricted Road', idPrefix:'rroad', optional:true, defaults:{ roadName:'', isActive:true, clientId:'', siteId:'', polylinePoints:[], bufferMeters:75, notes:'' }, fieldMap:{ roadName:'road_name', isActive:'is_active', clientId:'client_id', siteId:'site_id', polylinePoints:'polyline_points', bufferMeters:'buffer_meters', notes:'notes' }, idFields:['clientId', 'siteId'], numberFields:['bufferMeters'], booleanFields:['isActive'], jsonFields:['polylinePoints'] },
   fieldRouteStops:{ table:'field_route_stops', label:'Route Stop', idPrefix:'rstop', defaults:{ routeId:'', siteId:'', stopType:'site', placeId:'', stopLabel:'', stopValue:'', stopLatitude:null, stopLongitude:null, stopOrder:0, legDistanceMeters:null, legDurationSeconds:null, stopNotes:'' }, fieldMap:{ routeId:'route_id', siteId:'site_id', stopType:'stop_type', placeId:'place_id', stopLabel:'stop_label', stopValue:'stop_value', stopLatitude:'stop_latitude', stopLongitude:'stop_longitude', stopOrder:'stop_order', legDistanceMeters:'leg_distance_meters', legDurationSeconds:'leg_duration_seconds', stopNotes:'stop_notes' }, idFields:['routeId', 'siteId', 'placeId'], numberFields:['stopLatitude', 'stopLongitude', 'stopOrder', 'legDistanceMeters', 'legDurationSeconds'] },
   fieldRouteStopJobs:{ table:'field_route_stop_jobs', label:'Route Stop Job', idPrefix:'rjob', defaults:{ routeStopId:'', jobId:'' }, fieldMap:{ routeStopId:'route_stop_id', jobId:'job_id' }, idFields:['routeStopId', 'jobId'] },
-  employees:{ table:'employees', label:'Employee', idPrefix:'emp', defaults:{ employeeFirstName:'', employeeLastName:'', employeeName:'', homeSplSite:LOCAL_SPL_SITE, workScope:'Field', labRole:'', fieldRole:'Field Tech', canSampleTransport:false, isActive:true, phone:'', email:'', notes:'' }, fieldMap:{ employeeFirstName:'employee_first_name', employeeLastName:'employee_last_name', employeeName:'employee_name', homeSplSite:'home_spl_site', workScope:'work_scope', labRole:'lab_role', fieldRole:'field_role', canSampleTransport:'can_sample_transport', isActive:'is_active', phone:'phone', email:'email', notes:'notes' }, booleanFields:['canSampleTransport', 'isActive'] },
-  splSites:{ table:'field_spl_sites', label:'SPL Site', idPrefix:'splsite', defaults:{ siteName:'', siteCode:'', locationLabel:'', streetAddress:'', city:'', state:'', zipCode:'', isActive:true, notes:'' }, fieldMap:{ siteName:'site_name', siteCode:'site_code', locationLabel:'location_label', streetAddress:'street_address', city:'city', state:'state', zipCode:'zip_code', isActive:'is_active', notes:'notes' }, booleanFields:['isActive'] },
+  employees:{ table:'employees', label:'Employee', idPrefix:'emp', defaults:{ employeeFirstName:'', employeeLastName:'', employeeName:'', homeSplSite:LOCAL_SPL_SITE, homeSplSiteId:'', workScope:'Field', labRole:'', fieldRole:'Field Tech', canSampleTransport:false, isActive:true, phone:'', email:'', notes:'' }, fieldMap:{ employeeFirstName:'employee_first_name', employeeLastName:'employee_last_name', employeeName:'employee_name', homeSplSite:'home_spl_site', homeSplSiteId:'home_spl_site_id', workScope:'work_scope', labRole:'lab_role', fieldRole:'field_role', canSampleTransport:'can_sample_transport', isActive:'is_active', phone:'phone', email:'email', notes:'notes' }, booleanFields:['canSampleTransport', 'isActive'], idFields:['homeSplSiteId'] },
+  splSites:{ table:'field_spl_sites', label:'SPL Site', idPrefix:'splsite', defaults:{ siteName:'', siteCode:'', locationLabel:'', streetAddress:'', city:'', state:'', zipCode:'', latitude:null, longitude:null, isActive:true, notes:'' }, fieldMap:{ siteName:'site_name', siteCode:'site_code', locationLabel:'location_label', streetAddress:'street_address', city:'city', state:'state', zipCode:'zip_code', latitude:'latitude', longitude:'longitude', isActive:'is_active', notes:'notes' }, numberFields:['latitude', 'longitude'], booleanFields:['isActive'] },
   technicianTravel:{ table:'field_technician_travel', label:'Technician Travel', idPrefix:'travel', defaults:{ technicianId:'', direction:'Outbound', travelStatus:'Planned', originType:'spl_site', originSplSiteId:'', originClientSiteId:'', originLabel:'', originLocation:'', destinationType:'client_site', destinationSplSiteId:'', destinationClientSiteId:'', destinationLabel:'', destinationLocation:'', arrivalAt:'', departureAt:'', purpose:'', notes:'' }, fieldMap:{ technicianId:'technician_id', direction:'direction', travelStatus:'travel_status', originType:'origin_type', originSplSiteId:'origin_spl_site_id', originClientSiteId:'origin_client_site_id', originLabel:'origin_label', originLocation:'origin_location', destinationType:'destination_type', destinationSplSiteId:'destination_spl_site_id', destinationClientSiteId:'destination_client_site_id', destinationLabel:'destination_label', destinationLocation:'destination_location', arrivalAt:'arrival_at', departureAt:'departure_at', purpose:'purpose', notes:'notes' }, idFields:['technicianId', 'originSplSiteId', 'originClientSiteId', 'destinationSplSiteId', 'destinationClientSiteId'], dateTimeFields:['arrivalAt', 'departureAt'] },
-  trucks:{ table:'field_trucks', label:'Truck', idPrefix:'truck', defaults:{ unitNumber:'', vehicleType:'Pickup', fuelType:'', serviceStatus:'Available', isProver:false, currentDriver:'', assignedTechnicianId:'', model:'', licensePlateNumber:'', make:'', color:'', registeredState:'', vin:'', vehicleId:'', vehicleYear:null, nextInspectionDue:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ unitNumber:'unit_number', vehicleType:'vehicle_type', fuelType:'fuel_type', serviceStatus:'service_status', isProver:'is_prover', currentDriver:'current_driver', assignedTechnicianId:'assigned_technician_id', model:'model', licensePlateNumber:'license_plate_number', make:'make', color:'color', registeredState:'registered_state', vin:'vin', vehicleId:'vehicle_id', vehicleYear:'vehicle_year', nextInspectionDue:'next_inspection_due', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTechnicianId'], numberFields:['vehicleYear'], booleanFields:['isProver'], dateFields:['nextInspectionDue'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
-  trailers:{ table:'field_trailers', label:'Trailer', idPrefix:'trailer', defaults:{ trailerNumber:'', trailerType:'', capacityConfiguration:'', serviceStatus:'Available', isProver:false, assignedTruckId:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ trailerNumber:'trailer_number', trailerType:'trailer_type', capacityConfiguration:'capacity_configuration', serviceStatus:'service_status', isProver:'is_prover', assignedTruckId:'assigned_truck_id', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTruckId'], booleanFields:['isProver'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
+  trucks:{ table:'field_trucks', label:'Truck', idPrefix:'truck', defaults:{ unitNumber:'', vehicleType:'Pickup', fuelType:'', serviceStatus:'Available', isProver:false, currentDriver:'', assignedTechnicianId:'', model:'', licensePlateNumber:'', make:'', color:'', registeredState:'', vin:'', vehicleId:'', vehicleYear:null, nextInspectionDue:'', geotabDeviceId:'', geotabDeviceName:'', geotabSerialNumber:'', geotabIsCommunicating:null, geotabLastContactAt:'', geotabStatusCheckedAt:'', geotabLinkStatus:'Unlinked', geotabLinkMethod:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ unitNumber:'unit_number', vehicleType:'vehicle_type', fuelType:'fuel_type', serviceStatus:'service_status', isProver:'is_prover', currentDriver:'current_driver', assignedTechnicianId:'assigned_technician_id', model:'model', licensePlateNumber:'license_plate_number', make:'make', color:'color', registeredState:'registered_state', vin:'vin', vehicleId:'vehicle_id', vehicleYear:'vehicle_year', nextInspectionDue:'next_inspection_due', geotabDeviceId:'geotab_device_id', geotabDeviceName:'geotab_device_name', geotabSerialNumber:'geotab_serial_number', geotabIsCommunicating:'geotab_is_communicating', geotabLastContactAt:'geotab_last_contact_at', geotabStatusCheckedAt:'geotab_status_checked_at', geotabLinkStatus:'geotab_link_status', geotabLinkMethod:'geotab_link_method', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTechnicianId'], numberFields:['vehicleYear'], booleanFields:['isProver', 'geotabIsCommunicating'], dateFields:['nextInspectionDue'], dateTimeFields:['geotabLastContactAt', 'geotabStatusCheckedAt'], serverManagedFields:['geotabDeviceName', 'geotabSerialNumber', 'geotabIsCommunicating', 'geotabLastContactAt', 'geotabStatusCheckedAt', 'geotabLinkStatus', 'geotabLinkMethod'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
+  trailers:{ table:'field_trailers', label:'Trailer', idPrefix:'trailer', defaults:{ trailerNumber:'', vin:'', trailerType:'', capacityConfiguration:'', serviceStatus:'Available', isProver:false, assignedTruckId:'', geotabDeviceId:'', geotabDeviceName:'', geotabSerialNumber:'', geotabIsCommunicating:null, geotabLastContactAt:'', geotabStatusCheckedAt:'', geotabLinkStatus:'Unlinked', geotabLinkMethod:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ trailerNumber:'trailer_number', vin:'vin', trailerType:'trailer_type', capacityConfiguration:'capacity_configuration', serviceStatus:'service_status', isProver:'is_prover', assignedTruckId:'assigned_truck_id', geotabDeviceId:'geotab_device_id', geotabDeviceName:'geotab_device_name', geotabSerialNumber:'geotab_serial_number', geotabIsCommunicating:'geotab_is_communicating', geotabLastContactAt:'geotab_last_contact_at', geotabStatusCheckedAt:'geotab_status_checked_at', geotabLinkStatus:'geotab_link_status', geotabLinkMethod:'geotab_link_method', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTruckId'], booleanFields:['isProver', 'geotabIsCommunicating'], dateTimeFields:['geotabLastContactAt', 'geotabStatusCheckedAt'], serverManagedFields:['geotabDeviceName', 'geotabSerialNumber', 'geotabIsCommunicating', 'geotabLastContactAt', 'geotabStatusCheckedAt', 'geotabLinkStatus', 'geotabLinkMethod'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
   equipment:{ table:'field_equipment', label:'Equipment', idPrefix:'equip', defaults:{ equipmentName:'', equipmentType:'Small Volume Prover', model:'', manufacturer:'', splInventoryBarcode:'', serialNumber:'', calibrationStatus:'Current', lastCalibrationDate:'', nextCalibrationDue:'', maintenanceStatus:'Available', storageLocation:'', assignedTrailerTruck:'', assignedTruckId:'', assignedTrailerId:'', assetPhotoPath:'', assetPhotoDataUrl:'', assetPhotoName:'', assetPhotoType:'', notes:'' }, fieldMap:{ equipmentName:'equipment_name', equipmentType:'equipment_type', model:'model', manufacturer:'manufacturer', splInventoryBarcode:'spl_inventory_barcode', serialNumber:'serial_number', calibrationStatus:'calibration_status', lastCalibrationDate:'last_calibration_date', nextCalibrationDue:'next_calibration_due', maintenanceStatus:'maintenance_status', storageLocation:'storage_location', assignedTrailerTruck:'assigned_trailer_truck', assignedTruckId:'assigned_truck_id', assignedTrailerId:'assigned_trailer_id', assetPhotoPath:'photo_path', notes:'notes' }, idFields:['assignedTruckId', 'assignedTrailerId'], dateFields:['lastCalibrationDate', 'nextCalibrationDue'], localOnlyFields:['assetPhotoDataUrl', 'assetPhotoName', 'assetPhotoType'] },
+  donesafeEquipment:{ table:'donesafe_equipment_assets', label:'DoneSafe Equipment', idPrefix:'donesafeequip', optional:true, defaults:{ donesafeRecordId:'', donesafeModuleId:'', donesafeModuleName:'Equipment Tracker', recordTitle:'', assetName:'', assetType:'', manufacturer:'', model:'', serialNumber:'', inventoryBarcode:'', assetStatus:'', assetLocation:'', lastInspectionDate:'', nextInspectionDue:'', sourceCreatedAt:'', sourceUpdatedAt:'', sourceUrl:'', fieldValues:{}, rawRecord:{}, isActive:true, syncToken:'', firstSyncedAt:'', lastSyncedAt:'' }, fieldMap:{ donesafeRecordId:'donesafe_record_id', donesafeModuleId:'donesafe_module_id', donesafeModuleName:'donesafe_module_name', recordTitle:'record_title', assetName:'asset_name', assetType:'asset_type', manufacturer:'manufacturer', model:'model', serialNumber:'serial_number', inventoryBarcode:'inventory_barcode', assetStatus:'asset_status', assetLocation:'asset_location', lastInspectionDate:'last_inspection_date', nextInspectionDue:'next_inspection_due', sourceCreatedAt:'source_created_at', sourceUpdatedAt:'source_updated_at', sourceUrl:'source_url', fieldValues:'field_values', rawRecord:'raw_record', isActive:'is_active', syncToken:'sync_token', firstSyncedAt:'first_synced_at', lastSyncedAt:'last_synced_at' }, booleanFields:['isActive'], jsonFields:['fieldValues', 'rawRecord'], dateFields:['lastInspectionDate', 'nextInspectionDue'], dateTimeFields:['sourceCreatedAt', 'sourceUpdatedAt', 'firstSyncedAt', 'lastSyncedAt'] },
+  salesforceSettings:{ table:'salesforce_integration_settings', label:'Salesforce Configuration', idPrefix:'sfconfig', optional:true, defaults:{ enabled:false, objectApiName:'', objectLabel:'', listViewId:'', listViewName:'', fieldMapping:{}, configuredAt:'', configuredBy:'', lastDiscoveredAt:'' }, fieldMap:{ enabled:'enabled', objectApiName:'object_api_name', objectLabel:'object_label', listViewId:'list_view_id', listViewName:'list_view_name', fieldMapping:'field_mapping', configuredAt:'configured_at', configuredBy:'configured_by', lastDiscoveredAt:'last_discovered_at' }, booleanFields:['enabled'], jsonFields:['fieldMapping'], dateTimeFields:['configuredAt', 'lastDiscoveredAt'], idFields:['configuredBy'], serverManagedFields:['enabled', 'objectApiName', 'objectLabel', 'listViewId', 'listViewName', 'fieldMapping', 'configuredAt', 'configuredBy', 'lastDiscoveredAt'] },
+  salesforceAccounts:{ table:'salesforce_accounts', label:'Salesforce Account', idPrefix:'sfaccount', optional:true, defaults:{ salesforceRecordId:'', accountName:'', sourceUrl:'', lastSyncedAt:'' }, fieldMap:{ salesforceRecordId:'salesforce_record_id', accountName:'account_name', sourceUrl:'source_url', lastSyncedAt:'last_synced_at' }, dateTimeFields:['lastSyncedAt'], serverManagedFields:['salesforceRecordId', 'accountName', 'sourceUrl', 'lastSyncedAt'] },
+  salesforceTickets:{ table:'salesforce_tickets', label:'Salesforce Ticket', idPrefix:'sfticket', optional:true, defaults:{ objectApiName:'', salesforceRecordId:'', ticketNumber:'', subject:'', ticketStatus:'', accountRecordId:'', accountName:'', ownerName:'', recordTypeName:'', sourceUrl:'', sourceCreatedAt:'', sourceModifiedAt:'', isActive:true, isLinkable:true, firstSyncedAt:'', lastSyncedAt:'' }, fieldMap:{ objectApiName:'object_api_name', salesforceRecordId:'salesforce_record_id', ticketNumber:'ticket_number', subject:'subject', ticketStatus:'ticket_status', accountRecordId:'account_record_id', accountName:'account_name', ownerName:'owner_name', recordTypeName:'record_type_name', sourceUrl:'source_url', sourceCreatedAt:'source_created_at', sourceModifiedAt:'source_modified_at', isActive:'is_active', isLinkable:'is_linkable', firstSyncedAt:'first_synced_at', lastSyncedAt:'last_synced_at' }, booleanFields:['isActive', 'isLinkable'], dateTimeFields:['sourceCreatedAt', 'sourceModifiedAt', 'firstSyncedAt', 'lastSyncedAt'], serverManagedFields:['objectApiName', 'salesforceRecordId', 'ticketNumber', 'subject', 'ticketStatus', 'accountRecordId', 'accountName', 'ownerName', 'recordTypeName', 'sourceUrl', 'sourceCreatedAt', 'sourceModifiedAt', 'isActive', 'isLinkable', 'firstSyncedAt', 'lastSyncedAt'] },
+  salesforceTicketLinks:{ table:'salesforce_job_ticket_links', label:'Salesforce Ticket Link', idPrefix:'sflink', optional:true, defaults:{ jobId:'', ticketId:'', linkedAt:'', linkedBy:'' }, fieldMap:{ jobId:'job_id', ticketId:'ticket_id', linkedAt:'linked_at', linkedBy:'linked_by' }, idFields:['jobId', 'ticketId', 'linkedBy'], dateTimeFields:['linkedAt'], serverManagedFields:['jobId', 'ticketId', 'linkedAt', 'linkedBy'] },
+  salesforceSyncRuns:{ table:'salesforce_sync_runs', label:'Salesforce Sync Run', idPrefix:'sfrun', optional:true, defaults:{ action:'sync', status:'running', requestedBy:'', startedAt:'', completedAt:'', recordsReceived:0, recordsSaved:0, errorMessage:'', details:{} }, fieldMap:{ action:'action', status:'status', requestedBy:'requested_by', startedAt:'started_at', completedAt:'completed_at', recordsReceived:'records_received', recordsSaved:'records_saved', errorMessage:'error_message', details:'details' }, idFields:['requestedBy'], numberFields:['recordsReceived', 'recordsSaved'], jsonFields:['details'], dateTimeFields:['startedAt', 'completedAt'], serverManagedFields:['action', 'status', 'requestedBy', 'startedAt', 'completedAt', 'recordsReceived', 'recordsSaved', 'errorMessage', 'details'] },
   samples:{ table:'field_samples', label:'Sample', idPrefix:'sample', defaults:{ jobId:'', clientId:'', siteId:'', sampleType:'Gas', containerType:'Cylinder', collectionDateTime:'', sampleDate:'', sampleTime:'', pickedUpBy:'', dropOffLocation:'', chainOfCustodyStatus:'Requested', labReceiptStatus:'Requested', sampleStatus:'Needs Pulled', sampleName:'', samplePoint:'', isDuplicate:false, sampleCollectionMode:'', cylinderNumber:'', testCodes:[], sampleTempF:null, samplePressurePsig:null, linkedWorkOrderId:'', linkedWorkOrderNumber:'', labReceivedAt:'', sampleSequence:null, priorityTat:'', notes:'' }, fieldMap:{ jobId:'job_id', clientId:'client_id', siteId:'site_id', sampleType:'sample_type', containerType:'container_type', collectionDateTime:'collection_date_time', sampleDate:'sample_date', sampleTime:'sample_time', pickedUpBy:'picked_up_by', dropOffLocation:'drop_off_location', chainOfCustodyStatus:'chain_of_custody_status', labReceiptStatus:'lab_receipt_status', sampleStatus:'sample_status', sampleName:'sample_name', samplePoint:'sample_point', isDuplicate:'is_duplicate', sampleCollectionMode:'sample_collection_mode', cylinderNumber:'cylinder_number', testCodes:'test_codes', sampleTempF:'sample_temp_f', samplePressurePsig:'sample_pressure_psig', linkedWorkOrderId:'linked_work_order_id', linkedWorkOrderNumber:'linked_work_order_number', labReceivedAt:'lab_received_at', sampleSequence:'sample_sequence', priorityTat:'priority_tat', notes:'notes' }, idFields:['jobId', 'clientId', 'siteId'], booleanFields:['isDuplicate'], arrayFields:['testCodes'], numberFields:['sampleSequence', 'sampleTempF', 'samplePressurePsig'], dateFields:['sampleDate'], timeFields:['sampleTime'], dateTimeFields:['collectionDateTime', 'labReceivedAt'] },
   maintenanceRecords:{ table:'field_maintenance_records', label:'Maintenance Record', idPrefix:'maint', defaults:{ assetType:'Equipment', assetId:'', maintenanceType:'Preventive', openDate:'', dueDate:'', completedDate:'', status:'Open', issueDescription:'', resolution:'', vendorInternal:'Internal', cost:null, assignedPerson:'', notes:'' }, fieldMap:{ assetType:'asset_type', assetId:'asset_id', maintenanceType:'maintenance_type', openDate:'open_date', dueDate:'due_date', completedDate:'completed_date', status:'status', issueDescription:'issue_description', resolution:'resolution', vendorInternal:'vendor_internal', cost:'cost', assignedPerson:'assigned_person', notes:'notes' }, idFields:['assetId'], numberFields:['cost'], dateFields:['openDate', 'dueDate', 'completedDate'] }
 };
 
-let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'overview', scheduleAnchorDate:getStartOfWeekISO(new Date()), scheduleView:'work_week', scheduleJobFilter:'all', scheduleAddPromptDate:'', scheduleActionJobId:'', scheduleQuickTechJobId:'', scheduleQuickTechTechnicianId:'', scheduleQuickTicketJobId:'', scheduleQuickTicketNumber:'', scheduleQuickTicketUrl:'', scheduleActionSavingJobId:'', filters:{ dispatchSearch:'', dispatchPriority:'all', dispatchJobType:'all', dispatchJobFilter:'open', dispatchAlertFilter:'all', dispatchAssignmentFilter:'all', dispatchSortKey:'schedule', dispatchSortDirection:'asc', inventorySearch:'', inventoryStatus:'active', partPickerSearch:'', partCatalogType:'category', directoryClient:'all', directorySection:'overview', directoryClientSearch:'', directoryContactSearch:'', directoryContactScope:'all', directoryContactProject:'all', directoryContactSite:'all', directoryContactSortKey:'name', directoryContactSortDirection:'asc' }, data:createEmptyData(), labTestDefinitions:[], sampleLinkModal:createClosedSampleLinkModalState(), partAdjustModal:createClosedPartAdjustModalState(), partPickerOpen:false, sampleTableModalOpen:false, expandedSampleGroups:{}, saveInFlight:false, autoRefreshInFlight:false, autoRefreshTimer:null };
+const INITIAL_DISPATCH_WEEK_START = getStartOfWeekISO(new Date());
+let state = { activeView:IS_CLIENTS_STANDALONE ? 'directory' : 'schedule', scheduleAnchorDate:getStartOfWeekISO(new Date()), scheduleView:'week', scheduleAddPromptDate:'', scheduleActionJobId:'', scheduleQuickTechJobId:'', scheduleQuickTechTechnicianId:'', scheduleQuickTicketJobId:'', scheduleQuickTicketNumber:'', scheduleQuickTicketUrl:'', scheduleActionSavingJobId:'', filters:{ dispatchSearch:'', dispatchClient:'all', dispatchJobType:'all', dispatchDatePreset:'this_week', dispatchDateFrom:INITIAL_DISPATCH_WEEK_START, dispatchDateTo:addDaysISO(INITIAL_DISPATCH_WEEK_START, 6), dispatchStatus:'open', dispatchTechnician:'all', dispatchNeedsTicket:false, dispatchSortKey:'schedule', dispatchSortDirection:'asc', scheduleSearch:'', scheduleClient:'all', scheduleJobType:'all', scheduleTechnician:'all', scheduleNeedsTicket:false, inventorySearch:'', inventoryStatus:'active', partPickerSearch:'', partCatalogType:'category', directoryClient:'all', directorySection:'overview', directoryClientSearch:'', directoryContactSearch:'', directoryContactScope:'all', directoryContactProject:'all', directoryContactSite:'all', directoryContactSortKey:'name', directoryContactSortDirection:'asc' }, data:createEmptyData(), labTestDefinitions:[], sampleLinkModal:createClosedSampleLinkModalState(), partAdjustModal:createClosedPartAdjustModalState(), salesforceConfigModal:createClosedSalesforceConfigModalState(), salesforceTicketModal:createClosedSalesforceTicketModalState(), scheduleCalendarPrintModal:createClosedScheduleCalendarPrintModalState(), salesforceAccountSearchResults:[], salesforceAccountSearchBusy:false, partPickerOpen:false, sampleTableModalOpen:false, expandedSampleGroups:{}, saveInFlight:false, autoRefreshInFlight:false, geotabSyncInFlight:false, donesafeSyncInFlight:false, salesforceSyncInFlight:false };
 let modalState = createClosedModalState();
 let lastLoadedSnapshot = '';
 let hideSaveStatusTimer = null;
 const remoteAssetPhotoUrlCache = new Map();
 const remoteAssetPhotoLoadPromises = new Map();
 
-function createEmptyData(){ return { clients:[], projects:[], contacts:[], contactProjects:[], contactSites:[], billingProfiles:[], priceItems:[], billingProfilePrices:[], siteTypes:[], sites:[], siteProjects:[], jobTypes:[], siteTypeJobTypes:[], jobs:[], jobSites:[], jobAssignments:[], partCatalogs:[], parts:[], jobParts:[], partActivity:[], fieldRoutes:[], routePlaceLists:[], routePlaces:[], restrictedRoads:[], fieldRouteStops:[], fieldRouteStopJobs:[], employees:[], splSites:[], technicianTravel:[], trucks:[], trailers:[], equipment:[], samples:[], maintenanceRecords:[], technicians:[] }; }
+function createEmptyData(){ return { clients:[], projects:[], contacts:[], contactProjects:[], contactSites:[], billingProfiles:[], labMethods:[], testTypes:[], billingServices:[], priceItems:[], billingProfilePrices:[], siteTypes:[], sites:[], siteProjects:[], jobTypes:[], siteTypeJobTypes:[], jobs:[], jobSites:[], jobAssignments:[], partCatalogs:[], parts:[], jobParts:[], partActivity:[], fieldRoutes:[], routePlaceLists:[], routePlaces:[], restrictedRoads:[], fieldRouteStops:[], fieldRouteStopJobs:[], employees:[], splSites:[], technicianTravel:[], trucks:[], trailers:[], equipment:[], donesafeEquipment:[], salesforceSettings:[], salesforceAccounts:[], salesforceTickets:[], salesforceTicketLinks:[], salesforceSyncRuns:[], samples:[], maintenanceRecords:[], technicians:[] }; }
 function createClosedModalState(){ return { open:false, entity:'', id:'', formData:{}, assignments:[], baselineSnapshot:'', openMultiSelectKey:'', openSampleTestDraftId:'', sampleDraftExpanded:{} }; }
 function createClosedSampleLinkModalState(){ return { open:false, mode:'single', sampleId:'', sampleIds:[], selectedWorkOrderId:'', search:'', workOrders:[] }; }
 function createClosedPartAdjustModalState(){ return { open:false, partId:'', mode:'receive' }; }
+function createClosedSalesforceConfigModalState(){ return { open:false, busy:false, message:'', error:'', objects:[], fields:[], listViews:[], draft:{ objectApiName:'', listViewId:'', enabled:true, fieldMapping:{} } }; }
+function createClosedSalesforceTicketModalState(){ return { open:false, jobId:'', search:'', showAll:false, saving:false, error:'' }; }
+function createClosedScheduleCalendarPrintModalState(){ return { open:false, from:'', to:'', filterMode:'active', error:'' }; }
 function uid(prefix = 'fld'){ return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
 function clone(value){ return JSON.parse(JSON.stringify(value)); }
 function firstRow(payload){ return Array.isArray(payload) ? payload[0] || null : payload; }
@@ -225,16 +242,18 @@ function normalizeHexColor(value, fallback = DEFAULT_JOB_TYPE_COLOR){
   return /^#[0-9a-fA-F]{6}$/.test(normalized) ? normalized.toLowerCase() : fallback;
 }
 function normalizeLabTestDefinition(def, index = 0){
-  const key = normalizeCatalogKey(def?.key || def?.code || def?.label || `TEST_${index + 1}`);
+  const key = normalizeCatalogKey(def?.key || def?.testCode || def?.test_code || def?.code || def?.label || def?.displayLabel || def?.display_label || `TEST_${index + 1}`);
   if(!key) return null;
-  const label = String(def?.label || key).trim() || key;
+  const label = String(def?.testName || def?.test_name || def?.label || def?.displayLabel || def?.display_label || key).trim() || key;
   return {
     id:String(def?.id || key),
     key,
     label,
-    shortLabel:String(def?.shortLabel || label).trim() || label,
-    matrixType:String(def?.matrixType || '').trim(),
-    sortOrder:Number.isFinite(Number(def?.sortOrder)) ? Number(def.sortOrder) : index
+    shortLabel:key,
+    matrixType:String(def?.matrixType || def?.matrix_type || '').trim(),
+    labWipEnabled:true,
+    isActive:def?.isActive ?? def?.is_active ?? true,
+    sortOrder:index
   };
 }
 function getDefaultLabTestDefinitions(){ return DEFAULT_LAB_TEST_DEFS.map((def, index) => normalizeLabTestDefinition({ ...def, sortOrder:index }, index)).filter(Boolean); }
@@ -245,7 +264,17 @@ function setLabTestDefinitions(defs){
     .sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label));
   state.labTestDefinitions = normalized.length ? normalized : getDefaultLabTestDefinitions();
 }
-function getLabTestDefinitions(){ return state.labTestDefinitions.length ? state.labTestDefinitions : getDefaultLabTestDefinitions(); }
+function getLabTestDefinitions(){ return (state.labTestDefinitions.length ? state.labTestDefinitions : getDefaultLabTestDefinitions()).filter((test) => test.isActive !== false && test.labWipEnabled !== false); }
+function syncLocalTestTypesFromLabDefinitions(){
+  if(isRemoteMode()) return;
+  state.data.testTypes = state.labTestDefinitions.map((test, index) => normalizeRecord('testTypes', {
+    id:test.id,
+    testCode:test.key,
+    testName:test.label,
+    matrixType:test.matrixType,
+    isActive:test.isActive !== false
+  }, { fromRemote:false })).sort(getEntitySorter('testTypes'));
+}
 function getLabTestLabel(key){
   const normalized = normalizeCatalogKey(key);
   return getLabTestDefinitions().find((def) => def.key === normalized)?.label || String(key || '');
@@ -280,6 +309,13 @@ function getStorageAdapter(){
 }
 async function loadLabTestDefinitions(){
   try {
+    if(isRemoteMode()){
+      const rows = await window.appAuth.requestJson('/rest/v1/lab_test_types?select=*&is_active=eq.true&order=test_code.asc');
+      if(Array.isArray(rows) && rows.length){
+        setLabTestDefinitions(rows);
+        return true;
+      }
+    }
     const result = await getStorageAdapter().get(TEST_DEFINITION_STORAGE_KEY);
     const raw = typeof result?.value === 'string' ? result.value : '';
     if(raw){
@@ -531,6 +567,7 @@ function getEntitySorter(entityKey){
     case 'contactProjects': return (a, b) => compareStrings(a.contactId, b.contactId) || compareStrings(a.projectId, b.projectId);
     case 'contactSites': return (a, b) => compareStrings(a.contactId, b.contactId) || compareStrings(a.siteId, b.siteId);
     case 'billingProfiles': return (a, b) => Number(b.isDefault) - Number(a.isDefault) || compareStrings(a.billingName, b.billingName);
+    case 'testTypes': return (a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0) || compareStrings(a.testCode, b.testCode);
     case 'priceItems': return (a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0) || compareStrings(a.method, b.method) || compareStrings(a.description, b.description);
     case 'billingProfilePrices': return (a, b) => compareStrings(a.billingProfileId, b.billingProfileId) || Number(a.effectiveYear || 0) - Number(b.effectiveYear || 0) || compareStrings(a.priceItemId, b.priceItemId);
     case 'siteTypes': return (a, b) => compareStrings(a.siteTypeName, b.siteTypeName) || compareStrings(a.siteTypeKey, b.siteTypeKey);
@@ -538,7 +575,7 @@ function getEntitySorter(entityKey){
     case 'siteProjects': return (a, b) => compareStrings(a.siteId, b.siteId) || compareStrings(a.projectId, b.projectId);
     case 'jobTypes': return (a, b) => compareStrings(a.jobTypeName, b.jobTypeName) || compareStrings(a.jobTypeKey, b.jobTypeKey);
     case 'siteTypeJobTypes': return (a, b) => compareStrings(a.siteTypeKey, b.siteTypeKey) || compareStrings(a.jobTypeKey, b.jobTypeKey);
-    case 'jobs': return (a, b) => compareOptionalDates(getJobPrimaryDate(a), getJobPrimaryDate(b)) || ((PRIORITY_RANK[a.priority] ?? 99) - (PRIORITY_RANK[b.priority] ?? 99)) || compareStrings(a.scopeSummary || a.jobType || a.id, b.scopeSummary || b.jobType || b.id);
+    case 'jobs': return (a, b) => compareOptionalDates(getJobPrimaryDate(a), getJobPrimaryDate(b)) || compareStrings(a.scopeSummary || a.jobType || a.id, b.scopeSummary || b.jobType || b.id);
     case 'jobSites': return (a, b) => compareStrings(a.jobId, b.jobId) || Number(a.sortOrder || 0) - Number(b.sortOrder || 0) || compareStrings(a.siteId, b.siteId);
     case 'jobAssignments': return (a, b) => compareStrings(a.assignmentType, b.assignmentType) || compareStrings(a.resourceId, b.resourceId);
     case 'partCatalogs': return (a, b) => compareStrings(getPartCatalogTypeLabel(a.catalogType), getPartCatalogTypeLabel(b.catalogType)) || Number(a.sortOrder || 0) - Number(b.sortOrder || 0) || compareStrings(a.catalogValue, b.catalogValue);
@@ -709,6 +746,12 @@ function getDefaultSplSiteRecords(){
     siteName:'SPL Pittsburgh',
     siteCode:'PITTSBURGH',
     locationLabel:'SPL Pittsburgh',
+    streetAddress:'1817 Parkway View Drive',
+    city:'Pittsburgh',
+    state:'PA',
+    zipCode:'15205',
+    latitude:40.435349,
+    longitude:-80.130022,
     isActive:true,
     notes:'Default internal SPL site for Field Ops travel scheduling.'
   }, { fromRemote:false })];
@@ -883,7 +926,8 @@ function syncJobSiteLinks(data){
 function normalizeData(source, fromRemote = false){
   const normalized = createEmptyData();
   ENTITY_ORDER.forEach((entityKey) => {
-    const rows = Array.isArray(source?.[entityKey]) ? source[entityKey] : [];
+    let rows = Array.isArray(source?.[entityKey]) ? source[entityKey] : [];
+    if(entityKey === 'testTypes' && !fromRemote) rows = rows.map((row) => ({ ...row, testCode:row?.testCode || row?.key || '', testName:row?.testName || row?.displayLabel || row?.label || row?.testCode || row?.key || '' }));
     normalized[entityKey] = rows.map((row) => normalizeRecord(entityKey, row, { fromRemote })).sort(getEntitySorter(entityKey));
   });
   if(!normalized.jobTypes.length) normalized.jobTypes = getDefaultJobTypeRecords();
@@ -895,6 +939,7 @@ function normalizeData(source, fromRemote = false){
       employeeLastName:row?.employeeLastName ?? row?.employee_last_name ?? '',
       employeeName:row?.employeeName ?? row?.employee_name ?? '',
       homeSplSite:row?.homeSplSite ?? row?.home_spl_site ?? LOCAL_SPL_SITE,
+      homeSplSiteId:row?.homeSplSiteId ?? row?.home_spl_site_id ?? '',
       workScope:'Field',
       labRole:'',
       fieldRole:row?.role || 'Field Tech',
@@ -928,6 +973,14 @@ function ensureLegacyProject(data, clientId){
 
 function repairDataRelationships(data){
   if(!data || typeof data !== 'object') return data;
+  data.testTypes = (data.testTypes || []).map((test, index) => normalizeRecord('testTypes', {
+    ...test,
+    id:test.id || test.key || `TEST_TYPE_${index + 1}`,
+    testCode:normalizeCatalogKey(test.testCode || test.key),
+    testName:test.testName || test.displayLabel || test.label || test.testCode || test.key,
+    matrixType:test.matrixType || 'Unspecified',
+    isActive:test.isActive
+  }, { fromRemote:false })).filter((test) => test.testCode).sort((a,b) => compareStrings(a.testCode,b.testCode));
   if(!Array.isArray(data.siteTypes) || !data.siteTypes.length) data.siteTypes = getDefaultSiteTypeRecords();
   data.siteTypes = data.siteTypes.map((siteType, index) => normalizeRecord('siteTypes', {
     ...siteType,
@@ -968,11 +1021,22 @@ function repairDataRelationships(data){
     ...item,
     id:item.id || item.itemKey || normalizeCatalogKey(`${item.method}_${item.description}`) || `PRICE_ITEM_${index + 1}`,
     itemKey:item.itemKey || normalizeCatalogKey(`${item.method}_${item.description}`) || `PRICE_ITEM_${index + 1}`,
+    itemKind:item.itemKind || (item.testTypeId ? 'test' : item.serviceId ? 'service' : 'legacy'),
+    legacyStatus:item.legacyStatus || (item.testTypeId || item.serviceId ? 'resolved' : 'needs_mapping'),
     priceSection:item.priceSection || (String(item.category || '').toLowerCase() === 'gas' ? 'Natural Gas Samples' : 'Liquid Samples'),
     unitName:item.unitName || 'Per Sample',
     sortOrder:Number.isFinite(Number(item.sortOrder)) ? Number(item.sortOrder) : (index + 1) * 10,
     isActive:item.isActive
-  }, { fromRemote:false })).filter((item) => item.itemKey && item.description).sort(getEntitySorter('priceItems'));
+  }, { fromRemote:false })).filter((item) => item.itemKey && (item.description || item.testTypeId || item.serviceId)).sort(getEntitySorter('priceItems'));
+  data.testTypes.forEach((test) => {
+    if(data.priceItems.some((item) => item.itemKind === 'test' && item.testTypeId === test.id)) return;
+    data.priceItems.push(normalizeRecord('priceItems', { id:`price-test-${test.id}`, testTypeId:test.id, itemKind:'test', legacyStatus:'resolved', itemKey:`TEST_${test.id}`, unitName:'Per Sample', isActive:test.isActive }, { fromRemote:false }));
+  });
+  data.billingServices.forEach((service) => {
+    if(data.priceItems.some((item) => item.itemKind === 'service' && item.serviceId === service.id)) return;
+    data.priceItems.push(normalizeRecord('priceItems', { id:`price-service-${service.id}`, serviceId:service.id, itemKind:'service', legacyStatus:'resolved', itemKey:`SERVICE_${service.id}`, unitName:service.unitName, isActive:service.isActive }, { fromRemote:false }));
+  });
+  data.priceItems.sort(getEntitySorter('priceItems'));
   data.billingProfilePrices = data.billingProfilePrices
     .filter((price) => data.billingProfiles.some((profile) => profile.id === price.billingProfileId))
     .filter((price) => data.priceItems.some((item) => item.id === price.priceItemId))
@@ -1079,7 +1143,7 @@ function toRemotePayload(entityKey, draft){
   }
   const payload = {};
   Object.keys(cfg.defaults).forEach((key) => {
-    if((cfg.localOnlyFields || []).includes(key)) return;
+    if((cfg.localOnlyFields || []).includes(key) || (cfg.serverManagedFields || []).includes(key)) return;
     const remoteKey = cfg.fieldMap[key] || key;
     const value = sourceDraft[key];
     if((cfg.booleanFields || []).includes(key)) payload[remoteKey] = !!value;
@@ -1095,7 +1159,7 @@ function toRemotePayload(entityKey, draft){
 }
 
 const localRepository = {
-  async list(){ try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? normalizeData(JSON.parse(raw), false) : normalizeData(createEmptyData(), false); } catch { return normalizeData(createEmptyData(), false); } },
+  async list(){ try { const raw = localStorage.getItem(STORAGE_KEY); const parsed = raw ? JSON.parse(raw) : createEmptyData(); return normalizeData(parsed, false); } catch { return normalizeData(createEmptyData(), false); } },
   async write(data){ const normalized = normalizeData(data, false); localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized)); return normalized; }
 };
 
@@ -1284,7 +1348,17 @@ function getClient(id){ return state.data.clients.find((row) => row.id === id) |
 function getProject(id){ return state.data.projects.find((row) => row.id === id) || null; }
 function getContact(id){ return state.data.contacts.find((row) => row.id === id) || null; }
 function getBillingProfile(id){ return state.data.billingProfiles.find((row) => row.id === id) || null; }
+function getLabMethod(id){ return state.data.labMethods.find((row) => row.id === id) || null; }
+function getTestType(id){ return state.data.testTypes.find((row) => row.id === id) || null; }
+function getBillingService(id){ return state.data.billingServices.find((row) => row.id === id) || null; }
 function getPriceItem(id){ return state.data.priceItems.find((row) => row.id === id) || null; }
+function getPriceItemTestType(item){ return getTestType(item?.testTypeId || ''); }
+function getPriceItemCatalogDetails(item){
+  if(item?.itemKind === 'test' || item?.testTypeId){ const test=getPriceItemTestType(item); const method=getLabMethod(test?.methodId); return { code:test?.testCode||'', name:test?.testName||'', method:method ? `${method.designation}${method.revision?` (${method.revision})`:''}` : '', matrix:test?.matrixType||'Unspecified', unit:item?.unitName||'Per Sample', section:`${test?.matrixType||'Unspecified'} Tests` }; }
+  if(item?.itemKind === 'service' || item?.serviceId){ const service=getBillingService(item?.serviceId); return { code:service?.serviceCode||'', name:service?.serviceName||'', method:'', matrix:'Service', unit:service?.unitName||item?.unitName||'Each', section:'Billing Services' }; }
+  return { code:'', name:item?.description||item?.itemKey||'Legacy item', method:item?.method||'', matrix:item?.category||'Legacy', unit:item?.unitName||'', section:'Legacy Items' };
+}
+function getPriceItemTestCode(item){ return getPriceItemCatalogDetails(item).code; }
 function getSite(id){ return state.data.sites.find((row) => row.id === id) || null; }
 function getJob(id){ return state.data.jobs.find((row) => row.id === id) || null; }
 function getEmployee(id){ return state.data.employees.find((row) => row.id === id) || null; }
@@ -1333,7 +1407,8 @@ function getContactLabel(contactId){
 }
 function getPriceItemLabel(priceItemId){
   const item = getPriceItem(priceItemId);
-  return item ? `${item.method || 'No method'} - ${item.description || 'No description'}` : 'Unknown price item';
+  const details = item ? getPriceItemCatalogDetails(item) : null;
+  return details ? `${details.code ? `${details.code} | ` : ''}${details.method || 'No method'} - ${details.name}` : 'Unknown price item';
 }
 function getActivePriceItems(){
   return state.data.priceItems.filter((item) => item.isActive !== false).sort(getEntitySorter('priceItems'));
@@ -1348,7 +1423,7 @@ function getBillingPriceCount(profileId){
 }
 function buildBillingPriceDrafts(profileId = ''){
   const existingPrices = new Map(getBillingPricesForProfile(profileId).map((row) => [row.priceItemId, row]));
-  return getActivePriceItems().map((item) => {
+  return state.data.priceItems.filter((item) => item.isActive !== false || existingPrices.has(item.id)).sort(getEntitySorter('priceItems')).map((item) => {
     const existing = existingPrices.get(item.id) || null;
     return {
       draftId:existing?.id || `${profileId || 'draft'}::${item.id}`,
@@ -1358,7 +1433,7 @@ function buildBillingPriceDrafts(profileId = ''){
       rateAmount:normalizeNumber(existing?.rateAmount),
       currencyCode:existing?.currencyCode || 'USD',
       effectiveYear:Number(existing?.effectiveYear || BILLING_RATE_EFFECTIVE_YEAR),
-      isActive:existing ? existing.isActive !== false : true,
+      isActive:existing ? existing.isActive !== false : false,
       notes:existing?.notes || ''
     };
   });
@@ -1374,6 +1449,35 @@ function updateBillingPriceDraft(priceItemId, key, value, mode = 'text'){
   if(key === 'rateAmount') row.rateAmount = mode === 'number' ? normalizeNumber(value) : value;
   else if(key === 'isActive') row.isActive = !!value;
   else if(key === 'notes') row.notes = String(value || '');
+}
+function getSelectedBillingPriceDrafts(){ return getModalBillingPriceDrafts().filter((row) => row.isActive !== false); }
+function removeBillingMethodFromClient(priceItemId){
+  const row = getModalBillingPriceDrafts().find((item) => item.priceItemId === priceItemId);
+  if(!row) return;
+  row.isActive = false;
+  renderModal();
+}
+function toggleBillingMethodPicker(){
+  modalState.formData.methodPickerOpen = !modalState.formData.methodPickerOpen;
+  if(!Array.isArray(modalState.formData.methodPickerSelection)) modalState.formData.methodPickerSelection = [];
+  renderModal();
+}
+function updateBillingMethodPickerFilter(key, value){
+  modalState.formData[key] = String(value || '');
+  renderModal();
+}
+function toggleBillingMethodPickerSelection(priceItemId, checked){
+  const selection = new Set(normalizeStringArray(modalState.formData.methodPickerSelection));
+  if(checked) selection.add(priceItemId); else selection.delete(priceItemId);
+  modalState.formData.methodPickerSelection = [...selection];
+  renderModal();
+}
+function addSelectedBillingMethods(){
+  const selected = new Set(normalizeStringArray(modalState.formData.methodPickerSelection));
+  getModalBillingPriceDrafts().forEach((row) => { if(selected.has(row.priceItemId)) row.isActive = true; });
+  modalState.formData.methodPickerSelection = [];
+  modalState.formData.methodPickerOpen = false;
+  renderModal();
 }
 function getContactsForSite(siteId){
   const site = getSite(siteId);
@@ -2017,9 +2121,18 @@ function renderJobSalesforceTag(job){
   return '';
 }
 
+function jobNeedsSalesforceTicket(job){
+  return !getSalesforceCaseLabel(job) && !job?.noTicketRequired;
+}
+
 function renderJobNeedsTicketTag(job){
-  const fieldfxTicketId = String(job?.fieldfxTicketId || '').trim();
-  return fieldfxTicketId || job?.noTicketRequired ? '' : '<span class="status-badge warn">Needs Ticket</span>';
+  return jobNeedsSalesforceTicket(job) ? '<span class="status-badge warn">Needs Ticket</span>' : '';
+}
+
+function renderJobSalesforceTicket(job){
+  const salesforceTag = renderJobSalesforceTag(job);
+  if(salesforceTag) return salesforceTag;
+  return renderJobNeedsTicketTag(job) || '<span class="muted">Not required</span>';
 }
 
 function getRoutedJobIds(){
@@ -2039,12 +2152,17 @@ function renderJobNeedsRouteTag(job, derived){
 function renderSalesforceCaseEditor(){
   if(modalState.entity !== 'jobs') return '';
   const job = modalState.formData || {};
+  const importedTicket = modalState.id ? getSalesforceTicketForJob(modalState.id) : null;
   const caseLabel = getSalesforceCaseLabel(job);
   const caseUrl = getSalesforceCaseUrl(job);
   const openButton = caseUrl
     ? `<a class="act-btn salesforce-open-link" href="${esc(caseUrl)}" target="_blank" rel="noopener">Open Salesforce Ticket</a>`
     : '';
-  return `<div id="salesforce-ticket-link-section" class="salesforce-editor" tabindex="-1"><div class="assignment-head"><div><h4>Salesforce Ticket Link</h4><div class="section-copy">Paste the Salesforce ticket URL here after the ticket exists in Salesforce. No API authorization is required for this manual link.</div></div><div class="table-actions">${openButton}</div></div><div class="salesforce-sync-card"><div class="form-group"><label class="form-label">Ticket / Case Number</label><input class="form-input" type="text" value="${esc(caseLabel)}" placeholder="Case number or ticket number" data-salesforce-ticket-input="number" oninput="setModalField('salesforceCaseNumber', this.value)"></div><div class="form-group"><label class="form-label">Ticket URL</label><input class="form-input" type="url" value="${esc(caseUrl)}" placeholder="https://..." data-salesforce-ticket-input="url" oninput="setModalField('salesforceCaseUrl', this.value)"></div><div class="form-group"><label class="form-label">No Ticket</label><label class="toggle-card"><input type="checkbox" ${job.noTicketRequired ? 'checked' : ''} onchange="toggleModalField('noTicketRequired', this.checked)"><span>No Ticket</span></label></div></div><div class="form-hint">The ticket number is shown as the SF badge on job cards. The URL powers the Open Salesforce Ticket link after save/reopen. Use No Ticket for scheduled work that should not raise a Needs Ticket alert.</div></div>`;
+  const importedMarkup = importedTicket
+    ? `<div class="salesforce-summary-item"><span class="summary-label">Imported Ticket</span><strong>${esc(importedTicket.ticketNumber || importedTicket.salesforceRecordId)}</strong><div class="muted">${esc(importedTicket.subject || 'No subject')}</div><div class="mini-tags">${getStatusBadge(importedTicket.ticketStatus)}${importedTicket.accountName ? `<span class="tag-chip">${esc(importedTicket.accountName)}</span>` : ''}</div></div>`
+    : `<div class="salesforce-summary-item"><span class="summary-label">Imported Ticket</span><strong>Not linked</strong><div class="muted">Choose an active ticket from the Pittsburgh Field Ops list.</div></div>`;
+  const chooserButton = modalState.id && isRemoteMode() ? `<button class="btn-save" type="button" onclick="openSalesforceTicketPicker('${esc(modalState.id)}')">${importedTicket ? 'Change / Unlink Ticket' : 'Choose Imported Ticket'}</button>` : `<button class="btn-save" type="button" disabled>Save Job Before Linking</button>`;
+  return `<div id="salesforce-ticket-link-section" class="salesforce-editor" tabindex="-1"><div class="assignment-head"><div><h4>Salesforce Ticket Link</h4><div class="section-copy">Salesforce is authoritative for synchronized ticket details. The dashboard owns only the job-to-ticket link.</div></div><div class="table-actions">${openButton}${chooserButton}</div></div><div class="salesforce-integration-summary">${importedMarkup}<div class="salesforce-summary-item"><span class="summary-label">Link Type</span><strong>${importedTicket ? 'Synchronized' : (caseLabel || caseUrl ? 'Manual fallback' : 'None')}</strong><div class="muted">${importedTicket?.sourceModifiedAt ? `Updated ${esc(fmtDateTime(importedTicket.sourceModifiedAt))}` : 'No imported update time'}</div></div></div><details class="salesforce-manual-fallback" ${!importedTicket && (caseLabel || caseUrl) ? 'open' : ''}><summary>Manual number/URL fallback</summary><div class="salesforce-sync-card"><div class="form-group"><label class="form-label">Ticket / Case Number</label><input class="form-input" type="text" value="${esc(caseLabel)}" placeholder="Case number or ticket number" data-salesforce-ticket-input="number" oninput="setModalField('salesforceCaseNumber', this.value)" ${importedTicket ? 'disabled' : ''}></div><div class="form-group"><label class="form-label">Ticket URL</label><input class="form-input" type="url" value="${esc(caseUrl)}" placeholder="https://..." data-salesforce-ticket-input="url" oninput="setModalField('salesforceCaseUrl', this.value)" ${importedTicket ? 'disabled' : ''}></div><div class="form-group"><label class="form-label">No Ticket</label><label class="toggle-card"><input type="checkbox" ${job.noTicketRequired ? 'checked' : ''} onchange="toggleModalField('noTicketRequired', this.checked)" ${importedTicket ? 'disabled' : ''}><span>No Ticket</span></label></div></div><div class="form-hint">Manual links remain supported for legacy exceptions but do not reserve an imported ticket. Synchronized links are protected by the one-to-one constraint.</div></details></div>`;
 }
 
 function getJobPastComparisonDate(job){
@@ -2258,8 +2376,6 @@ function getAssignedResourceWarnings(job){
     const isTrailerResource = !!resource.trailerNumber;
     if(assignment.assignmentType === 'Truck' || (assignment.assignmentType === 'Prover' && isTruckResource)){
       if(['Maintenance', 'Out of Service'].includes(resource.serviceStatus)) warnings.push(`${resource.unitNumber || 'Truck'} ${resource.serviceStatus.toLowerCase()}`);
-      const inspectionAlert = getTruckInspectionAlert(resource);
-      if(inspectionAlert) warnings.push(inspectionAlert);
     }
     if((assignment.assignmentType === 'Trailer' || (assignment.assignmentType === 'Prover' && isTrailerResource)) && ['Maintenance', 'Out of Service'].includes(resource.serviceStatus)) warnings.push(`${resource.trailerNumber || 'Trailer'} ${resource.serviceStatus.toLowerCase()}`);
     if(assignment.assignmentType === 'Equipment'){
@@ -2323,6 +2439,139 @@ function buildDerivedState(){
   };
 }
 
+function compareOperationalAlerts(left, right){
+  const severityOrder = { critical:0, warning:1 };
+  return (severityOrder[left.severity] ?? 2) - (severityOrder[right.severity] ?? 2)
+    || compareOptionalDates(parseDateOnly(left.relevantDate), parseDateOnly(right.relevantDate))
+    || compareStrings(left.title, right.title)
+    || compareStrings(left.id, right.id);
+}
+
+function getOperationalAlertCounts(alerts){
+  return alerts.reduce((counts, alert) => {
+    counts.total += 1;
+    if(alert.severity === 'critical') counts.critical += 1;
+    else counts.warning += 1;
+    return counts;
+  }, { total:0, critical:0, warning:0 });
+}
+
+function buildOperationalAlerts(derived){
+  const alerts = [];
+  const addAlert = (alert) => alerts.push({ relevantDate:'', actions:[], ...alert });
+
+  derived.conflicts.forEach((conflict) => {
+    const jobs = [conflict.jobA, conflict.jobB].filter(Boolean);
+    addAlert({
+      id:`schedule-conflict:${conflict.id}`,
+      group:'schedule',
+      severity:'critical',
+      title:`Resource conflict: ${conflict.resourceLabel}`,
+      details:jobs.length === 2
+        ? `${getJobDisplayTitle(jobs[0])} overlaps ${getJobDisplayTitle(jobs[1])}.`
+        : 'This resource is assigned to overlapping jobs.',
+      relevantDate:toInputDate(conflict.start),
+      actions:jobs.map((job, index) => ({ entityKey:'jobs', entityId:job.id, label:`Open Job ${index + 1}` }))
+    });
+  });
+
+  derived.missingJobs.forEach((job) => {
+    const missing = getJobMissingRequirements(job);
+    addAlert({
+      id:`missing-resources:${job.id}`,
+      group:'schedule',
+      severity:'warning',
+      title:`${getJobDisplayTitle(job)} is missing required resources`,
+      details:`Missing: ${missing.join(', ')} | ${getJobScheduleLabel(job)}`,
+      relevantDate:toInputDate(getJobPrimaryDate(job)),
+      actions:[{ entityKey:'jobs', entityId:job.id, label:'Open Job' }]
+    });
+  });
+
+  state.data.jobs.filter((job) => derived.needsRouteJobIds.has(job.id)).forEach((job) => {
+    addAlert({
+      id:`needs-route:${job.id}`,
+      group:'schedule',
+      severity:'warning',
+      title:`${getJobDisplayTitle(job)} needs a route`,
+      details:`${getJobScheduleLabel(job)} | Scheduled job is not assigned to a route.`,
+      relevantDate:toInputDate(getJobPrimaryDate(job)),
+      actions:[{ entityKey:'jobs', entityId:job.id, label:'Open Job' }]
+    });
+  });
+
+  derived.inspectionDueTrucks.forEach((truck) => {
+    const inspectionStatus = getTruckInspectionStatus(truck);
+    addAlert({
+      id:`truck-inspection:${truck.id}`,
+      group:'fleet',
+      severity:inspectionStatus === 'Inspection Overdue' ? 'critical' : 'warning',
+      title:getTruckInspectionAlert(truck),
+      details:`Inspection due ${fmtDate(truck.nextInspectionDue)}${truck.assignedTechnicianId ? ` | Assigned to ${getTechnicianLabel(truck.assignedTechnicianId)}` : ''}`,
+      relevantDate:truck.nextInspectionDue,
+      actions:[{ entityKey:'trucks', entityId:truck.id, label:'Open Truck' }]
+    });
+  });
+
+  derived.downAssets.forEach((asset) => {
+    const isTruck = Object.prototype.hasOwnProperty.call(asset, 'unitNumber');
+    const isTrailer = Object.prototype.hasOwnProperty.call(asset, 'trailerNumber');
+    const entityKey = isTruck ? 'trucks' : (isTrailer ? 'trailers' : 'equipment');
+    const entityLabel = isTruck ? 'Truck' : (isTrailer ? 'Trailer' : 'Equipment');
+    const assetLabel = isTruck ? (asset.unitNumber || 'Unnamed truck') : (isTrailer ? (asset.trailerNumber || 'Unnamed trailer') : (asset.equipmentName || 'Unnamed equipment'));
+    const status = asset.serviceStatus || asset.maintenanceStatus || 'Unavailable';
+    addAlert({
+      id:`down-asset:${entityKey}:${asset.id}`,
+      group:'fleet',
+      severity:status === 'Maintenance' ? 'warning' : 'critical',
+      title:`${assetLabel} is ${status.toLowerCase()}`,
+      details:`${entityLabel} status: ${status}. Review readiness before dispatch.`,
+      actions:[{ entityKey, entityId:asset.id, label:`Open ${entityLabel}` }]
+    });
+  });
+
+  derived.overdueCalibration.forEach((item) => {
+    addAlert({
+      id:`calibration-overdue:${item.id}`,
+      group:'fleet',
+      severity:'critical',
+      title:`${item.equipmentName || 'Equipment'} calibration overdue`,
+      details:item.nextCalibrationDue ? `Calibration due ${fmtDate(item.nextCalibrationDue)}.` : 'Calibration status is overdue.',
+      relevantDate:item.nextCalibrationDue,
+      actions:[{ entityKey:'equipment', entityId:item.id, label:'Open Equipment' }]
+    });
+  });
+
+  derived.overdueMaintenance.forEach((record) => {
+    addAlert({
+      id:`maintenance-overdue:${record.id}`,
+      group:'maintenance',
+      severity:'critical',
+      title:`${getAssetLabel(record.assetType, record.assetId)} maintenance overdue`,
+      details:`${record.maintenanceType || 'Maintenance'} | Due ${fmtDate(record.dueDate)} | ${record.status || 'Open'}`,
+      relevantDate:record.dueDate,
+      actions:[{ entityKey:'maintenanceRecords', entityId:record.id, label:'Open Maintenance' }]
+    });
+  });
+
+  derived.missingCocSamples.forEach((sample) => {
+    addAlert({
+      id:`sample-coc:${sample.id}`,
+      group:'samples',
+      severity:'warning',
+      title:`${sample.sampleName || getSampleDisplayId(sample)} needs COC attention`,
+      details:`${sample.chainOfCustodyStatus || 'Requested'} | ${getClientLabel(sample.clientId)} | ${sample.sampleType || 'Sample'}`,
+      relevantDate:sample.collectionDateTime || sample.sampleDate,
+      actions:[{ entityKey:'samples', entityId:sample.id, label:'Open Sample' }]
+    });
+  });
+
+  const groupOrder = new Map(OPERATIONAL_ALERT_GROUPS.map((group, index) => [group.key, index]));
+  return [...new Map(alerts.map((alert) => [alert.id, alert])).values()].sort((left, right) =>
+    (groupOrder.get(left.group) ?? 99) - (groupOrder.get(right.group) ?? 99)
+      || compareOperationalAlerts(left, right));
+}
+
 (function tickClock(){
   const now = new Date();
   const clockNode = document.getElementById('clock');
@@ -2345,6 +2594,7 @@ const FORM_DEFINITIONS = {
     { key:'contactPhone', label:'Contact Phone', type:'text' },
     { key:'contactEmail', label:'Contact Email', type:'email' },
     { key:'defaultServiceArea', label:'Default Service Area / Region', type:'text' },
+    { key:'salesforceAccountId', label:'Salesforce Account', type:'salesforce-account', full:true },
     { kind:'section', label:'HQ / Mapping' },
     { key:'hqStreet', label:'HQ Street', type:'text', full:true },
     { key:'hqCity', label:'HQ City', type:'text' },
@@ -2427,7 +2677,6 @@ const FORM_DEFINITIONS = {
     { key:'siteIds', label:'Job Sites/Locations', type:'multi-select', options:() => buildJobSiteMultiOptions(modalState.formData.clientId), disabled:() => !modalState.formData.clientId, multiSiteOnly:true, ranked:true },
     { key:'projectId', label:'Project', type:'select', options:() => buildModalJobProjectOptions(), handler:'changeJobProject', disabled:() => !modalState.formData.clientId || (!jobTypeAllowsMultipleSites(modalState.formData.jobType) && !modalState.formData.siteId) },
     { key:'jobType', label:'Job Type', type:'select', options:() => buildJobTypeOptions(modalState.formData.jobType), handler:'changeJobType' },
-    { key:'priority', label:'Priority', type:'select', options:PRIORITY_OPTIONS },
     { kind:'section', label:'Schedule' },
     { key:'scheduledStart', label:'Start', type:'datetime-local' },
     { key:'scheduledEnd', label:'End', type:'datetime-local', scheduleModes:['range'] },
@@ -2495,6 +2744,8 @@ const FORM_DEFINITIONS = {
     { key:'city', label:'City', type:'text' },
     { key:'state', label:'State', type:'text' },
     { key:'zipCode', label:'ZIP Code', type:'text' },
+    { key:'latitude', label:'Latitude', type:'number', step:'any' },
+    { key:'longitude', label:'Longitude', type:'number', step:'any' },
     { key:'isActive', label:'Active SPL Site', type:'checkbox' },
     { key:'notes', label:'Notes', type:'textarea', full:true }
   ],
@@ -2535,17 +2786,22 @@ const FORM_DEFINITIONS = {
     { key:'registeredState', label:'Registered State', type:'text' },
     { key:'vin', label:'VIN', type:'text' },
     { key:'nextInspectionDue', label:'Next Inspection Due', type:'date' },
+    { kind:'section', label:'GPS / Telematics' },
+    { key:'geotabDeviceId', label:'Geotab Device ID', type:'text', full:true },
     { key:'assetPhotoPath', label:'Truck Photo', type:'image', full:true },
     { key:'notes', label:'Notes', type:'textarea', full:true }
   ],
   trailers:[
     { kind:'section', label:'Trailer' },
     { key:'trailerNumber', label:'Trailer Number', type:'text', required:true },
+    { key:'vin', label:'VIN', type:'text' },
     { key:'trailerType', label:'Trailer Type', type:'text' },
     { key:'isProver', label:'Prover', type:'checkbox' },
     { key:'serviceStatus', label:'Service Status', type:'select', options:TRAILER_STATUS_OPTIONS },
     { key:'assignedTruckId', label:'Assigned Truck', type:'select', options:() => buildTruckOptions() },
     { key:'capacityConfiguration', label:'Capacity / Configuration', type:'text', full:true },
+    { kind:'section', label:'GPS / Telematics' },
+    { key:'geotabDeviceId', label:'Geotab Device ID', type:'text', full:true },
     { key:'assetPhotoPath', label:'Trailer Photo', type:'image', full:true },
     { key:'notes', label:'Notes', type:'textarea', full:true }
   ],
@@ -2804,8 +3060,70 @@ function getTechnicianLabel(id){
 function getTruckLabel(id){ return state.data.trucks.find((row) => row.id === id)?.unitNumber || 'Unassigned'; }
 function getTrailerLabel(id){ return state.data.trailers.find((row) => row.id === id)?.trailerNumber || 'Unassigned'; }
 
-function switchView(view){ state.activeView = view === 'dispatch' ? 'schedule' : view; render(); }
-function setDispatchFilter(key, value){ state.filters[key] = value; renderDispatch(buildDerivedState()); }
+function switchView(view){
+  const nextView = view === 'dispatch' ? 'job-board' : view;
+  const isEnteringResources = state.activeView !== 'resources' && nextView === 'resources';
+  state.activeView = nextView;
+  render();
+  if(isEnteringResources && isRemoteMode() && window.appAuth?.isAdmin?.()){
+    void refreshGeotabFleetStatus({ silent:true });
+  }
+}
+function setDispatchFilter(key, value){
+  state.filters[key] = value;
+  render();
+}
+function setScheduleFilter(key, value){
+  state.filters[key] = value;
+  render();
+}
+function clearScheduleFilters(){
+  state.filters.scheduleSearch = '';
+  state.filters.scheduleClient = 'all';
+  state.filters.scheduleJobType = 'all';
+  state.filters.scheduleTechnician = 'all';
+  state.filters.scheduleNeedsTicket = false;
+  render();
+}
+function getDispatchDateRangeForPreset(preset, referenceDate = todayISO()){
+  const weekStart = getStartOfWeekISO(referenceDate);
+  if(preset === 'last_week') return { from:addDaysISO(weekStart, -7), to:addDaysISO(weekStart, -1) };
+  if(preset === 'next_week') return { from:addDaysISO(weekStart, 7), to:addDaysISO(weekStart, 13) };
+  if(preset === 'this_month' || preset === 'last_month' || preset === 'next_month'){
+    const monthOffset = preset === 'last_month' ? -1 : preset === 'next_month' ? 1 : 0;
+    const from = getStartOfMonthISO(addMonthsISO(referenceDate, monthOffset));
+    return { from, to:addDaysISO(getStartOfMonthISO(addMonthsISO(from, 1)), -1) };
+  }
+  return { from:weekStart, to:addDaysISO(weekStart, 6) };
+}
+function setDispatchDatePreset(value){
+  const preset = ['this_week', 'last_week', 'next_week', 'this_month', 'last_month', 'next_month', 'date_range'].includes(value) ? value : 'this_week';
+  state.filters.dispatchDatePreset = preset;
+  if(preset !== 'date_range'){
+    const range = getDispatchDateRangeForPreset(preset);
+    state.filters.dispatchDateFrom = range.from;
+    state.filters.dispatchDateTo = range.to;
+  }
+  render();
+}
+function setDispatchDateRangeValue(key, value){
+  state.filters.dispatchDatePreset = 'date_range';
+  state.filters[key] = value;
+  render();
+}
+function clearDispatchFilters(){
+  const range = getDispatchDateRangeForPreset('this_week');
+  state.filters.dispatchSearch = '';
+  state.filters.dispatchClient = 'all';
+  state.filters.dispatchJobType = 'all';
+  state.filters.dispatchDatePreset = 'this_week';
+  state.filters.dispatchDateFrom = range.from;
+  state.filters.dispatchDateTo = range.to;
+  state.filters.dispatchStatus = 'open';
+  state.filters.dispatchTechnician = 'all';
+  state.filters.dispatchNeedsTicket = false;
+  render();
+}
 function setDispatchSort(key){
   if(state.filters.dispatchSortKey === key){
     state.filters.dispatchSortDirection = state.filters.dispatchSortDirection === 'asc' ? 'desc' : 'asc';
@@ -2813,7 +3131,7 @@ function setDispatchSort(key){
     state.filters.dispatchSortKey = key;
     state.filters.dispatchSortDirection = 'asc';
   }
-  renderDispatch(buildDerivedState());
+  render();
 }
 function setDirectoryClientFilter(value){
   state.filters.directoryClientSearch = '';
@@ -2868,10 +3186,6 @@ function setScheduleView(value){
   state.scheduleAnchorDate = state.scheduleView === 'month' ? getStartOfMonthISO(state.scheduleAnchorDate) : getStartOfWeekISO(state.scheduleAnchorDate);
   renderSchedule(buildDerivedState());
 }
-function setScheduleJobFilter(value){
-  state.scheduleJobFilter = ['all', 'open', 'past'].includes(value) ? value : 'all';
-  renderSchedule(buildDerivedState());
-}
 function changeScheduleWeek(offset){
   const amount = Number(offset || 0);
   state.scheduleAnchorDate = state.scheduleView === 'month' ? getStartOfMonthISO(addMonthsISO(state.scheduleAnchorDate, amount)) : addDaysISO(state.scheduleAnchorDate, amount * 7);
@@ -2880,6 +3194,182 @@ function changeScheduleWeek(offset){
 function resetScheduleWeek(){
   state.scheduleAnchorDate = state.scheduleView === 'month' ? getStartOfMonthISO(new Date()) : getStartOfWeekISO(new Date());
   renderSchedule(buildDerivedState());
+}
+
+function getScheduleCalendarPrintDefaultRange(){
+  if(state.scheduleView === 'month'){
+    const from = getStartOfMonthISO(state.scheduleAnchorDate);
+    return { from, to:addDaysISO(getStartOfMonthISO(addMonthsISO(from, 1)), -1) };
+  }
+  if(state.scheduleView === 'work_week'){
+    const from = getStartOfWorkWeekISO(state.scheduleAnchorDate);
+    return { from, to:addDaysISO(from, 4) };
+  }
+  const from = getStartOfWeekISO(state.scheduleAnchorDate);
+  return { from, to:addDaysISO(from, 6) };
+}
+
+function getScheduleCalendarPrintDateRange(fromValue, toValue){
+  const from = toInputDate(fromValue);
+  const to = toInputDate(toValue);
+  const fromDate = parseDateOnly(from);
+  const toDate = parseDateOnly(to);
+  if(!fromDate || !toDate || fromDate > toDate) return [];
+  const dates = [];
+  for(let dateIso = from; dateIso <= to; dateIso = addDaysISO(dateIso, 1)) dates.push(dateIso);
+  return dates;
+}
+
+function getSundayWeekStartISO(input){
+  const date = parseDateOnly(input || new Date());
+  if(!date) return '';
+  date.setDate(date.getDate() - date.getDay());
+  return toInputDate(date);
+}
+
+function getScheduleCalendarPrintGridDates(dates){
+  if(!dates.length) return [];
+  const gridStart = getSundayWeekStartISO(dates[0]);
+  const gridEnd = addDaysISO(getSundayWeekStartISO(dates[dates.length - 1]), 6);
+  return getScheduleCalendarPrintDateRange(gridStart, gridEnd);
+}
+
+function getScheduleCalendarPrintJobs(dates, filterMode, derived){
+  if(filterMode === 'active') return getFilteredScheduleJobs(dates, derived);
+  return getJobsForScheduleDates(dates, 'all');
+}
+
+function openScheduleCalendarPrintModal(){
+  const range = getScheduleCalendarPrintDefaultRange();
+  state.scheduleCalendarPrintModal = { open:true, from:range.from, to:range.to, filterMode:'active', error:'' };
+  renderScheduleCalendarPrintModal();
+}
+
+function closeScheduleCalendarPrintModal(){
+  state.scheduleCalendarPrintModal = createClosedScheduleCalendarPrintModalState();
+  renderScheduleCalendarPrintModal();
+}
+
+function setScheduleCalendarPrintModalField(key, value){
+  if(!['from', 'to', 'filterMode'].includes(key)) return;
+  state.scheduleCalendarPrintModal[key] = key === 'filterMode' ? (value === 'all' ? 'all' : 'active') : String(value || '');
+  state.scheduleCalendarPrintModal.error = '';
+  renderScheduleCalendarPrintModal();
+}
+
+function renderScheduleCalendarPrintModal(){
+  const modal = state.scheduleCalendarPrintModal;
+  const overlay = document.getElementById('schedule-calendar-print-modal-overlay');
+  const body = document.getElementById('schedule-calendar-print-modal-body');
+  if(!overlay || !body) return;
+  if(!modal.open){ overlay.classList.remove('open'); return; }
+  overlay.classList.add('open');
+  body.innerHTML = `
+    <p class="muted">Choose the inclusive date range for a printer-friendly Field Ops calendar. Your browser’s print dialog can save it as a PDF.</p>
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label" for="schedule-calendar-print-from">From</label><input id="schedule-calendar-print-from" class="form-input" type="date" value="${esc(modal.from)}" onchange="setScheduleCalendarPrintModalField('from', this.value)"></div>
+      <div class="form-group"><label class="form-label" for="schedule-calendar-print-to">To</label><input id="schedule-calendar-print-to" class="form-input" type="date" value="${esc(modal.to)}" onchange="setScheduleCalendarPrintModalField('to', this.value)"></div>
+    </div>
+    <div class="schedule-calendar-print-options" role="radiogroup" aria-label="Jobs to include">
+      <label><input type="radio" name="schedule-calendar-print-filter" value="active" ${modal.filterMode === 'active' ? 'checked' : ''} onchange="setScheduleCalendarPrintModalField('filterMode', this.value)"><span><strong>Apply active schedule filters</strong><br><span class="muted">Include only jobs matching the current search, client, job type, and technician filters.</span></span></label>
+      <label><input type="radio" name="schedule-calendar-print-filter" value="all" ${modal.filterMode === 'all' ? 'checked' : ''} onchange="setScheduleCalendarPrintModalField('filterMode', this.value)"><span><strong>Include all scheduled jobs</strong><br><span class="muted">Ignore schedule filters and include every job in the selected date range.</span></span></label>
+    </div>
+    ${modal.error ? `<div class="schedule-calendar-print-error" role="alert">${esc(modal.error)}</div>` : ''}
+  `;
+}
+
+function getScheduleCalendarPrintTechnicianLabel(job){
+  const labels = getTechnicianAssignmentsForJob(job.id).map((assignment) => getTechnicianLabel(assignment.resourceId));
+  return labels.length ? labels.join(', ') : 'Unassigned';
+}
+
+function getScheduleCalendarPrintTimeLabel(job){
+  return job?.scheduledStart ? fmtTime(job.scheduledStart) : 'Time TBD';
+}
+
+function getScheduleCalendarPrintJobStyle(job){
+  const color = getJobTypeColor(job?.jobType);
+  return `--calendar-job-color:${color};--calendar-job-bg:${rgbaFromHex(color, .12)};`;
+}
+
+function renderScheduleCalendarPrintJob(job){
+  return `<article class="calendar-job" style="${esc(getScheduleCalendarPrintJobStyle(job))}"><div class="calendar-job-time">${esc(getScheduleCalendarPrintTimeLabel(job))}</div><strong>${esc(getJobDisplayTitle(job))}</strong><span>${esc(getClientLabel(job.clientId))}</span><span>${esc(getJobSiteSummary(job))}</span><span>${esc(getScheduleCalendarPrintTechnicianLabel(job))}</span></article>`;
+}
+
+function buildScheduleCalendarPrintDocument(from, to, gridDates, jobs){
+  const selectedDates = new Set(getScheduleCalendarPrintDateRange(from, to));
+  const jobsByDate = new Map(gridDates.map((dateIso) => [dateIso, []]));
+  jobs.forEach((job) => {
+    const dateIso = toInputDate(getJobPrimaryDate(job));
+    if(jobsByDate.has(dateIso)) jobsByDate.get(dateIso).push(job);
+  });
+  jobsByDate.forEach((dayJobs) => dayJobs.sort((left, right) => {
+    const leftStart = getJobPrimaryDate(left)?.getTime() || Number.MAX_SAFE_INTEGER;
+    const rightStart = getJobPrimaryDate(right)?.getTime() || Number.MAX_SAFE_INTEGER;
+    return leftStart - rightStart || compareStrings(getJobDisplayTitle(left), getJobDisplayTitle(right));
+  }));
+  const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const calendarCells = gridDates.map((dateIso) => {
+    const date = parseDateOnly(dateIso);
+    const inRange = selectedDates.has(dateIso);
+    const jobsForDay = inRange ? jobsByDate.get(dateIso) || [] : [];
+    return `<section class="calendar-day ${inRange ? '' : 'outside-range'}"><header><strong>${esc(date?.toLocaleDateString('en-US', { month:'short', day:'numeric' }) || '')}</strong><span>${esc(date?.toLocaleDateString('en-US', { weekday:'short' }) || '')}</span></header>${jobsForDay.map(renderScheduleCalendarPrintJob).join('')}</section>`;
+  }).join('');
+  const title = `Field Schedule Calendar | ${fmtDate(from)} - ${fmtDate(to)}`;
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${esc(title)}</title><style>
+    @page { size:landscape; margin:.35in; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:#18251d; font-family:Arial, Helvetica, sans-serif; }
+    h1 { margin:0; font-size:20px; }
+    .print-meta { margin:4px 0 16px; color:#536259; font-size:11px; }
+    .calendar-weekdays, .calendar-grid { display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); }
+    .calendar-weekdays { border:1px solid #9dac9f; border-bottom:0; background:#e9f0e9; }
+    .calendar-weekdays div { padding:6px 4px; border-right:1px solid #b8c4ba; font-size:10px; font-weight:700; text-align:center; text-transform:uppercase; }
+    .calendar-weekdays div:last-child { border-right:0; }
+    .calendar-grid { border-top:1px solid #9dac9f; border-left:1px solid #9dac9f; }
+    .calendar-day { min-height:1.42in; padding:6px; border-right:1px solid #9dac9f; border-bottom:1px solid #9dac9f; overflow:hidden; }
+    .calendar-day header { display:flex; justify-content:space-between; gap:5px; margin-bottom:6px; color:#34483a; font-size:10px; }
+    .calendar-day header span { color:#657368; font-size:9px; }
+    .calendar-day.outside-range { background:#f3f5f3; color:#9ba69d; }
+    .calendar-job { display:grid; gap:2px; margin:0 0 5px; padding:5px; border-left:3px solid var(--calendar-job-color); border-radius:2px; background:var(--calendar-job-bg); font-size:8.5px; line-height:1.18; break-inside:avoid; }
+    .calendar-job-time { color:var(--calendar-job-color); font-size:8px; font-weight:700; }
+    .calendar-job strong { color:var(--calendar-job-color); font-size:9px; }
+    @media print { .calendar-day { min-height:1.25in; } }
+  </style></head><body><h1>Field Schedule Calendar</h1><div class="print-meta">${esc(fmtDate(from))} – ${esc(fmtDate(to))} | Generated ${esc(new Date().toLocaleString('en-US'))}</div><div class="calendar-weekdays">${weekdays.map((day) => `<div>${day}</div>`).join('')}</div><main class="calendar-grid">${calendarCells}</main></body></html>`;
+}
+
+function printScheduleCalendar(){
+  const modal = state.scheduleCalendarPrintModal;
+  const dates = getScheduleCalendarPrintDateRange(modal.from, modal.to);
+  if(!dates.length){
+    modal.error = 'Enter a valid date range with a From date on or before the To date.';
+    renderScheduleCalendarPrintModal();
+    return;
+  }
+  const jobs = getScheduleCalendarPrintJobs(dates, modal.filterMode, buildDerivedState());
+  if(!jobs.length){
+    modal.error = 'No scheduled field jobs match this date range and selection.';
+    renderScheduleCalendarPrintModal();
+    return;
+  }
+  const printWindow = window.open('', '_blank');
+  if(!printWindow){
+    modal.error = 'Unable to open the print window. Please allow pop-ups for this dashboard and try again.';
+    renderScheduleCalendarPrintModal();
+    return;
+  }
+  try {
+    printWindow.document.open();
+    printWindow.document.write(buildScheduleCalendarPrintDocument(modal.from, modal.to, getScheduleCalendarPrintGridDates(dates), jobs));
+    printWindow.document.close();
+    closeScheduleCalendarPrintModal();
+    window.setTimeout(() => { if(!printWindow.closed){ printWindow.focus(); printWindow.print(); } }, 200);
+  } catch (error){
+    console.error('Unable to prepare the field schedule calendar:', error);
+    printWindow.close();
+    modal.error = 'Unable to prepare the calendar for printing. Please try again.';
+    renderScheduleCalendarPrintModal();
+  }
 }
 
 function openScheduleDayPrompt(dateIso, event){
@@ -3167,7 +3657,8 @@ function renderScheduleJobActions(job){
   const quickOpen = state.scheduleQuickTechJobId === job.id;
   const quickTicketOpen = state.scheduleQuickTicketJobId === job.id;
   const saving = state.scheduleActionSavingJobId === job.id;
-  const ticketActionLabel = getSalesforceCaseLabel(job) || getSalesforceCaseUrl(job) ? 'Edit Salesforce Ticket' : 'Add Salesforce Ticket';
+  const importedTicket = getSalesforceTicketForJob(job.id);
+  const ticketActionLabel = importedTicket ? 'Change / Unlink Salesforce Ticket' : 'Choose Salesforce Ticket';
   const selectedTechnicianId = String(state.scheduleQuickTechTechnicianId || getScheduleQuickTechDefault(job.id));
   const technicianOptions = buildTechnicianOptions(job.jobType, selectedTechnicianId);
   const ticketNumber = quickTicketOpen ? state.scheduleQuickTicketNumber : getSalesforceCaseLabel(job);
@@ -3198,19 +3689,14 @@ function renderScheduleJobActions(job){
     <div class="schedule-job-action-popover" role="dialog" aria-label="Job actions for ${esc(getJobDisplayTitle(job))}" onclick="event.stopPropagation()">
       <button class="schedule-job-action-btn" type="button" onclick="openScheduleJobEdit('${esc(job.id)}')" ${saving ? 'disabled' : ''}>Edit Job</button>
       <button class="schedule-job-action-btn" type="button" onclick="openScheduleJobRoute('${esc(job.id)}')" ${saving ? 'disabled' : ''}>Edit/Add Route</button>
-      <button class="schedule-job-action-btn ${quickTicketOpen ? 'active' : ''}" type="button" onclick="toggleScheduleQuickTicket('${esc(job.id)}')" ${saving ? 'disabled' : ''}>${esc(ticketActionLabel)}</button>
+      <button class="schedule-job-action-btn" type="button" onclick="${isRemoteMode() ? `openSalesforceTicketPicker('${esc(job.id)}')` : `toggleScheduleQuickTicket('${esc(job.id)}')`}" ${saving ? 'disabled' : ''}>${esc(ticketActionLabel)}</button>
+      <button class="schedule-job-action-btn ${quickTicketOpen ? 'active' : ''}" type="button" onclick="toggleScheduleQuickTicket('${esc(job.id)}')" ${saving || importedTicket ? 'disabled' : ''}>Manual Ticket Fallback</button>
       ${quickTicketMarkup}
       <button class="schedule-job-action-btn ${quickOpen ? 'active' : ''}" type="button" onclick="toggleScheduleQuickTech('${esc(job.id)}')" ${saving ? 'disabled' : ''}>Quick Change Tech</button>
       ${quickTechMarkup}
     </div>`;
 }
 
-function getPriorityBadge(priority){
-  const value = priority || 'Low';
-  if(['low', 'normal'].includes(String(value).toLowerCase())) return '';
-  const cls = value.toLowerCase().replace(/\s+/g, '-');
-  return `<span class="priority-badge ${cls}">${esc(value)}</span>`;
-}
 function getStatusTone(status){ if(['In Progress', 'Available', 'Current', 'Logged In', 'Received by Lab', 'Inspection Current', 'On Site'].includes(status)) return 'ok'; if(['Waiting', 'Scheduled', 'Due Soon', 'Collected', 'Delivered', 'Assigned', 'Needs Pulled', 'Inspection Due Soon', 'Planned', 'In Transit'].includes(status)) return 'warn'; if(['Urgent', 'Overdue', 'Out of Service', 'Needs Repair', 'Canceled', 'Exception', 'Inspection Overdue'].includes(status)) return 'danger'; if(['Complete', 'Closed', 'Inactive'].includes(status)) return 'muted'; return 'info'; }
 function getStatusBadge(status){ return `<span class="status-badge ${getStatusTone(status)}">${esc(status || 'Not set')}</span>`; }
 function getTruckInspectionBadge(truck){ const status = getTruckInspectionStatus(truck); return status ? getStatusBadge(status) : ''; }
@@ -3266,7 +3752,7 @@ function getJobWarnings(job, derived, options = {}){
 
 function renderMiniJobList(jobs, derived, emptyText){
   if(!jobs.length) return `<div class="empty-state"><strong>Nothing to show</strong>${esc(emptyText)}</div>`;
-  return `<div class="mini-list">${[...jobs].sort(getEntitySorter('jobs')).map((job) => `<div ${renderSelectableOpenAttrs('jobs', job.id, 'mini-card overview-job-card clickable-card', 'Open Job', getJobTypeScheduleStyle(job.jobType))}><div class="mini-head"><div><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(getClientLabel(job.clientId))} | ${esc(getProjectLabel(job.projectId))} | ${esc(getJobSiteSummary(job))}</div></div>${getPriorityBadge(job.priority)}</div><div class="mini-tags"><span class="mini-tag">${esc(getJobScheduleLabel(job))}</span>${renderJobSalesforceTag(job)}</div>${renderWarnings(getJobWarnings(job, derived))}</div>`).join('')}</div>`;
+  return `<div class="mini-list">${[...jobs].sort(getEntitySorter('jobs')).map((job) => `<div ${renderSelectableOpenAttrs('jobs', job.id, 'mini-card overview-job-card clickable-card', 'Open Job', getJobTypeScheduleStyle(job.jobType))}><div class="mini-head"><div><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(getClientLabel(job.clientId))} | ${esc(getProjectLabel(job.projectId))} | ${esc(getJobSiteSummary(job))}</div></div></div><div class="mini-tags"><span class="mini-tag">${esc(getJobScheduleLabel(job))}</span>${renderJobSalesforceTag(job)}</div>${renderWarnings(getJobWarnings(job, derived))}</div>`).join('')}</div>`;
 }
 
 function renderIssueCard(label, value, copy){
@@ -3311,14 +3797,12 @@ function buildDispatchJobView(job, derived){
     truckLabels,
     equipmentLabels,
     values:{
-      job:[getJobTypeDisplayName(job.jobType), job.scopeSummary, job.custodyAllocation].filter(Boolean).join(' '),
+      jobType:getJobTypeDisplayName(job.jobType),
       client:[getClientLabel(job.clientId), getProjectLabel(job.projectId), getJobSiteSummary(job)].join(' '),
       schedule:getJobPrimaryDate(job)?.getTime() ?? null,
-      priority:PRIORITY_RANK[job.priority] ?? 99,
-      tech:techLabels.join(' | '),
-      truck:truckLabels.join(' | '),
-      equipment:equipmentLabels.join(' | '),
-      alerts:warnings.length ? `${warnings.length} ${warnings.join(' ')}` : ''
+      salesforceTicket:getSalesforceCaseLabel(job),
+      status:isJobClosed(job) ? 'Closed' : 'Open',
+      technician:techLabels.join(' | ')
     }
   };
 }
@@ -3340,28 +3824,69 @@ function compareDispatchRows(left, right){
   const direction = state.filters.dispatchSortDirection || 'asc';
   return compareDispatchValues(left.values[sortKey], right.values[sortKey], direction)
     || compareDispatchValues(left.values.schedule, right.values.schedule, 'asc')
-    || compareDispatchValues(left.values.priority, right.values.priority, 'asc')
-    || compareDispatchValues(left.values.job, right.values.job, 'asc')
+    || compareDispatchValues(left.values.jobType, right.values.jobType, 'asc')
     || compareStrings(left.job.id, right.job.id);
 }
 
+function jobOverlapsDispatchDateRange(job, fromValue, toValue){
+  const jobStart = getJobPrimaryDate(job);
+  if(!jobStart) return !fromValue && !toValue;
+  const jobEnd = getJobSecondaryDate(job) || jobStart;
+  const fromDate = parseDateOnly(fromValue);
+  const toDate = parseDateOnly(toValue);
+  if(fromDate && jobEnd < fromDate) return false;
+  if(toDate){
+    const toDateEnd = new Date(toDate.getTime());
+    toDateEnd.setHours(23, 59, 59, 999);
+    if(jobStart > toDateEnd) return false;
+  }
+  return true;
+}
+
+function jobMatchesJobFilters(row, filters, includeDate = false){
+  const search = String(filters.search || '').trim().toLowerCase();
+  const job = row.job;
+  if(filters.client !== 'all' && job.clientId !== filters.client) return false;
+  if(filters.jobType !== 'all' && resolveJobTypeValue(state.data.jobTypes, job.jobType) !== filters.jobType) return false;
+  if(includeDate && !jobOverlapsDispatchDateRange(job, filters.dateFrom, filters.dateTo)) return false;
+  if(filters.technician !== 'all' && !getTechnicianAssignmentsForJob(job.id).some((assignment) => assignment.resourceId === filters.technician)) return false;
+  if(filters.needsTicket && !jobNeedsSalesforceTicket(job)) return false;
+  if(!search) return true;
+  const haystack = [getJobDisplayTitle(job), getJobTypeDisplayName(job.jobType), job.scopeSummary, job.clientContactForJob, getClientLabel(job.clientId), getProjectLabel(job.projectId), getJobSiteSummary(job), getJobSites(job).map((site) => site.siteName).join(' '), row.techLabels.join(' ')].join(' ').toLowerCase();
+  return haystack.includes(search);
+}
+
 function getFilteredDispatchRows(derived){
-  const search = state.filters.dispatchSearch.trim().toLowerCase();
+  const filters = {
+    search:state.filters.dispatchSearch,
+    client:state.filters.dispatchClient,
+    jobType:state.filters.dispatchJobType,
+    dateFrom:state.filters.dispatchDateFrom,
+    dateTo:state.filters.dispatchDateTo,
+    status:state.filters.dispatchStatus,
+    technician:state.filters.dispatchTechnician,
+    needsTicket:state.filters.dispatchNeedsTicket
+  };
   return state.data.jobs.map((job) => buildDispatchJobView(job, derived)).filter((row) => {
-    const job = row.job;
-    const past = isJobPast(job);
-    if(state.filters.dispatchJobFilter === 'open' && past) return false;
-    if(state.filters.dispatchJobFilter === 'past' && !past) return false;
-    if(state.filters.dispatchPriority !== 'all' && job.priority !== state.filters.dispatchPriority) return false;
-    if(state.filters.dispatchJobType !== 'all' && resolveJobTypeValue(state.data.jobTypes, job.jobType) !== state.filters.dispatchJobType) return false;
-    if(state.filters.dispatchAlertFilter === 'has' && !row.warnings.length) return false;
-    if(state.filters.dispatchAlertFilter === 'none' && row.warnings.length) return false;
-    if(state.filters.dispatchAssignmentFilter === 'missing' && !row.missingRequirements.length) return false;
-    if(state.filters.dispatchAssignmentFilter === 'complete' && row.missingRequirements.length) return false;
-    if(!search) return true;
-    const haystack = [getJobDisplayTitle(job), getJobTypeDisplayName(job.jobType), job.scopeSummary, job.clientContactForJob, getClientLabel(job.clientId), getProjectLabel(job.projectId), getJobSiteSummary(job), getJobSites(job).map((site) => site.siteName).join(' '), row.techLabels.join(' '), row.truckLabels.join(' '), row.equipmentLabels.join(' '), row.warnings.join(' ')].join(' ').toLowerCase();
-    return haystack.includes(search);
+    if(filters.status === 'open' && isJobClosed(row.job)) return false;
+    if(filters.status === 'closed' && !isJobClosed(row.job)) return false;
+    return jobMatchesJobFilters(row, filters, true);
   }).sort(compareDispatchRows);
+}
+
+function getFilteredScheduleJobs(dates, derived){
+  const filters = {
+    search:state.filters.scheduleSearch,
+    client:state.filters.scheduleClient,
+    jobType:state.filters.scheduleJobType,
+    technician:state.filters.scheduleTechnician,
+    needsTicket:state.filters.scheduleNeedsTicket
+  };
+  const visibleJobIds = new Set(state.data.jobs
+    .map((job) => buildDispatchJobView(job, derived))
+    .filter((row) => jobMatchesJobFilters(row, filters))
+    .map((row) => row.job.id));
+  return getJobsForScheduleDates(dates, 'all').filter((job) => visibleJobIds.has(job.id));
 }
 
 function renderOverview(derived){
@@ -3382,24 +3907,26 @@ function renderDispatchSortHeader(column){
   return `<button class="sort-header-btn ${active ? 'active' : ''}" type="button" onclick="setDispatchSort('${esc(column.key)}')" aria-label="Sort by ${esc(column.label)}">${esc(column.label)}${indicator ? `<span>${esc(indicator)}</span>` : ''}</button>`;
 }
 
-function renderDispatchTable(rows){
+function renderDispatchTable(rows, sortable = true){
   if(!rows.length) return '<div class="empty-state"><strong>No dispatch jobs yet</strong>Use the Add Job button to start building the field schedule.</div>';
   const columns = [
-    { key:'job', label:'Job' },
-    { key:'client', label:'Client / Project / Site' },
-    { key:'schedule', label:'Schedule' },
-    { key:'priority', label:'Priority' },
-    { key:'tech', label:'Tech' },
-    { key:'truck', label:'Truck' },
-    { key:'equipment', label:'Equipment' }
+    { key:'jobType', label:'Job Type', sortable:true },
+    { key:'client', label:'Client / Project / Site', sortable:true },
+    { key:'schedule', label:'Date', sortable:true },
+    { key:'salesforceTicket', label:'Salesforce Ticket', sortable:true },
+    { key:'status', label:'Job Status', sortable:true },
+    { key:'technician', label:'Technician', sortable:true },
+    { key:'truck', label:'Truck', sortable:false },
+    { key:'equipment', label:'Equipment', sortable:false }
   ];
-  return `<div class="table-wrap"><table class="dispatch-table"><thead><tr>${columns.map((column) => `<th>${renderDispatchSortHeader(column)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => {
+  return `<div class="table-wrap"><table class="dispatch-table"><thead><tr>${columns.map((column) => `<th>${sortable && column.sortable ? renderDispatchSortHeader(column) : esc(column.label)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => {
     const job = row.job;
     const cells = [
-      `<div class="inline-stack dispatch-job-cell"><div>${getJobTypeBadge(job.jobType)}${renderJobSalesforceTag(job)}</div><div class="muted">${esc(job.scopeSummary || 'No scope summary')}</div>${job.custodyAllocation ? `<div class="muted">${esc(job.custodyAllocation)}</div>` : ''}</div>`,
+      `<div class="inline-stack dispatch-job-cell"><div>${getJobTypeBadge(job.jobType)}</div>${jobTypeHasDetailGroup(job.jobType, 'proving') && job.custodyAllocation ? `<div class="muted">${esc(job.custodyAllocation)}</div>` : ''}</div>`,
       `<div class="inline-stack"><div class="item-title">${esc(getClientLabel(job.clientId))}</div><div class="muted">${esc(getProjectLabel(job.projectId))} | ${esc(getJobSiteSummary(job))}</div></div>`,
       `<div class="inline-stack"><div>${esc(getJobScheduleLabel(job))}</div></div>`,
-      getPriorityBadge(job.priority),
+      renderJobSalesforceTicket(job),
+      getStatusBadge(row.values.status),
       renderDispatchAssignmentCell(row.techLabels),
       renderDispatchAssignmentCell(row.truckLabels),
       renderDispatchAssignmentCell(row.equipmentLabels)
@@ -3410,9 +3937,30 @@ function renderDispatchTable(rows){
 
 function renderDispatch(derived){
   const filteredRows = getFilteredDispatchRows(derived);
-  document.getElementById('dispatch-toolbar').innerHTML = `<span class="label">Search</span><input type="text" value="${esc(state.filters.dispatchSearch)}" placeholder="Job type, client, project, site/location, resource, alert, or scope..." oninput="setDispatchFilter('dispatchSearch', this.value)"><span class="label">Jobs</span><select onchange="setDispatchFilter('dispatchJobFilter', this.value)"><option value="all" ${state.filters.dispatchJobFilter === 'all' ? 'selected' : ''}>All Jobs</option><option value="open" ${state.filters.dispatchJobFilter === 'open' ? 'selected' : ''}>Open Jobs</option><option value="past" ${state.filters.dispatchJobFilter === 'past' ? 'selected' : ''}>Past Jobs</option></select><span class="label">Priority</span><select onchange="setDispatchFilter('dispatchPriority', this.value)"><option value="all">All Priorities</option>${PRIORITY_OPTIONS.map((priority) => `<option value="${esc(priority)}" ${state.filters.dispatchPriority === priority ? 'selected' : ''}>${esc(priority)}</option>`).join('')}</select><span class="label">Type</span><select onchange="setDispatchFilter('dispatchJobType', this.value)"><option value="all">All Job Types</option>${getActiveJobTypes().map((jobType) => `<option value="${esc(jobType.jobTypeKey)}" ${state.filters.dispatchJobType === jobType.jobTypeKey ? 'selected' : ''}>${esc(jobType.jobTypeName)}</option>`).join('')}</select><span class="label">Alerts</span><select onchange="setDispatchFilter('dispatchAlertFilter', this.value)"><option value="all" ${state.filters.dispatchAlertFilter === 'all' ? 'selected' : ''}>All</option><option value="has" ${state.filters.dispatchAlertFilter === 'has' ? 'selected' : ''}>Has Alerts</option><option value="none" ${state.filters.dispatchAlertFilter === 'none' ? 'selected' : ''}>No Alerts</option></select><span class="label">Assignments</span><select onchange="setDispatchFilter('dispatchAssignmentFilter', this.value)"><option value="all" ${state.filters.dispatchAssignmentFilter === 'all' ? 'selected' : ''}>All</option><option value="missing" ${state.filters.dispatchAssignmentFilter === 'missing' ? 'selected' : ''}>Missing Required</option><option value="complete" ${state.filters.dispatchAssignmentFilter === 'complete' ? 'selected' : ''}>Fully Assigned</option></select><div class="toolbar-spacer"></div><button class="act-btn" type="button" onclick="switchView('setup')">Manage Job Types</button><button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button>`;
+  const clients = [...state.data.clients].sort(getEntitySorter('clients'));
+  const technicians = [...state.data.employees].sort((left, right) => compareStrings(getEmployeeListName(left), getEmployeeListName(right)));
+  const dateRangeControls = state.filters.dispatchDatePreset === 'date_range'
+    ? `<span class="label">From</span><input type="date" value="${esc(state.filters.dispatchDateFrom)}" onchange="setDispatchDateRangeValue('dispatchDateFrom', this.value)"><span class="label">To</span><input type="date" value="${esc(state.filters.dispatchDateTo)}" onchange="setDispatchDateRangeValue('dispatchDateTo', this.value)">`
+    : '';
+  document.getElementById('dispatch-toolbar').innerHTML = `<span class="label">Search</span><input type="text" value="${esc(state.filters.dispatchSearch)}" placeholder="Client, job type, site, technician, or scope..." oninput="setDispatchFilter('dispatchSearch', this.value)"><span class="label">Client</span><select onchange="setDispatchFilter('dispatchClient', this.value)"><option value="all">All Clients</option>${clients.map((client) => `<option value="${esc(client.id)}" ${state.filters.dispatchClient === client.id ? 'selected' : ''}>${esc(getClientLabel(client.id))}</option>`).join('')}</select><span class="label">Job Type</span><select onchange="setDispatchFilter('dispatchJobType', this.value)"><option value="all">All Job Types</option>${getActiveJobTypes().map((jobType) => `<option value="${esc(jobType.jobTypeKey)}" ${state.filters.dispatchJobType === jobType.jobTypeKey ? 'selected' : ''}>${esc(jobType.jobTypeName)}</option>`).join('')}</select><span class="label">Date</span><select onchange="setDispatchDatePreset(this.value)"><option value="this_week" ${state.filters.dispatchDatePreset === 'this_week' ? 'selected' : ''}>This Week</option><option value="last_week" ${state.filters.dispatchDatePreset === 'last_week' ? 'selected' : ''}>Last Week</option><option value="next_week" ${state.filters.dispatchDatePreset === 'next_week' ? 'selected' : ''}>Next Week</option><option value="this_month" ${state.filters.dispatchDatePreset === 'this_month' ? 'selected' : ''}>This Month</option><option value="last_month" ${state.filters.dispatchDatePreset === 'last_month' ? 'selected' : ''}>Last Month</option><option value="next_month" ${state.filters.dispatchDatePreset === 'next_month' ? 'selected' : ''}>Next Month</option><option value="date_range" ${state.filters.dispatchDatePreset === 'date_range' ? 'selected' : ''}>Date Range</option></select>${dateRangeControls}<span class="label">Job Status</span><select onchange="setDispatchFilter('dispatchStatus', this.value)"><option value="open" ${state.filters.dispatchStatus === 'open' ? 'selected' : ''}>Open Jobs</option><option value="closed" ${state.filters.dispatchStatus === 'closed' ? 'selected' : ''}>Closed Jobs</option><option value="all" ${state.filters.dispatchStatus === 'all' ? 'selected' : ''}>All Jobs</option></select><span class="label">Technician</span><select onchange="setDispatchFilter('dispatchTechnician', this.value)"><option value="all">All Technicians</option>${technicians.map((technician) => `<option value="${esc(technician.id)}" ${state.filters.dispatchTechnician === technician.id ? 'selected' : ''}>${esc(getEmployeeListName(technician))}</option>`).join('')}</select><label class="toolbar-checkbox"><input type="checkbox" ${state.filters.dispatchNeedsTicket ? 'checked' : ''} onchange="setDispatchFilter('dispatchNeedsTicket', this.checked)"> Needs Ticket</label><button class="sec-btn" type="button" onclick="clearDispatchFilters()">Clear Filter</button><div class="toolbar-spacer"></div><button class="act-btn" type="button" onclick="switchView('setup')">Manage Job Types</button><button class="add-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button>`;
   document.getElementById('dispatch-summary').textContent = `${filteredRows.length} visible / ${state.data.jobs.length} total`;
   document.getElementById('dispatch-table').innerHTML = renderDispatchTable(filteredRows);
+}
+
+function renderScheduleDispatch(derived, jobs){
+  const rows = jobs.map((job) => buildDispatchJobView(job, derived)).sort((left, right) => {
+    return compareDispatchValues(left.values.schedule, right.values.schedule, 'asc')
+      || compareDispatchValues(left.values.jobType, right.values.jobType, 'asc')
+      || compareStrings(left.job.id, right.job.id);
+  });
+  document.getElementById('schedule-dispatch-summary').textContent = `${rows.length} jobs shown for the calendar period`;
+  document.getElementById('schedule-dispatch-table').innerHTML = renderDispatchTable(rows, false);
+}
+
+function renderScheduleFilterToolbar(){
+  const clients = [...state.data.clients].sort(getEntitySorter('clients'));
+  const technicians = [...state.data.employees].sort((left, right) => compareStrings(getEmployeeListName(left), getEmployeeListName(right)));
+  document.getElementById('schedule-dispatch-toolbar').innerHTML = `<span class="label">Search</span><input type="text" value="${esc(state.filters.scheduleSearch)}" placeholder="Client, job type, site, technician, or scope..." oninput="setScheduleFilter('scheduleSearch', this.value)"><span class="label">Client</span><select onchange="setScheduleFilter('scheduleClient', this.value)"><option value="all">All Clients</option>${clients.map((client) => `<option value="${esc(client.id)}" ${state.filters.scheduleClient === client.id ? 'selected' : ''}>${esc(getClientLabel(client.id))}</option>`).join('')}</select><span class="label">Job Type</span><select onchange="setScheduleFilter('scheduleJobType', this.value)"><option value="all">All Job Types</option>${getActiveJobTypes().map((jobType) => `<option value="${esc(jobType.jobTypeKey)}" ${state.filters.scheduleJobType === jobType.jobTypeKey ? 'selected' : ''}>${esc(jobType.jobTypeName)}</option>`).join('')}</select><span class="label">Technician</span><select onchange="setScheduleFilter('scheduleTechnician', this.value)"><option value="all">All Technicians</option>${technicians.map((technician) => `<option value="${esc(technician.id)}" ${state.filters.scheduleTechnician === technician.id ? 'selected' : ''}>${esc(getEmployeeListName(technician))}</option>`).join('')}</select><label class="toolbar-checkbox"><input type="checkbox" ${state.filters.scheduleNeedsTicket ? 'checked' : ''} onchange="setScheduleFilter('scheduleNeedsTicket', this.checked)"> Needs Ticket</label><button class="sec-btn" type="button" onclick="clearScheduleFilters()">Clear Filter</button>`;
 }
 
 function getScheduleViewOptions(){
@@ -3420,14 +3968,6 @@ function getScheduleViewOptions(){
     { value:'work_week', label:'Work Week' },
     { value:'week', label:'Weekly' },
     { value:'month', label:'Month' }
-  ];
-}
-
-function getScheduleFilterOptions(){
-  return [
-    { value:'all', label:'All' },
-    { value:'open', label:'Open' },
-    { value:'past', label:'Past' }
   ];
 }
 
@@ -3586,14 +4126,13 @@ function isDateInScheduleMonth(dateIso){
   return !!(date && monthStart && date.getFullYear() === monthStart.getFullYear() && date.getMonth() === monthStart.getMonth());
 }
 
-function getJobsForScheduleDates(dates, jobFilter = state.scheduleJobFilter){
+function getJobsForScheduleDates(dates, jobFilter = 'all'){
   const dateSet = new Set(dates);
   return state.data.jobs.filter((job) => {
     const jobDate = getJobPrimaryDate(job);
     if(!jobDate) return false;
     const jobDateIso = toInputDate(jobDate);
     if(!dateSet.has(jobDateIso)) return false;
-    if(state.scheduleView === 'month' && !isDateInScheduleMonth(jobDateIso)) return false;
     const past = isJobPast(job);
     if(jobFilter === 'open') return !past;
     if(jobFilter === 'past') return past;
@@ -3610,13 +4149,22 @@ function getScheduleDayClasses(dateIso){
   ].filter(Boolean).join(' ');
 }
 
+function renderScheduleCompanyIdentity(job){
+  const client = getClient(job?.clientId);
+  const companyName = client?.clientName || 'Company not set';
+  return `<div class="schedule-company" title="${esc(companyName)}">
+    <span class="schedule-company-name">${esc(companyName)}</span>
+    ${renderAssetPhoto(client, { className:'schedule-company-logo', emptyLabel:'No logo', alt:getAssetPhotoAlt('clients', client) })}
+  </div>`;
+}
+
 function renderSchedule(derived){
   const scheduleDates = getScheduleDates();
-  const scheduleJobs = getJobsForScheduleDates(scheduleDates);
+  const scheduleJobs = getFilteredScheduleJobs(scheduleDates, derived);
   const totalJobsInRange = getJobsForScheduleDates(scheduleDates, 'all').length;
-  const filterLabel = getScheduleFilterOptions().find((option) => option.value === state.scheduleJobFilter)?.label || 'All';
-  document.getElementById('schedule-toolbar').innerHTML = `${renderScheduleSegmentedControl('View', getScheduleViewOptions(), state.scheduleView, 'setScheduleView')}${renderScheduleSegmentedControl('Jobs', getScheduleFilterOptions(), state.scheduleJobFilter, 'setScheduleJobFilter')}<span class="label">Period</span><button class="act-btn" type="button" onclick="changeScheduleWeek(-1)">Prev</button><button class="act-btn" type="button" onclick="resetScheduleWeek()">Current</button><button class="act-btn" type="button" onclick="changeScheduleWeek(1)">Next</button><button class="act-btn" type="button" onclick="sendTeamsWebhookTest()">Send Teams Test</button><div class="toolbar-summary">${esc(getSchedulePeriodLabel(scheduleDates))}</div>`;
-  document.getElementById('schedule-summary').textContent = `${scheduleJobs.length} visible / ${totalJobsInRange} jobs ${getScheduleViewSummaryLabel(state.scheduleView)} | ${getScheduleViewLabel(state.scheduleView)} | ${filterLabel}`;
+  document.getElementById('schedule-toolbar').innerHTML = `${renderScheduleSegmentedControl('View', getScheduleViewOptions(), state.scheduleView, 'setScheduleView')}<span class="label">Period</span><button class="act-btn" type="button" onclick="changeScheduleWeek(-1)">Prev</button><button class="act-btn" type="button" onclick="resetScheduleWeek()">Current</button><button class="act-btn" type="button" onclick="changeScheduleWeek(1)">Next</button><button class="act-btn" type="button" onclick="openScheduleCalendarPrintModal()">Print Calendar</button><button class="act-btn" type="button" onclick="sendTeamsWebhookTest()">Send Teams Test</button><div class="toolbar-summary">${esc(getSchedulePeriodLabel(scheduleDates))}</div>`;
+  renderScheduleFilterToolbar();
+  document.getElementById('schedule-summary').textContent = `${scheduleJobs.length} visible / ${totalJobsInRange} jobs ${getScheduleViewSummaryLabel(state.scheduleView)} | ${getScheduleViewLabel(state.scheduleView)} | Schedule filters`;
   document.getElementById('schedule-board').innerHTML = `
     <div class="schedule-week schedule-${esc(state.scheduleView)}">
       ${scheduleDates.map((dateIso) => {
@@ -3634,7 +4182,10 @@ function renderSchedule(derived){
               const pastJob = isJobPast(job);
               const cardClasses = ['schedule-card', 'clickable-card', getJobTypeClassName(job.jobType), state.scheduleActionJobId === job.id ? 'action-open' : '', missingEquipment ? 'missing-equipment' : '', pastJob ? 'past-job' : '', derived.conflictJobIds.has(job.id) ? 'conflict' : '', warnings.length ? 'warning' : ''].filter(Boolean).join(' ');
               return `<div class="${esc(cardClasses)}" style="${esc(getJobTypeScheduleStyle(job.jobType))}" role="button" tabindex="0" title="Job Actions" aria-expanded="${state.scheduleActionJobId === job.id ? 'true' : 'false'}" onclick="openScheduleJobActions('${esc(job.id)}', event)" onkeydown="handleScheduleJobActionKey(event, '${esc(job.id)}')">
-                <div class="item-title">${esc(getJobDisplayTitle(job))}</div>
+                <div class="schedule-card-head">
+                  <div class="item-title">${esc(getJobDisplayTitle(job))}</div>
+                  ${renderScheduleCompanyIdentity(job)}
+                </div>
                 <div class="muted">${esc(fmtTime(job.scheduledStart || job.requestedDate))} | ${esc(getJobSiteSummary(job))}</div>
                 <div class="mini-tags">${renderJobSalesforceTag(job)}${renderJobNeedsTicketTag(job)}${renderJobNeedsRouteTag(job, derived)}</div>
                 ${renderScheduleTechnicianLine(job.id)}
@@ -3646,7 +4197,9 @@ function renderSchedule(derived){
         </div>`;
       }).join('')}
     </div>`;
+  hydrateAssetPhotoPreviews(document.getElementById('schedule-board'));
   renderTravelSchedule(scheduleDates);
+  renderScheduleDispatch(derived, scheduleJobs);
 }
 
 function getActiveDirectoryClientId(){
@@ -3739,7 +4292,7 @@ function renderDirectoryOverviewSection(client, activeProjectId){
   const primaryContacts = contacts.filter((row) => row.isPrimary);
   const upcomingJobs = jobs.filter((row) => !isJobClosed(row)).slice(0, 4);
   const address = [client.hqStreet, [client.hqCity, client.hqState].filter(Boolean).join(', '), client.hqZip].filter(Boolean).join(' ');
-  return `<div class="summary-grid directory-summary-grid"><div class="summary-card"><div class="label">Service Scope</div><div class="value">${esc(client.serviceScope || 'Field')}</div><div class="muted">${esc(client.sector || 'No sector')}</div></div><div class="summary-card"><div class="label">Client Code</div><div class="value">${esc(normalizeClientCode(client.clientCode) || 'Missing')}</div><div class="muted">Lab samples tie back to this client through the shared code.</div></div><div class="summary-card"><div class="label">Projects</div><div class="value">${projects.length}</div><div class="muted">Manage project scope from the Projects tab.</div></div><div class="summary-card"><div class="label">Contacts</div><div class="value">${contacts.length}</div><div class="muted">${esc(primaryContacts.length ? `${primaryContacts.length} primary contact${primaryContacts.length === 1 ? '' : 's'}` : 'No primary contacts flagged')}</div></div><div class="summary-card"><div class="label">Site/Locations</div><div class="value">${sites.length}</div><div class="muted">${esc(jobs.length)} active workflow record(s) for this client</div></div></div><div class="directory-section-grid"><div class="summary-card"><div class="label">Company Snapshot</div><div class="value">${esc(client.clientName || 'Unnamed client')}</div><div class="muted">${esc(normalizeClientCode(client.clientCode) || 'No client code')}</div><div class="muted">${esc(address || 'No HQ address on file')}</div><div class="muted">${esc(client.defaultServiceArea || 'No default service area')}</div><div class="mini-tags">${getStatusBadge(client.accountStatus)}${getStatusBadge(client.serviceScope || 'Field')}</div></div><div class="summary-card"><div class="label">Billing Snapshot</div><div class="value">${esc(billingProfiles[0]?.billingName || 'No billing profile')}</div><div class="muted">${esc(billingProfiles[0]?.billingEmail || billingProfiles[0]?.billingPhone || client.contactEmail || 'No billing contact on file')}</div><div class="muted">${esc(billingProfiles[0] ? getBillingContactLabel(billingProfiles[0]) : 'No billing contact on file')}</div></div><div class="summary-card"><div class="label">Field Snapshot</div><div class="value">${esc(client.primaryContact || 'No primary contact')}</div><div class="muted">${esc(client.contactPhone || client.contactEmail || 'No client phone or email')}</div><div class="muted">${esc(client.operationalNotes || 'No field notes added yet')}</div></div></div><div class="directory-subsection"><div class="panel-header directory-subsection-head"><h2>Upcoming Jobs</h2><button class="act-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button></div><div class="panel-body">${upcomingJobs.length ? `<div class="mini-list">${upcomingJobs.map((job) => `<div class="mini-card clickable-card" role="button" tabindex="0" onclick="openEntityModal('jobs','${esc(job.id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEntityModal('jobs','${esc(job.id)}'); }"><div class="mini-head"><div><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(getProjectLabel(job.projectId))} | ${esc(getJobSiteSummary(job))}</div></div>${getPriorityBadge(job.priority)}</div><div class="mini-tags"><span class="mini-tag">${esc(getJobScheduleLabel(job))}</span>${renderJobSalesforceTag(job)}</div></div>`).join('')}</div>` : '<div class="empty-state">No jobs are queued for this client yet.</div>'}</div></div>`;
+  return `<div class="summary-grid directory-summary-grid"><div class="summary-card"><div class="label">Service Scope</div><div class="value">${esc(client.serviceScope || 'Field')}</div><div class="muted">${esc(client.sector || 'No sector')}</div></div><div class="summary-card"><div class="label">Client Code</div><div class="value">${esc(normalizeClientCode(client.clientCode) || 'Missing')}</div><div class="muted">Lab samples tie back to this client through the shared code.</div></div><div class="summary-card"><div class="label">Projects</div><div class="value">${projects.length}</div><div class="muted">Manage project scope from the Projects tab.</div></div><div class="summary-card"><div class="label">Contacts</div><div class="value">${contacts.length}</div><div class="muted">${esc(primaryContacts.length ? `${primaryContacts.length} primary contact${primaryContacts.length === 1 ? '' : 's'}` : 'No primary contacts flagged')}</div></div><div class="summary-card"><div class="label">Site/Locations</div><div class="value">${sites.length}</div><div class="muted">${esc(jobs.length)} active workflow record(s) for this client</div></div></div><div class="directory-section-grid"><div class="summary-card"><div class="label">Company Snapshot</div><div class="value">${esc(client.clientName || 'Unnamed client')}</div><div class="muted">${esc(normalizeClientCode(client.clientCode) || 'No client code')}</div><div class="muted">${esc(address || 'No HQ address on file')}</div><div class="muted">${esc(client.defaultServiceArea || 'No default service area')}</div><div class="mini-tags">${getStatusBadge(client.accountStatus)}${getStatusBadge(client.serviceScope || 'Field')}</div></div><div class="summary-card"><div class="label">Billing Snapshot</div><div class="value">${esc(billingProfiles[0]?.billingName || 'No billing profile')}</div><div class="muted">${esc(billingProfiles[0]?.billingEmail || billingProfiles[0]?.billingPhone || client.contactEmail || 'No billing contact on file')}</div><div class="muted">${esc(billingProfiles[0] ? getBillingContactLabel(billingProfiles[0]) : 'No billing contact on file')}</div></div><div class="summary-card"><div class="label">Field Snapshot</div><div class="value">${esc(client.primaryContact || 'No primary contact')}</div><div class="muted">${esc(client.contactPhone || client.contactEmail || 'No client phone or email')}</div><div class="muted">${esc(client.operationalNotes || 'No field notes added yet')}</div></div></div><div class="directory-subsection"><div class="panel-header directory-subsection-head"><h2>Upcoming Jobs</h2><button class="act-btn" type="button" onclick="openEntityModal('jobs')">+ Add Job</button></div><div class="panel-body">${upcomingJobs.length ? `<div class="mini-list">${upcomingJobs.map((job) => `<div class="mini-card clickable-card" role="button" tabindex="0" onclick="openEntityModal('jobs','${esc(job.id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openEntityModal('jobs','${esc(job.id)}'); }"><div class="mini-head"><div><div class="item-title">${esc(getJobDisplayTitle(job))}</div><div class="muted">${esc(getProjectLabel(job.projectId))} | ${esc(getJobSiteSummary(job))}</div></div></div><div class="mini-tags"><span class="mini-tag">${esc(getJobScheduleLabel(job))}</span>${renderJobSalesforceTag(job)}</div></div>`).join('')}</div>` : '<div class="empty-state">No jobs are queued for this client yet.</div>'}</div></div>`;
 }
 function renderDirectoryProjectsSection(clientId, activeProjectId){
   const projects = getDirectoryProjects(clientId);
@@ -3852,10 +4405,10 @@ function renderDirectoryBillingSection(clientId, activeProjectId){
 
 function renderDirectorySitesSection(clientId, activeProjectId){
   const sites = getDirectorySites(clientId, activeProjectId);
-  return renderTable(['Site/Location', 'Linked Projects', 'Type / Status', 'Location', 'Default Job Types', 'Jobs'], sites.map((site) => buildTableRow('sites', site.id, [
+  return renderTable(['Site/Location', 'Linked Projects', 'Type', 'Location', 'Default Job Types', 'Jobs'], sites.map((site) => buildTableRow('sites', site.id, [
     `<div class="inline-stack"><div class="item-title">${esc(site.siteName || 'Unnamed site')}</div><div class="muted">${esc(site.clientSiteContact || 'No site contact')}</div></div>`,
     esc(getLinkedProjectsForSite(site.id).map((project) => project.projectName || 'Unnamed project').join(', ') || 'No linked project'),
-    `<div class="inline-stack">${getStatusBadge(getSiteTypeDisplayName(site.siteType))}${getStatusBadge(site.siteStatus || 'Active')}</div>`,
+    `<div class="inline-stack">${getStatusBadge(getSiteTypeDisplayName(site.siteType))}</div>`,
     `<div class="inline-stack"><div>${esc(getSiteLocationPrimary(site))}</div><div class="muted">${esc(getSiteLocationSecondary(site))}</div></div>`,
     renderTags(getDefaultJobTypeLabelsForSiteType(site.siteType)),
     `<div class="inline-stack"><div>${esc(getJobsForSite(site.id).length)} job${getJobsForSite(site.id).length === 1 ? '' : 's'}</div><div class="muted">${esc(getSamplesForSite(site.id).length)} sample${getSamplesForSite(site.id).length === 1 ? '' : 's'}</div></div>`
@@ -4041,9 +4594,14 @@ function renderAssetPhotoField(field){
 function renderResources(){
   const splSitesPanel = document.getElementById('spl-sites-panel');
   if(splSitesPanel) splSitesPanel.innerHTML = renderResourceCards(state.data.splSites, (site) => `<div ${renderCardOpenAttrs('splSites', site.id)}><div class="resource-card-head"><div><div class="item-title">${esc(site.siteName || 'Unnamed SPL site')}</div><div class="muted">${esc(site.siteCode || 'No site code')}</div></div>${site.isActive ? '<span class="tag-chip">Active</span>' : '<span class="warning-chip">Inactive</span>'}</div><div class="muted">${esc(site.locationLabel || site.streetAddress || 'No location label')}</div><div class="muted">${esc([site.city, site.state, site.zipCode].filter(Boolean).join(', ') || 'No city/state')}</div></div>`, 'No SPL sites yet');
-  document.getElementById('trucks-panel').innerHTML = renderResourceCards(state.data.trucks, (truck) => `<div ${renderCardOpenAttrs('trucks', truck.id)}>${renderAssetPhoto(truck, { className:'resource-photo', emptyLabel:getAssetPhotoEmptyLabel('trucks'), alt:getAssetPhotoAlt('trucks', truck), fallbackImageSrc:getDefaultAssetIconSrc('trucks', truck) })}<div class="resource-card-head"><div><div class="item-title">${esc(truck.unitNumber || 'Unnamed truck')}</div><div class="muted">${esc([truck.color, truck.vehicleYear, truck.make, truck.model].filter(Boolean).join(' ') || truck.vehicleType)}</div></div><div class="mini-tags">${truck.isProver ? '<span class="tag-chip">Prover</span>' : ''}${getStatusBadge(truck.serviceStatus)}${getFuelTypeBadge(truck.fuelType)}${getTruckInspectionBadge(truck)}</div></div><div class="muted">${esc(truck.licensePlateNumber || 'No plate')} ${truck.registeredState ? `| ${esc(truck.registeredState)}` : ''}</div><div class="muted">${truck.vin ? `VIN: ${esc(truck.vin)}` : 'No VIN'}</div><div class="muted">Assigned Employee: ${esc(truck.assignedTechnicianId ? getTechnicianLabel(truck.assignedTechnicianId) : 'Pool')}</div></div>`, 'No trucks yet');
-  document.getElementById('trailers-panel').innerHTML = renderResourceCards(state.data.trailers, (trailer) => `<div ${renderCardOpenAttrs('trailers', trailer.id)}>${renderAssetPhoto(trailer, { className:'resource-photo', emptyLabel:getAssetPhotoEmptyLabel('trailers'), alt:getAssetPhotoAlt('trailers', trailer), fallbackImageSrc:getDefaultAssetIconSrc('trailers', trailer) })}<div class="resource-card-head"><div><div class="item-title">${esc(trailer.trailerNumber || 'Unnamed trailer')}</div><div class="muted">${esc(trailer.trailerType || 'No trailer type')}</div></div><div class="mini-tags">${trailer.isProver ? '<span class="tag-chip">Prover</span>' : ''}${getStatusBadge(trailer.serviceStatus)}</div></div><div class="muted">${esc(trailer.capacityConfiguration || 'No capacity/configuration')}</div><div class="muted">Assigned Truck: ${esc(trailer.assignedTruckId ? getTruckLabel(trailer.assignedTruckId) : 'Unassigned')}</div></div>`, 'No trailers yet');
-  document.getElementById('equipment-panel').innerHTML = renderResourceCards(state.data.equipment, (item) => `<div ${renderCardOpenAttrs('equipment', item.id)}><div class="resource-card-head"><div><div class="item-title">${esc(item.equipmentName || 'Unnamed equipment')}</div><div class="muted">${esc(item.equipmentType)}</div></div>${getStatusBadge(item.maintenanceStatus)}</div><div class="mini-tags">${getStatusBadge(item.calibrationStatus)}${item.serialNumber ? `<span class="tag-chip">${esc(item.serialNumber)}</span>` : ''}</div><div class="muted">${esc([item.manufacturer, item.model].filter(Boolean).join(' | ') || 'No manufacturer or model')}</div><div class="muted">${esc(item.splInventoryBarcode ? `Barcode: ${item.splInventoryBarcode}` : 'No SPL inventory barcode')}</div><div class="muted">Truck: ${esc(item.assignedTruckId ? getTruckLabel(item.assignedTruckId) : 'Pool')} | Trailer: ${esc(item.assignedTrailerId ? getTrailerLabel(item.assignedTrailerId) : 'Pool')}</div></div>`, 'No equipment yet');
+  document.getElementById('trucks-panel').innerHTML = renderResourceCards(state.data.trucks, (truck) => `<div ${renderCardOpenAttrs('trucks', truck.id)}>${renderAssetPhoto(truck, { className:'resource-photo', emptyLabel:getAssetPhotoEmptyLabel('trucks'), alt:getAssetPhotoAlt('trucks', truck), fallbackImageSrc:getDefaultAssetIconSrc('trucks', truck) })}<div class="resource-card-head"><div><div class="item-title">${esc(truck.unitNumber || 'Unnamed truck')}</div><div class="muted">${esc([truck.color, truck.vehicleYear, truck.make, truck.model].filter(Boolean).join(' ') || truck.vehicleType)}</div></div><div class="mini-tags">${truck.isProver ? '<span class="tag-chip">Prover</span>' : ''}${getStatusBadge(truck.serviceStatus)}${getFuelTypeBadge(truck.fuelType)}${getTruckInspectionBadge(truck)}</div></div>${renderGeotabCommunication(truck)}<div class="muted">${esc(truck.licensePlateNumber || 'No plate')} ${truck.registeredState ? `| ${esc(truck.registeredState)}` : ''}</div><div class="muted">${truck.vin ? `VIN: ${esc(truck.vin)}` : 'No VIN'}</div><div class="muted">Assigned Employee: ${esc(truck.assignedTechnicianId ? getTechnicianLabel(truck.assignedTechnicianId) : 'Pool')}</div></div>`, 'No trucks yet');
+  document.getElementById('trailers-panel').innerHTML = renderResourceCards(state.data.trailers, (trailer) => `<div ${renderCardOpenAttrs('trailers', trailer.id)}>${renderAssetPhoto(trailer, { className:'resource-photo', emptyLabel:getAssetPhotoEmptyLabel('trailers'), alt:getAssetPhotoAlt('trailers', trailer), fallbackImageSrc:getDefaultAssetIconSrc('trailers', trailer) })}<div class="resource-card-head"><div><div class="item-title">${esc(trailer.trailerNumber || 'Unnamed trailer')}</div><div class="muted">${esc(trailer.trailerType || 'No trailer type')}</div></div><div class="mini-tags">${trailer.isProver ? '<span class="tag-chip">Prover</span>' : ''}${getStatusBadge(trailer.serviceStatus)}</div></div>${renderGeotabCommunication(trailer)}<div class="muted">${trailer.vin ? `VIN: ${esc(trailer.vin)}` : 'No VIN'}</div><div class="muted">${esc(trailer.capacityConfiguration || 'No capacity/configuration')}</div><div class="muted">Assigned Truck: ${esc(trailer.assignedTruckId ? getTruckLabel(trailer.assignedTruckId) : 'Unassigned')}</div></div>`, 'No trailers yet');
+  const localEquipment = renderResourceCards(state.data.equipment, (item) => `<div ${renderCardOpenAttrs('equipment', item.id)}><div class="resource-card-head"><div><div class="item-title">${esc(item.equipmentName || 'Unnamed equipment')}</div><div class="muted">${esc(item.equipmentType)}</div></div>${getStatusBadge(item.maintenanceStatus)}</div><div class="mini-tags">${getStatusBadge(item.calibrationStatus)}${item.serialNumber ? `<span class="tag-chip">${esc(item.serialNumber)}</span>` : ''}</div><div class="muted">${esc([item.manufacturer, item.model].filter(Boolean).join(' | ') || 'No manufacturer or model')}</div><div class="muted">${esc(item.splInventoryBarcode ? `Barcode: ${item.splInventoryBarcode}` : 'No SPL inventory barcode')}</div><div class="muted">Truck: ${esc(item.assignedTruckId ? getTruckLabel(item.assignedTruckId) : 'Pool')} | Trailer: ${esc(item.assignedTrailerId ? getTrailerLabel(item.assignedTrailerId) : 'Pool')}</div></div>`, 'No dashboard-managed equipment');
+  const donesafeEquipment = renderResourceCards(state.data.donesafeEquipment.filter((item) => item.isActive !== false), (item) => `<div class="resource-card"><div class="resource-card-head"><div><div class="item-title">${esc(item.assetName || item.recordTitle || `DoneSafe record ${item.donesafeRecordId}`)}</div><div class="muted">${esc(item.serialNumber ? `Serial: ${item.serialNumber}` : 'No serial number')}</div></div><div class="mini-tags"><span class="tag-chip">${esc(item.inventoryBarcode || item.donesafeRecordId)}</span><span class="tag-chip">DoneSafe</span>${item.assetStatus ? getStatusBadge(item.assetStatus) : ''}</div></div><div class="muted">${esc(item.assetType || 'Equipment Tracker')}</div><div class="muted">${esc([item.manufacturer, item.model].filter(Boolean).join(' | ') || 'No manufacturer or model')}</div><div class="muted">${esc(item.assetLocation || 'No location supplied')}</div>${item.nextInspectionDue ? `<div class="muted">Next certification: ${esc(fmtDate(item.nextInspectionDue))}</div>` : ''}${item.sourceUrl ? `<div><a class="inline-link" href="${esc(item.sourceUrl)}" target="_blank" rel="noopener">Open in DoneSafe</a></div>` : ''}</div>`, 'No synchronized DoneSafe equipment');
+  document.getElementById('equipment-panel').innerHTML = `<div class="resource-source-heading">DoneSafe Equipment Tracker</div>${donesafeEquipment}<div class="resource-source-heading">Dashboard Equipment</div>${localEquipment}`;
+  renderGeotabSyncSummary();
+  renderDonesafeSyncSummary();
+  renderSalesforceIntegrationSummary();
 }
 
 function setInventoryFilter(key, value){
@@ -4401,6 +4959,10 @@ function mergeFieldSampleIntoWorkOrder(workOrder, sample){
       sampleName:sample.sampleName || '',
       type:normalizeCatalogKey(testCode),
       testCode,
+      testTypeId:state.data.testTypes.find((test) => normalizeCatalogKey(test.testCode) === normalizeCatalogKey(testCode))?.id || '',
+      testSetupId:'',
+      instrumentId:'',
+      setupAssignmentStatus:'unassigned',
       sampleId,
       cylinderNumber:sample.cylinderNumber || '',
       matrix:getSampleMatrix(sample),
@@ -4688,6 +5250,58 @@ function renderMaintenance(){
   document.getElementById('maintenance-table').innerHTML = renderTable(['Asset', 'Type', 'Status', 'Dates', 'Assigned', 'Vendor / Cost'], state.data.maintenanceRecords.map((record) => buildTableRow('maintenanceRecords', record.id, [ `<div class="inline-stack"><div class="item-title">${esc(getAssetLabel(record.assetType, record.assetId))}</div><div class="muted">${esc(record.assetType)}</div></div>`, getStatusBadge(record.maintenanceType), getStatusBadge(record.status), `<div class="inline-stack"><div>${esc(fmtDate(record.dueDate))}</div><div class="muted">${esc(record.openDate ? `Opened ${fmtDate(record.openDate)}` : 'No open date')}</div></div>`, esc(record.assignedPerson || 'Unassigned'), `<div class="inline-stack"><div>${esc(record.vendorInternal || 'Internal')}</div><div class="muted">${esc(fmtCurrency(record.cost))}</div></div>` ])), '<strong>No maintenance records yet</strong>Capture inspections, repairs, and calibration readiness here.');
 }
 
+function renderOperationalAlertAction(action){
+  return `<button class="act-btn" type="button" onclick="event.stopPropagation(); openEntityModal('${esc(action.entityKey)}','${esc(action.entityId)}')">${esc(action.label)}</button>`;
+}
+
+function renderOperationalAlert(alert){
+  const singleAction = alert.actions.length === 1 ? alert.actions[0] : null;
+  const openAttrs = singleAction
+    ? `role="button" tabindex="0" title="${esc(singleAction.label)}" onclick="openEntityModal('${esc(singleAction.entityKey)}','${esc(singleAction.entityId)}')" onkeydown="if(event.target === this && (event.key === 'Enter' || event.key === ' ')){ event.preventDefault(); openEntityModal('${esc(singleAction.entityKey)}','${esc(singleAction.entityId)}'); }"`
+    : '';
+  const tone = alert.severity === 'critical' ? 'danger' : 'warn';
+  return `<div class="alert-row ${esc(alert.severity)} ${singleAction ? 'clickable-alert-row' : ''}" ${openAttrs}>
+    <div class="alert-row-main">
+      <div class="alert-row-heading">
+        <div class="item-title">${esc(alert.title)}</div>
+        <span class="status-badge ${tone}">${esc(alert.severity)}</span>
+      </div>
+      <div class="muted">${esc(alert.details)}</div>
+      ${alert.relevantDate ? `<div class="alert-date">${esc(fmtDate(alert.relevantDate))}</div>` : ''}
+    </div>
+    <div class="alert-actions">${alert.actions.map(renderOperationalAlertAction).join('')}</div>
+  </div>`;
+}
+
+function renderOperationalAlertGroup(group, alerts){
+  const groupAlerts = alerts.filter((alert) => alert.group === group.key).sort(compareOperationalAlerts);
+  const groupTone = groupAlerts.some((alert) => alert.severity === 'critical') ? 'danger' : (groupAlerts.length ? 'warn' : 'ok');
+  const body = groupAlerts.length
+    ? `<div class="alert-list">${groupAlerts.map(renderOperationalAlert).join('')}</div>`
+    : `<div class="empty-state alert-group-empty">No active ${esc(group.label.toLowerCase())} alerts.</div>`;
+  return `<section class="panel alert-group-panel">
+    <div class="panel-header">
+      <div><h2>${esc(group.label)}</h2><div class="panel-meta alert-group-description">${esc(group.description)}</div></div>
+      <span class="status-badge ${groupTone}">${esc(groupAlerts.length)} active</span>
+    </div>
+    <div class="panel-body">${body}</div>
+  </section>`;
+}
+
+function renderAlerts(derived){
+  const alerts = buildOperationalAlerts(derived);
+  const counts = getOperationalAlertCounts(alerts);
+  document.getElementById('alerts-summary').textContent = `${counts.total} active alert${counts.total === 1 ? '' : 's'}`;
+  document.getElementById('alerts-stats').innerHTML = [
+    { label:'Total Alerts', value:counts.total, cls:'' },
+    { label:'Critical', value:counts.critical, cls:'danger' },
+    { label:'Warning', value:counts.warning, cls:'warn' }
+  ].map((card) => `<div class="stat-card ${card.cls}"><div class="stat-label">${esc(card.label)}</div><div class="stat-value ${card.cls}">${esc(card.value)}</div></div>`).join('');
+  document.getElementById('alerts-groups').innerHTML = alerts.length
+    ? OPERATIONAL_ALERT_GROUPS.map((group) => renderOperationalAlertGroup(group, alerts)).join('')
+    : '<section class="panel alerts-all-clear"><div class="empty-state"><strong>All clear</strong>No active operational alerts.</div></section>';
+}
+
 function renderViewState(){
   document.querySelectorAll('.view-btn').forEach((button) => button.classList.toggle('active', button.dataset.view === state.activeView));
   document.querySelectorAll('.screen').forEach((screen) => screen.classList.toggle('active', screen.id === `${state.activeView}-screen`));
@@ -4697,6 +5311,7 @@ function render(){
   renderViewState();
   const derived = buildDerivedState();
   if(document.getElementById('overview-stats')) renderOverview(derived);
+  if(document.getElementById('alerts-groups')) renderAlerts(derived);
   if(document.getElementById('dispatch-table')) renderDispatch(derived);
   if(document.getElementById('schedule-board')) renderSchedule(derived);
   if(document.getElementById('directory-toolbar')) renderDirectory();
@@ -4747,12 +5362,44 @@ function shouldRenderField(field){
   return true;
 }
 
+function getNextMultiSiteJobSelection(selectedSiteIds, primarySiteId, optionValue, checked){
+  const values = normalizeStringArray(selectedSiteIds);
+  const option = String(optionValue || '').trim();
+  if(!checked && values.includes(option) && values.length === 1){
+    return { siteIds:values, primarySiteId:String(primarySiteId || '').trim(), error:'Job Type cannot have less than 1 selected site' };
+  }
+  const nextValues = checked
+    ? [...new Set([...values, option].filter(Boolean))]
+    : values.filter((value) => value !== option);
+  let nextPrimarySiteId = String(primarySiteId || '').trim();
+  if(!nextValues.includes(nextPrimarySiteId)) nextPrimarySiteId = nextValues[nextValues.length - 1] || '';
+  return {
+    siteIds:nextPrimarySiteId ? [nextPrimarySiteId, ...nextValues.filter((value) => value !== nextPrimarySiteId)] : nextValues,
+    primarySiteId:nextPrimarySiteId,
+    error:''
+  };
+}
+
 function toggleModalArrayValue(key, optionValue, checked){
   if(!modalState.open) return;
   const openMenu = document.querySelector(`.multi-select[data-multi-select-key="${cssEscape(key)}"] .multi-select-menu`);
   const previousScrollTop = openMenu ? openMenu.scrollTop : null;
   const values = normalizeStringArray(modalState.formData[key]);
   let nextValues = checked ? [...new Set([...values, optionValue])] : values.filter((value) => value !== optionValue);
+  if(modalState.entity === 'jobs' && key === 'siteIds'){
+    const selection = getNextMultiSiteJobSelection(values, modalState.formData.siteId, optionValue, checked);
+    if(selection.error){
+      alert(selection.error);
+      renderModal();
+      if(previousScrollTop !== null){
+        const nextMenu = document.querySelector(`.multi-select[data-multi-select-key="${cssEscape(key)}"] .multi-select-menu`);
+        if(nextMenu) nextMenu.scrollTop = previousScrollTop;
+      }
+      return;
+    }
+    nextValues = selection.siteIds;
+    modalState.formData.siteId = selection.primarySiteId;
+  }
   if(modalState.entity === 'jobTypes' && key === 'detailGroups' && optionValue === JOB_PARTS_DETAIL_GROUP){
     nextValues = checked
       ? nextValues.filter((value) => value !== JOB_PARTS_DISABLED_DETAIL_GROUP)
@@ -4833,11 +5480,60 @@ function renderColorField(field){
   return `<div class="form-group${field.full ? ' full' : ''}"><label class="form-label">${esc(field.label)}</label><div class="color-control"><div class="color-swatch-row">${JOB_TYPE_COLOR_OPTIONS.map((option) => `<button class="color-swatch ${selectedValue === option.value ? 'is-selected' : ''}" type="button" title="${esc(option.label)}" style="--swatch-color:${esc(option.value)}" onclick="setJobTypeColor('${esc(option.value)}')"><span class="sr-only">${esc(option.label)}</span></button>`).join('')}</div><div class="color-input-row"><input class="form-input color-picker" type="color" value="${esc(selectedValue)}" oninput="setJobTypeColor(this.value)"><input class="form-input" type="text" value="${esc(modalState.formData[field.key] || selectedValue)}" maxlength="7" placeholder="${esc(DEFAULT_JOB_TYPE_COLOR)}" oninput="setModalField('${field.key}', this.value)" onchange="setJobTypeColor(this.value)"><span class="color-preview" style="--swatch-color:${esc(selectedValue)}">${esc(selectedValue)}</span></div></div></div>`;
 }
 
+function getSalesforceAccountByRecordId(recordId){
+  return state.data.salesforceAccounts.find((account) => account.salesforceRecordId === String(recordId || '')) || state.salesforceAccountSearchResults.find((account) => account.salesforceRecordId === String(recordId || '')) || null;
+}
+
+function renderSalesforceAccountField(field, disabled = false){
+  const recordId = String(modalState.formData[field.key] || '').trim();
+  const selected = getSalesforceAccountByRecordId(recordId);
+  const selectedMarkup = recordId
+    ? `<div class="salesforce-account-selection"><strong>${esc(selected?.accountName || 'Mapped Salesforce Account')}</strong><div class="muted">${esc(recordId)}</div></div>`
+    : '<div class="form-hint">No Salesforce Account mapped. Ticket choices will not be client-filtered until one is selected.</div>';
+  const results = state.salesforceAccountSearchResults.length
+    ? `<div class="salesforce-account-results">${state.salesforceAccountSearchResults.map((account) => `<button class="salesforce-account-option" type="button" onclick="selectSalesforceAccount('${esc(account.salesforceRecordId)}')"><span><strong>${esc(account.accountName || 'Unnamed account')}</strong><span class="muted">${esc(account.salesforceRecordId)}</span></span><span>Select</span></button>`).join('')}</div>`
+    : '';
+  return `<div class="form-group full"><label class="form-label">${esc(field.label)}</label>${selectedMarkup}<div class="salesforce-account-actions"><input id="salesforce-account-search" class="form-input" type="search" placeholder="Search Salesforce Accounts" onkeydown="if(event.key === 'Enter'){ event.preventDefault(); searchSalesforceAccounts(); }" ${disabled || !isRemoteMode() ? 'disabled' : ''}><button class="act-btn" type="button" onclick="searchSalesforceAccounts()" ${disabled || !isRemoteMode() || state.salesforceAccountSearchBusy ? 'disabled' : ''}>${state.salesforceAccountSearchBusy ? 'Searching...' : 'Search'}</button><button class="act-btn danger" type="button" onclick="clearSalesforceAccountSelection()" ${disabled || !recordId ? 'disabled' : ''}>Clear Mapping</button></div>${results}<div class="form-hint">Mappings use the stable Salesforce Account ID. Names are displayed from the read-only Account cache; no automatic name matching is performed.</div></div>`;
+}
+
+async function searchSalesforceAccounts(){
+  if(!modalState.open || modalState.entity !== 'clients' || state.salesforceAccountSearchBusy) return;
+  const query = String(document.getElementById('salesforce-account-search')?.value || '').trim();
+  if(query.length < 2){ alert('Enter at least two characters to search Salesforce Accounts.'); return; }
+  state.salesforceAccountSearchBusy = true;
+  renderModal();
+  try {
+    const result = await invokeSalesforceTicketAction('search_accounts', { query });
+    state.salesforceAccountSearchResults = (result?.accounts || []).map((account) => ({ salesforceRecordId:String(account.salesforce_record_id || ''), accountName:String(account.account_name || ''), sourceUrl:String(account.source_url || '') }));
+  } catch (error){
+    console.error('Unable to search Salesforce Accounts:', error);
+    alert(error.message || 'Unable to search Salesforce Accounts.');
+  } finally {
+    state.salesforceAccountSearchBusy = false;
+    renderModal();
+  }
+}
+
+function selectSalesforceAccount(recordId){
+  if(!modalState.open || modalState.entity !== 'clients') return;
+  modalState.formData.salesforceAccountId = String(recordId || '');
+  state.salesforceAccountSearchResults = [];
+  renderModal();
+}
+
+function clearSalesforceAccountSelection(){
+  if(!modalState.open || modalState.entity !== 'clients') return;
+  modalState.formData.salesforceAccountId = '';
+  state.salesforceAccountSearchResults = [];
+  renderModal();
+}
+
 function renderFormField(field){
   if(!shouldRenderField(field)) return '';
   if(field.kind === 'section') return `<div class="form-section"><h4>${esc(field.label)}</h4></div>`;
   const fullClass = field.full ? ' full' : '';
   const disabled = isFieldDisabled(field);
+  if(field.type === 'salesforce-account') return renderSalesforceAccountField(field, disabled);
   if(field.type === 'checkbox') return `<div class="form-group${fullClass}"><label class="form-label">${esc(field.label)}</label><label class="toggle-card ${disabled ? 'is-disabled' : ''}"><input type="checkbox" ${modalState.formData[field.key] ? 'checked' : ''} ${disabled ? 'disabled' : ''} onchange="toggleModalField('${field.key}', this.checked)"><span>${esc(field.label)}</span></label></div>`;
   if(field.type === 'checkbox-group'){
     const options = normalizeOptionsList(field.options || []);
@@ -4883,41 +5579,422 @@ function renderFormField(field){
   return `<div class="form-group${fullClass}"><label class="form-label">${esc(field.label)}</label>${control}</div>`;
 }
 
+function getGeotabCommunicationState(asset){
+  if(!asset?.geotabDeviceId){
+    const linkStatus = String(asset?.geotabLinkStatus || 'Unlinked');
+    return { tone:['Ambiguous', 'Not Found', 'Error'].includes(linkStatus) ? 'warn' : 'muted', label:linkStatus === 'Ambiguous' ? 'GPS match ambiguous' : (linkStatus === 'Not Found' ? 'GPS device not found' : (linkStatus === 'Error' ? 'GPS sync error' : 'GPS not linked')) };
+  }
+  if(asset.geotabIsCommunicating === false) return { tone:'danger', label:'Device not communicating' };
+  if(asset.geotabIsCommunicating === true) return { tone:'ok', label:'GPS communicating' };
+  return { tone:'muted', label:'GPS status unavailable' };
+}
+
+function renderGeotabCommunication(asset){
+  const status = getGeotabCommunicationState(asset);
+  const deviceLabel = asset.geotabDeviceName || asset.geotabDeviceId || '';
+  const lastContact = asset.geotabLastContactAt ? `Last contact ${fmtDateTime(asset.geotabLastContactAt)}` : 'No contact time received';
+  return `<div class="truck-gps-status ${esc(status.tone)}"><div><span class="status-badge ${esc(status.tone)}">${esc(status.label)}</span>${deviceLabel ? `<span class="truck-gps-device">${esc(deviceLabel)}</span>` : ''}</div><span class="muted">${esc(lastContact)}</span></div>`;
+}
+
+function renderGeotabSyncSummary(){
+  const summary = document.getElementById('geotab-sync-summary');
+  const button = document.getElementById('geotab-refresh-btn');
+  if(button){
+    button.disabled = !!state.geotabSyncInFlight;
+    button.textContent = state.geotabSyncInFlight ? 'Refreshing GPS...' : 'Refresh GPS';
+  }
+  if(!summary) return;
+  if(state.geotabSyncInFlight){ summary.textContent = 'Checking fleet'; return; }
+  const fleetAssets = [...state.data.trucks, ...state.data.trailers];
+  const checkedDates = fleetAssets.map((asset) => parseDateTime(asset.geotabStatusCheckedAt)).filter(Boolean);
+  const offlineTrucks = state.data.trucks.filter((truck) => truck.geotabDeviceId && truck.geotabIsCommunicating === false).length;
+  const offlineTrailers = state.data.trailers.filter((trailer) => trailer.geotabDeviceId && trailer.geotabIsCommunicating === false).length;
+  const offlineCount = offlineTrucks + offlineTrailers;
+  if(!checkedDates.length){ summary.textContent = 'GPS not refreshed'; return; }
+  const latest = new Date(Math.max(...checkedDates.map((date) => date.getTime())));
+  const breakdown = offlineCount ? ` (${offlineTrucks} truck${offlineTrucks === 1 ? '' : 's'}, ${offlineTrailers} trailer${offlineTrailers === 1 ? '' : 's'})` : '';
+  summary.textContent = `${offlineCount} offline${breakdown} | ${latest.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' })}`;
+}
+
+async function refreshGeotabFleetStatus(options = {}){
+  const silent = options.silent === true;
+  if(state.geotabSyncInFlight) return;
+  if(!isRemoteMode()){
+    if(!silent) alert('Geotab status requires the shared Supabase connection.');
+    return;
+  }
+  state.geotabSyncInFlight = true;
+  renderGeotabSyncSummary();
+  showSaveStatus('saving', 'CHECKING GPS');
+  try {
+    const result = await window.appAuth.requestJson('/functions/v1/geotab-fleet-status', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body:JSON.stringify({ action:'sync' })
+    });
+    await loadData({ silent:true, force:true });
+    const offlineCount = Number(result?.notCommunicating || 0);
+    showSaveStatus(offlineCount ? 'error' : 'saved', offlineCount ? `${offlineCount} GPS OFFLINE` : 'GPS STATUS CURRENT');
+    hideSaveStatusSoon(offlineCount ? 4200 : 2600);
+  } catch (error){
+    console.error('Unable to refresh Geotab fleet status:', error);
+    showSaveStatus('error', 'GPS SYNC FAILED');
+    hideSaveStatusSoon(4200);
+    if(!silent) alert(error.message || 'Unable to refresh Geotab fleet status.');
+  } finally {
+    state.geotabSyncInFlight = false;
+    renderGeotabSyncSummary();
+  }
+}
+
+function renderDonesafeSyncSummary(){
+  const summary = document.getElementById('donesafe-sync-summary');
+  const button = document.getElementById('donesafe-refresh-btn');
+  if(button){
+    button.disabled = !!state.donesafeSyncInFlight;
+    button.textContent = state.donesafeSyncInFlight ? 'Syncing DoneSafe...' : 'Sync DoneSafe';
+  }
+  if(!summary) return;
+  if(state.donesafeSyncInFlight){ summary.textContent = 'Reading Equipment Tracker'; return; }
+  const activeAssets = state.data.donesafeEquipment.filter((item) => item.isActive !== false);
+  const dates = activeAssets.map((item) => parseDateTime(item.lastSyncedAt)).filter(Boolean);
+  if(!dates.length){ summary.textContent = 'DoneSafe not synchronized'; return; }
+  const latest = new Date(Math.max(...dates.map((date) => date.getTime())));
+  summary.textContent = `${activeAssets.length} assets | ${latest.toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })}`;
+}
+
+async function refreshDonesafeEquipment(options = {}){
+  const silent = options.silent === true;
+  if(state.donesafeSyncInFlight) return;
+  if(!isRemoteMode()){
+    if(!silent) alert('DoneSafe synchronization requires the shared Supabase connection.');
+    return;
+  }
+  state.donesafeSyncInFlight = true;
+  renderDonesafeSyncSummary();
+  showSaveStatus('saving', 'SYNCING DONESAFE');
+  try {
+    const result = await window.appAuth.requestJson('/functions/v1/donesafe-equipment-sync', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body:JSON.stringify({ action:'sync' })
+    });
+    await loadData({ silent:true, force:true });
+    showSaveStatus('saved', `${Number(result?.saved || 0)} DONESAFE ASSETS`);
+    hideSaveStatusSoon(3200);
+  } catch (error){
+    console.error('Unable to synchronize DoneSafe equipment:', error);
+    showSaveStatus('error', 'DONESAFE SYNC FAILED');
+    hideSaveStatusSoon(4800);
+    if(!silent) alert(error.message || 'Unable to synchronize DoneSafe equipment.');
+  } finally {
+    state.donesafeSyncInFlight = false;
+    renderDonesafeSyncSummary();
+  }
+}
+
+async function invokeSalesforceTicketAction(action, payload = {}){
+  if(!isRemoteMode()) throw new Error('Salesforce ticket integration requires the shared Supabase connection.');
+  if(!window.appAuth?.isAdmin?.()) throw new Error('Administrator access is required to manage Salesforce tickets.');
+  return window.appAuth.requestJson('/functions/v1/salesforce-ticket-sync', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body:JSON.stringify({ action, ...payload })
+  });
+}
+
+function getSalesforceConfig(){ return state.data.salesforceSettings.find((row) => row.id === 'default') || state.data.salesforceSettings[0] || null; }
+function getLatestSalesforceSyncRun(){ return [...state.data.salesforceSyncRuns].sort((a, b) => String(b.startedAt || '').localeCompare(String(a.startedAt || '')))[0] || null; }
+function getSalesforceTicketLinkForJob(jobId){ return state.data.salesforceTicketLinks.find((link) => link.jobId === jobId) || null; }
+function getSalesforceTicketForJob(jobId){ const link = getSalesforceTicketLinkForJob(jobId); return link ? state.data.salesforceTickets.find((ticket) => ticket.id === link.ticketId) || null : null; }
+
+function renderSalesforceIntegrationSummary(){
+  const panel = document.getElementById('salesforce-integration-summary');
+  const syncButton = document.getElementById('salesforce-sync-btn');
+  const previewButton = document.getElementById('salesforce-preview-btn');
+  const config = getSalesforceConfig();
+  const lastRun = getLatestSalesforceSyncRun();
+  const activeTickets = state.data.salesforceTickets.filter((ticket) => ticket.isActive !== false).length;
+  const linkedTickets = state.data.salesforceTicketLinks.length;
+  const configured = !!(config?.enabled && config.objectApiName && config.listViewId);
+  if(syncButton){ syncButton.disabled = state.salesforceSyncInFlight || !configured; syncButton.textContent = state.salesforceSyncInFlight ? 'Syncing...' : 'Sync Tickets'; }
+  if(previewButton) previewButton.disabled = state.salesforceSyncInFlight || !configured;
+  if(!panel) return;
+  const runLabel = lastRun ? `${lastRun.status === 'complete' ? 'Completed' : lastRun.status === 'error' ? 'Failed' : 'Running'} ${fmtDateTime(lastRun.completedAt || lastRun.startedAt)}` : 'No sync has run';
+  const message = state.salesforceLastMessage || lastRun?.errorMessage || (configured ? 'Salesforce is authoritative for ticket details. Sync never writes to Salesforce.' : 'Test the connection, discover metadata, and select the shared Pittsburgh Field Ops list view.');
+  panel.className = 'panel-body salesforce-integration-summary';
+  panel.innerHTML = `<div class="salesforce-summary-item"><span class="summary-label">Connection</span><strong>${configured ? 'Configured' : 'Not configured'}</strong></div><div class="salesforce-summary-item"><span class="summary-label">Source</span><strong>${esc(configured ? `${config.objectLabel || config.objectApiName} / ${config.listViewName}` : 'Not selected')}</strong></div><div class="salesforce-summary-item"><span class="summary-label">Cached Tickets</span><strong>${activeTickets} active / ${linkedTickets} linked</strong></div><div class="salesforce-summary-item"><span class="summary-label">Last Run</span><strong>${esc(runLabel)}</strong></div><p class="form-hint salesforce-summary-message">${esc(message)}</p>`;
+}
+
+function getSalesforceMappingEntry(mapping, key){
+  const raw = mapping?.[key];
+  return typeof raw === 'string' ? { field:raw } : (raw && typeof raw === 'object' ? raw : { field:'' });
+}
+
+function getSalesforceMappingField(mapping, key){ return String(getSalesforceMappingEntry(mapping, key).field || ''); }
+
+function guessSalesforceField(fields, names, predicate = null){
+  const lowered = names.map((name) => name.toLowerCase());
+  const exact = fields.find((field) => lowered.includes(String(field.name || '').toLowerCase()) && (!predicate || predicate(field)));
+  if(exact) return exact.name;
+  const partial = fields.find((field) => lowered.some((name) => String(field.name || '').toLowerCase().includes(name)) && (!predicate || predicate(field)));
+  return partial?.name || '';
+}
+
+function applySalesforceMappingDefaults(){
+  const modal = state.salesforceConfigModal;
+  const fields = modal.fields || [];
+  const mapping = { ...(modal.draft.fieldMapping || {}) };
+  const setDefault = (key, names, predicate = null) => { if(!getSalesforceMappingField(mapping, key)){ const field = guessSalesforceField(fields, names, predicate); if(field) mapping[key] = { field }; } };
+  setDefault('number', ['CaseNumber', 'Ticket_Number__c', 'Name']);
+  setDefault('subject', ['Subject', 'Description', 'Name']);
+  setDefault('status', ['Status', 'Ticket_Status__c']);
+  setDefault('account', ['AccountId', 'Account__c'], (field) => (field.referenceTo || []).includes('Account'));
+  setDefault('modified', ['SystemModstamp', 'LastModifiedDate']);
+  setDefault('created', ['CreatedDate']);
+  setDefault('owner', ['OwnerId']);
+  setDefault('recordType', ['RecordTypeId']);
+  modal.draft.fieldMapping = mapping;
+}
+
+async function openSalesforceConfigModal(){
+  const config = getSalesforceConfig();
+  state.salesforceConfigModal = {
+    ...createClosedSalesforceConfigModalState(), open:true, busy:true,
+    draft:{ objectApiName:config?.objectApiName || '', listViewId:config?.listViewId || '', enabled:config?.enabled !== false, fieldMapping:clone(config?.fieldMapping || {}) }
+  };
+  renderSalesforceConfigModal();
+  try {
+    const result = await invokeSalesforceTicketAction('discover', config?.objectApiName ? { objectApiName:config.objectApiName } : {});
+    state.salesforceConfigModal.objects = result?.objects || [];
+    if(config?.objectApiName && !state.salesforceConfigModal.objects.some((item) => item.name === config.objectApiName)) state.salesforceConfigModal.objects.unshift({ name:config.objectApiName, label:config.objectLabel || config.objectApiName });
+    state.salesforceConfigModal.fields = result?.fields || [];
+    state.salesforceConfigModal.listViews = result?.listViews || [];
+    if(config?.objectApiName) applySalesforceMappingDefaults();
+  } catch (error){ state.salesforceConfigModal.error = error.message || 'Unable to discover Salesforce metadata.'; }
+  finally { state.salesforceConfigModal.busy = false; renderSalesforceConfigModal(); }
+}
+
+function closeSalesforceConfigModal(){ state.salesforceConfigModal = createClosedSalesforceConfigModalState(); renderSalesforceConfigModal(); }
+
+function setSalesforceConfigMapping(key, value){
+  const mapping = { ...(state.salesforceConfigModal.draft.fieldMapping || {}) };
+  mapping[key] = { field:String(value || '') };
+  state.salesforceConfigModal.draft.fieldMapping = mapping;
+}
+
+async function selectSalesforceObject(objectApiName){
+  const modal = state.salesforceConfigModal;
+  modal.draft.objectApiName = String(objectApiName || '');
+  modal.draft.listViewId = '';
+  modal.draft.fieldMapping = {};
+  modal.fields = [];
+  modal.listViews = [];
+  modal.error = '';
+  if(!objectApiName){ renderSalesforceConfigModal(); return; }
+  modal.busy = true;
+  renderSalesforceConfigModal();
+  try {
+    const result = await invokeSalesforceTicketAction('discover', { objectApiName });
+    modal.fields = result?.fields || [];
+    modal.listViews = result?.listViews || [];
+    const preferredView = modal.listViews.find((view) => /pittsburgh.*field.*ops/i.test(`${view.label} ${view.developerName}`));
+    modal.draft.listViewId = preferredView?.id || '';
+    applySalesforceMappingDefaults();
+  } catch (error){ modal.error = error.message || 'Unable to describe the selected Salesforce object.'; }
+  finally { modal.busy = false; renderSalesforceConfigModal(); }
+}
+
+function renderSalesforceFieldSelect(key, label, predicate = null, optional = false){
+  const modal = state.salesforceConfigModal;
+  const value = getSalesforceMappingField(modal.draft.fieldMapping, key);
+  const fields = modal.fields.filter((field) => !predicate || predicate(field));
+  return `<div class="form-group"><label class="form-label">${esc(label)}</label><select class="form-input" onchange="setSalesforceConfigMapping('${esc(key)}', this.value)" ${modal.busy ? 'disabled' : ''}><option value="">${optional ? 'Not mapped' : 'Select field...'}</option>${fields.map((field) => `<option value="${esc(field.name)}" ${field.name === value ? 'selected' : ''}>${esc(field.label)} (${esc(field.name)})</option>`).join('')}</select></div>`;
+}
+
+function renderSalesforceConfigModal(){
+  const modal = state.salesforceConfigModal;
+  const overlay = document.getElementById('salesforce-config-modal-overlay');
+  const body = document.getElementById('salesforce-config-modal-body');
+  if(!overlay || !body) return;
+  overlay.classList.toggle('open', !!modal.open);
+  if(!modal.open){ body.innerHTML = ''; return; }
+  const accountPredicate = (field) => (field.referenceTo || []).includes('Account');
+  const datePredicate = (field) => ['datetime', 'date'].includes(String(field.type || '').toLowerCase());
+  body.innerHTML = `${modal.error ? `<div class="error-text">${esc(modal.error)}</div>` : ''}${modal.message ? `<div class="form-hint">${esc(modal.message)}</div>` : ''}<div class="salesforce-config-grid"><div class="form-group"><label class="form-label">Ticket Object</label><select class="form-input" onchange="selectSalesforceObject(this.value)" ${modal.busy ? 'disabled' : ''}><option value="">Select object...</option>${modal.objects.map((item) => `<option value="${esc(item.name)}" ${item.name === modal.draft.objectApiName ? 'selected' : ''}>${esc(item.label || item.name)} (${esc(item.name)})</option>`).join('')}</select></div><div class="form-group"><label class="form-label">Pittsburgh Field Ops List View</label><select class="form-input" onchange="state.salesforceConfigModal.draft.listViewId=this.value" ${modal.busy || !modal.draft.objectApiName ? 'disabled' : ''}><option value="">Select list view...</option>${modal.listViews.map((view) => `<option value="${esc(view.id)}" ${view.id === modal.draft.listViewId ? 'selected' : ''}>${esc(view.label)}</option>`).join('')}</select></div>${renderSalesforceFieldSelect('number', 'Ticket Number')}${renderSalesforceFieldSelect('subject', 'Subject')}${renderSalesforceFieldSelect('status', 'Status')}${renderSalesforceFieldSelect('account', 'Account Relationship', accountPredicate)}${renderSalesforceFieldSelect('modified', 'Modified Time', datePredicate)}${renderSalesforceFieldSelect('created', 'Created Time', datePredicate, true)}${renderSalesforceFieldSelect('owner', 'Owner', null, true)}${renderSalesforceFieldSelect('recordType', 'Record Type', null, true)}<div class="form-group full"><label class="toggle-card"><input type="checkbox" ${modal.draft.enabled ? 'checked' : ''} onchange="state.salesforceConfigModal.draft.enabled=this.checked"><span>Enable Salesforce ticket import</span></label><div class="form-hint">Only records in the shared list view are linkable. The integration user must have read-only access to the selected object, Accounts, metadata, and list view.</div></div></div>${modal.busy ? '<div class="form-hint">Reading Salesforce metadata...</div>' : ''}`;
+}
+
+async function testSalesforceConnection(){
+  if(state.salesforceConfigModal.busy) return;
+  state.salesforceConfigModal.busy = true; state.salesforceConfigModal.error = ''; state.salesforceConfigModal.message = ''; renderSalesforceConfigModal();
+  try { await invokeSalesforceTicketAction('test'); state.salesforceConfigModal.message = 'Connection succeeded. No Salesforce data was changed.'; }
+  catch (error){ state.salesforceConfigModal.error = error.message || 'Salesforce connection failed.'; }
+  finally { state.salesforceConfigModal.busy = false; renderSalesforceConfigModal(); }
+}
+
+async function saveSalesforceConfig(){
+  const modal = state.salesforceConfigModal;
+  if(modal.busy) return;
+  modal.busy = true; modal.error = ''; renderSalesforceConfigModal();
+  try {
+    await invokeSalesforceTicketAction('save_config', modal.draft);
+    await loadData({ silent:true, force:true });
+    closeSalesforceConfigModal();
+    state.salesforceLastMessage = 'Salesforce configuration saved and validated.';
+    renderSalesforceIntegrationSummary();
+  } catch (error){ modal.error = error.message || 'Unable to save Salesforce configuration.'; modal.busy = false; renderSalesforceConfigModal(); }
+}
+
+async function previewSalesforceTickets(){
+  if(state.salesforceSyncInFlight) return;
+  state.salesforceSyncInFlight = true; renderSalesforceIntegrationSummary(); showSaveStatus('saving', 'PREVIEWING SALESFORCE');
+  try {
+    const result = await invokeSalesforceTicketAction('preview');
+    const sample = (result?.sample || []).slice(0, 5).map((ticket) => `${ticket.ticket_number || ticket.salesforce_record_id}: ${ticket.subject || '(no subject)'}`).join('\n');
+    state.salesforceLastMessage = `Preview found ${Number(result?.eligibleCount || 0)} eligible Pittsburgh tickets. No records were imported.`;
+    showSaveStatus('saved', 'SALESFORCE PREVIEW READY'); hideSaveStatusSoon(2800); renderSalesforceIntegrationSummary();
+    alert(`${state.salesforceLastMessage}${sample ? `\n\nSample:\n${sample}` : ''}`);
+  } catch (error){ showSaveStatus('error', 'SALESFORCE PREVIEW FAILED'); hideSaveStatusSoon(4200); alert(error.message || 'Unable to preview Salesforce tickets.'); }
+  finally { state.salesforceSyncInFlight = false; renderSalesforceIntegrationSummary(); }
+}
+
+async function syncSalesforceTickets(){
+  if(state.salesforceSyncInFlight) return;
+  state.salesforceSyncInFlight = true; renderSalesforceIntegrationSummary(); showSaveStatus('saving', 'SYNCING SALESFORCE');
+  try {
+    const result = await invokeSalesforceTicketAction('sync');
+    await loadData({ silent:true, force:true });
+    state.salesforceLastMessage = `Imported ${Number(result?.saved || 0)} tickets; ${Number(result?.linkedRefreshed || 0)} linked records were refreshed.`;
+    showSaveStatus('saved', `${Number(result?.saved || 0)} SALESFORCE TICKETS`); hideSaveStatusSoon(3200);
+  } catch (error){ state.salesforceLastMessage = error.message || 'Salesforce synchronization failed.'; showSaveStatus('error', 'SALESFORCE SYNC FAILED'); hideSaveStatusSoon(4800); alert(state.salesforceLastMessage); }
+  finally { state.salesforceSyncInFlight = false; renderSalesforceIntegrationSummary(); }
+}
+
+function getAvailableSalesforceTickets(jobId, options){
+  options = options || {};
+  const job = getJob(jobId);
+  const client = job ? getClient(job.clientId) : null;
+  const accountId = String(client?.salesforceAccountId || '').trim();
+  const search = String(options.search || '').trim().toLowerCase();
+  const showAll = options.showAll === true;
+  const currentLink = getSalesforceTicketLinkForJob(jobId);
+  const occupied = new Map(state.data.salesforceTicketLinks.map((link) => [link.ticketId, link.jobId]));
+  return state.data.salesforceTickets.filter((ticket) => {
+    const isCurrent = currentLink?.ticketId === ticket.id;
+    if(!isCurrent && (ticket.isActive === false || ticket.isLinkable === false)) return false;
+    if(!isCurrent && occupied.has(ticket.id)) return false;
+    if(!showAll && (!accountId || ticket.accountRecordId !== accountId)) return false;
+    if(search && ![ticket.ticketNumber, ticket.subject, ticket.ticketStatus, ticket.accountName].some((value) => String(value || '').toLowerCase().includes(search))) return false;
+    return true;
+  }).sort((a, b) => String(b.sourceModifiedAt || '').localeCompare(String(a.sourceModifiedAt || '')) || String(a.ticketNumber || '').localeCompare(String(b.ticketNumber || '')));
+}
+
+function openSalesforceTicketPicker(jobId){
+  if(!getJob(jobId)){ alert('Save the job before linking an imported Salesforce ticket.'); return; }
+  if(!isRemoteMode()){ toggleScheduleQuickTicket(jobId); return; }
+  state.salesforceTicketModal = { ...createClosedSalesforceTicketModalState(), open:true, jobId };
+  renderSalesforceTicketModal();
+}
+
+function closeSalesforceTicketModal(){ state.salesforceTicketModal = createClosedSalesforceTicketModalState(); renderSalesforceTicketModal(); }
+function setSalesforceTicketSearch(value){ state.salesforceTicketModal.search = String(value || ''); renderSalesforceTicketModal(); }
+function setSalesforceTicketShowAll(checked){ state.salesforceTicketModal.showAll = !!checked; renderSalesforceTicketModal(); }
+
+function renderSalesforceTicketModal(){
+  const modal = state.salesforceTicketModal;
+  const overlay = document.getElementById('salesforce-ticket-modal-overlay');
+  const body = document.getElementById('salesforce-ticket-modal-body');
+  if(!overlay || !body) return;
+  overlay.classList.toggle('open', !!modal.open);
+  if(!modal.open){ body.innerHTML = ''; return; }
+  const job = getJob(modal.jobId);
+  const client = job ? getClient(job.clientId) : null;
+  const account = getSalesforceAccountByRecordId(client?.salesforceAccountId);
+  const currentLink = getSalesforceTicketLinkForJob(modal.jobId);
+  const tickets = getAvailableSalesforceTickets(modal.jobId, modal);
+  const mappingMessage = client?.salesforceAccountId ? `Filtered to ${account?.accountName || client.salesforceAccountId}.` : 'This job client does not have a Salesforce Account mapping. Map the client or explicitly show all Pittsburgh tickets.';
+  body.innerHTML = `${modal.error ? `<div class="error-text">${esc(modal.error)}</div>` : ''}<div class="salesforce-picker-toolbar"><div class="form-group"><label class="form-label">Search Tickets</label><input class="form-input" type="search" value="${esc(modal.search)}" placeholder="Number, subject, status, or account" oninput="setSalesforceTicketSearch(this.value)" ${modal.saving ? 'disabled' : ''}></div><label class="toggle-card"><input type="checkbox" ${modal.showAll ? 'checked' : ''} onchange="setSalesforceTicketShowAll(this.checked)" ${modal.saving ? 'disabled' : ''}><span>Show all Pittsburgh tickets</span></label></div><div class="form-hint">${esc(mappingMessage)}</div>${currentLink ? `<div class="table-actions"><button class="act-btn danger" type="button" onclick="unlinkSalesforceTicket('${esc(modal.jobId)}')" ${modal.saving ? 'disabled' : ''}>Unlink Current Ticket</button></div>` : ''}<div class="salesforce-ticket-list">${tickets.length ? tickets.map((ticket) => `<button class="salesforce-ticket-option ${currentLink?.ticketId === ticket.id ? 'current' : ''}" type="button" onclick="linkSalesforceTicket('${esc(modal.jobId)}','${esc(ticket.id)}')" ${modal.saving ? 'disabled' : ''}><span class="salesforce-ticket-main"><span class="salesforce-ticket-title">${esc(ticket.ticketNumber || ticket.salesforceRecordId)}</span><span class="salesforce-ticket-subject">${esc(ticket.subject || 'No subject')}</span><span class="salesforce-ticket-meta">${esc([ticket.ticketStatus, ticket.accountName, ticket.sourceModifiedAt ? `Modified ${fmtDateTime(ticket.sourceModifiedAt)}` : ''].filter(Boolean).join(' | '))}</span></span><span>${currentLink?.ticketId === ticket.id ? 'Linked' : 'Link'}</span></button>`).join('') : `<div class="empty-state">${!client?.salesforceAccountId && !modal.showAll ? 'Map the client to a Salesforce Account or enable Show all Pittsburgh tickets.' : 'No active, unlinked tickets match this filter.'}</div>`}</div><details class="salesforce-manual-fallback"><summary>Manual number/URL fallback</summary><p class="form-hint">Close this chooser and use the manual fields in the job editor. Manual links remain compatibility exceptions and are not reserved in the imported-ticket list.</p></details>`;
+}
+
+function refreshOpenJobSalesforceProjection(jobId){
+  if(!modalState.open || modalState.entity !== 'jobs' || modalState.id !== jobId) return;
+  const refreshed = getJob(jobId);
+  if(!refreshed) return;
+  const keys = ['fieldfxTicketId', 'salesforceCaseId', 'salesforceCaseNumber', 'salesforceCaseUrl', 'salesforceSyncedAt', 'salesforceSyncStatus', 'salesforceSyncError', 'noTicketRequired'];
+  keys.forEach((key) => { modalState.formData[key] = refreshed[key]; });
+  try {
+    const baseline = JSON.parse(modalState.baselineSnapshot || '{}');
+    if(baseline.formData) keys.forEach((key) => { baseline.formData[key] = refreshed[key]; });
+    modalState.baselineSnapshot = JSON.stringify(baseline);
+  } catch {}
+  renderModal();
+}
+
+async function linkSalesforceTicket(jobId, ticketId){
+  const modal = state.salesforceTicketModal;
+  if(modal.saving) return;
+  modal.saving = true; modal.error = ''; renderSalesforceTicketModal(); showSaveStatus('saving', 'LINKING TICKET');
+  try {
+    await window.appAuth.requestJson('/rest/v1/rpc/link_salesforce_ticket', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ target_job_id:jobId, target_ticket_id:ticketId }) });
+    await loadData({ silent:true, force:true });
+    closeSalesforceTicketModal(); refreshOpenJobSalesforceProjection(jobId); render();
+    showSaveStatus('saved', 'TICKET LINKED'); hideSaveStatusSoon();
+  } catch (error){ modal.error = error.message || 'Unable to link the Salesforce ticket. It may already be linked to another job.'; modal.saving = false; renderSalesforceTicketModal(); showSaveStatus('error', 'LINK FAILED'); hideSaveStatusSoon(4200); }
+}
+
+async function unlinkSalesforceTicket(jobId){
+  const modal = state.salesforceTicketModal;
+  if(modal.saving || !window.confirm('Unlink this imported Salesforce ticket from the job?')) return;
+  modal.saving = true; modal.error = ''; renderSalesforceTicketModal(); showSaveStatus('saving', 'UNLINKING TICKET');
+  try {
+    await window.appAuth.requestJson('/rest/v1/rpc/unlink_salesforce_ticket', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ target_job_id:jobId }) });
+    await loadData({ silent:true, force:true });
+    closeSalesforceTicketModal(); refreshOpenJobSalesforceProjection(jobId); render();
+    showSaveStatus('saved', 'TICKET UNLINKED'); hideSaveStatusSoon();
+  } catch (error){ modal.error = error.message || 'Unable to unlink the Salesforce ticket.'; modal.saving = false; renderSalesforceTicketModal(); showSaveStatus('error', 'UNLINK FAILED'); hideSaveStatusSoon(4200); }
+}
+
 function getBillingRateSectionClass(section){
-  if(section === 'Natural Gas Samples') return 'gas';
-  if(section === 'Field & Labor') return 'field-labor';
+  if(section === 'Gas Tests') return 'gas';
+  if(section === 'Billing Services' || section === 'Legacy Items') return 'field-labor';
   return 'liquid';
 }
-function getBillingRateSections(){ return ['Liquid Samples', 'Natural Gas Samples', 'Field & Labor']; }
-function getBillingRateItemsBySection(){
+function getBillingRateSections(){ return ['Gas Tests', 'Liquid Tests', 'Calculated Tests', 'Unspecified Tests', 'Billing Services', 'Legacy Items']; }
+function getBillingRateItemsBySection(items = getActivePriceItems()){
   return getBillingRateSections().map((section) => ({
     section,
-    items:getActivePriceItems().filter((item) => (item.priceSection || (item.category === 'Gas' ? 'Natural Gas Samples' : 'Liquid Samples')) === section)
+    items:items.filter((item) => getPriceItemCatalogDetails(item).section === section)
   })).filter((group) => group.items.length);
 }
 function getBillingPriceMap(profileId){
   return new Map(getBillingPricesForProfile(profileId).map((row) => [row.priceItemId, row]));
 }
 function renderBillingRateScheduleTable(profile){
-  const groups = getBillingRateItemsBySection();
-  if(!groups.length) return '<div class="empty-state">No price items are available yet.</div>';
   const priceByItemId = getBillingPriceMap(profile?.id || '');
+  const selectedItems = state.data.priceItems.filter((item) => {
+    const price = priceByItemId.get(item.id);
+    return !!price && price.isActive !== false;
+  });
+  const groups = getBillingRateItemsBySection(selectedItems);
+  if(!groups.length) return '<div class="empty-state">No tests or services have been added to this client yet.</div>';
   const body = groups.map((group) => {
     const sectionClass = getBillingRateSectionClass(group.section);
     const rows = group.items.map((item) => {
       const price = priceByItemId.get(item.id) || null;
       const rate = normalizeNumber(price?.rateAmount);
       const inactive = price && price.isActive === false;
+      const details = getPriceItemCatalogDetails(item);
       return `<tr class="${inactive ? 'is-inactive' : ''}">
-        <td>${esc(item.method || '')}</td>
-        <td>${esc(item.description || '')}</td>
-        <td>${esc(item.unitName || '')}</td>
+        <td>${esc(details.code || 'Legacy')}${item.isActive === false ? '<div class="muted">Archived</div>' : ''}</td>
+        <td>${esc(details.method || '—')}</td>
+        <td>${esc(details.name)}</td>
+        <td>${esc(details.unit)}</td>
         <td class="rate-cell">${esc(rate === null ? '' : fmtCurrency(rate))}</td>
       </tr>`;
     }).join('');
     return `<tbody class="billing-rate-section billing-rate-section-${sectionClass}">
-      <tr class="section-row"><th colspan="4">${esc(group.section)}</th></tr>
-      <tr class="column-row"><th>Method</th><th>Description</th><th>Units</th><th>${esc(BILLING_RATE_EFFECTIVE_YEAR)} Rate</th></tr>
+      <tr class="section-row"><th colspan="5">${esc(group.section)}</th></tr>
+      <tr class="column-row"><th>Test Code</th><th>Method</th><th>Description</th><th>Units</th><th>${esc(BILLING_RATE_EFFECTIVE_YEAR)} Rate</th></tr>
       ${rows}
     </tbody>`;
   }).join('');
@@ -4927,30 +6004,50 @@ function renderBillingRateScheduleEditor(){
   if(modalState.entity !== 'billingRates') return '';
   const drafts = getModalBillingPriceDrafts();
   const draftByItemId = new Map(drafts.map((row) => [row.priceItemId, row]));
-  const groups = getBillingRateItemsBySection();
-  if(!groups.length){
-    return `<div class="billing-price-editor"><div class="empty-state">No price items are available yet.</div></div>`;
-  }
+  const selectedItems = state.data.priceItems.filter((item) => {
+    const draft = draftByItemId.get(item.id);
+    return !!draft && draft.isActive !== false;
+  });
+  const groups = getBillingRateItemsBySection(selectedItems);
   const groupMarkup = groups.map((group) => {
     const sectionClass = getBillingRateSectionClass(group.section);
     const rows = group.items.map((item) => {
       const draft = draftByItemId.get(item.id) || {};
+      const details = getPriceItemCatalogDetails(item);
       return `<tr>
-        <td>${esc(item.method || '')}</td>
-        <td>${esc(item.description || '')}</td>
-        <td>${esc(item.unitName || '')}</td>
+        <td><strong>${esc(details.code || 'Legacy')}</strong>${item.isActive === false ? '<div class="muted">Archived</div>' : ''}</td>
+        <td>${esc(details.method || '—')}</td>
+        <td>${esc(details.name)}</td>
+        <td>${esc(details.unit)}</td>
         <td><div class="currency-input-wrap compact-currency"><span>$</span><input class="form-input" type="number" step="0.01" min="0" value="${esc(draft.rateAmount ?? '')}" oninput="updateBillingPriceDraft('${esc(item.id)}', 'rateAmount', this.value, 'number')"></div></td>
-        <td><label class="rate-active-toggle"><input type="checkbox" ${draft.isActive !== false ? 'checked' : ''} onchange="updateBillingPriceDraft('${esc(item.id)}', 'isActive', this.checked)"><span>Active</span></label></td>
         <td><input class="form-input compact-notes-input" type="text" value="${esc(draft.notes || '')}" oninput="updateBillingPriceDraft('${esc(item.id)}', 'notes', this.value)"></td>
+        <td><button class="act-btn danger" type="button" onclick="removeBillingMethodFromClient('${esc(item.id)}')">Remove</button></td>
       </tr>`;
     }).join('');
     return `<tbody class="billing-rate-section billing-rate-section-${sectionClass}">
-      <tr class="section-row"><th colspan="6">${esc(group.section)}</th></tr>
-      <tr class="column-row"><th>Method</th><th>Description</th><th>Units</th><th>${esc(BILLING_RATE_EFFECTIVE_YEAR)} Rate</th><th>Active</th><th>Notes</th></tr>
+      <tr class="section-row"><th colspan="7">${esc(group.section)}</th></tr>
+      <tr class="column-row"><th>Test Code</th><th>Method</th><th>Description</th><th>Units</th><th>${esc(BILLING_RATE_EFFECTIVE_YEAR)} Rate</th><th>Notes</th><th></th></tr>
       ${rows}
     </tbody>`;
   }).join('');
-  return `<div class="billing-price-editor"><div class="section-copy">Edit all ${esc(BILLING_RATE_EFFECTIVE_YEAR)} rates for this billing profile. Save applies the full rate schedule together.</div><div class="billing-rate-table-wrap billing-rate-edit-wrap"><table class="billing-rate-table billing-rate-edit-table">${groupMarkup}</table></div></div>`;
+  const emptyMarkup = groups.length ? '' : '<div class="empty-state">No tests or services have been added to this client. Use Add Tests / Services to build the rate schedule.</div>';
+  return `<div class="billing-price-editor"><div class="rate-schedule-head"><div class="section-copy">Edit the selected ${esc(BILLING_RATE_EFFECTIVE_YEAR)} client catalog items. Removed items retain their saved rates and notes.</div><button class="act-btn" type="button" onclick="toggleBillingMethodPicker()">+ Add Tests / Services</button></div>${renderBillingMethodPicker()}${emptyMarkup}<div class="billing-rate-table-wrap billing-rate-edit-wrap"><table class="billing-rate-table billing-rate-edit-table">${groupMarkup}</table></div></div>`;
+}
+
+function renderBillingMethodPicker(){
+  if(!modalState.formData.methodPickerOpen) return '';
+  const query = String(modalState.formData.methodPickerSearch || '').trim().toLowerCase();
+  const section = String(modalState.formData.methodPickerSection || 'all');
+  const selectedClientIds = new Set(getSelectedBillingPriceDrafts().map((row) => row.priceItemId));
+  const checkedIds = new Set(normalizeStringArray(modalState.formData.methodPickerSelection));
+  const candidates = getActivePriceItems().filter((item) => ['test','service'].includes(item.itemKind) && !selectedClientIds.has(item.id)).filter((item) => {
+    const details = getPriceItemCatalogDetails(item);
+    if(section !== 'all' && details.section !== section) return false;
+    if(!query) return true;
+    return [details.code, details.method, details.name, details.matrix, details.section].some((value) => String(value || '').toLowerCase().includes(query));
+  });
+  const rows = candidates.map((item) => {const details=getPriceItemCatalogDetails(item);return `<label class="billing-method-picker-row"><input type="checkbox" ${checkedIds.has(item.id) ? 'checked' : ''} onchange="toggleBillingMethodPickerSelection('${esc(item.id)}', this.checked)"><span><strong>${esc(details.code)}</strong> | ${esc(details.method || (item.itemKind==='service'?'Billing Service':'No method'))} | ${esc(details.name)}</span><small>${esc(details.section)} | ${esc(details.unit)}</small></label>`;}).join('');
+  return `<div class="billing-method-picker"><div class="toolbar"><input type="text" value="${esc(modalState.formData.methodPickerSearch || '')}" placeholder="Search code, method, test, or service..." oninput="updateBillingMethodPickerFilter('methodPickerSearch', this.value)"><select onchange="updateBillingMethodPickerFilter('methodPickerSection', this.value)"><option value="all">All catalog items</option>${getBillingRateSections().filter(value=>value!=='Legacy Items').map((value) => `<option value="${esc(value)}" ${section === value ? 'selected' : ''}>${esc(value)}</option>`).join('')}</select></div><div class="billing-method-picker-list">${rows || '<div class="empty-state">No available tests or services match this search.</div>'}</div><div class="table-actions"><button class="btn-cancel" type="button" onclick="toggleBillingMethodPicker()">Cancel</button><button class="btn-save" type="button" onclick="addSelectedBillingMethods()" ${checkedIds.size ? '' : 'disabled'}>Add Selected (${checkedIds.size})</button></div></div>`;
 }
 
 function renderAssignmentRow(assignment){
@@ -5279,6 +6376,21 @@ function renderModal(){
       : `<div class="form-grid">${(FORM_DEFINITIONS[modalState.entity] || []).map((field) => renderFormField(field)).join('')}</div>${modalState.entity === 'jobs' ? `${renderJobSampleLogisticsEditor()}${renderJobPartsEditor()}${renderAssignmentEditor()}${renderSalesforceCaseEditor()}` : ''}`;
   document.getElementById('entity-modal-body').innerHTML = bodyMarkup;
   hydrateAssetPhotoPreviews(document.getElementById('entity-modal-body'));
+  renderEntityModalSaveState();
+}
+
+function renderEntityModalSaveState(){
+  const saveButton = document.getElementById('entity-modal-save');
+  if(!saveButton) return;
+  saveButton.disabled = !!state.saveInFlight;
+  saveButton.textContent = state.saveInFlight ? 'Saving...' : 'Save';
+}
+
+function beginEntityModalSave(){
+  if(state.saveInFlight) return false;
+  state.saveInFlight = true;
+  renderEntityModalSaveState();
+  return true;
 }
 
 function openSharedSiteEditor(siteId = ''){
@@ -5338,6 +6450,7 @@ function openEntityModal(entityKey, id = '', options = {}){
     const existingBillingProfile = getBillingProfileForClient(directoryClientId);
     if(existingBillingProfile) id = existingBillingProfile.id;
   }
+  if(entityKey === 'clients') state.salesforceAccountSearchResults = [];
   const existing = id ? state.data[entityKey].find((row) => row.id === id) : null;
   let draft = existing ? clone(existing) : getNewRecordDraft(entityKey);
   if(!existing){
@@ -6051,6 +7164,7 @@ async function saveLocalBillingRateRows(profileId, priceDrafts){
   next.billingProfilePrices = next.billingProfilePrices.filter((row) => !(row.billingProfileId === profileId && Number(row.effectiveYear || keepYear) === keepYear));
   (Array.isArray(priceDrafts) ? priceDrafts : []).forEach((row) => {
     if(!row.priceItemId || !next.priceItems.some((item) => item.id === row.priceItemId)) return;
+    if(!row.id && row.isActive === false && normalizeNumber(row.rateAmount) === null && !String(row.notes || '').trim()) return;
     next.billingProfilePrices.push(normalizeRecord('billingProfilePrices', {
       id:row.id || `${profileId}::${row.priceItemId}::${keepYear}`,
       billingProfileId:profileId,
@@ -6346,6 +7460,7 @@ async function saveRemoteContactRecord(draft){
 function buildBillingPriceRowsForSave(profileId, priceDrafts){
   return (Array.isArray(priceDrafts) ? priceDrafts : [])
     .filter((row) => row.priceItemId && getPriceItem(row.priceItemId))
+    .filter((row) => row.id || row.isActive !== false || normalizeNumber(row.rateAmount) !== null || String(row.notes || '').trim())
     .map((row) => ({
       billing_profile_id:profileId,
       price_item_id:row.priceItemId,
@@ -6468,6 +7583,7 @@ async function saveRemoteAssetRecord(entityKey, draft){
 }
 
 async function saveEntityFromModal(){
+  if(state.saveInFlight) return;
   if(modalState.entity === 'clients') modalState.formData.clientCode = normalizeClientCode(modalState.formData.clientCode);
   if(modalState.entity === 'samples'){
     modalState.formData.sampleType = normalizeSampleTypeForWorkflow(modalState.formData.sampleType);
@@ -6510,7 +7626,7 @@ async function saveEntityFromModal(){
   }
   const validationMessage = validateModal();
   if(validationMessage){ alert(validationMessage); return; }
-  state.saveInFlight = true;
+  if(!beginEntityModalSave()) return;
   showSaveStatus('saving', 'SAVING');
   try {
     if(modalState.entity === 'jobs'){
@@ -6550,6 +7666,7 @@ async function saveEntityFromModal(){
     alert(error.message || 'Unable to save the Field Ops record.');
   } finally {
     state.saveInFlight = false;
+    renderEntityModalSaveState();
   }
 }
 
@@ -6688,7 +7805,7 @@ async function deleteEntityRecord(entityKey, id){
 
 async function deleteCurrentModalEntity(){ if(modalState.id) await deleteEntityRecord(modalState.entity, modalState.id); }
 
-function isInteractionOverlayOpen(){ return !!state.scheduleActionJobId || !!document.getElementById('entity-modal-overlay')?.classList.contains('open') || !!document.getElementById('job-part-modal-overlay')?.classList.contains('open') || !!document.getElementById('part-adjust-modal-overlay')?.classList.contains('open') || !!document.getElementById('sample-link-modal-overlay')?.classList.contains('open') || !!document.getElementById('sample-table-modal-overlay')?.classList.contains('open') || !!document.getElementById('site-editor-overlay')?.classList.contains('open') || !!document.getElementById('site-editor-address-overlay')?.classList.contains('open'); }
+function isInteractionOverlayOpen(){ return !!state.scheduleActionJobId || !!document.getElementById('entity-modal-overlay')?.classList.contains('open') || !!document.getElementById('job-part-modal-overlay')?.classList.contains('open') || !!document.getElementById('part-adjust-modal-overlay')?.classList.contains('open') || !!document.getElementById('sample-link-modal-overlay')?.classList.contains('open') || !!document.getElementById('sample-table-modal-overlay')?.classList.contains('open') || !!document.getElementById('salesforce-config-modal-overlay')?.classList.contains('open') || !!document.getElementById('salesforce-ticket-modal-overlay')?.classList.contains('open') || !!document.getElementById('schedule-calendar-print-modal-overlay')?.classList.contains('open') || !!document.getElementById('site-editor-overlay')?.classList.contains('open') || !!document.getElementById('site-editor-address-overlay')?.classList.contains('open'); }
 
 async function loadData(options = {}){
   try {
@@ -6726,11 +7843,17 @@ document.getElementById('job-part-modal-overlay')?.addEventListener('click', (ev
 document.getElementById('part-adjust-modal-overlay')?.addEventListener('click', (event) => { if(event.target === event.currentTarget) event.stopPropagation(); });
 document.getElementById('sample-link-modal-overlay')?.addEventListener('click', (event) => { if(event.target === event.currentTarget) event.stopPropagation(); });
 document.getElementById('sample-table-modal-overlay')?.addEventListener('click', (event) => { if(event.target === event.currentTarget) event.stopPropagation(); });
+document.getElementById('salesforce-config-modal-overlay')?.addEventListener('click', (event) => { if(event.target === event.currentTarget) event.stopPropagation(); });
+document.getElementById('salesforce-ticket-modal-overlay')?.addEventListener('click', (event) => { if(event.target === event.currentTarget) event.stopPropagation(); });
+document.getElementById('schedule-calendar-print-modal-overlay')?.addEventListener('click', (event) => { if(event.target === event.currentTarget) closeScheduleCalendarPrintModal(); });
 document.addEventListener('click', (event) => { if(state.scheduleActionJobId && !event.target.closest?.('.schedule-card')) closeScheduleActionPopover(); });
 document.addEventListener('visibilitychange', () => { if(!document.hidden) refreshFromRemote(); });
 window.addEventListener('keydown', (event) => {
   if(event.key !== 'Escape' || !isInteractionOverlayOpen()) return;
-  if(state.scheduleActionJobId) closeScheduleActionPopover();
+  if(document.getElementById('schedule-calendar-print-modal-overlay')?.classList.contains('open')) closeScheduleCalendarPrintModal();
+  else if(document.getElementById('salesforce-ticket-modal-overlay')?.classList.contains('open')) closeSalesforceTicketModal();
+  else if(document.getElementById('salesforce-config-modal-overlay')?.classList.contains('open')) closeSalesforceConfigModal();
+  else if(state.scheduleActionJobId) closeScheduleActionPopover();
   else if(document.getElementById('job-part-modal-overlay')?.classList.contains('open')) closeJobPartPicker();
   else if(document.getElementById('part-adjust-modal-overlay')?.classList.contains('open')) closePartAdjustModal();
   else if(document.getElementById('sample-table-modal-overlay')?.classList.contains('open')) closeSampleTableModal();
@@ -6741,6 +7864,7 @@ window.addEventListener('keydown', (event) => {
 (async function init(){
   await (window.authReadyPromise || Promise.resolve());
   await Promise.all([loadData({ silent:true, force:true }), loadLabTestDefinitions()]);
+  syncLocalTestTypesFromLabDefinitions();
   render();
   startAutoRefresh();
 })();

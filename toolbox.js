@@ -10,6 +10,15 @@
       featureKey: 'lab.toolbox.sample_scheduler',
       scopeLabel: 'Lab tool',
       icon: 'SS'
+    },
+    {
+      id: 'workload-forecast',
+      name: 'Workload Forecast',
+      description: 'Forecast Pittsburgh workload, technician capacity, and anticipated revenue.',
+      url: 'Pittsburgh_Workload_Forecast_App.html',
+      featureKey: 'lab.toolbox.workload_forecast',
+      scopeLabel: 'Pittsburgh',
+      icon: 'WF'
     }
   ];
 

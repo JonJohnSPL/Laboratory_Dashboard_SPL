@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab Test Setup</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="standards.css">
+<link rel="stylesheet" href="test-setup.css">
+</head>
+<body>
+<header>
+  <div class="header-left">
+    <img class="spl-logo" src="assets/spl-logo.svg" alt="SPL">
+    <div class="header-brand"><h1>Lab Test Setup</h1><p>Lab-specific instruments, timing, and workload rules</p></div>
+  </div>
+  <div class="header-right">
+    <div data-session-slot></div>
+    <div class="nav-row">
+      <button class="sec-btn" onclick="location.href='index.html'">Home</button>
+      <button class="sec-btn" onclick="location.href='lab-dashboard.html'">Lab WIP</button>
+      <button class="sec-btn current" onclick="location.href='test-setup.html'">Test Setup</button>
+      <button class="sec-btn" onclick="location.href='test-catalog.html'">Test Catalog</button>
+    </div>
+    <div id="save-indicator" class="save-indicator" style="visibility:hidden">Saved</div>
+  </div>
+</header>
+
+<div class="stats-bar">
+  <div class="stat-card"><div class="stat-label">Configured Tests</div><div class="stat-value" id="stat-tests">0</div></div>
+  <div class="stat-card ok"><div class="stat-label">Active Setups</div><div class="stat-value ok" id="stat-setups">0</div></div>
+  <div class="stat-card warn"><div class="stat-label">Needs Instrument</div><div class="stat-value warn" id="stat-pending">0</div></div>
+  <div class="stat-card"><div class="stat-label">Instruments</div><div class="stat-value" id="stat-instruments">0</div></div>
+</div>
+
+<div class="toolbar setup-toolbar">
+  <span class="tb-label">SPL Lab</span>
+  <select id="setup-site" onchange="selectSetupSite(this.value)"></select>
+  <span class="tb-label">Search</span>
+  <input id="setup-search" type="search" placeholder="Search code, name, instrument..." oninput="setSetupSearch(this.value)">
+  <select id="setup-status" onchange="setSetupStatus(this.value)"><option value="active">Active</option><option value="all">All statuses</option><option value="pending">Needs instrument</option><option value="archived">Archived</option></select>
+  <div class="toolbar-spacer"></div>
+  <button class="add-wo-btn" id="setup-add" type="button" onclick="openSetupModal()">+ Add Setup</button>
+</div>
+
+<div class="setup-tabs"><button class="setup-tab active" data-tab="setups" onclick="selectSetupTab('setups')">Test Setups</button><button class="setup-tab" data-tab="instruments" onclick="selectSetupTab('instruments')">Instruments</button></div>
+
+<main class="setup-main">
+  <section class="table-container">
+    <div class="table-header"><h2 id="setup-heading">Test Setups</h2><div class="refresh-time" id="last-update">Loading...</div></div>
+    <div class="setup-access" id="setup-access"></div>
+    <div class="setup-table-wrap"><table class="setup-table"><thead id="setup-thead"></thead><tbody id="setup-tbody"></tbody></table></div>
+  </section>
+</main>
+
+<div class="modal-overlay" id="setup-modal-overlay">
+  <div class="modal standard-modal setup-modal">
+    <div class="modal-header"><h3 id="setup-modal-title">Test Setup</h3><button class="modal-close" onclick="closeSetupModal()">X</button></div>
+    <div class="modal-body" id="setup-modal-body"></div>
+    <div class="modal-footer"><button class="btn-cancel" onclick="closeSetupModal()">Cancel</button><button class="btn-save" onclick="saveSetupModal()">Save</button></div>
+  </div>
+</div>
+
+<script src="app-config.js"></script>
+<script>window.APP_CONFIG=Object.assign({},window.APP_CONFIG||{},{authTitle:'SPL Test Setup',authHelpText:'Sign in to view or manage lab-specific Test Setup.',requiresAppAdmin:false});</script>
+<script src="cloud-auth.js"></script>
+<script src="test-setup.js"></script>
+</body>
+</html>
